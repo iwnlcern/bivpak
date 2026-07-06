@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "biv-json-envelope.v1",
+  "type": "object",
+  "description": "ok is true exactly when exit is 0 or 2 and error is null. Failure facts partial_path, spool_path, and partial_dir are present when known.",
+  "required": ["envelope_version", "ok", "verb", "exit", "result", "error"],
+  "properties": {
+    "envelope_version": {"const": 1},
+    "ok": {"type": "boolean"},
+    "verb": {"enum": ["pack", "open", "list", "info"]},
+    "exit": {"type": "integer"},
+    "result": {
+      "type": "object",
+      "properties": {
+        "partial_path": {"type": "string"},
+        "spool_path": {"type": "string"},
+        "partial_dir": {"type": "string"},
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {"enum": ["prune-summary", "nested-bivignore-ignored"]},
+              "entries": {
+                "type": "array",
+                "description": "entries[].source is exactly builtin-v1 or .bivignore:<N>, where N is a 1-based root .bivignore line number."
+              }
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "required": ["kind"], "properties": {"kind": {"type": "string"}}}
+      ]
+    }
+  }
+}

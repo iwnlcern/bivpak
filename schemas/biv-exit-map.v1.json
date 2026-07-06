@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "rows": [
+    {"kind": "SourceUnreadableRoot", "class": "refusal", "exit": 3},
+    {"kind": "RepoDiscoveredUnsupported", "class": "refusal", "exit": 3},
+    {"kind": "OutputInsideSource", "class": "refusal", "exit": 3},
+    {"kind": "PartialPresent", "class": "refusal", "exit": 3},
+    {"kind": "ArchiveWriteFailed", "class": "mid-fail", "exit": 4},
+    {"kind": "NotABivpakImage", "class": "refusal", "exit": 3},
+    {"kind": "ImageUnreadable", "class": "refusal", "exit": 3},
+    {"kind": "FormatVersionUnsupported", "class": "refusal", "exit": 3},
+    {"kind": "UnknownRequiredCapability", "class": "refusal", "exit": 3},
+    {"kind": "IntegrityFailurePreApply", "class": "refusal", "exit": 3},
+    {"kind": "UnmanifestedMember", "class": "refusal", "exit": 3},
+    {"kind": "MemberPathUnsafe", "class": "refusal", "exit": 3},
+    {"kind": "CollisionRefused", "class": "refusal", "exit": 3},
+    {"kind": "OpenPartialPresent", "class": "refusal", "exit": 3},
+    {"kind": "IntegrityFailureMidApply", "class": "mid-fail", "exit": 4},
+    {"kind": "RestoreWriteFailed", "class": "mid-fail", "exit": 4},
+    {"kind": "InternalError", "class": "mid-fail", "exit": 4},
+    {"kind": "UsageError", "class": "usage", "exit": 5},
+    {"kind": "ParseError", "class": "mid-fail", "exit": 4},
+    {"kind": "CredentialFloorExcluded", "class": "advisory", "exit": 0, "pending": "U1", "transitional": true}
+  ]
+}
