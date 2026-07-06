@@ -33,6 +33,7 @@ add_library(bivcore STATIC
   src/core/ignore/matcher.cpp
   src/core/manifest/checksums.cpp
   src/core/manifest/manifest.cpp
+  src/core/pack/pack.cpp
   src/core/scan/scan.cpp
   src/core/support/sha256.cpp
   src/core/support/error.cpp
@@ -56,6 +57,7 @@ add_executable(biv_tests
   tests/test_support.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_writer.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_reader.cpp)
+target_sources(biv_tests PRIVATE tests/test_pack.cpp)
 target_link_libraries(biv_tests PRIVATE bivcore Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 add_test(NAME biv_tests COMMAND biv_tests)

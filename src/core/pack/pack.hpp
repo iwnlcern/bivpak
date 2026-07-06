@@ -1,0 +1,38 @@
+#pragma once
+
+#include <cstdint>
+#include <filesystem>
+#include <string>
+#include <vector>
+
+#include "core/manifest/manifest.hpp"
+#include "core/scan/scan.hpp"
+#include "core/support/error.hpp"
+
+namespace biv::pack {
+
+struct Advisory {
+  std::string kind;
+  std::vector<scan::PruneEntry> entries;
+  std::vector<std::string> paths;
+};
+
+struct Warning {
+  std::string kind;
+  std::string path;
+};
+
+struct PackReport {
+  std::string image_path;
+  std::string source_path;
+  manifest::PathFlavor flavor{manifest::PathFlavor::posix};
+  std::string image_id;
+  uint64_t member_count{0};
+  uint64_t payload_bytes{0};
+  std::vector<Warning> warnings;
+  std::vector<Advisory> advisories;
+};
+
+expected<PackReport> pack(const std::filesystem::path& source_dir);
+
+}  // namespace biv::pack
