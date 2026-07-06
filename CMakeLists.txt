@@ -25,7 +25,9 @@ FetchContent_Declare(catch2
 
 FetchContent_MakeAvailable(simdjson zstd catch2)
 
-add_library(bivcore STATIC src/core/support/version.cpp)
+add_library(bivcore STATIC
+  src/core/support/error.cpp
+  src/core/support/version.cpp)
 target_include_directories(bivcore PUBLIC src)
 target_link_libraries(bivcore PUBLIC simdjson libzstd_static)
 target_compile_options(bivcore PRIVATE -Wall -Wextra -Werror)
@@ -35,7 +37,9 @@ target_link_libraries(biv PRIVATE bivcore)
 target_compile_options(biv PRIVATE -Wall -Wextra -Werror)
 
 enable_testing()
-add_executable(biv_tests tests/test_smoke.cpp)
+add_executable(biv_tests
+  tests/test_smoke.cpp
+  tests/test_support.cpp)
 target_link_libraries(biv_tests PRIVATE bivcore Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 add_test(NAME biv_tests COMMAND biv_tests)
