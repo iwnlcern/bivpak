@@ -30,6 +30,7 @@ add_library(bivcore STATIC
   src/core/ignore/matcher.cpp
   src/core/manifest/checksums.cpp
   src/core/manifest/manifest.cpp
+  src/core/scan/scan.cpp
   src/core/support/error.cpp
   src/core/support/version.cpp)
 target_include_directories(bivcore PUBLIC src)
@@ -47,6 +48,7 @@ add_executable(biv_tests
   tests/test_checksums.cpp
   tests/test_ignore.cpp
   tests/test_manifest.cpp
+  tests/test_scan.cpp
   tests/test_support.cpp)
 target_link_libraries(biv_tests PRIVATE bivcore Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)

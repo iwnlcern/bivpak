@@ -1,0 +1,221 @@
+#include "core/scan/scan.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cerrno>
+#include <fstream>
+#include <string_view>
+#include <system_error>
+
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "core/ignore/builtin.hpp"
+#include "core/ignore/matcher.hpp"
+
+namespace biv::scan {
+
+namespace {
+
+expected<std::string> read_file(const std::filesystem::path& path) {
+  std::ifstream in{path, std::ios::binary};
+  if (!in) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string()});
+  }
+  std::string bytes{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+  if (!in.eof() && in.bad()) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string()});
+  }
+  return bytes;
+}
+
+bool is_directory_status(const std::filesystem::file_status status) {
+  return status.type() == std::filesystem::file_type::directory;
+}
+
+Kind kind_from_status(const std::filesystem::file_status status) {
+  if (status.type() == std::filesystem::file_type::directory) {
+    return Kind::dir;
+  }
+  if (status.type() == std::filesystem::file_type::symlink) {
+    return Kind::symlink;
+  }
+  return Kind::file;
+}
+
+expected<struct stat> stat_path(const std::filesystem::path& path) {
+  struct stat statbuf {};
+  if (::lstat(path.c_str(), &statbuf) != 0) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string(), {}, errno});
+  }
+  return statbuf;
+}
+
+int64_t mtime_ns(const struct stat& statbuf) {
+  return (static_cast<int64_t>(statbuf.st_mtim.tv_sec) * 1'000'000'000LL) +
+         static_cast<int64_t>(statbuf.st_mtim.tv_nsec);
+}
+
+expected<std::string> symlink_target(const std::filesystem::path& path) {
+  std::array<char, 4096> buffer {};
+  const ssize_t size = ::readlink(path.c_str(), buffer.data(), buffer.size());
+  if (size < 0) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string(), {}, errno});
+  }
+  if (static_cast<size_t>(size) == buffer.size()) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string(), "symlink-target-too-long"});
+  }
+  return std::string{buffer.data(), static_cast<size_t>(size)};
+}
+
+std::string child_relpath(std::string_view parent, std::string_view name) {
+  if (parent.empty()) {
+    return std::string{name};
+  }
+  std::string out;
+  out.reserve(parent.size() + 1U + name.size());
+  out.append(parent);
+  out.push_back('/');
+  out.append(name);
+  return out;
+}
+
+expected<std::vector<std::filesystem::directory_entry>> sorted_children(const std::filesystem::path& path) {
+  std::error_code ec;
+  std::filesystem::directory_iterator iterator{path, std::filesystem::directory_options::none, ec};
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string(), ec.message(),
+                                    static_cast<int>(ec.value())});
+  }
+
+  std::vector<std::filesystem::directory_entry> entries;
+  for (const auto& entry : iterator) {
+    entries.push_back(entry);
+  }
+  std::ranges::sort(entries, {}, [](const std::filesystem::directory_entry& entry) {
+    return entry.path().filename().generic_string();
+  });
+  return entries;
+}
+
+expected<void> walk(const std::filesystem::path& dir,
+                    std::string_view rel_dir,
+                    const ignore::Matcher& matcher,
+                    ScanResult& result) {
+  auto children = sorted_children(dir);
+  if (!children) {
+    return std::unexpected(children.error());
+  }
+
+  for (const auto& child : *children) {
+    std::error_code ec;
+    const auto status = child.symlink_status(ec);
+    if (ec) {
+      return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, child.path().generic_string(), ec.message(),
+                                      static_cast<int>(ec.value())});
+    }
+
+    const std::string name = child.path().filename().generic_string();
+    const std::string relpath = child_relpath(rel_dir, name);
+    const bool is_dir = is_directory_status(status);
+    if (name == ".git" && is_dir) {
+      return std::unexpected(BivError{ErrKind::RepoDiscoveredUnsupported, child.path().generic_string()});
+    }
+
+    const auto verdict = matcher.match(relpath, is_dir);
+    if (verdict.ignored) {
+      if (is_dir) {
+        result.pruned.push_back(PruneEntry{.relpath = relpath, .source = verdict.source});
+      }
+      continue;
+    }
+
+    auto statbuf = stat_path(child.path());
+    if (!statbuf) {
+      return std::unexpected(statbuf.error());
+    }
+
+    Entry entry;
+    entry.relpath = relpath;
+    entry.kind = kind_from_status(status);
+    entry.size = entry.kind == Kind::file ? static_cast<uintmax_t>(statbuf->st_size) : 0U;
+    entry.mode = static_cast<uint32_t>(statbuf->st_mode);
+    entry.mtime_ns = mtime_ns(*statbuf);
+    if (entry.kind == Kind::symlink) {
+      auto target = symlink_target(child.path());
+      if (!target) {
+        return std::unexpected(target.error());
+      }
+      entry.link_target = std::move(*target);
+    }
+    result.payload.push_back(std::move(entry));
+
+    if (relpath != ".bivignore" && name == ".bivignore") {
+      result.nested_bivignores.push_back(relpath);
+    }
+
+    if (is_dir) {
+      auto recurse = walk(child.path(), relpath, matcher, result);
+      if (!recurse) {
+        return std::unexpected(recurse.error());
+      }
+    }
+  }
+  return {};
+}
+
+}  // namespace
+
+expected<ScanResult> scan(const std::filesystem::path& source_root) {
+  std::error_code ec;
+  const auto root_status = std::filesystem::symlink_status(source_root, ec);
+  if (ec || !is_directory_status(root_status)) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, source_root.generic_string(),
+                                    ec ? ec.message() : "not-directory", static_cast<int>(ec.value())});
+  }
+
+  const auto root_git_status = std::filesystem::symlink_status(source_root / ".git", ec);
+  if (!ec && is_directory_status(root_git_status)) {
+    return std::unexpected(BivError{ErrKind::RepoDiscoveredUnsupported, (source_root / ".git").generic_string()});
+  }
+
+  ScanResult result;
+  ignore::Matcher matcher;
+  const auto bivignore_path = source_root / ".bivignore";
+  const auto bivignore_status = std::filesystem::symlink_status(bivignore_path, ec);
+  if (!ec && bivignore_status.type() == std::filesystem::file_type::regular) {
+    auto bytes = read_file(bivignore_path);
+    if (!bytes) {
+      return std::unexpected(bytes.error());
+    }
+    auto compiled = ignore::Matcher::compile(*bytes, false);
+    if (!compiled) {
+      return std::unexpected(compiled.error());
+    }
+    matcher = std::move(*compiled);
+    result.bivignore = manifest::BivignoreProvenance{
+        .source = "file",
+        .builtin_id = std::nullopt,
+        .sha256_hex = {},
+    };
+  } else {
+    auto compiled = ignore::Matcher::compile(ignore::kBuiltinV1, true);
+    if (!compiled) {
+      return std::unexpected(compiled.error());
+    }
+    matcher = std::move(*compiled);
+    result.bivignore = manifest::BivignoreProvenance{
+        .source = "builtin",
+        .builtin_id = std::string{"builtin-v1"},
+        .sha256_hex = std::string{ignore::kBuiltinV1Sha256},
+    };
+  }
+
+  auto walked = walk(source_root, {}, matcher, result);
+  if (!walked) {
+    return std::unexpected(walked.error());
+  }
+  return result;
+}
+
+}  // namespace biv::scan
