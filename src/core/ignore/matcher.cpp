@@ -33,8 +33,13 @@ std::string glob_to_regex(std::string_view pattern) {
     const char ch = pattern.at(i);
     if (ch == '*') {
       if ((i + 1U) < pattern.size() && pattern.at(i + 1U) == '*') {
-        out += ".*";
-        ++i;
+        if ((i + 2U) < pattern.size() && pattern.at(i + 2U) == '/') {
+          out += "(?:.*/)?";
+          i += 2U;
+        } else {
+          out += ".*";
+          ++i;
+        }
       } else {
         out += "[^/]*";
       }
@@ -57,6 +62,23 @@ std::string trim_cr(std::string line) {
   return line;
 }
 
+std::string trim_unescaped_trailing_spaces(std::string line) {
+  while (!line.empty() && (line.back() == ' ' || line.back() == '\t')) {
+    size_t slash_count = 0;
+    size_t pos = line.size() - 1U;
+    while (pos > 0U && line.at(pos - 1U) == '\\') {
+      ++slash_count;
+      --pos;
+    }
+    if ((slash_count % 2U) == 1U) {
+      line.erase(pos, 1U);
+      break;
+    }
+    line.pop_back();
+  }
+  return line;
+}
+
 }  // namespace
 
 expected<Matcher> Matcher::compile(const std::string_view pattern_bytes, const bool is_builtin) {
@@ -68,6 +90,7 @@ expected<Matcher> Matcher::compile(const std::string_view pattern_bytes, const b
     while (std::getline(stream, line)) {
       ++line_number;
       line = trim_cr(std::move(line));
+      line = trim_unescaped_trailing_spaces(std::move(line));
       if (line.empty() || line.starts_with('#')) {
         continue;
       }

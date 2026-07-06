@@ -106,6 +106,7 @@ TEST_CASE("Manifest parser refuses malformed or step-incompatible inputs") {
 
   REQUIRE_FALSE(biv::manifest::parse(bytes_of("{\"required_capabilities\":[]}")).has_value());
   REQUIRE_FALSE(biv::manifest::parse(bytes_of("{\"format_version\":\"1\"}")).has_value());
+  REQUIRE_FALSE(biv::manifest::parse(bytes_of("{\"format_version\":4294967297}")).has_value());
 
   std::string bad_caps = biv::manifest::serialize(fixed_manifest());
   bad_caps.replace(bad_caps.find("\"required_capabilities\": []"), 27, "\"required_capabilities\": {}");

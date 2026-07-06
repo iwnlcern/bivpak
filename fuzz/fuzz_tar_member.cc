@@ -12,14 +12,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   }
 
   bool served = false;
-  biv::container::ZstdDecompressSource source{[&]() -> biv::expected<std::span<const std::byte>> {
+  biv::container::TarReader reader{[&]() -> biv::expected<std::span<const std::byte>> {
     if (served) {
       return std::span<const std::byte>{};
     }
     served = true;
     return std::span<const std::byte>{bytes};
   }};
-  biv::container::TarReader reader{source};
   std::array<std::byte, 4096> buffer {};
   for (size_t members = 0; members < 1024U; ++members) {
     auto next = reader.next();

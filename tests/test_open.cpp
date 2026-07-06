@@ -1,12 +1,19 @@
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <unistd.h>
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "core/container/tar_writer.hpp"
+#include "core/container/zstd_stream.hpp"
+#include "core/manifest/checksums.hpp"
+#include "core/manifest/manifest.hpp"
 #include "core/open/open.hpp"
 #include "core/pack/pack.hpp"
 
@@ -26,6 +33,14 @@ void write_file(const std::filesystem::path& path, std::string_view content) {
   out << content;
 }
 
+std::vector<std::byte> bytes(std::string_view text) {
+  std::vector<std::byte> out(text.size());
+  for (size_t i = 0; i < text.size(); ++i) {
+    out[i] = static_cast<std::byte>(text[i]);
+  }
+  return out;
+}
+
 std::string read_text(const std::filesystem::path& path) {
   std::ifstream in{path, std::ios::binary};
   REQUIRE(in);
@@ -42,6 +57,70 @@ std::filesystem::path make_image(const std::filesystem::path& root) {
   auto packed = biv::pack::pack(source);
   REQUIRE(packed.has_value());
   return root / "sample.bvpk";
+}
+
+biv::manifest::Manifest manifest_model(int format_version = 1) {
+  return biv::manifest::Manifest{
+      .format_version = format_version,
+      .required_capabilities = {},
+      .image_id = "00000000-0000-4000-8000-000000000000",
+      .app_version = "0.1.0",
+      .created_at = "2026-07-05T00:00:00Z",
+      .source_path = "/tmp/source",
+      .source_path_flavor = biv::manifest::PathFlavor::posix,
+      .bivignore = {.source = "builtin", .builtin_id = "builtin-v1", .sha256_hex = "abc123"}};
+}
+
+struct MemberFixture {
+  biv::container::MemberMeta meta;
+  std::vector<std::byte> data;
+};
+
+void write_bivpak(const std::filesystem::path& image,
+                  const biv::manifest::Manifest& manifest,
+                  const biv::manifest::Checksums& checksums,
+                  const std::vector<MemberFixture>& payload) {
+  std::ofstream out{image, std::ios::binary};
+  REQUIRE(out);
+  biv::container::ZstdCompressSink zstd{[&](std::span<const std::byte> chunk) -> biv::expected<void> {
+    out.write(reinterpret_cast<const char*>(chunk.data()), static_cast<std::streamsize>(chunk.size()));
+    REQUIRE(out);
+    return {};
+  }};
+  auto sink = zstd.as_sink();
+  biv::container::TarWriter writer{sink};
+
+  const auto manifest_json = biv::manifest::serialize(manifest);
+  REQUIRE(writer.begin_member(biv::container::MemberMeta{.path = "manifest.json",
+                                                         .kind = biv::scan::NodeKind::file,
+                                                         .mode = 0644,
+                                                         .mtime_s = 1,
+                                                         .mtime_ns = 0,
+                                                         .size = manifest_json.size(),
+                                                         .symlink_target = {}}));
+  REQUIRE(writer.write_data(std::as_bytes(std::span<const char>{manifest_json.data(), manifest_json.size()})));
+  REQUIRE(writer.end_member());
+
+  const auto checksums_json = biv::manifest::serialize(checksums);
+  REQUIRE(writer.begin_member(biv::container::MemberMeta{.path = "checksums.json",
+                                                         .kind = biv::scan::NodeKind::file,
+                                                         .mode = 0644,
+                                                         .mtime_s = 1,
+                                                         .mtime_ns = 0,
+                                                         .size = checksums_json.size(),
+                                                         .symlink_target = {}}));
+  REQUIRE(writer.write_data(std::as_bytes(std::span<const char>{checksums_json.data(), checksums_json.size()})));
+  REQUIRE(writer.end_member());
+
+  for (const auto& member : payload) {
+    REQUIRE(writer.begin_member(member.meta));
+    if (!member.data.empty()) {
+      REQUIRE(writer.write_data(member.data));
+    }
+    REQUIRE(writer.end_member());
+  }
+  REQUIRE(writer.finish());
+  REQUIRE(zstd.finish());
 }
 
 }  // namespace
@@ -93,5 +172,112 @@ TEST_CASE("open refuses pre-existing partial dir") {
   REQUIRE_FALSE(opened.has_value());
   CHECK(opened.error().kind == biv::ErrKind::OpenPartialPresent);
   CHECK(opened.error().facts.at("partial_dir") == (root / "restore.bvpk-open.partial").generic_string());
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open refuses payload writes through a created symlink parent") {
+  const auto root = make_tmp("zip-slip");
+  const auto outside = root / "outside";
+  std::filesystem::create_directories(outside / "tmp");
+  const auto image = root / "evil.bvpk";
+
+  biv::manifest::Checksums checksums;
+  checksums.entries["payload/a"] = std::string(64, '0');
+  checksums.entries["payload/a/tmp/evil"] = std::string(64, '0');
+  write_bivpak(image,
+               manifest_model(),
+               checksums,
+               std::vector<MemberFixture>{
+                   MemberFixture{.meta = biv::container::MemberMeta{.path = "payload/a",
+                                                                     .kind = biv::scan::NodeKind::symlink,
+                                                                     .mode = 0777,
+                                                                     .mtime_s = 1,
+                                                                     .mtime_ns = 0,
+                                                                     .size = 0,
+                                                                     .symlink_target = outside.generic_string()},
+                                 .data = {}},
+                   MemberFixture{.meta = biv::container::MemberMeta{.path = "payload/a/tmp/evil",
+                                                                     .kind = biv::scan::NodeKind::file,
+                                                                     .mode = 0644,
+                                                                     .mtime_s = 1,
+                                                                     .mtime_ns = 0,
+                                                                     .size = 4,
+                                                                     .symlink_target = {}},
+                                 .data = bytes("evil")}});
+
+  auto opened = biv::open::open(biv::open::OpenOptions{.image = image, .dest = root / "restore"});
+  REQUIRE_FALSE(opened.has_value());
+  CHECK(opened.error().kind == biv::ErrKind::MemberPathUnsafe);
+  CHECK_FALSE(std::filesystem::exists(outside / "tmp" / "evil"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open gates manifest version before later hostile members") {
+  const auto root = make_tmp("version-gate");
+  const auto image = root / "future.bvpk";
+  biv::manifest::Checksums checksums;
+  checksums.entries["payload/../evil"] = std::string(64, '0');
+  write_bivpak(image,
+               manifest_model(2),
+               checksums,
+               std::vector<MemberFixture>{MemberFixture{.meta = biv::container::MemberMeta{.path = "payload/../evil",
+                                                                                           .kind = biv::scan::NodeKind::file,
+                                                                                           .mode = 0644,
+                                                                                           .mtime_s = 1,
+                                                                                           .mtime_ns = 0,
+                                                                                           .size = 0,
+                                                                                           .symlink_target = {}},
+                                                        .data = {}}});
+
+  auto opened = biv::open::open(biv::open::OpenOptions{.image = image, .dest = root / "restore"});
+  REQUIRE_FALSE(opened.has_value());
+  CHECK(opened.error().kind == biv::ErrKind::FormatVersionUnsupported);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open verify rejects checksum mismatches before apply") {
+  const auto root = make_tmp("verify");
+  const auto image = root / "bad-checksum.bvpk";
+  biv::manifest::Checksums checksums;
+  checksums.entries["payload/file.txt"] = std::string(64, '0');
+  write_bivpak(image,
+               manifest_model(),
+               checksums,
+               std::vector<MemberFixture>{MemberFixture{.meta = biv::container::MemberMeta{.path = "payload/file.txt",
+                                                                                           .kind = biv::scan::NodeKind::file,
+                                                                                           .mode = 0644,
+                                                                                           .mtime_s = 1,
+                                                                                           .mtime_ns = 0,
+                                                                                           .size = 5,
+                                                                                           .symlink_target = {}},
+                                                        .data = bytes("hello")}});
+
+  auto opened = biv::open::open(biv::open::OpenOptions{.image = image, .dest = root / "restore", .verify = true});
+  REQUIRE_FALSE(opened.has_value());
+  CHECK(opened.error().kind == biv::ErrKind::IntegrityFailurePreApply);
+  CHECK_FALSE(std::filesystem::exists(root / "restore"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open refuses payload members absent from checksums") {
+  const auto root = make_tmp("unmanifested");
+  const auto image = root / "unmanifested.bvpk";
+  biv::manifest::Checksums checksums;
+  write_bivpak(image,
+               manifest_model(),
+               checksums,
+               std::vector<MemberFixture>{MemberFixture{.meta = biv::container::MemberMeta{.path = "payload/file.txt",
+                                                                                           .kind = biv::scan::NodeKind::file,
+                                                                                           .mode = 0644,
+                                                                                           .mtime_s = 1,
+                                                                                           .mtime_ns = 0,
+                                                                                           .size = 5,
+                                                                                           .symlink_target = {}},
+                                                        .data = bytes("hello")}});
+
+  auto opened = biv::open::open(biv::open::OpenOptions{.image = image, .dest = root / "restore"});
+  REQUIRE_FALSE(opened.has_value());
+  CHECK(opened.error().kind == biv::ErrKind::UnmanifestedMember);
+  CHECK_FALSE(std::filesystem::exists(root / "restore"));
   std::filesystem::remove_all(root);
 }

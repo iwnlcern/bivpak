@@ -124,18 +124,19 @@ expected<void> walk(const std::filesystem::path& dir,
     const std::string name = child.path().filename().generic_string();
     const std::string relpath = child_relpath(rel_dir, name);
     const bool is_dir = is_directory_status(status);
+
+    if (relpath != ".bivignore") {
+      const auto verdict = matcher.match(relpath, is_dir);
+      if (verdict.ignored) {
+        result.pruned.push_back(PruneEntry{.relpath = relpath, .source = verdict.source});
+        continue;
+      }
+    }
+
     if (name == ".git") {
       return std::unexpected(BivError{ErrKind::RepoDiscoveredUnsupported, child.path().generic_string()});
     }
     if (name == ".biv" && is_dir) {
-      continue;
-    }
-
-    const auto verdict = matcher.match(relpath, is_dir);
-    if (verdict.ignored) {
-      if (is_dir) {
-        result.pruned.push_back(PruneEntry{.relpath = relpath, .source = verdict.source});
-      }
       continue;
     }
 
@@ -187,11 +188,6 @@ expected<ScanResult> scan(const std::filesystem::path& source_root) {
   if (ec || !is_directory_status(root_status)) {
     return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, source_root.generic_string(),
                                     ec ? ec.message() : "not-directory", static_cast<int>(ec.value())});
-  }
-
-  const auto root_git_status = std::filesystem::symlink_status(source_root / ".git", ec);
-  if (!ec && is_directory_status(root_git_status)) {
-    return std::unexpected(BivError{ErrKind::RepoDiscoveredUnsupported, (source_root / ".git").generic_string()});
   }
 
   ScanResult result;

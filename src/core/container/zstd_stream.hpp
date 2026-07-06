@@ -51,9 +51,13 @@ class ZstdDecompressSource {
  private:
   std::function<expected<std::span<const std::byte>>()> pull_;
   ZSTD_DCtx* context_{nullptr};
-  std::vector<std::byte> decompressed_;
-  bool loaded_{false};
-  bool delivered_{false};
+  std::vector<std::byte> input_;
+  std::vector<std::byte> output_;
+  size_t input_pos_{0};
+  size_t last_result_{0};
+  bool saw_input_{false};
+  bool input_eof_{false};
+  bool finished_{false};
 };
 
 }  // namespace biv::container

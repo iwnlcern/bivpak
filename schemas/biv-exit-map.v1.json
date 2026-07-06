@@ -2,7 +2,7 @@
   "version": 1,
   "rows": [
     {"kind": "SourceUnreadableRoot", "class": "refusal", "exit": 3},
-    {"kind": "RepoDiscoveredUnsupported", "class": "refusal", "exit": 3},
+    {"kind": "RepoDiscoveredUnsupported", "class": "refusal", "exit": 3, "transitional": true},
     {"kind": "OutputInsideSource", "class": "refusal", "exit": 3},
     {"kind": "PartialPresent", "class": "refusal", "exit": 3},
     {"kind": "ArchiveWriteFailed", "class": "mid-fail", "exit": 4},
@@ -18,7 +18,7 @@
     {"kind": "IntegrityFailureMidApply", "class": "mid-fail", "exit": 4},
     {"kind": "RestoreWriteFailed", "class": "mid-fail", "exit": 4},
     {"kind": "InternalError", "class": "mid-fail", "exit": 4},
-    {"kind": "UsageError", "class": "usage", "exit": 5},
+    {"kind": "UsageError", "class": "usage", "exit": 5, "transitional": true, "note": "Reserved verbs list/info return UsageError with NotYetImplemented detail until implemented."},
     {"kind": "ParseError", "class": "mid-fail", "exit": 4},
     {"kind": "CredentialFloorExcluded", "class": "advisory", "exit": 0, "pending": "U1", "transitional": true}
   ]

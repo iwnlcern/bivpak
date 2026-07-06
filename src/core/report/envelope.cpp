@@ -1,7 +1,9 @@
 #include "core/report/envelope.hpp"
 
 #include "core/json/writer.hpp"
+#include "core/manifest/manifest.hpp"
 #include "core/report/exit_map.hpp"
+#include "core/support/version.hpp"
 
 namespace biv::report {
 
@@ -32,7 +34,7 @@ void write_advisories(json::Writer& writer, const std::vector<pack::Advisory>& a
     writer.begin_array();
     for (const auto& entry : advisory.entries) {
       writer.begin_object();
-      writer.key("relpath");
+      writer.key("path");
       writer.value_string(entry.relpath);
       writer.key("source");
       writer.value_string(entry.source);
@@ -50,19 +52,34 @@ void write_advisories(json::Writer& writer, const std::vector<pack::Advisory>& a
   writer.end_array();
 }
 
+void write_empty_manifest_summary(json::Writer& writer, int format_version) {
+  writer.key("manifest");
+  writer.begin_object();
+  writer.key("format_version");
+  writer.value_int(format_version);
+  writer.key("repos");
+  writer.begin_array();
+  writer.end_array();
+  writer.key("agent_sessions");
+  writer.begin_array();
+  writer.end_array();
+  writer.end_object();
+}
+
 void write_pack_result(json::Writer& writer, const pack::PackReport& report) {
   writer.key("image_path");
   writer.value_string(report.image_path);
   writer.key("source_path");
   writer.value_string(report.source_path);
+  writer.key("source_path_flavor");
+  writer.value_string(manifest::to_string(report.flavor));
   writer.key("image_id");
   writer.value_string(report.image_id);
   writer.key("member_count");
   writer.value_int(static_cast<int64_t>(report.member_count));
   writer.key("payload_bytes");
   writer.value_int(static_cast<int64_t>(report.payload_bytes));
-  write_warnings(writer, report.warnings);
-  write_advisories(writer, report.advisories);
+  write_empty_manifest_summary(writer, manifest::kFormatVersion);
 }
 
 void write_open_result(json::Writer& writer, const open::OpenReport& report) {
@@ -76,15 +93,7 @@ void write_open_result(json::Writer& writer, const open::OpenReport& report) {
   writer.value_int(static_cast<int64_t>(report.restored_member_count));
   writer.key("checksums_verified");
   writer.value_bool(report.checksums_verified);
-  writer.key("manifest_format_version");
-  writer.value_int(report.manifest_format_version);
-}
-
-void write_fact_result(json::Writer& writer, const BivError& error) {
-  for (const auto& [key, value] : error.facts) {
-    writer.key(key);
-    writer.value_string(value);
-  }
+  write_empty_manifest_summary(writer, report.manifest_format_version);
 }
 
 void write_error(json::Writer& writer, const BivError& error) {
@@ -150,24 +159,38 @@ std::string envelope(std::string_view verb,
   writer.begin_object();
   writer.key("envelope_version");
   writer.value_int(kEnvelopeVersion);
+  writer.key("app_version");
+  writer.value_string(app_version());
   writer.key("ok");
   writer.value_bool(!error.has_value() && (exit_code == 0 || exit_code == 2));
   writer.key("verb");
   writer.value_string(verb);
-  writer.key("exit");
+  writer.key("exit_code");
   writer.value_int(exit_code);
-  writer.key("result");
-  writer.begin_object();
   if (pack_report.has_value()) {
-    write_pack_result(writer, *pack_report);
+    write_warnings(writer, pack_report->warnings);
+    write_advisories(writer, pack_report->advisories);
+  } else {
+    writer.key("warnings");
+    writer.begin_array();
+    writer.end_array();
+    writer.key("advisories");
+    writer.begin_array();
+    writer.end_array();
   }
-  if (open_report.has_value()) {
-    write_open_result(writer, *open_report);
-  }
+  writer.key("result");
   if (error.has_value()) {
-    write_fact_result(writer, *error);
+    writer.value_null();
+  } else {
+    writer.begin_object();
+    if (pack_report.has_value()) {
+      write_pack_result(writer, *pack_report);
+    }
+    if (open_report.has_value()) {
+      write_open_result(writer, *open_report);
+    }
+    writer.end_object();
   }
-  writer.end_object();
   writer.key("error");
   if (error.has_value()) {
     write_error(writer, *error);

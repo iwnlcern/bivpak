@@ -12,7 +12,9 @@
 #include <string_view>
 #include <system_error>
 
+#include <fcntl.h>
 #include <sys/random.h>
+#include <unistd.h>
 
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
@@ -57,29 +59,30 @@ BivError with_temp_facts(BivError error,
   return error;
 }
 
-expected<std::vector<std::byte>> read_file_bytes(const std::filesystem::path& path) {
-  std::ifstream in{path, std::ios::binary};
-  if (!in) {
-    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string()});
+expected<void> write_bytes(std::ofstream& out, std::span<const std::byte> bytes, const std::filesystem::path& path) {
+  std::string chunk;
+  chunk.reserve(bytes.size());
+  for (const auto byte : bytes) {
+    chunk.push_back(static_cast<char>(byte));
   }
-  std::string text{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
-  if (in.bad()) {
-    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string()});
+  out.write(chunk.data(), static_cast<std::streamsize>(chunk.size()));
+  if (!out) {
+    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, path.generic_string()});
   }
-  std::vector<std::byte> bytes;
-  bytes.reserve(text.size());
-  for (const char ch : text) {
-    bytes.push_back(static_cast<std::byte>(ch));
-  }
-  return bytes;
+  return {};
 }
 
-expected<void> write_bytes(std::ofstream& out, std::span<const std::byte> bytes, const std::filesystem::path& path) {
-  for (const auto byte : bytes) {
-    out.put(static_cast<char>(byte));
-    if (!out) {
-      return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, path.generic_string()});
-    }
+expected<void> fsync_path(const std::filesystem::path& path, bool directory) {
+  const int flags = O_RDONLY | O_CLOEXEC | (directory ? O_DIRECTORY : 0);
+  const int fd = ::open(path.c_str(), flags);
+  if (fd < 0) {
+    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, path.generic_string(), {}, errno});
+  }
+  const int rc = ::fsync(fd);
+  const int saved_errno = errno;
+  ::close(fd);
+  if (rc != 0) {
+    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, path.generic_string(), {}, saved_errno});
   }
   return {};
 }
@@ -134,6 +137,8 @@ manifest::PathFlavor path_flavor(const std::filesystem::path& path) {
   return manifest::PathFlavor::posix;
 }
 
+expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink);
+
 expected<std::string> write_payload_member(container::TarWriter& writer,
                                            const std::filesystem::path& source_root,
                                            const scan::Node& node) {
@@ -152,11 +157,10 @@ expected<std::string> write_payload_member(container::TarWriter& writer,
     return std::unexpected(ok.error());
   }
   if (node.kind == scan::NodeKind::file) {
-    auto bytes = read_file_bytes(abs);
-    if (!bytes) {
-      return std::unexpected(bytes.error());
-    }
-    if (auto ok = writer.write_data(*bytes); !ok) {
+    auto ok = copy_file_to_sink(abs, [&](std::span<const std::byte> chunk) -> expected<void> {
+      return writer.write_data(chunk);
+    });
+    if (!ok) {
       return std::unexpected(ok.error());
     }
   }
@@ -342,10 +346,19 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     }
   }
 
+  if (auto ok = fsync_path(partial_path, false); !ok) {
+    return cleanup_error(ok.error());
+  }
+  if (auto ok = fsync_path(partial_path.parent_path(), true); !ok) {
+    return cleanup_error(ok.error());
+  }
   std::filesystem::rename(partial_path, image_path, ec);
   if (ec) {
     return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, image_path.generic_string(), ec.message(),
                                   static_cast<int>(ec.value())});
+  }
+  if (auto ok = fsync_path(image_path.parent_path(), true); !ok) {
+    return cleanup_error(ok.error());
   }
   std::filesystem::remove(spool_path, ec);
   return report;

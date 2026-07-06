@@ -80,46 +80,53 @@ ZstdDecompressSource::~ZstdDecompressSource() {
 }
 
 expected<std::span<const std::byte>> ZstdDecompressSource::pull() {
-  if (delivered_) {
+  if (finished_) {
     return std::span<const std::byte>{};
-  }
-  if (loaded_) {
-    delivered_ = true;
-    return std::span<const std::byte>{decompressed_};
   }
   if (context_ == nullptr) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "zstd-decompress-state"});
   }
 
-  std::vector<std::byte> out(ZSTD_DStreamOutSize());
-  size_t last = 0;
-  bool saw_input = false;
   while (true) {
-    auto input_chunk = pull_();
-    if (!input_chunk) {
-      return std::unexpected(input_chunk.error());
-    }
-    if (input_chunk->empty()) {
-      break;
-    }
-    saw_input = true;
-    ZSTD_inBuffer in{input_chunk->data(), input_chunk->size(), 0};
-    while (in.pos < in.size) {
-      ZSTD_outBuffer output{out.data(), out.size(), 0};
-      last = ZSTD_decompressStream(context_, &output, &in);
-      if (auto err = zstd_error(last, "zstd-decompress"); !err) {
-        return std::unexpected(err.error());
+    if (input_pos_ >= input_.size()) {
+      if (input_eof_) {
+        if (saw_input_ && last_result_ != 0U) {
+          return std::unexpected(BivError{ErrKind::ParseError, {}, "zstd-truncated"});
+        }
+        finished_ = true;
+        return std::span<const std::byte>{};
       }
-      decompressed_.insert(decompressed_.end(), out.begin(), std::next(out.begin(), static_cast<std::ptrdiff_t>(output.pos)));
+
+      auto input_chunk = pull_();
+      if (!input_chunk) {
+        return std::unexpected(input_chunk.error());
+      }
+      if (input_chunk->empty()) {
+        input_eof_ = true;
+        continue;
+      }
+      input_.assign(input_chunk->begin(), input_chunk->end());
+      input_pos_ = 0;
+      saw_input_ = true;
+    }
+
+    output_.assign(ZSTD_DStreamOutSize(), std::byte{0});
+    ZSTD_inBuffer in{input_.data(), input_.size(), input_pos_};
+    ZSTD_outBuffer out{output_.data(), output_.size(), 0};
+    last_result_ = ZSTD_decompressStream(context_, &out, &in);
+    input_pos_ = in.pos;
+    if (auto err = zstd_error(last_result_, "zstd-decompress"); !err) {
+      return std::unexpected(err.error());
+    }
+    if (out.pos > 0U) {
+      output_.resize(out.pos);
+      return std::span<const std::byte>{output_};
+    }
+    if (last_result_ == 0U && input_pos_ >= input_.size()) {
+      finished_ = true;
+      return std::span<const std::byte>{};
     }
   }
-
-  if (saw_input && last != 0U) {
-    return std::unexpected(BivError{ErrKind::ParseError, {}, "zstd-truncated"});
-  }
-  loaded_ = true;
-  delivered_ = true;
-  return std::span<const std::byte>{decompressed_};
 }
 
 }  // namespace biv::container

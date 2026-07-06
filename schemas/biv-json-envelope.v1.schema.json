@@ -2,38 +2,100 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "biv-json-envelope.v1",
   "type": "object",
-  "description": "ok is true exactly when exit is 0 or 2 and error is null. Failure facts partial_path, spool_path, and partial_dir are present when known.",
-  "required": ["envelope_version", "ok", "verb", "exit", "result", "error"],
+  "description": "ok is true exactly when exit_code is 0 or 2 and error is null. Failure facts are carried under error.facts when known.",
+  "required": ["envelope_version", "app_version", "ok", "verb", "exit_code", "warnings", "advisories", "result", "error"],
   "properties": {
     "envelope_version": {"const": 1},
+    "app_version": {"type": "string"},
     "ok": {"type": "boolean"},
     "verb": {"enum": ["pack", "open", "list", "info"]},
-    "exit": {"type": "integer"},
+    "exit_code": {"type": "integer"},
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path"],
+        "properties": {
+          "kind": {"type": "string"},
+          "path": {"type": "string"}
+        }
+      }
+    },
+    "advisories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "entries", "paths"],
+        "properties": {
+          "kind": {"enum": ["prune-summary", "nested-bivignore-ignored"]},
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "source"],
+              "properties": {
+                "path": {"type": "string"},
+                "source": {
+                  "type": "string",
+                  "description": "Exactly builtin-v1 or .bivignore:<N>, where N is a 1-based root .bivignore line number."
+                }
+              }
+            }
+          },
+          "paths": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
     "result": {
-      "type": "object",
-      "properties": {
-        "partial_path": {"type": "string"},
-        "spool_path": {"type": "string"},
-        "partial_dir": {"type": "string"},
-        "advisories": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "kind": {"enum": ["prune-summary", "nested-bivignore-ignored"]},
-              "entries": {
-                "type": "array",
-                "description": "entries[].source is exactly builtin-v1 or .bivignore:<N>, where N is a 1-based root .bivignore line number."
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "properties": {
+            "image_path": {"type": "string"},
+            "source_path": {"type": "string"},
+            "source_path_flavor": {"enum": ["posix", "windows", "wsl"]},
+            "image_id": {"type": "string"},
+            "member_count": {"type": "integer"},
+            "payload_bytes": {"type": "integer"},
+            "output_dir": {"type": "string"},
+            "collision_action": {"enum": ["none", "renamed"]},
+            "restored_member_count": {"type": "integer"},
+            "checksums_verified": {"type": "boolean"},
+            "manifest": {
+              "type": "object",
+              "required": ["format_version", "repos", "agent_sessions"],
+              "properties": {
+                "format_version": {"type": "integer"},
+                "repos": {"type": "array"},
+                "agent_sessions": {"type": "array"}
               }
             }
           }
         }
-      }
+      ]
     },
     "error": {
       "anyOf": [
         {"type": "null"},
-        {"type": "object", "required": ["kind"], "properties": {"kind": {"type": "string"}}}
+        {
+          "type": "object",
+          "required": ["kind", "path", "detail", "errno", "facts"],
+          "properties": {
+            "kind": {"type": "string"},
+            "path": {"type": "string"},
+            "detail": {"type": "string"},
+            "errno": {"type": "integer"},
+            "facts": {
+              "type": "object",
+              "properties": {
+                "partial_path": {"type": "string"},
+                "spool_path": {"type": "string"},
+                "partial_dir": {"type": "string"}
+              }
+            }
+          }
+        }
       ]
     }
   }

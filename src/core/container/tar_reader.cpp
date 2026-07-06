@@ -1,6 +1,7 @@
 #include "core/container/tar_reader.hpp"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cctype>
 #include <cstdint>
@@ -9,14 +10,14 @@
 #include <map>
 #include <string_view>
 
-#include "core/support/sha256.hpp"
-
 namespace biv::container {
 
 namespace {
 
 constexpr size_t kBlockSize = 512;
 constexpr size_t kPaxByteCap = 1U << 20;
+constexpr uint64_t kMemberPayloadByteCap = 2ULL << 30;
+constexpr uint64_t kTotalDecompressedByteCap = 8ULL << 30;
 constexpr size_t kMemberCountCap = 1'000'000U;
 
 struct Header {
@@ -130,9 +131,28 @@ expected<Header> parse_header(std::span<const std::byte> block) {
   return header;
 }
 
-size_t padded_size(size_t size) {
-  const size_t remainder = size % kBlockSize;
-  return remainder == 0U ? size : size + (kBlockSize - remainder);
+expected<size_t> checked_size(uint64_t size, std::string_view detail) {
+  if (size > static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{detail}});
+  }
+  return static_cast<size_t>(size);
+}
+
+expected<size_t> padded_size(uint64_t size, std::string_view detail) {
+  auto concrete = checked_size(size, detail);
+  if (!concrete) {
+    return std::unexpected(concrete.error());
+  }
+  const size_t value = *concrete;
+  const size_t remainder = value % kBlockSize;
+  if (remainder == 0U) {
+    return value;
+  }
+  const size_t pad = kBlockSize - remainder;
+  if (value > std::numeric_limits<size_t>::max() - pad) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{detail}});
+  }
+  return value + pad;
 }
 
 expected<Pax> parse_pax(std::span<const std::byte> data) {
@@ -158,8 +178,7 @@ expected<Pax> parse_pax(std::span<const std::byte> data) {
     const std::string length_text = text_field(data.subspan(pos, space - pos));
     const char* length_end = std::next(length_text.data(), static_cast<std::ptrdiff_t>(length_text.size()));
     const auto [ptr, ec] = std::from_chars(length_text.data(), length_end, length);
-    if (ec != std::errc{} || ptr != length_end || length == 0U ||
-        pos + length > data.size()) {
+    if (ec != std::errc{} || ptr != length_end || length == 0U || length > data.size() - pos) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "pax-length"});
     }
     if (static_cast<char>(*std::next(data.begin(), static_cast<std::ptrdiff_t>(pos + length - 1U))) != '\n') {
@@ -221,6 +240,17 @@ expected<uint64_t> parse_u64(std::string_view text, ParseDetail detail) {
   return value;
 }
 
+expected<int64_t> parse_i64(std::string_view text, ParseDetail detail) {
+  const std::string value_text{text};
+  int64_t value = 0;
+  const char* text_end = std::next(value_text.data(), static_cast<std::ptrdiff_t>(value_text.size()));
+  const auto [ptr, ec] = std::from_chars(value_text.data(), text_end, value);
+  if (ec != std::errc{} || ptr != text_end) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{detail.value}});
+  }
+  return value;
+}
+
 expected<void> apply_pax(const Pax& pax, MemberMeta& meta) {
   if (const auto path = pax.values.find("path"); path != pax.values.end()) {
     meta.path = path->second;
@@ -238,11 +268,11 @@ expected<void> apply_pax(const Pax& pax, MemberMeta& meta) {
   if (const auto mtime = pax.values.find("mtime"); mtime != pax.values.end()) {
     const auto dot = mtime->second.find('.');
     const std::string_view seconds{mtime->second.data(), dot == std::string::npos ? mtime->second.size() : dot};
-    auto parsed_seconds = parse_u64(seconds, ParseDetail{"pax-mtime"});
+    auto parsed_seconds = parse_i64(seconds, ParseDetail{"pax-mtime"});
     if (!parsed_seconds) {
       return std::unexpected(parsed_seconds.error());
     }
-    meta.mtime_s = static_cast<int64_t>(*parsed_seconds);
+    meta.mtime_s = *parsed_seconds;
     if (dot != std::string::npos) {
       std::string ns = mtime->second.substr(dot + 1U);
       if (ns.size() > 9U) {
@@ -277,18 +307,70 @@ expected<scan::NodeKind> kind_from_typeflag(char typeflag) {
 
 }  // namespace
 
-TarReader::TarReader(ZstdDecompressSource& source) : source_{&source} {}
+TarReader::TarReader(ZstdDecompressSource& source) : TarReader{[&source]() { return source.pull(); }} {}
 
-expected<void> TarReader::ensure_loaded() {
-  if (loaded_) {
-    return {};
+TarReader::TarReader(Source source) : source_{std::move(source)} {}
+
+expected<void> TarReader::fill_buffer(size_t count) {
+  while (buffer_.size() < count) {
+    auto chunk = source_();
+    if (!chunk) {
+      return std::unexpected(chunk.error());
+    }
+    if (chunk->empty()) {
+      break;
+    }
+    buffer_.insert(buffer_.end(), chunk->begin(), chunk->end());
   }
-  auto bytes = source_->pull();
-  if (!bytes) {
-    return std::unexpected(bytes.error());
+  if (buffer_.size() < count) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, "eof"});
   }
-  raw_.assign(bytes->begin(), bytes->end());
-  loaded_ = true;
+  return {};
+}
+
+expected<std::vector<std::byte>> TarReader::consume(size_t count, bool hash_current) {
+  if (count > kTotalDecompressedByteCap - total_consumed_) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, "decompressed-size"});
+  }
+  if (auto ok = fill_buffer(count); !ok) {
+    return std::unexpected(ok.error());
+  }
+  std::vector<std::byte> out(buffer_.begin(), std::next(buffer_.begin(), static_cast<std::ptrdiff_t>(count)));
+  if (hash_current && count > 0U) {
+    extent_hash_.update(std::span<const std::byte>{out});
+  }
+  buffer_.erase(buffer_.begin(), std::next(buffer_.begin(), static_cast<std::ptrdiff_t>(count)));
+  total_consumed_ += count;
+  return out;
+}
+
+expected<void> TarReader::consume_into(std::span<std::byte> out, bool hash_current) {
+  if (out.size() > kTotalDecompressedByteCap - total_consumed_) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, "decompressed-size"});
+  }
+  if (auto ok = fill_buffer(out.size()); !ok) {
+    return std::unexpected(ok.error());
+  }
+  std::ranges::copy(std::span<const std::byte>{buffer_}.first(out.size()), out.begin());
+  if (hash_current && !out.empty()) {
+    extent_hash_.update(std::span<const std::byte>{out.data(), out.size()});
+  }
+  buffer_.erase(buffer_.begin(), std::next(buffer_.begin(), static_cast<std::ptrdiff_t>(out.size())));
+  total_consumed_ += out.size();
+  return {};
+}
+
+expected<void> TarReader::skip(size_t count, bool hash_current) {
+  std::array<std::byte, 8192> scratch {};
+  size_t remaining = count;
+  while (remaining > 0U) {
+    const size_t n = std::min(remaining, scratch.size());
+    auto ok = consume_into(std::span<std::byte>{scratch}.first(n), hash_current);
+    if (!ok) {
+      return std::unexpected(ok.error());
+    }
+    remaining -= n;
+  }
   return {};
 }
 
@@ -296,68 +378,88 @@ expected<void> TarReader::finish_current() {
   if (!current_.active) {
     return {};
   }
-  support::Sha256 sha;
-  sha.update(std::span<const std::byte>{raw_}.subspan(current_.extent_start, current_.extent_end - current_.extent_start));
-  extent_sha256_ = sha.finish_hex();
+  std::array<std::byte, 8192> scratch {};
+  while (current_.read < current_.size) {
+    const uint64_t remaining = current_.size - current_.read;
+    const size_t n = static_cast<size_t>(std::min<uint64_t>(remaining, scratch.size()));
+    if (auto ok = consume_into(std::span<std::byte>{scratch}.first(n), true); !ok) {
+      return std::unexpected(ok.error());
+    }
+    current_.read += n;
+  }
+  if (auto ok = skip(current_.padding, true); !ok) {
+    return std::unexpected(ok.error());
+  }
+  extent_sha256_ = extent_hash_.finish_hex();
+  extent_hash_ = support::Sha256{};
   current_ = Current{};
   return {};
 }
 
 expected<std::optional<RMember>> TarReader::next() {
-  if (auto ok = ensure_loaded(); !ok) {
-    return std::unexpected(ok.error());
-  }
   if (auto ok = finish_current(); !ok) {
     return std::unexpected(ok.error());
   }
 
-  if (member_count_ > kMemberCountCap) {
+  if (member_count_ >= kMemberCountCap) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "member-count"});
   }
-  if (cursor_ + kBlockSize > raw_.size()) {
-    return std::unexpected(BivError{ErrKind::ParseError, {}, "eof"});
-  }
 
-  size_t extent_start = cursor_;
-  auto block = std::span<const std::byte>{raw_}.subspan(cursor_, kBlockSize);
-  if (is_zero_block(block)) {
+  auto first_block = consume(kBlockSize, false);
+  if (!first_block) {
+    return std::unexpected(first_block.error());
+  }
+  if (is_zero_block(*first_block)) {
     return std::optional<RMember>{};
   }
 
-  auto header = parse_header(block);
+  extent_hash_ = support::Sha256{};
+  extent_hash_.update(std::span<const std::byte>{*first_block});
+  auto header = parse_header(std::span<const std::byte>{*first_block});
   if (!header) {
     return std::unexpected(header.error());
   }
-  cursor_ += kBlockSize;
   bool has_pax = false;
   Pax pax;
 
   if (header->typeflag == 'x') {
     has_pax = true;
-    const size_t pax_size = static_cast<size_t>(header->size);
-    const size_t pax_padded = padded_size(pax_size);
-    if (pax_size > kPaxByteCap || cursor_ + pax_padded > raw_.size()) {
-      return std::unexpected(BivError{ErrKind::ParseError, {}, "pax-eof"});
+    if (header->size > kPaxByteCap) {
+      return std::unexpected(BivError{ErrKind::ParseError, {}, "pax-size"});
     }
-    auto parsed_pax = parse_pax(std::span<const std::byte>{raw_}.subspan(cursor_, pax_size));
+    auto pax_total = padded_size(header->size, "pax-size");
+    if (!pax_total) {
+      return std::unexpected(pax_total.error());
+    }
+    auto pax_size = checked_size(header->size, "pax-size");
+    if (!pax_size) {
+      return std::unexpected(pax_size.error());
+    }
+    auto pax_bytes = consume(*pax_size, true);
+    if (!pax_bytes) {
+      return std::unexpected(pax_bytes.error());
+    }
+    if (auto ok = skip(*pax_total - *pax_size, true); !ok) {
+      return std::unexpected(ok.error());
+    }
+    auto parsed_pax = parse_pax(std::span<const std::byte>{*pax_bytes});
     if (!parsed_pax) {
       return std::unexpected(parsed_pax.error());
     }
     pax = std::move(*parsed_pax);
-    cursor_ += pax_padded;
 
-    if (cursor_ + kBlockSize > raw_.size()) {
-      return std::unexpected(BivError{ErrKind::ParseError, {}, "eof"});
+    auto member_block = consume(kBlockSize, false);
+    if (!member_block) {
+      return std::unexpected(member_block.error());
     }
-    block = std::span<const std::byte>{raw_}.subspan(cursor_, kBlockSize);
-    if (is_zero_block(block)) {
+    if (is_zero_block(*member_block)) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "pax-without-member"});
     }
-    header = parse_header(block);
+    extent_hash_.update(std::span<const std::byte>{*member_block});
+    header = parse_header(std::span<const std::byte>{*member_block});
     if (!header) {
       return std::unexpected(header.error());
     }
-    cursor_ += kBlockSize;
   }
 
   auto kind = kind_from_typeflag(header->typeflag);
@@ -382,41 +484,43 @@ expected<std::optional<RMember>> TarReader::next() {
   if (!path_is_safe(meta.path)) {
     return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
   }
+  if (meta.size > kMemberPayloadByteCap) {
+    return std::unexpected(BivError{ErrKind::ParseError, meta.path, "payload-size"});
+  }
 
-  const size_t payload_size = static_cast<size_t>(meta.size);
-  const size_t payload_padded = padded_size(payload_size);
-  if (cursor_ + payload_padded > raw_.size()) {
-    return std::unexpected(BivError{ErrKind::ParseError, meta.path, "payload-eof"});
+  auto payload_total = padded_size(meta.size, "payload-size");
+  if (!payload_total) {
+    return std::unexpected(payload_total.error());
+  }
+  auto payload_size = checked_size(meta.size, "payload-size");
+  if (!payload_size) {
+    return std::unexpected(payload_size.error());
   }
   current_ = Current{
-      .data_start = cursor_,
-      .size = payload_size,
+      .size = meta.size,
       .read = 0,
-      .extent_start = extent_start,
-      .extent_end = cursor_ + payload_padded,
+      .padding = *payload_total - *payload_size,
       .active = true,
   };
-  cursor_ += payload_padded;
   ++member_count_;
   return RMember{.meta = std::move(meta), .has_pax = has_pax};
 }
 
 expected<size_t> TarReader::read_data(std::span<std::byte> out) {
   if (!current_.active || out.empty()) {
-    if (auto ok = finish_current(); !ok) {
-      return std::unexpected(ok.error());
-    }
     return 0U;
   }
-  const size_t remaining = current_.size - current_.read;
+  const uint64_t remaining = current_.size - current_.read;
   if (remaining == 0U) {
     if (auto ok = finish_current(); !ok) {
       return std::unexpected(ok.error());
     }
     return 0U;
   }
-  const size_t n = std::min(out.size(), remaining);
-  std::ranges::copy(std::span<const std::byte>{raw_}.subspan(current_.data_start + current_.read, n), out.begin());
+  const size_t n = static_cast<size_t>(std::min<uint64_t>(out.size(), remaining));
+  if (auto ok = consume_into(out.first(n), true); !ok) {
+    return std::unexpected(ok.error());
+  }
   current_.read += n;
   if (current_.read == current_.size) {
     if (auto ok = finish_current(); !ok) {

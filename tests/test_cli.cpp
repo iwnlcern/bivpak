@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <catch2/catch_test_macros.hpp>
@@ -88,5 +89,22 @@ TEST_CASE("CLI reports usage and reserved verbs with exit 5") {
   auto list = run_cmd("list missing.bvpk --json", root);
   CHECK(list.code == 5);
   CHECK(list.out.find("NotYetImplemented") != std::string::npos);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("CLI reports warning and refusal exit classes") {
+  const auto root = make_tmp("exits");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source);
+  write_file(source / "keep.txt", "keep");
+  REQUIRE(::mkfifo((source / "pipe").c_str(), 0600) == 0);
+
+  auto packed = run_cmd("pack '" + source.string() + "' --json", root);
+  CHECK(packed.code == 2);
+  CHECK(packed.out.find("\"kind\": \"UnsupportedFileTypeSkipped\"") != std::string::npos);
+
+  auto missing = run_cmd("open '" + (root / "missing.bvpk").string() + "' --json", root);
+  CHECK(missing.code == 3);
+  CHECK(missing.out.find("\"kind\": \"ImageUnreadable\"") != std::string::npos);
   std::filesystem::remove_all(root);
 }

@@ -105,11 +105,11 @@ TEST_CASE("tar writer emits pax record, ustar header, and extent hash") {
 
   const std::span<const std::byte> pax_header{archive.data(), 512};
   CHECK(field_string(pax_header, 0, 100) == "PaxHeaders/payload/a.txt");
-  CHECK(field_string(pax_header, 124, 12) == "00000000066");
+  CHECK(field_string(pax_header, 124, 12) == "00000000055");
   CHECK(static_cast<char>(pax_header[156]) == 'x');
 
-  const std::span<const std::byte> pax_data{archive.data() + 512, 54};
-  CHECK(field_string(pax_data, 0, 54) == "22 path=payload/a.txt\n23 mtime=123.000000045\n9 size=3\n");
+  const std::span<const std::byte> pax_data{archive.data() + 512, 45};
+  CHECK(field_string(pax_data, 0, 45) == "22 path=payload/a.txt\n23 mtime=123.000000045\n");
 
   const std::span<const std::byte> ustar{archive.data() + 1024, 512};
   CHECK(field_string(ustar, 0, 100) == "payload/a.txt");

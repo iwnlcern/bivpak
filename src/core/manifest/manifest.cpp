@@ -1,6 +1,7 @@
 #include "core/manifest/manifest.hpp"
 
 #include <cstdint>
+#include <limits>
 #include <string_view>
 
 #if defined(__GNUC__)
@@ -32,6 +33,9 @@ expected<int> required_int(simdjson::dom::object object, std::string_view key) {
   int64_t value = 0;
   const auto error = object.at_key(key).get(value);
   if (error) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{key}});
+  }
+  if (value < std::numeric_limits<int>::min() || value > std::numeric_limits<int>::max()) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{key}});
   }
   return static_cast<int>(value);

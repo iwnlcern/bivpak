@@ -1,3 +1,43 @@
-pattern-file-hash	path	is_dir	verdict	source-line
+pattern_set	path	is_dir	verdict	source
 builtin-v1	target	true	ignored	builtin-v1
-builtin-v1	src/main.cpp	false	kept	
+builtin-v1	target	false	kept	-
+builtin-v1	pkg/target	true	ignored	builtin-v1
+builtin-v1	node_modules	true	ignored	builtin-v1
+builtin-v1	pkg/node_modules	true	ignored	builtin-v1
+builtin-v1	pkg/node_modules	false	kept	-
+builtin-v1	app/.venv	true	ignored	builtin-v1
+builtin-v1	app/venv	true	ignored	builtin-v1
+builtin-v1	app/__pycache__	true	ignored	builtin-v1
+builtin-v1	app/module.pyc	false	ignored	builtin-v1
+builtin-v1	app/module.py	false	kept	-
+builtin-v1	.tox	true	ignored	builtin-v1
+builtin-v1	pkg/.mypy_cache	true	ignored	builtin-v1
+builtin-v1	pkg/.pytest_cache	true	ignored	builtin-v1
+builtin-v1	pkg/.ruff_cache	true	ignored	builtin-v1
+builtin-v1	pkg/.gradle	true	ignored	builtin-v1
+builtin-v1	pkg/src/main.cpp	false	kept	-
+custom-v1	x/drop.pyc	false	ignored	.bivignore:1
+custom-v1	keep.pyc	false	kept	-
+custom-v1	x/keep.pyc	false	kept	-
+custom-v1	build	true	ignored	.bivignore:3
+custom-v1	sub/build	true	ignored	.bivignore:3
+custom-v1	build	false	kept	-
+custom-v1	docs/a.tmp	false	ignored	.bivignore:4
+custom-v1	docs/nested/a.tmp	false	kept	-
+custom-v1	sub/docs/a.tmp	false	kept	-
+custom-v1	logs/a.txt	false	ignored	.bivignore:5
+custom-v1	logs/a/b/c.txt	false	ignored	.bivignore:5
+custom-v1	other/logs/a.txt	false	kept	-
+custom-v1	trail	false	ignored	.bivignore:6
+custom-v1	trail\s\s	false	kept	-
+custom-v1	literal 	false	ignored	.bivignore:7
+custom-v1	literal	false	kept	-
+custom-v1	space name	false	ignored	.bivignore:8
+custom-v1	dir/space name	false	ignored	.bivignore:8
+custom-v1	dir/space false	false	kept	-
+custom-v1	root-only.tmp	false	ignored	.bivignore:9
+custom-v1	sub/root-only.tmp	false	kept	-
+custom-v1	negated.log	false	ignored	.bivignore:10
+custom-v1	sub/negated.log	false	ignored	.bivignore:10
+custom-v1	sub/error.log	false	ignored	.bivignore:10
+custom-v1	important/error.log	false	kept	-

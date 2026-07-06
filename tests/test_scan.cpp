@@ -65,6 +65,35 @@ TEST_CASE("root .bivignore prunes directories and records file provenance") {
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("root .bivignore prunes files and cannot prune itself") {
+  auto root = make_tmp("file-prune");
+  write_file(root / ".bivignore", "*\n!.bivignore\n");
+  write_file(root / "skip.txt");
+
+  auto result = biv::scan::scan(root);
+  REQUIRE(result.has_value());
+  REQUIRE(result->payload.size() == 1);
+  CHECK(result->payload[0].relpath == ".bivignore");
+  REQUIRE(result->pruned.size() == 1);
+  CHECK(result->pruned[0].relpath == "skip.txt");
+  CHECK(result->pruned[0].source == ".bivignore:1");
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("root .bivignore can prune .git before repo refusal") {
+  auto root = make_tmp("git-pruned");
+  write_file(root / ".bivignore", ".git/\n");
+  std::filesystem::create_directory(root / ".git");
+  write_file(root / "keep.txt");
+
+  auto result = biv::scan::scan(root);
+  REQUIRE(result.has_value());
+  REQUIRE(result->pruned.size() == 1);
+  CHECK(result->pruned[0].relpath == ".git");
+  CHECK(result->payload.back().relpath == "keep.txt");
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("builtin ignore prunes target directory when root ignore is absent") {
   auto root = make_tmp("builtin");
   std::filesystem::create_directories(root / "target");

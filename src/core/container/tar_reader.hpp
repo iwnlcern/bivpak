@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
@@ -9,6 +10,7 @@
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
 #include "core/support/error.hpp"
+#include "core/support/sha256.hpp"
 
 namespace biv::container {
 
@@ -19,7 +21,10 @@ struct RMember {
 
 class TarReader {
  public:
+  using Source = std::function<expected<std::span<const std::byte>>()>;
+
   explicit TarReader(ZstdDecompressSource& source);
+  explicit TarReader(Source source);
 
   expected<std::optional<RMember>> next();
   expected<size_t> read_data(std::span<std::byte> out);
@@ -27,24 +32,25 @@ class TarReader {
 
  private:
   struct Current {
-    size_t data_start{0};
-    size_t size{0};
-    size_t read{0};
-    size_t extent_start{0};
-    size_t extent_end{0};
+    uint64_t size{0};
+    uint64_t read{0};
+    size_t padding{0};
     bool active{false};
   };
 
-  expected<void> ensure_loaded();
+  expected<void> fill_buffer(size_t count);
+  expected<std::vector<std::byte>> consume(size_t count, bool hash_current);
+  expected<void> consume_into(std::span<std::byte> out, bool hash_current);
+  expected<void> skip(size_t count, bool hash_current);
   expected<void> finish_current();
 
-  ZstdDecompressSource* source_;
-  std::vector<std::byte> raw_;
-  size_t cursor_{0};
+  Source source_;
+  std::vector<std::byte> buffer_;
+  uint64_t total_consumed_{0};
   size_t member_count_{0};
   Current current_;
+  support::Sha256 extent_hash_;
   std::string extent_sha256_;
-  bool loaded_{false};
 };
 
 }  // namespace biv::container

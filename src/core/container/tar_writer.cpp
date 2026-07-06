@@ -119,7 +119,7 @@ std::string pax_data(const MemberMeta& meta) {
   if (meta.kind == scan::NodeKind::symlink) {
     data += pax_record("linkpath", meta.symlink_target);
   }
-  if (meta.size > kMaxOctalSize || meta.kind == scan::NodeKind::file) {
+  if (meta.size > kMaxOctalSize) {
     data += pax_record("size", std::to_string(meta.size));
   }
   return data;
