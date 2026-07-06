@@ -33,14 +33,20 @@ bool is_directory_status(const std::filesystem::file_status status) {
   return status.type() == std::filesystem::file_type::directory;
 }
 
-Kind kind_from_status(const std::filesystem::file_status status) {
+bool is_supported_status(const std::filesystem::file_status status) {
+  return status.type() == std::filesystem::file_type::regular ||
+         status.type() == std::filesystem::file_type::directory ||
+         status.type() == std::filesystem::file_type::symlink;
+}
+
+NodeKind kind_from_status(const std::filesystem::file_status status) {
   if (status.type() == std::filesystem::file_type::directory) {
-    return Kind::dir;
+    return NodeKind::dir;
   }
   if (status.type() == std::filesystem::file_type::symlink) {
-    return Kind::symlink;
+    return NodeKind::symlink;
   }
-  return Kind::file;
+  return NodeKind::file;
 }
 
 expected<struct stat> stat_path(const std::filesystem::path& path) {
@@ -49,11 +55,6 @@ expected<struct stat> stat_path(const std::filesystem::path& path) {
     return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string(), {}, errno});
   }
   return statbuf;
-}
-
-int64_t mtime_ns(const struct stat& statbuf) {
-  return (static_cast<int64_t>(statbuf.st_mtim.tv_sec) * 1'000'000'000LL) +
-         static_cast<int64_t>(statbuf.st_mtim.tv_nsec);
 }
 
 expected<std::string> symlink_target(const std::filesystem::path& path) {
@@ -104,6 +105,10 @@ expected<void> walk(const std::filesystem::path& dir,
                     ScanResult& result) {
   auto children = sorted_children(dir);
   if (!children) {
+    if (!rel_dir.empty()) {
+      result.unreadable.emplace_back(rel_dir);
+      return {};
+    }
     return std::unexpected(children.error());
   }
 
@@ -118,8 +123,11 @@ expected<void> walk(const std::filesystem::path& dir,
     const std::string name = child.path().filename().generic_string();
     const std::string relpath = child_relpath(rel_dir, name);
     const bool is_dir = is_directory_status(status);
-    if (name == ".git" && is_dir) {
+    if (name == ".git") {
       return std::unexpected(BivError{ErrKind::RepoDiscoveredUnsupported, child.path().generic_string()});
+    }
+    if (name == ".biv" && is_dir) {
+      continue;
     }
 
     const auto verdict = matcher.match(relpath, is_dir);
@@ -130,28 +138,34 @@ expected<void> walk(const std::filesystem::path& dir,
       continue;
     }
 
+    if (!is_supported_status(status)) {
+      result.skipped_unsupported.push_back(relpath);
+      continue;
+    }
+
     auto statbuf = stat_path(child.path());
     if (!statbuf) {
       return std::unexpected(statbuf.error());
     }
 
-    Entry entry;
+    Node entry;
     entry.relpath = relpath;
     entry.kind = kind_from_status(status);
-    entry.size = entry.kind == Kind::file ? static_cast<uintmax_t>(statbuf->st_size) : 0U;
+    entry.size = entry.kind == NodeKind::file ? static_cast<uint64_t>(statbuf->st_size) : 0U;
     entry.mode = static_cast<uint32_t>(statbuf->st_mode);
-    entry.mtime_ns = mtime_ns(*statbuf);
-    if (entry.kind == Kind::symlink) {
+    entry.mtime_s = static_cast<int64_t>(statbuf->st_mtim.tv_sec);
+    entry.mtime_ns = static_cast<uint32_t>(statbuf->st_mtim.tv_nsec);
+    if (entry.kind == NodeKind::symlink) {
       auto target = symlink_target(child.path());
       if (!target) {
         return std::unexpected(target.error());
       }
-      entry.link_target = std::move(*target);
+      entry.symlink_target = std::move(*target);
     }
     result.payload.push_back(std::move(entry));
 
     if (relpath != ".bivignore" && name == ".bivignore") {
-      result.nested_bivignores.push_back(relpath);
+      result.nested_bivignore.push_back(relpath);
     }
 
     if (is_dir) {

@@ -90,11 +90,11 @@ TEST_CASE("scan records symlinks and nested .bivignore advisories") {
 
   auto result = biv::scan::scan(root);
   REQUIRE(result.has_value());
-  REQUIRE(result->nested_bivignores == std::vector<std::string>{"sub/.bivignore"});
-  auto link = std::ranges::find(result->payload, "link.txt", &biv::scan::Entry::relpath);
+  REQUIRE(result->nested_bivignore == std::vector<std::string>{"sub/.bivignore"});
+  auto link = std::ranges::find(result->payload, "link.txt", &biv::scan::Node::relpath);
   REQUIRE(link != result->payload.end());
-  REQUIRE(link->kind == biv::scan::Kind::symlink);
-  REQUIRE(link->link_target == "data.txt");
+  REQUIRE(link->kind == biv::scan::NodeKind::symlink);
+  REQUIRE(link->symlink_target == "data.txt");
   std::filesystem::remove_all(root);
 }
 

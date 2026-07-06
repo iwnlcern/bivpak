@@ -2,7 +2,9 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/manifest/manifest.hpp"
@@ -10,15 +12,16 @@
 
 namespace biv::scan {
 
-enum class Kind { file, dir, symlink };
+enum class NodeKind { file, dir, symlink };
 
-struct Entry {
+struct Node {
   std::string relpath;
-  Kind kind{Kind::file};
-  uintmax_t size{0};
+  NodeKind kind{NodeKind::file};
   uint32_t mode{0};
-  int64_t mtime_ns{0};
-  std::string link_target;
+  int64_t mtime_s{0};
+  uint32_t mtime_ns{0};
+  uint64_t size{0};
+  std::string symlink_target;
 };
 
 struct PruneEntry {
@@ -27,11 +30,15 @@ struct PruneEntry {
 };
 
 struct ScanResult {
-  std::vector<Entry> payload;
-  manifest::BivignoreProvenance bivignore;
+  std::vector<Node> payload;
   std::vector<PruneEntry> pruned;
-  std::vector<std::string> nested_bivignores;
+  std::vector<std::string> skipped_unsupported;
+  std::vector<std::string> nested_bivignore;
+  std::vector<std::string> unreadable;
+  manifest::BivignoreProvenance bivignore;
 };
+
+using FloorHook = std::optional<std::string> (*)(const std::filesystem::path& abs, std::string_view rel);
 
 expected<ScanResult> scan(const std::filesystem::path& source_root);
 
