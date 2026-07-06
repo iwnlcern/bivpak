@@ -38,7 +38,7 @@ class TarReader {
   expected<void> ensure_loaded();
   expected<void> finish_current();
 
-  ZstdDecompressSource& source_;
+  ZstdDecompressSource* source_;
   std::vector<std::byte> raw_;
   size_t cursor_{0};
   size_t member_count_{0};

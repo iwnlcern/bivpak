@@ -1,6 +1,7 @@
 #include <exception>
 #include <iostream>
 #include <optional>
+#include <span>
 
 #include "cli/args.hpp"
 #include "core/pack/pack.hpp"
@@ -33,10 +34,11 @@ void emit_pack_text(const biv::pack::PackReport& report) {
 
 }  // namespace
 
-int main(int argc, char* argv[]) {
-  const bool json_requested = biv::cli::contains_json(argc, argv);
+int main(int argc, char** argv) {
+  std::span<char*> args{argv, static_cast<size_t>(argc)};
+  const bool json_requested = biv::cli::contains_json(args);
   try {
-    auto parsed = biv::cli::parse_args(argc, argv);
+    auto parsed = biv::cli::parse_args(args);
     if (!parsed) {
       return emit_error("pack", parsed.error(), json_requested);
     }

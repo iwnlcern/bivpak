@@ -66,9 +66,10 @@ expected<std::vector<std::byte>> read_file_bytes(const std::filesystem::path& pa
   if (in.bad()) {
     return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, path.generic_string()});
   }
-  std::vector<std::byte> bytes(text.size());
-  for (size_t i = 0; i < text.size(); ++i) {
-    bytes[i] = static_cast<std::byte>(text[i]);
+  std::vector<std::byte> bytes;
+  bytes.reserve(text.size());
+  for (const char ch : text) {
+    bytes.push_back(static_cast<std::byte>(ch));
   }
   return bytes;
 }
@@ -91,18 +92,19 @@ std::string uuid4() {
       byte = static_cast<unsigned char>(rd());
     }
   }
-  bytes[6] = static_cast<unsigned char>((bytes[6] & 0x0fU) | 0x40U);
-  bytes[8] = static_cast<unsigned char>((bytes[8] & 0x3fU) | 0x80U);
+  bytes.at(6) = static_cast<unsigned char>((bytes.at(6) & 0x0fU) | 0x40U);
+  bytes.at(8) = static_cast<unsigned char>((bytes.at(8) & 0x3fU) | 0x80U);
 
-  constexpr char hex[] = "0123456789abcdef";
+  constexpr std::array<char, 16> hex{'0', '1', '2', '3', '4', '5', '6', '7',
+                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
   std::string out;
   out.reserve(36);
   for (size_t i = 0; i < bytes.size(); ++i) {
     if (i == 4U || i == 6U || i == 8U || i == 10U) {
       out.push_back('-');
     }
-    out.push_back(hex[(bytes[i] >> 4U) & 0x0fU]);
-    out.push_back(hex[bytes[i] & 0x0fU]);
+    out.push_back(hex.at((bytes.at(i) >> 4U) & 0x0fU));
+    out.push_back(hex.at(bytes.at(i) & 0x0fU));
   }
   return out;
 }
@@ -114,14 +116,17 @@ ClockStamp now_stamp() {
   std::tm tm {};
   gmtime_r(&time, &tm);
   std::array<char, 32> buffer {};
-  std::strftime(buffer.data(), buffer.size(), "%FT%TZ", &tm);
+  const size_t written = std::strftime(buffer.data(), buffer.size(), "%FT%TZ", &tm);
+  if (written == 0U) {
+    return ClockStamp{.seconds = static_cast<int64_t>(time), .rfc3339 = {}};
+  }
   return ClockStamp{.seconds = static_cast<int64_t>(time), .rfc3339 = buffer.data()};
 }
 
 manifest::PathFlavor path_flavor(const std::filesystem::path& path) {
   const auto text = path.generic_string();
-  if (text.size() >= 7U && text.starts_with("/mnt/") && text[6] == '/') {
-    const char drive = text[5];
+  if (text.size() >= 7U && text.starts_with("/mnt/") && text.at(6) == '/') {
+    const char drive = text.at(5);
     if ((drive >= 'a' && drive <= 'z') || (drive >= 'A' && drive <= 'Z')) {
       return manifest::PathFlavor::wsl;
     }

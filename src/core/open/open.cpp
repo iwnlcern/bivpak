@@ -6,6 +6,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <set>
 #include <span>
@@ -32,9 +33,10 @@ struct ArchiveMember {
 };
 
 std::vector<std::byte> to_bytes(const std::string& text) {
-  std::vector<std::byte> out(text.size());
-  for (size_t i = 0; i < text.size(); ++i) {
-    out[i] = static_cast<std::byte>(text[i]);
+  std::vector<std::byte> out;
+  out.reserve(text.size());
+  for (const char ch : text) {
+    out.push_back(static_cast<std::byte>(ch));
   }
   return out;
 }
@@ -55,10 +57,12 @@ bool has_zstd_magic(std::span<const std::byte> bytes) {
   if (bytes.size() < container::kZstdMagic.size()) {
     return false;
   }
-  for (size_t i = 0; i < container::kZstdMagic.size(); ++i) {
-    if (bytes[i] != static_cast<std::byte>(container::kZstdMagic[i])) {
+  auto byte = bytes.begin();
+  for (const unsigned char magic : container::kZstdMagic) {
+    if (*byte != static_cast<std::byte>(magic)) {
       return false;
     }
+    ++byte;
   }
   return true;
 }
@@ -112,7 +116,7 @@ expected<std::vector<ArchiveMember>> read_archive(const std::filesystem::path& i
       if (*n == 0U) {
         break;
       }
-      member.data.insert(member.data.end(), buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(*n));
+      member.data.insert(member.data.end(), buffer.begin(), std::next(buffer.begin(), static_cast<std::ptrdiff_t>(*n)));
     }
     member.extent = reader.extent_sha256_hex();
     members.push_back(std::move(member));
@@ -170,10 +174,15 @@ expected<void> set_mtime(const std::filesystem::path& path, int64_t seconds, uin
   return {};
 }
 
-bool parent_is_real_dir(const std::filesystem::path& path, const std::filesystem::path& temp_root) {
-  auto parent = path.parent_path();
+struct ParentCheck {
+  std::filesystem::path output_path;
+  std::filesystem::path temp_root;
+};
+
+bool parent_is_real_dir(ParentCheck check) {
+  auto parent = check.output_path.parent_path();
   if (parent.empty()) {
-    parent = temp_root;
+    parent = check.temp_root;
   }
   std::error_code ec;
   const auto status = std::filesystem::symlink_status(parent, ec);
@@ -203,7 +212,7 @@ expected<void> apply_member(const ArchiveMember& member,
   }
   const auto rel = member.meta.path.substr(prefix.size());
   const auto out_path = temp_root / std::filesystem::path{rel};
-  if (!parent_is_real_dir(out_path, temp_root)) {
+  if (!parent_is_real_dir(ParentCheck{.output_path = out_path, .temp_root = temp_root})) {
     return std::unexpected(BivError{ErrKind::MemberPathUnsafe, member.meta.path});
   }
 
@@ -244,12 +253,12 @@ expected<OpenReport> open_impl(const OpenOptions& options) {
   if (!members) {
     return std::unexpected(preapply_error(members.error(), options.image));
   }
-  if (members->size() < 2U || (*members)[0].meta.path != "manifest.json" ||
-      (*members)[1].meta.path != "checksums.json") {
+  if (members->size() < 2U || members->at(0).meta.path != "manifest.json" ||
+      members->at(1).meta.path != "checksums.json") {
     return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, options.image.generic_string(), "member-order"});
   }
 
-  auto manifest_model = manifest::parse(byte_span((*members)[0].data));
+  auto manifest_model = manifest::parse(byte_span(members->at(0).data));
   if (!manifest_model) {
     return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, options.image.generic_string(),
                                     manifest_model.error().detail});
@@ -262,7 +271,7 @@ expected<OpenReport> open_impl(const OpenOptions& options) {
                                     manifest_model->required_capabilities.front()});
   }
 
-  auto checksums = manifest::parse_checksums(byte_span((*members)[1].data));
+  auto checksums = manifest::parse_checksums(byte_span(members->at(1).data));
   if (!checksums) {
     return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, options.image.generic_string(),
                                     checksums.error().detail});
@@ -270,7 +279,7 @@ expected<OpenReport> open_impl(const OpenOptions& options) {
 
   std::set<std::string> seen;
   for (size_t i = 2; i < members->size(); ++i) {
-    const auto& member = (*members)[i];
+    const auto& member = members->at(i);
     if (!member.meta.path.starts_with("payload/") || !checksums->entries.contains(member.meta.path)) {
       return std::unexpected(BivError{ErrKind::UnmanifestedMember, member.meta.path});
     }
@@ -319,7 +328,7 @@ expected<OpenReport> open_impl(const OpenOptions& options) {
   std::vector<container::MemberMeta> dirs;
   uint64_t restored = 0;
   for (size_t i = 2; i < members->size(); ++i) {
-    auto ok = apply_member((*members)[i], partial_dir, dirs);
+    auto ok = apply_member(members->at(i), partial_dir, dirs);
     if (!ok) {
       return std::unexpected(with_partial_dir(ok.error(), partial_dir));
     }

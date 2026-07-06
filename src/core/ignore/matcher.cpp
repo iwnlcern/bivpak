@@ -30,9 +30,9 @@ std::string glob_to_regex(std::string_view pattern) {
   std::string out;
   out.reserve(pattern.size() * 2U);
   for (size_t i = 0; i < pattern.size(); ++i) {
-    const char ch = pattern[i];
+    const char ch = pattern.at(i);
     if (ch == '*') {
-      if ((i + 1U) < pattern.size() && pattern[i + 1U] == '*') {
+      if ((i + 1U) < pattern.size() && pattern.at(i + 1U) == '*') {
         out += ".*";
         ++i;
       } else {

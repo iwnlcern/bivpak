@@ -5,6 +5,7 @@
 #include <charconv>
 #include <cstddef>
 #include <iomanip>
+#include <iterator>
 #include <sstream>
 #include <string_view>
 #include <vector>
@@ -16,6 +17,19 @@ namespace {
 constexpr size_t kBlockSize = 512;
 constexpr uint64_t kMaxOctalSize = 077777777777ULL;
 
+struct OctalWidth {
+  size_t value;
+};
+
+struct HeaderSpec {
+  std::string path;
+  char typeflag;
+  uint32_t mode;
+  uint64_t size;
+  int64_t mtime_s;
+  std::string_view link_target;
+};
+
 std::span<const std::byte> as_bytes(const std::string& text) {
   return std::as_bytes(std::span<const char>{text.data(), text.size()});
 }
@@ -24,37 +38,37 @@ std::span<const std::byte> as_bytes(const std::vector<char>& data) {
   return std::as_bytes(std::span<const char>{data.data(), data.size()});
 }
 
-std::string octal(uint64_t value, size_t digits) {
-  std::string out(digits, '0');
-  for (size_t i = 0; i < digits; ++i) {
-    const size_t pos = digits - 1U - i;
-    out[pos] = static_cast<char>('0' + (value & 07U));
+std::string octal(uint64_t value, OctalWidth width) {
+  std::string out(width.value, '0');
+  for (size_t i = 0; i < width.value; ++i) {
+    const size_t pos = width.value - 1U - i;
+    out.at(pos) = static_cast<char>('0' + (value & 07U));
     value >>= 3U;
   }
   return out;
 }
 
 void write_octal(std::span<std::byte> field, uint64_t value) {
-  const std::string digits = octal(value, field.size() - 1U);
+  const std::string digits = octal(value, OctalWidth{field.size() - 1U});
   for (size_t i = 0; i < digits.size(); ++i) {
-    field[i] = static_cast<std::byte>(digits[i]);
+    *std::next(field.begin(), static_cast<std::ptrdiff_t>(i)) = static_cast<std::byte>(digits.at(i));
   }
-  field[field.size() - 1U] = std::byte{0};
+  *std::next(field.begin(), static_cast<std::ptrdiff_t>(field.size() - 1U)) = std::byte{0};
 }
 
 void write_checksum(std::span<std::byte> field, uint64_t value) {
-  const std::string digits = octal(value, 6);
+  const std::string digits = octal(value, OctalWidth{6});
   for (size_t i = 0; i < digits.size(); ++i) {
-    field[i] = static_cast<std::byte>(digits[i]);
+    *std::next(field.begin(), static_cast<std::ptrdiff_t>(i)) = static_cast<std::byte>(digits.at(i));
   }
-  field[6] = std::byte{0};
-  field[7] = static_cast<std::byte>(' ');
+  *std::next(field.begin(), 6) = std::byte{0};
+  *std::next(field.begin(), 7) = static_cast<std::byte>(' ');
 }
 
 void write_text(std::span<std::byte> field, std::string_view value) {
   const size_t n = std::min(field.size(), value.size());
   for (size_t i = 0; i < n; ++i) {
-    field[i] = static_cast<std::byte>(value[i]);
+    *std::next(field.begin(), static_cast<std::ptrdiff_t>(i)) = static_cast<std::byte>(value.at(i));
   }
 }
 
@@ -111,22 +125,18 @@ std::string pax_data(const MemberMeta& meta) {
   return data;
 }
 
-std::array<std::byte, kBlockSize> header_block(const std::string& path,
-                                               char header_typeflag,
-                                               uint32_t mode,
-                                               uint64_t size,
-                                               int64_t mtime_s,
-                                               std::string_view link_target) {
+std::array<std::byte, kBlockSize> header_block(const HeaderSpec& spec) {
   std::array<std::byte, kBlockSize> block {};
-  write_text(std::span<std::byte>{block}.subspan(0, 100), path.substr(0, 100));
-  write_octal(std::span<std::byte>{block}.subspan(100, 8), mode & 07777U);
+  write_text(std::span<std::byte>{block}.subspan(0, 100), spec.path.substr(0, 100));
+  write_octal(std::span<std::byte>{block}.subspan(100, 8), spec.mode & 07777U);
   write_octal(std::span<std::byte>{block}.subspan(108, 8), 0);
   write_octal(std::span<std::byte>{block}.subspan(116, 8), 0);
-  write_octal(std::span<std::byte>{block}.subspan(124, 12), size <= kMaxOctalSize ? size : 0U);
-  write_octal(std::span<std::byte>{block}.subspan(136, 12), mtime_s < 0 ? 0U : static_cast<uint64_t>(mtime_s));
+  write_octal(std::span<std::byte>{block}.subspan(124, 12), spec.size <= kMaxOctalSize ? spec.size : 0U);
+  write_octal(std::span<std::byte>{block}.subspan(136, 12),
+              spec.mtime_s < 0 ? 0U : static_cast<uint64_t>(spec.mtime_s));
   std::ranges::fill(std::span<std::byte>{block}.subspan(148, 8), static_cast<std::byte>(' '));
-  block[156] = static_cast<std::byte>(header_typeflag);
-  write_text(std::span<std::byte>{block}.subspan(157, 100), link_target.substr(0, 100));
+  block.at(156) = static_cast<std::byte>(spec.typeflag);
+  write_text(std::span<std::byte>{block}.subspan(157, 100), spec.link_target.substr(0, 100));
   write_text(std::span<std::byte>{block}.subspan(257, 6), "ustar");
   write_text(std::span<std::byte>{block}.subspan(263, 2), "00");
   write_text(std::span<std::byte>{block}.subspan(265, 32), "root");
@@ -177,8 +187,12 @@ expected<void> TarWriter::begin_member(const MemberMeta& meta) {
   in_member_ = true;
 
   const std::string pax = pax_data(current_);
-  const auto pax_header =
-      header_block(pax_member_name(current_.path), 'x', 0644, pax.size(), current_.mtime_s, {});
+  const auto pax_header = header_block(HeaderSpec{.path = pax_member_name(current_.path),
+                                                 .typeflag = 'x',
+                                                 .mode = 0644,
+                                                 .size = pax.size(),
+                                                 .mtime_s = current_.mtime_s,
+                                                 .link_target = {}});
   if (auto out = emit(std::span<const std::byte, kBlockSize>{pax_header}, true); !out) {
     return out;
   }
@@ -192,13 +206,12 @@ expected<void> TarWriter::begin_member(const MemberMeta& meta) {
     }
   }
 
-  const auto member_header =
-      header_block(current_.path,
-                   typeflag(current_.kind),
-                   current_.mode,
-                   current_.size,
-                   current_.mtime_s,
-                   current_.symlink_target);
+  const auto member_header = header_block(HeaderSpec{.path = current_.path,
+                                                    .typeflag = typeflag(current_.kind),
+                                                    .mode = current_.mode,
+                                                    .size = current_.size,
+                                                    .mtime_s = current_.mtime_s,
+                                                    .link_target = current_.symlink_target});
   if (auto out = emit(std::span<const std::byte, kBlockSize>{member_header}, true); !out) {
     return out;
   }

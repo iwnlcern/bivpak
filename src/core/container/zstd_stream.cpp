@@ -1,6 +1,7 @@
 #include "core/container/zstd_stream.hpp"
 
 #include <algorithm>
+#include <iterator>
 
 namespace biv::container {
 
@@ -15,8 +16,8 @@ expected<void> zstd_error(size_t code, std::string_view context) {
 
 }  // namespace
 
-ZstdCompressSink::ZstdCompressSink(TarWriter::Sink raw_out) : raw_out_{std::move(raw_out)} {
-  context_ = ZSTD_createCCtx();
+ZstdCompressSink::ZstdCompressSink(TarWriter::Sink raw_out)
+    : raw_out_{std::move(raw_out)}, context_{ZSTD_createCCtx()} {
   if (context_ != nullptr) {
     static_cast<void>(ZSTD_CCtx_setParameter(context_, ZSTD_c_compressionLevel, 3));
     static_cast<void>(ZSTD_CCtx_setParameter(context_, ZSTD_c_checksumFlag, 1));
@@ -53,7 +54,8 @@ expected<void> ZstdCompressSink::pump(const std::span<const std::byte> input, co
   ZSTD_inBuffer in{input.data(), input.size(), 0};
   std::vector<std::byte> out(ZSTD_CStreamOutSize());
   size_t remaining = 0;
-  do {
+  bool should_pump = true;
+  while (should_pump) {
     ZSTD_outBuffer output{out.data(), out.size(), 0};
     remaining = ZSTD_compressStream2(context_, &output, &in, directive);
     if (auto err = zstd_error(remaining, "zstd-compress"); !err) {
@@ -65,7 +67,8 @@ expected<void> ZstdCompressSink::pump(const std::span<const std::byte> input, co
         return written;
       }
     }
-  } while (in.pos < in.size || (directive == ZSTD_e_end && remaining != 0U));
+    should_pump = in.pos < in.size || (directive == ZSTD_e_end && remaining != 0U);
+  }
   return {};
 }
 
@@ -107,7 +110,7 @@ expected<std::span<const std::byte>> ZstdDecompressSource::pull() {
       if (auto err = zstd_error(last, "zstd-decompress"); !err) {
         return std::unexpected(err.error());
       }
-      decompressed_.insert(decompressed_.end(), out.begin(), out.begin() + static_cast<std::ptrdiff_t>(output.pos));
+      decompressed_.insert(decompressed_.end(), out.begin(), std::next(out.begin(), static_cast<std::ptrdiff_t>(output.pos)));
     }
   }
 

@@ -25,6 +25,15 @@ FetchContent_Declare(catch2
 
 FetchContent_MakeAvailable(simdjson zstd catch2)
 
+foreach(dep_target IN ITEMS simdjson libzstd_static)
+  get_target_property(dep_includes ${dep_target} INTERFACE_INCLUDE_DIRECTORIES)
+  if(dep_includes)
+    set_target_properties(${dep_target} PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${dep_includes}"
+      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${dep_includes}")
+  endif()
+endforeach()
+
 option(BIV_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 
 add_library(bivcore STATIC

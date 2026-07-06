@@ -4,6 +4,7 @@
 #include <array>
 #include <bit>
 #include <charconv>
+#include <iterator>
 
 namespace biv::support {
 
@@ -22,14 +23,22 @@ constexpr std::array<uint32_t, 64> kRoundConstants{
     0xc67178f2U};
 
 uint32_t load_be32(std::span<const std::byte> bytes) {
-  return (std::to_integer<uint32_t>(bytes[0]) << 24U) | (std::to_integer<uint32_t>(bytes[1]) << 16U) |
-         (std::to_integer<uint32_t>(bytes[2]) << 8U) | std::to_integer<uint32_t>(bytes[3]);
+  auto it = bytes.begin();
+  const uint32_t b0 = std::to_integer<uint32_t>(*it);
+  ++it;
+  const uint32_t b1 = std::to_integer<uint32_t>(*it);
+  ++it;
+  const uint32_t b2 = std::to_integer<uint32_t>(*it);
+  ++it;
+  const uint32_t b3 = std::to_integer<uint32_t>(*it);
+  return (b0 << 24U) | (b1 << 16U) | (b2 << 8U) | b3;
 }
 
 void store_be64(std::span<std::byte> out, uint64_t value) {
   for (size_t i = 0; i < out.size(); ++i) {
     const auto shift = static_cast<unsigned>((out.size() - 1U - i) * 8U);
-    out[i] = static_cast<std::byte>((value >> shift) & 0xffU);
+    *std::next(out.begin(), static_cast<std::ptrdiff_t>(i)) =
+        static_cast<std::byte>((value >> shift) & 0xffU);
   }
 }
 
@@ -40,7 +49,8 @@ std::string hex_digest(const std::array<uint32_t, 8>& state) {
   for (const uint32_t word : state) {
     for (int shift = 28; shift >= 0; shift -= 4) {
       const uint32_t nibble = (word >> static_cast<unsigned>(shift)) & 0x0fU;
-      out[pos++] = static_cast<char>(nibble < 10U ? ('0' + nibble) : ('a' + (nibble - 10U)));
+      out.at(pos) = static_cast<char>(nibble < 10U ? ('0' + nibble) : ('a' + (nibble - 10U)));
+      ++pos;
     }
   }
   return out;
@@ -67,7 +77,8 @@ void Sha256::update(const std::span<const std::byte> data) {
   size_t offset = 0;
   while (offset < data.size()) {
     const size_t take = std::min(buffer_.size() - buffer_size_, data.size() - offset);
-    std::ranges::copy(data.subspan(offset, take), buffer_.begin() + static_cast<std::ptrdiff_t>(buffer_size_));
+    std::ranges::copy(data.subspan(offset, take),
+                      std::next(buffer_.begin(), static_cast<std::ptrdiff_t>(buffer_size_)));
     buffer_size_ += take;
     offset += take;
     if (buffer_size_ == buffer_.size()) {
@@ -82,13 +93,18 @@ std::string Sha256::finish_hex() {
     return finished_hex_;
   }
 
-  buffer_[buffer_size_++] = std::byte{0x80};
+  buffer_.at(buffer_size_) = std::byte{0x80};
+  ++buffer_size_;
   if (buffer_size_ > 56U) {
-    std::ranges::fill(buffer_.begin() + static_cast<std::ptrdiff_t>(buffer_size_), buffer_.end(), std::byte{0});
+    std::ranges::fill(std::next(buffer_.begin(), static_cast<std::ptrdiff_t>(buffer_size_)),
+                      buffer_.end(),
+                      std::byte{0});
     transform(std::span<const std::byte, 64>{buffer_});
     buffer_size_ = 0;
   }
-  std::ranges::fill(buffer_.begin() + static_cast<std::ptrdiff_t>(buffer_size_), buffer_.begin() + 56, std::byte{0});
+  std::ranges::fill(std::next(buffer_.begin(), static_cast<std::ptrdiff_t>(buffer_size_)),
+                    std::next(buffer_.begin(), 56),
+                    std::byte{0});
   store_be64(std::span<std::byte>{buffer_}.last(8), bit_count_);
   transform(std::span<const std::byte, 64>{buffer_});
 
@@ -100,27 +116,29 @@ std::string Sha256::finish_hex() {
 void Sha256::transform(const std::span<const std::byte, 64> block) {
   std::array<uint32_t, 64> words {};
   for (size_t i = 0; i < 16U; ++i) {
-    words[i] = load_be32(block.subspan(i * 4U, 4U));
+    words.at(i) = load_be32(block.subspan(i * 4U, 4U));
   }
   for (size_t i = 16U; i < words.size(); ++i) {
-    const uint32_t s0 = std::rotr(words[i - 15U], 7U) ^ std::rotr(words[i - 15U], 18U) ^ (words[i - 15U] >> 3U);
-    const uint32_t s1 = std::rotr(words[i - 2U], 17U) ^ std::rotr(words[i - 2U], 19U) ^ (words[i - 2U] >> 10U);
-    words[i] = words[i - 16U] + s0 + words[i - 7U] + s1;
+    const uint32_t s0 =
+        std::rotr(words.at(i - 15U), 7U) ^ std::rotr(words.at(i - 15U), 18U) ^ (words.at(i - 15U) >> 3U);
+    const uint32_t s1 =
+        std::rotr(words.at(i - 2U), 17U) ^ std::rotr(words.at(i - 2U), 19U) ^ (words.at(i - 2U) >> 10U);
+    words.at(i) = words.at(i - 16U) + s0 + words.at(i - 7U) + s1;
   }
 
-  uint32_t a = state_[0];
-  uint32_t b = state_[1];
-  uint32_t c = state_[2];
-  uint32_t d = state_[3];
-  uint32_t e = state_[4];
-  uint32_t f = state_[5];
-  uint32_t g = state_[6];
-  uint32_t h = state_[7];
+  uint32_t a = state_.at(0);
+  uint32_t b = state_.at(1);
+  uint32_t c = state_.at(2);
+  uint32_t d = state_.at(3);
+  uint32_t e = state_.at(4);
+  uint32_t f = state_.at(5);
+  uint32_t g = state_.at(6);
+  uint32_t h = state_.at(7);
 
   for (size_t i = 0; i < words.size(); ++i) {
     const uint32_t sum1 = std::rotr(e, 6U) ^ std::rotr(e, 11U) ^ std::rotr(e, 25U);
     const uint32_t choose = (e & f) ^ (~e & g);
-    const uint32_t temp1 = h + sum1 + choose + kRoundConstants[i] + words[i];
+    const uint32_t temp1 = h + sum1 + choose + kRoundConstants.at(i) + words.at(i);
     const uint32_t sum0 = std::rotr(a, 2U) ^ std::rotr(a, 13U) ^ std::rotr(a, 22U);
     const uint32_t majority = (a & b) ^ (a & c) ^ (b & c);
     const uint32_t temp2 = sum0 + majority;
@@ -134,14 +152,14 @@ void Sha256::transform(const std::span<const std::byte, 64> block) {
     a = temp1 + temp2;
   }
 
-  state_[0] += a;
-  state_[1] += b;
-  state_[2] += c;
-  state_[3] += d;
-  state_[4] += e;
-  state_[5] += f;
-  state_[6] += g;
-  state_[7] += h;
+  state_.at(0) += a;
+  state_.at(1) += b;
+  state_.at(2) += c;
+  state_.at(3) += d;
+  state_.at(4) += e;
+  state_.at(5) += f;
+  state_.at(6) += g;
+  state_.at(7) += h;
 }
 
 }  // namespace biv::support

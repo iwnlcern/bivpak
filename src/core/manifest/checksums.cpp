@@ -27,7 +27,7 @@ expected<std::string> parse_string(simdjson::dom::element element, std::string_v
 
 bool starts_with_json_object(std::string_view text) {
   const auto pos = text.find_first_not_of(" \t\r\n");
-  return pos != std::string_view::npos && text[pos] == '{';
+  return pos != std::string_view::npos && text.at(pos) == '{';
 }
 
 }  // namespace
@@ -70,9 +70,9 @@ expected<Checksums> parse_checksums(const std::span<const std::byte> bytes) {
 
   try {
     std::string text;
-    text.resize(bytes.size());
-    for (size_t i = 0; i < bytes.size(); ++i) {
-      text[i] = static_cast<char>(bytes[i]);
+    text.reserve(bytes.size());
+    for (const std::byte byte : bytes) {
+      text.push_back(static_cast<char>(byte));
     }
     if (!starts_with_json_object(text)) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "root"});
@@ -92,13 +92,13 @@ expected<Checksums> parse_checksums(const std::span<const std::byte> bytes) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "root"});
     }
 
-    auto algo = parse_string(object["algo"], "algo");
+    auto algo = parse_string(object.at_key("algo"), "algo");
     if (!algo || *algo != "sha256") {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "algo"});
     }
 
     simdjson::dom::object entries_object;
-    if (const auto error = object["entries"].get(entries_object); error) {
+    if (const auto error = object.at_key("entries").get(entries_object); error) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "entries"});
     }
 

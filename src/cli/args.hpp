@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <span>
 
 #include "core/open/open.hpp"
 #include "core/support/error.hpp"
@@ -16,8 +17,8 @@ struct Command {
   biv::open::OpenOptions open_options;
 };
 
-bool contains_json(int argc, char* argv[]);
-expected<Command> parse_args(int argc, char* argv[]);
+bool contains_json(std::span<char* const> args);
+expected<Command> parse_args(std::span<char* const> args);
 const char* verb_name(Verb verb) noexcept;
 
 }  // namespace biv::cli

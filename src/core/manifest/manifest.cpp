@@ -21,7 +21,7 @@ namespace {
 
 expected<std::string> required_string(simdjson::dom::object object, std::string_view key) {
   std::string_view value;
-  const auto error = object[key].get(value);
+  const auto error = object.at_key(key).get(value);
   if (error) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{key}});
   }
@@ -30,7 +30,7 @@ expected<std::string> required_string(simdjson::dom::object object, std::string_
 
 expected<int> required_int(simdjson::dom::object object, std::string_view key) {
   int64_t value = 0;
-  const auto error = object[key].get(value);
+  const auto error = object.at_key(key).get(value);
   if (error) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{key}});
   }
@@ -40,7 +40,7 @@ expected<int> required_int(simdjson::dom::object object, std::string_view key) {
 expected<std::vector<std::string>> required_string_array(simdjson::dom::object object,
                                                          std::string_view key) {
   simdjson::dom::array array;
-  if (const auto error = object[key].get(array); error) {
+  if (const auto error = object.at_key(key).get(array); error) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{key}});
   }
   std::vector<std::string> out;
@@ -56,7 +56,7 @@ expected<std::vector<std::string>> required_string_array(simdjson::dom::object o
 
 expected<void> require_empty_array(simdjson::dom::object object, std::string_view key) {
   simdjson::dom::element element;
-  if (const auto error = object[key].get(element); error == simdjson::NO_SUCH_FIELD) {
+  if (const auto error = object.at_key(key).get(element); error == simdjson::NO_SUCH_FIELD) {
     return {};
   } else if (error) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{key}});
@@ -74,7 +74,7 @@ expected<void> require_empty_array(simdjson::dom::object object, std::string_vie
 
 bool starts_with_json_object(std::string_view text) {
   const auto pos = text.find_first_not_of(" \t\r\n");
-  return pos != std::string_view::npos && text[pos] == '{';
+  return pos != std::string_view::npos && text.at(pos) == '{';
 }
 
 }  // namespace
@@ -155,9 +155,9 @@ expected<Manifest> parse(const std::span<const std::byte> bytes) {
 
   try {
     std::string text;
-    text.resize(bytes.size());
-    for (size_t i = 0; i < bytes.size(); ++i) {
-      text[i] = static_cast<char>(bytes[i]);
+    text.reserve(bytes.size());
+    for (const std::byte byte : bytes) {
+      text.push_back(static_cast<char>(byte));
     }
     if (!starts_with_json_object(text)) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "root"});
@@ -209,7 +209,7 @@ expected<Manifest> parse(const std::span<const std::byte> bytes) {
     manifest.source_path_flavor = *flavor;
 
     simdjson::dom::object bivignore;
-    if (const auto error = object["bivignore"].get(bivignore); error) {
+    if (const auto error = object.at_key("bivignore").get(bivignore); error) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "bivignore"});
     }
     auto bivignore_source = required_string(bivignore, "source");
@@ -220,7 +220,7 @@ expected<Manifest> parse(const std::span<const std::byte> bytes) {
     manifest.bivignore.source = std::move(*bivignore_source);
     manifest.bivignore.sha256_hex = std::move(*bivignore_sha);
     simdjson::dom::element builtin_id;
-    if (const auto error = bivignore["builtin_id"].get(builtin_id); !error) {
+    if (const auto error = bivignore.at_key("builtin_id").get(builtin_id); !error) {
       if (builtin_id.is_null()) {
         manifest.bivignore.builtin_id = std::nullopt;
       } else {

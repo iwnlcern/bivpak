@@ -18,9 +18,9 @@ BivError usage(std::string_view detail) {
 
 }  // namespace
 
-bool contains_json(int argc, char* argv[]) {
-  for (int i = 1; i < argc; ++i) {
-    if (std::string_view{argv[i]} == "--json") {
+bool contains_json(std::span<char* const> args) {
+  for (char* arg : args.subspan(1)) {
+    if (std::string_view{arg} == "--json") {
       return true;
     }
   }
@@ -41,13 +41,13 @@ const char* verb_name(const Verb verb) noexcept {
   return "pack";
 }
 
-expected<Command> parse_args(int argc, char* argv[]) {
+expected<Command> parse_args(std::span<char* const> args) {
   Command command;
-  command.json = contains_json(argc, argv);
+  command.json = contains_json(args);
 
   std::vector<std::string_view> tokens;
-  for (int i = 1; i < argc; ++i) {
-    const std::string_view arg{argv[i]};
+  for (char* raw_arg : args.subspan(1)) {
+    const std::string_view arg{raw_arg};
     if (arg != "--json") {
       tokens.push_back(arg);
     }
@@ -61,13 +61,13 @@ expected<Command> parse_args(int argc, char* argv[]) {
     command.verb = Verb::pack;
     std::optional<std::filesystem::path> dir;
     for (size_t i = 1; i < tokens.size(); ++i) {
-      if (is_flag(tokens[i])) {
+      if (is_flag(tokens.at(i))) {
         return std::unexpected(usage("unknown-flag"));
       }
       if (dir.has_value()) {
         return std::unexpected(usage("too-many-args"));
       }
-      dir = std::filesystem::path{tokens[i]};
+      dir = std::filesystem::path{tokens.at(i)};
     }
     if (!dir.has_value()) {
       return std::unexpected(usage("missing-dir"));
@@ -82,12 +82,13 @@ expected<Command> parse_args(int argc, char* argv[]) {
     bool saw_rename = false;
     bool saw_abort = false;
     for (size_t i = 1; i < tokens.size(); ++i) {
-      const auto arg = tokens[i];
+      const auto arg = tokens.at(i);
       if (arg == "--dest") {
         if (i + 1U >= tokens.size()) {
           return std::unexpected(usage("missing-dest"));
         }
-        command.open_options.dest = std::filesystem::path{tokens[++i]};
+        ++i;
+        command.open_options.dest = std::filesystem::path{tokens.at(i)};
       } else if (arg == "--rename") {
         saw_rename = true;
         command.open_options.collision = biv::open::Collision::rename;

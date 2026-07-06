@@ -23,7 +23,7 @@ class Writer {
  private:
   enum class Kind { object, array };
   struct Frame {
-    Kind kind;
+    Kind kind{Kind::object};
     bool first{true};
     bool pending_key{false};
   };

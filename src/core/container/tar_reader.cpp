@@ -4,6 +4,7 @@
 #include <charconv>
 #include <cctype>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <string_view>
@@ -31,6 +32,10 @@ struct Pax {
   std::map<std::string, std::string> values;
 };
 
+struct ParseDetail {
+  std::string_view value;
+};
+
 bool is_zero_block(std::span<const std::byte> block) {
   return std::ranges::all_of(block, [](std::byte byte) { return byte == std::byte{0}; });
 }
@@ -54,7 +59,7 @@ expected<uint64_t> octal_field(std::span<const std::byte> field, std::string_vie
 
   size_t begin = 0;
   while (begin < field.size()) {
-    const char ch = static_cast<char>(field[begin]);
+    const char ch = static_cast<char>(*std::next(field.begin(), static_cast<std::ptrdiff_t>(begin)));
     if (ch != ' ' && ch != '\0') {
       break;
     }
@@ -62,7 +67,7 @@ expected<uint64_t> octal_field(std::span<const std::byte> field, std::string_vie
   }
   size_t end = field.size();
   while (end > begin) {
-    const char ch = static_cast<char>(field[end - 1U]);
+    const char ch = static_cast<char>(*std::next(field.begin(), static_cast<std::ptrdiff_t>(end - 1U)));
     if (ch != ' ' && ch != '\0') {
       break;
     }
@@ -71,7 +76,7 @@ expected<uint64_t> octal_field(std::span<const std::byte> field, std::string_vie
 
   uint64_t value = 0;
   for (size_t i = begin; i < end; ++i) {
-    const char ch = static_cast<char>(field[i]);
+    const char ch = static_cast<char>(*std::next(field.begin(), static_cast<std::ptrdiff_t>(i)));
     if (ch < '0' || ch > '7') {
       return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{detail} + "-octal"});
     }
@@ -90,7 +95,7 @@ expected<void> verify_checksum(std::span<const std::byte> block) {
     if (i >= 148U && i < 156U) {
       computed += static_cast<unsigned char>(' ');
     } else {
-      computed += std::to_integer<unsigned char>(block[i]);
+      computed += std::to_integer<unsigned char>(*std::next(block.begin(), static_cast<std::ptrdiff_t>(i)));
     }
   }
   if (*stored != computed) {
@@ -115,7 +120,7 @@ expected<Header> parse_header(std::span<const std::byte> block) {
   Header header;
   header.name = prefix.empty() ? name : prefix + "/" + name;
   header.linkname = text_field(block.subspan(157, 100));
-  header.typeflag = static_cast<char>(block[156]);
+  header.typeflag = static_cast<char>(*std::next(block.begin(), 156));
   if (header.typeflag == '\0') {
     header.typeflag = '0';
   }
@@ -138,8 +143,9 @@ expected<Pax> parse_pax(std::span<const std::byte> data) {
   size_t pos = 0;
   while (pos < data.size()) {
     size_t space = pos;
-    while (space < data.size() && static_cast<char>(data[space]) != ' ') {
-      const char ch = static_cast<char>(data[space]);
+    while (space < data.size() &&
+           static_cast<char>(*std::next(data.begin(), static_cast<std::ptrdiff_t>(space))) != ' ') {
+      const char ch = static_cast<char>(*std::next(data.begin(), static_cast<std::ptrdiff_t>(space)));
       if (ch < '0' || ch > '9') {
         return std::unexpected(BivError{ErrKind::ParseError, {}, "pax-length"});
       }
@@ -150,12 +156,13 @@ expected<Pax> parse_pax(std::span<const std::byte> data) {
     }
     size_t length = 0;
     const std::string length_text = text_field(data.subspan(pos, space - pos));
-    const auto [ptr, ec] = std::from_chars(length_text.data(), length_text.data() + length_text.size(), length);
-    if (ec != std::errc{} || ptr != length_text.data() + length_text.size() || length == 0U ||
+    const char* length_end = std::next(length_text.data(), static_cast<std::ptrdiff_t>(length_text.size()));
+    const auto [ptr, ec] = std::from_chars(length_text.data(), length_end, length);
+    if (ec != std::errc{} || ptr != length_end || length == 0U ||
         pos + length > data.size()) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "pax-length"});
     }
-    if (static_cast<char>(data[pos + length - 1U]) != '\n') {
+    if (static_cast<char>(*std::next(data.begin(), static_cast<std::ptrdiff_t>(pos + length - 1U))) != '\n') {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "pax-newline"});
     }
 
@@ -177,7 +184,7 @@ bool path_is_safe(std::string_view path) {
   if (path.empty() || path.front() == '/' || path.find('\\') != std::string_view::npos) {
     return false;
   }
-  if (path.size() >= 2U && std::isalpha(static_cast<unsigned char>(path[0])) != 0 && path[1] == ':') {
+  if (path.size() >= 2U && std::isalpha(static_cast<unsigned char>(path.front())) != 0 && path.at(1) == ':') {
     return false;
   }
 
@@ -203,11 +210,13 @@ bool path_is_safe(std::string_view path) {
   return true;
 }
 
-expected<uint64_t> parse_u64(std::string_view text, std::string_view detail) {
+expected<uint64_t> parse_u64(std::string_view text, ParseDetail detail) {
+  const std::string value_text{text};
   uint64_t value = 0;
-  const auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
-  if (ec != std::errc{} || ptr != text.data() + text.size()) {
-    return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{detail}});
+  const char* text_end = std::next(value_text.data(), static_cast<std::ptrdiff_t>(value_text.size()));
+  const auto [ptr, ec] = std::from_chars(value_text.data(), text_end, value);
+  if (ec != std::errc{} || ptr != text_end) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{detail.value}});
   }
   return value;
 }
@@ -220,7 +229,7 @@ expected<void> apply_pax(const Pax& pax, MemberMeta& meta) {
     meta.symlink_target = link->second;
   }
   if (const auto size = pax.values.find("size"); size != pax.values.end()) {
-    auto parsed = parse_u64(size->second, "pax-size");
+    auto parsed = parse_u64(size->second, ParseDetail{"pax-size"});
     if (!parsed) {
       return std::unexpected(parsed.error());
     }
@@ -229,7 +238,7 @@ expected<void> apply_pax(const Pax& pax, MemberMeta& meta) {
   if (const auto mtime = pax.values.find("mtime"); mtime != pax.values.end()) {
     const auto dot = mtime->second.find('.');
     const std::string_view seconds{mtime->second.data(), dot == std::string::npos ? mtime->second.size() : dot};
-    auto parsed_seconds = parse_u64(seconds, "pax-mtime");
+    auto parsed_seconds = parse_u64(seconds, ParseDetail{"pax-mtime"});
     if (!parsed_seconds) {
       return std::unexpected(parsed_seconds.error());
     }
@@ -242,7 +251,7 @@ expected<void> apply_pax(const Pax& pax, MemberMeta& meta) {
       while (ns.size() < 9U) {
         ns.push_back('0');
       }
-      auto parsed_ns = parse_u64(ns, "pax-mtime-ns");
+      auto parsed_ns = parse_u64(ns, ParseDetail{"pax-mtime-ns"});
       if (!parsed_ns || *parsed_ns > 999'999'999U) {
         return std::unexpected(BivError{ErrKind::ParseError, {}, "pax-mtime-ns"});
       }
@@ -268,13 +277,13 @@ expected<scan::NodeKind> kind_from_typeflag(char typeflag) {
 
 }  // namespace
 
-TarReader::TarReader(ZstdDecompressSource& source) : source_{source} {}
+TarReader::TarReader(ZstdDecompressSource& source) : source_{&source} {}
 
 expected<void> TarReader::ensure_loaded() {
   if (loaded_) {
     return {};
   }
-  auto bytes = source_.pull();
+  auto bytes = source_->pull();
   if (!bytes) {
     return std::unexpected(bytes.error());
   }
