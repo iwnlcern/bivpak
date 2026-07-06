@@ -28,6 +28,8 @@ FetchContent_MakeAvailable(simdjson zstd catch2)
 add_library(bivcore STATIC
   src/core/json/writer.cpp
   src/core/container/tar_writer.cpp
+  src/core/container/tar_reader.cpp
+  src/core/container/zstd_stream.cpp
   src/core/ignore/matcher.cpp
   src/core/manifest/checksums.cpp
   src/core/manifest/manifest.cpp
@@ -53,6 +55,7 @@ add_executable(biv_tests
   tests/test_scan.cpp
   tests/test_support.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_writer.cpp)
+target_sources(biv_tests PRIVATE tests/test_tar_reader.cpp)
 target_link_libraries(biv_tests PRIVATE bivcore Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 add_test(NAME biv_tests COMMAND biv_tests)
