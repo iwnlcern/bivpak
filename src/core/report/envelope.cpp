@@ -16,9 +16,34 @@ void write_warnings(json::Writer& writer, const std::vector<pack::Warning>& warn
     writer.begin_object();
     writer.key("kind");
     writer.value_string(warning.kind);
-    writer.key("path");
-    writer.value_string(warning.path);
+    if (!warning.path.empty()) {
+      writer.key("path");
+      writer.value_string(warning.path);
+    }
     writer.end_object();
+  }
+  writer.end_array();
+}
+
+void write_prune_entries(json::Writer& writer, const std::vector<scan::PruneEntry>& entries) {
+  writer.key("entries");
+  writer.begin_array();
+  for (const auto& entry : entries) {
+    writer.begin_object();
+    writer.key("path");
+    writer.value_string(entry.relpath);
+    writer.key("source");
+    writer.value_string(entry.source);
+    writer.end_object();
+  }
+  writer.end_array();
+}
+
+void write_paths(json::Writer& writer, const std::vector<std::string>& paths) {
+  writer.key("paths");
+  writer.begin_array();
+  for (const auto& path : paths) {
+    writer.value_string(path);
   }
   writer.end_array();
 }
@@ -30,23 +55,18 @@ void write_advisories(json::Writer& writer, const std::vector<pack::Advisory>& a
     writer.begin_object();
     writer.key("kind");
     writer.value_string(advisory.kind);
-    writer.key("entries");
-    writer.begin_array();
-    for (const auto& entry : advisory.entries) {
+    if (advisory.kind == "prune-summary") {
+      write_prune_entries(writer, advisory.entries);
+    } else if (advisory.kind == "credential-floor") {
+      writer.key("count");
+      writer.value_int(static_cast<int64_t>(advisory.paths.size()));
+      writer.key("rules");
       writer.begin_object();
-      writer.key("path");
-      writer.value_string(entry.relpath);
-      writer.key("source");
-      writer.value_string(entry.source);
       writer.end_object();
+      write_paths(writer, advisory.paths);
+    } else {
+      write_paths(writer, advisory.paths);
     }
-    writer.end_array();
-    writer.key("paths");
-    writer.begin_array();
-    for (const auto& path : advisory.paths) {
-      writer.value_string(path);
-    }
-    writer.end_array();
     writer.end_object();
   }
   writer.end_array();

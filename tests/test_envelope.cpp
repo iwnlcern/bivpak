@@ -9,6 +9,20 @@
 #include "core/report/envelope.hpp"
 #include "core/report/exit_map.hpp"
 
+namespace {
+
+size_t count_occurrences(std::string_view text, std::string_view needle) {
+  size_t count = 0;
+  size_t pos = 0;
+  while ((pos = text.find(needle, pos)) != std::string_view::npos) {
+    ++count;
+    pos += needle.size();
+  }
+  return count;
+}
+
+}  // namespace
+
 TEST_CASE("exit map classifies refusal, mid-fail, and usage") {
   CHECK(biv::report::exit_for_error(biv::ErrKind::PartialPresent) == 3);
   CHECK(biv::report::exit_for_error(biv::ErrKind::IntegrityFailurePreApply) == 3);
@@ -43,6 +57,34 @@ TEST_CASE("pack success envelope includes advisories") {
   CHECK(json.find("\"error\": null") != std::string::npos);
 }
 
+TEST_CASE("pack envelope uses per-kind advisory shapes") {
+  biv::pack::PackReport report;
+  report.image_path = "/tmp/sample.bvpk";
+  report.source_path = "/tmp/sample";
+  report.image_id = "00000000-0000-4000-8000-000000000000";
+  report.member_count = 2;
+  report.payload_bytes = 5;
+  report.advisories.push_back(biv::pack::Advisory{
+      .kind = "prune-summary",
+      .entries = {biv::scan::PruneEntry{.relpath = "target", .source = ".bivignore:1"}},
+      .paths = {}});
+  report.advisories.push_back(biv::pack::Advisory{
+      .kind = "nested-bivignore-ignored",
+      .entries = {},
+      .paths = {"dir/.bivignore"}});
+
+  const auto json = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 0);
+  const auto prune_pos = json.find("\"kind\": \"prune-summary\"");
+  REQUIRE(prune_pos != std::string::npos);
+  CHECK(json.find("\"entries\"", prune_pos) != std::string::npos);
+  CHECK(json.find("\"paths\": []", prune_pos) == std::string::npos);
+
+  const auto nested_pos = json.find("\"kind\": \"nested-bivignore-ignored\"");
+  REQUIRE(nested_pos != std::string::npos);
+  CHECK(json.find("\"paths\"", nested_pos) != std::string::npos);
+  CHECK(json.find("\"entries\": []", nested_pos) == std::string::npos);
+}
+
 TEST_CASE("error envelope carries failure facts in result") {
   biv::BivError error{biv::ErrKind::PartialPresent};
   error.facts["partial_path"] = "/tmp/sample.bvpk.partial";
@@ -60,42 +102,56 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
   std::ifstream exit_map{std::string{BIV_SOURCE_DIR} + "/schemas/biv-exit-map.v1.json"};
   REQUIRE(exit_map);
   const std::string exit_text{std::istreambuf_iterator<char>{exit_map}, std::istreambuf_iterator<char>{}};
-  const std::vector<std::pair<biv::ErrKind, std::string_view>> rows{
-      {biv::ErrKind::SourceUnreadableRoot, "SourceUnreadableRoot"},
-      {biv::ErrKind::RepoDiscoveredUnsupported, "RepoDiscoveredUnsupported"},
-      {biv::ErrKind::OutputInsideSource, "OutputInsideSource"},
-      {biv::ErrKind::PartialPresent, "PartialPresent"},
-      {biv::ErrKind::ArchiveWriteFailed, "ArchiveWriteFailed"},
-      {biv::ErrKind::NotABivpakImage, "NotABivpakImage"},
-      {biv::ErrKind::ImageUnreadable, "ImageUnreadable"},
-      {biv::ErrKind::FormatVersionUnsupported, "FormatVersionUnsupported"},
-      {biv::ErrKind::UnknownRequiredCapability, "UnknownRequiredCapability"},
-      {biv::ErrKind::IntegrityFailurePreApply, "IntegrityFailurePreApply"},
-      {biv::ErrKind::UnmanifestedMember, "UnmanifestedMember"},
-      {biv::ErrKind::MemberPathUnsafe, "MemberPathUnsafe"},
-      {biv::ErrKind::CollisionRefused, "CollisionRefused"},
-      {biv::ErrKind::OpenPartialPresent, "OpenPartialPresent"},
-      {biv::ErrKind::IntegrityFailureMidApply, "IntegrityFailureMidApply"},
-      {biv::ErrKind::RestoreWriteFailed, "RestoreWriteFailed"},
-      {biv::ErrKind::InternalError, "InternalError"},
-      {biv::ErrKind::UsageError, "UsageError"},
-      {biv::ErrKind::ParseError, "ParseError"}};
-  for (const auto& [kind, name] : rows) {
-    const std::string needle = "\"kind\": \"" + std::string{name} + "\"";
-    INFO(name);
+  struct ExpectedRow {
+    std::string_view kind;
+    std::string_view klass;
+    int exit;
+  };
+  const std::vector<ExpectedRow> rows{
+      {"SourceUnreadableRoot", "refusal", biv::report::exit_for_error(biv::ErrKind::SourceUnreadableRoot)},
+      {"RepoDiscoveredUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::RepoDiscoveredUnsupported)},
+      {"OutputInsideSource", "refusal", biv::report::exit_for_error(biv::ErrKind::OutputInsideSource)},
+      {"PartialPresent", "refusal", biv::report::exit_for_error(biv::ErrKind::PartialPresent)},
+      {"SourceUnreadableSubpath", "divergence", biv::report::exit_for_warnings(true)},
+      {"UnsupportedFileTypeSkipped", "divergence", biv::report::exit_for_warnings(true)},
+      {"CredentialFloorExcluded", "advisory", 0},
+      {"ArchiveWriteFailed", "mid-fail", biv::report::exit_for_error(biv::ErrKind::ArchiveWriteFailed)},
+      {"NotABivpakImage", "refusal", biv::report::exit_for_error(biv::ErrKind::NotABivpakImage)},
+      {"ImageUnreadable", "refusal", biv::report::exit_for_error(biv::ErrKind::ImageUnreadable)},
+      {"FormatVersionUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::FormatVersionUnsupported)},
+      {"UnknownRequiredCapability", "refusal", biv::report::exit_for_error(biv::ErrKind::UnknownRequiredCapability)},
+      {"IntegrityFailurePreApply", "refusal", biv::report::exit_for_error(biv::ErrKind::IntegrityFailurePreApply)},
+      {"UnmanifestedMember", "refusal", biv::report::exit_for_error(biv::ErrKind::UnmanifestedMember)},
+      {"MemberPathUnsafe", "refusal", biv::report::exit_for_error(biv::ErrKind::MemberPathUnsafe)},
+      {"CollisionRefused", "refusal", biv::report::exit_for_error(biv::ErrKind::CollisionRefused)},
+      {"OpenPartialPresent", "refusal", biv::report::exit_for_error(biv::ErrKind::OpenPartialPresent)},
+      {"IntegrityFailureMidApply", "mid-fail", biv::report::exit_for_error(biv::ErrKind::IntegrityFailureMidApply)},
+      {"RestoreWriteFailed", "mid-fail", biv::report::exit_for_error(biv::ErrKind::RestoreWriteFailed)},
+      {"InternalError", "mid-fail", biv::report::exit_for_error(biv::ErrKind::InternalError)},
+      {"UsageError", "usage", biv::report::exit_for_error(biv::ErrKind::UsageError)}};
+  for (const auto& row : rows) {
+    const std::string needle = "\"kind\": \"" + std::string{row.kind} + "\"";
+    INFO(row.kind);
     CHECK(exit_text.find(needle) != std::string::npos);
-    CHECK(exit_text.find("\"exit\": " + std::to_string(biv::report::exit_for_error(kind)),
-                         exit_text.find(needle)) != std::string::npos);
+    CHECK(exit_text.find("\"class\": \"" + std::string{row.klass} + "\"", exit_text.find(needle)) !=
+          std::string::npos);
+    CHECK(exit_text.find("\"exit\": " + std::to_string(row.exit), exit_text.find(needle)) != std::string::npos);
   }
+  CHECK(count_occurrences(exit_text, "\"kind\": \"") == rows.size());
+  CHECK(exit_text.find("\"kind\": \"ParseError\"") == std::string::npos);
   CHECK(exit_text.find("\"RepoDiscoveredUnsupported\", \"class\": \"refusal\", \"exit\": 3, \"transitional\": true") !=
         std::string::npos);
   CHECK(exit_text.find("NotYetImplemented") != std::string::npos);
-  CHECK(exit_text.find("CredentialFloorExcluded") != std::string::npos);
 
   std::ifstream envelope{std::string{BIV_SOURCE_DIR} + "/schemas/biv-json-envelope.v1.schema.json"};
   REQUIRE(envelope);
   const std::string envelope_text{std::istreambuf_iterator<char>{envelope}, std::istreambuf_iterator<char>{}};
   CHECK(envelope_text.find("prune-summary") != std::string::npos);
+  CHECK(envelope_text.find("credential-floor") != std::string::npos);
+  CHECK(envelope_text.find("\"count\"") != std::string::npos);
+  CHECK(envelope_text.find("\"rules\"") != std::string::npos);
+  CHECK(envelope_text.find("\"detail\"") != std::string::npos);
+  CHECK(envelope_text.find("\"refused\"") != std::string::npos);
   CHECK(envelope_text.find("exit_code") != std::string::npos);
   CHECK(envelope_text.find("partial_dir") != std::string::npos);
 }

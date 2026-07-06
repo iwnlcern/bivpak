@@ -155,6 +155,15 @@ expected<void> drain_member(container::TarReader& reader) {
   }
 }
 
+expected<void> drain_member_midapply(container::TarReader& reader, std::string_view path) {
+  auto ok = drain_member(reader);
+  if (!ok) {
+    return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, std::string{path}, ok.error().detail,
+                                    ok.error().err_no, ok.error().facts});
+  }
+  return {};
+}
+
 expected<container::RMember> require_member(container::TarReader& reader, std::string_view path) {
   auto next = reader.next();
   if (!next) {
@@ -418,7 +427,7 @@ expected<void> apply_member(container::TarReader& reader,
       }
       dirs.push_back(meta);
       created.emplace(rel, meta.kind);
-      return {};
+      return drain_member_midapply(reader, meta.path);
     case scan::NodeKind::file:
       if (auto ok = write_file_stream(*out_path, reader, meta); !ok) {
         return ok;
@@ -430,7 +439,7 @@ expected<void> apply_member(container::TarReader& reader,
         return ok;
       }
       created.emplace(rel, meta.kind);
-      return {};
+      return drain_member_midapply(reader, meta.path);
     case scan::NodeKind::symlink:
       std::filesystem::create_symlink(meta.symlink_target, *out_path, ec);
       if (ec) {
@@ -449,7 +458,8 @@ expected<void> apply_member(container::TarReader& reader,
 expected<uint64_t> apply_archive(const std::filesystem::path& image,
                                  const ArchivePlan& plan,
                                  const std::filesystem::path& partial_dir,
-                                 std::vector<container::MemberMeta>& dirs) {
+                                 std::vector<container::MemberMeta>& dirs,
+                                 bool verify) {
   return with_tar_reader(image, [&](container::TarReader& reader) -> expected<uint64_t> {
     auto manifest_member = require_member(reader, "manifest.json");
     if (!manifest_member) {
@@ -487,6 +497,10 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
       auto ok = apply_member(reader, next->value().meta, partial_dir, dirs, created);
       if (!ok) {
         return std::unexpected(ok.error());
+      }
+      const auto extent = reader.extent_sha256_hex();
+      if (verify && plan.checksums.entries.at(next->value().meta.path) != extent) {
+        return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, next->value().meta.path, "checksum"});
       }
       ++restored;
       ++index;
@@ -534,7 +548,7 @@ expected<OpenReport> open_impl(const OpenOptions& options) {
   }
 
   std::vector<container::MemberMeta> dirs;
-  auto restored = apply_archive(options.image, *plan, partial_dir, dirs);
+  auto restored = apply_archive(options.image, *plan, partial_dir, dirs, options.verify);
   if (!restored) {
     return std::unexpected(with_partial_dir(restored.error(), partial_dir));
   }

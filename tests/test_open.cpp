@@ -1,11 +1,16 @@
 #include <cstddef>
+#include <chrono>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <catch2/catch_test_macros.hpp>
@@ -121,6 +126,37 @@ void write_bivpak(const std::filesystem::path& image,
   }
   REQUIRE(writer.finish());
   REQUIRE(zstd.finish());
+}
+
+std::string payload_extent_digest(const biv::container::MemberMeta& meta, const std::vector<std::byte>& data) {
+  biv::container::TarWriter writer{[](std::span<const std::byte>) -> biv::expected<void> { return {}; }};
+  REQUIRE(writer.begin_member(meta));
+  if (!data.empty()) {
+    REQUIRE(writer.write_data(data));
+  }
+  auto digest = writer.end_member();
+  REQUIRE(digest.has_value());
+  return *digest;
+}
+
+std::string read_binary_or_throw(const std::filesystem::path& source) {
+  std::ifstream in{source, std::ios::binary};
+  if (!in) {
+    throw std::runtime_error("source-open");
+  }
+  return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+}
+
+void copy_file_to_fifo(const std::filesystem::path& source, const std::filesystem::path& fifo) {
+  const auto bytes_to_write = read_binary_or_throw(source);
+  std::ofstream out{fifo, std::ios::binary};
+  if (!out) {
+    throw std::runtime_error("fifo-open");
+  }
+  out.write(bytes_to_write.data(), static_cast<std::streamsize>(bytes_to_write.size()));
+  if (!out) {
+    throw std::runtime_error("fifo-write");
+  }
 }
 
 }  // namespace
@@ -256,6 +292,53 @@ TEST_CASE("open verify rejects checksum mismatches before apply") {
   REQUIRE_FALSE(opened.has_value());
   CHECK(opened.error().kind == biv::ErrKind::IntegrityFailurePreApply);
   CHECK_FALSE(std::filesystem::exists(root / "restore"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open verify rechecks payload digest during apply pass") {
+  const auto root = make_tmp("verify-apply");
+  const auto good_image = root / "good.bvpk";
+  const auto bad_image = root / "bad.bvpk";
+  const auto fifo_image = root / "stream.bvpk";
+  const auto dest = root / "restore";
+
+  const biv::container::MemberMeta meta{.path = "payload/file.txt",
+                                        .kind = biv::scan::NodeKind::file,
+                                        .mode = 0644,
+                                        .mtime_s = 1,
+                                        .mtime_ns = 0,
+                                        .size = 5,
+                                        .symlink_target = {}};
+  const auto good_payload = bytes("hello");
+  const auto bad_payload = bytes("HELLO");
+  biv::manifest::Checksums checksums;
+  checksums.entries[meta.path] = payload_extent_digest(meta, good_payload);
+  write_bivpak(good_image, manifest_model(), checksums, {MemberFixture{.meta = meta, .data = good_payload}});
+  write_bivpak(bad_image, manifest_model(), checksums, {MemberFixture{.meta = meta, .data = bad_payload}});
+  REQUIRE(::mkfifo(fifo_image.c_str(), 0600) == 0);
+
+  std::exception_ptr writer_error;
+  std::thread writer{[&]() {
+    try {
+      copy_file_to_fifo(good_image, fifo_image);
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      copy_file_to_fifo(bad_image, fifo_image);
+    } catch (...) {
+      writer_error = std::current_exception();
+    }
+  }};
+
+  auto opened = biv::open::open(biv::open::OpenOptions{.image = fifo_image, .dest = dest, .verify = true});
+  writer.join();
+  if (writer_error) {
+    std::rethrow_exception(writer_error);
+  }
+
+  REQUIRE_FALSE(opened.has_value());
+  CHECK(opened.error().kind == biv::ErrKind::IntegrityFailureMidApply);
+  CHECK(opened.error().path == "payload/file.txt");
+  CHECK(std::filesystem::exists(root / "restore.bvpk-open.partial"));
+  CHECK_FALSE(std::filesystem::exists(dest));
   std::filesystem::remove_all(root);
 }
 

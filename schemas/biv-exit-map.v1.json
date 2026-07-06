@@ -5,6 +5,9 @@
     {"kind": "RepoDiscoveredUnsupported", "class": "refusal", "exit": 3, "transitional": true},
     {"kind": "OutputInsideSource", "class": "refusal", "exit": 3},
     {"kind": "PartialPresent", "class": "refusal", "exit": 3},
+    {"kind": "SourceUnreadableSubpath", "class": "divergence", "exit": 2, "transitional": true},
+    {"kind": "UnsupportedFileTypeSkipped", "class": "divergence", "exit": 2, "transitional": true},
+    {"kind": "CredentialFloorExcluded", "class": "advisory", "exit": 0, "pending": "U1", "transitional": true},
     {"kind": "ArchiveWriteFailed", "class": "mid-fail", "exit": 4},
     {"kind": "NotABivpakImage", "class": "refusal", "exit": 3},
     {"kind": "ImageUnreadable", "class": "refusal", "exit": 3},
@@ -18,8 +21,6 @@
     {"kind": "IntegrityFailureMidApply", "class": "mid-fail", "exit": 4},
     {"kind": "RestoreWriteFailed", "class": "mid-fail", "exit": 4},
     {"kind": "InternalError", "class": "mid-fail", "exit": 4},
-    {"kind": "UsageError", "class": "usage", "exit": 5, "transitional": true, "note": "Reserved verbs list/info return UsageError with NotYetImplemented detail until implemented."},
-    {"kind": "ParseError", "class": "mid-fail", "exit": 4},
-    {"kind": "CredentialFloorExcluded", "class": "advisory", "exit": 0, "pending": "U1", "transitional": true}
+    {"kind": "UsageError", "class": "usage", "exit": 5, "transitional": true, "note": "Reserved verbs list/info return UsageError with NotYetImplemented detail until implemented."}
   ]
 }
