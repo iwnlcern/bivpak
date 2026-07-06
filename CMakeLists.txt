@@ -44,7 +44,7 @@ target_include_directories(bivcore PUBLIC src)
 target_link_libraries(bivcore PUBLIC simdjson libzstd_static)
 target_compile_options(bivcore PRIVATE -Wall -Wextra -Werror)
 
-add_executable(biv src/cli/main.cpp)
+add_executable(biv src/cli/main.cpp src/cli/args.cpp)
 target_link_libraries(biv PRIVATE bivcore)
 target_compile_options(biv PRIVATE -Wall -Wextra -Werror)
 
@@ -62,7 +62,10 @@ target_sources(biv_tests PRIVATE tests/test_tar_reader.cpp)
 target_sources(biv_tests PRIVATE tests/test_pack.cpp)
 target_sources(biv_tests PRIVATE tests/test_open.cpp)
 target_sources(biv_tests PRIVATE tests/test_envelope.cpp)
+target_sources(biv_tests PRIVATE tests/test_cli.cpp)
 target_link_libraries(biv_tests PRIVATE bivcore Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
-target_compile_definitions(biv_tests PRIVATE BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(biv_tests PRIVATE
+  BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+  BIV_BINARY_PATH="$<TARGET_FILE:biv>")
 add_test(NAME biv_tests COMMAND biv_tests)
