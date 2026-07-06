@@ -56,6 +56,7 @@ TEST_CASE("root .bivignore prunes directories and records file provenance") {
   REQUIRE(result.has_value());
   REQUIRE(result->bivignore.source == "file");
   REQUIRE_FALSE(result->bivignore.builtin_id.has_value());
+  REQUIRE(result->bivignore.sha256_hex == "4d56952b0fb13bf8f9b6c13a6d4c34a075bac3af447636a1df4335d7576e2f97");
   REQUIRE(result->pruned.size() == 1);
   REQUIRE(result->pruned[0].relpath == "node_modules");
   REQUIRE(result->pruned[0].source == ".bivignore:1");

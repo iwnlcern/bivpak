@@ -12,6 +12,7 @@
 
 #include "core/ignore/builtin.hpp"
 #include "core/ignore/matcher.hpp"
+#include "core/support/sha256.hpp"
 
 namespace biv::scan {
 
@@ -207,10 +208,12 @@ expected<ScanResult> scan(const std::filesystem::path& source_root) {
       return std::unexpected(compiled.error());
     }
     matcher = std::move(*compiled);
+    support::Sha256 sha;
+    sha.update(std::as_bytes(std::span<const char>{bytes->data(), bytes->size()}));
     result.bivignore = manifest::BivignoreProvenance{
         .source = "file",
         .builtin_id = std::nullopt,
-        .sha256_hex = {},
+        .sha256_hex = sha.finish_hex(),
     };
   } else {
     auto compiled = ignore::Matcher::compile(ignore::kBuiltinV1, true);
