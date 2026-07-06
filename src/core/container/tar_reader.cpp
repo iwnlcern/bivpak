@@ -213,7 +213,7 @@ bool path_is_safe(std::string_view path) {
     const auto segment = slash == std::string_view::npos
                              ? path.substr(segment_start)
                              : path.substr(segment_start, slash - segment_start);
-    if (segment == "..") {
+    if (segment.empty() || segment == "." || segment == "..") {
       return false;
     }
     for (const char ch : segment) {

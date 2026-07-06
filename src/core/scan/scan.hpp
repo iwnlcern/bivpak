@@ -2,9 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <optional>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "core/manifest/manifest.hpp"
@@ -37,8 +35,6 @@ struct ScanResult {
   std::vector<std::string> unreadable;
   manifest::BivignoreProvenance bivignore;
 };
-
-using FloorHook = std::optional<std::string> (*)(const std::filesystem::path& abs, std::string_view rel);
 
 expected<ScanResult> scan(const std::filesystem::path& source_root);
 

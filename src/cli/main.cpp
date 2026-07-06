@@ -46,7 +46,7 @@ std::filesystem::path default_dest_for(const std::filesystem::path& image) {
 
 void maybe_prompt_collision(biv::open::OpenOptions& options, bool json) {
   if (json || options.collision != biv::open::Collision::refuse ||
-      ::isatty(STDIN_FILENO) == 0 || ::isatty(STDOUT_FILENO) == 0) {
+      ::isatty(STDIN_FILENO) == 0 || ::isatty(STDERR_FILENO) == 0) {
     return;
   }
   const auto dest = options.dest.value_or(default_dest_for(options.image)).lexically_normal();
@@ -55,7 +55,7 @@ void maybe_prompt_collision(biv::open::OpenOptions& options, bool json) {
     return;
   }
 
-  std::cout << "destination exists: " << dest.generic_string() << "\n[r]ename/[a]bort? " << std::flush;
+  std::cerr << "destination exists: " << dest.generic_string() << "\n[r]ename/[a]bort? " << std::flush;
   char choice = '\0';
   if (!(std::cin >> choice)) {
     options.collision = biv::open::Collision::abort_preset;

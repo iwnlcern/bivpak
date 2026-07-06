@@ -192,35 +192,39 @@ TEST_CASE("zstd checksum corruption returns typed error") {
 }
 
 TEST_CASE("tar reader refuses unsafe member paths") {
-  std::vector<std::byte> raw;
-  biv::container::TarWriter writer{[&](std::span<const std::byte> chunk) -> biv::expected<void> {
-    raw.insert(raw.end(), chunk.begin(), chunk.end());
-    return {};
-  }};
-  REQUIRE(writer.begin_member(biv::container::MemberMeta{
-      .path = "../evil",
-      .kind = biv::scan::NodeKind::file,
-      .mode = 0644,
-      .mtime_s = 1,
-      .mtime_ns = 0,
-      .size = 0,
-      .symlink_target = {}}));
-  REQUIRE(writer.end_member());
-  REQUIRE(writer.finish());
-  const auto compressed = compress_raw(raw);
+  const std::vector<std::string> unsafe_paths{"../evil", ".", "a/./b", "a//b", "a/"};
+  for (const auto& path : unsafe_paths) {
+    CAPTURE(path);
+    std::vector<std::byte> raw;
+    biv::container::TarWriter writer{[&](std::span<const std::byte> chunk) -> biv::expected<void> {
+      raw.insert(raw.end(), chunk.begin(), chunk.end());
+      return {};
+    }};
+    REQUIRE(writer.begin_member(biv::container::MemberMeta{
+        .path = path,
+        .kind = biv::scan::NodeKind::file,
+        .mode = 0644,
+        .mtime_s = 1,
+        .mtime_ns = 0,
+        .size = 0,
+        .symlink_target = {}}));
+    REQUIRE(writer.end_member());
+    REQUIRE(writer.finish());
+    const auto compressed = compress_raw(raw);
 
-  bool served = false;
-  biv::container::ZstdDecompressSource source{[&]() -> biv::expected<std::span<const std::byte>> {
-    if (served) {
-      return std::span<const std::byte>{};
-    }
-    served = true;
-    return std::span<const std::byte>{compressed};
-  }};
-  biv::container::TarReader reader{source};
-  auto next = reader.next();
-  REQUIRE_FALSE(next.has_value());
-  CHECK(next.error().kind == biv::ErrKind::MemberPathUnsafe);
+    bool served = false;
+    biv::container::ZstdDecompressSource source{[&]() -> biv::expected<std::span<const std::byte>> {
+      if (served) {
+        return std::span<const std::byte>{};
+      }
+      served = true;
+      return std::span<const std::byte>{compressed};
+    }};
+    biv::container::TarReader reader{source};
+    auto next = reader.next();
+    REQUIRE_FALSE(next.has_value());
+    CHECK(next.error().kind == biv::ErrKind::MemberPathUnsafe);
+  }
 }
 
 TEST_CASE("tar reader refuses GNU long-name typeflag") {
