@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rows": [
+    {"name": "file-bytes", "policy": "exact", "reachable": true},
+    {"name": "file-mode", "policy": "exact", "reachable": true},
+    {"name": "dir-mode", "policy": "exact", "reachable": true},
+    {"name": "symlink-target", "policy": "exact", "reachable": true},
+    {"name": "file-mtime", "policy": "exact-ns", "reachable": true},
+    {"name": "dir-mtime", "policy": "exact-ns", "reachable": true},
+    {"name": "ownership", "policy": "ignore", "reachable": true},
+    {"name": "git-object-id", "policy": "future-step", "reachable": false},
+    {"name": "git-index", "policy": "future-step", "reachable": false},
+    {"name": "git-remote-config", "policy": "future-step", "reachable": false}
+  ]
+}

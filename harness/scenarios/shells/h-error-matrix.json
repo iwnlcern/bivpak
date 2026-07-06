@@ -1,0 +1,8 @@
+{
+  "id": "h-error-matrix",
+  "tier": "pending",
+  "status": "xfail-pending",
+  "classes": ["H", "K"],
+  "steps": [],
+  "dor_pointers": ["m3-addendum-1 A1.2 P-1..P-5", "F57", "FXA-F56"]
+}

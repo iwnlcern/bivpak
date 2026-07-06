@@ -1,0 +1,44 @@
+{
+  "id": "plain-dir-v1",
+  "tier": "E2",
+  "classes": ["A", "B", "C", "E", "K"],
+  "fixture": {
+    "entries": [
+      {"type": "file", "path": ".bivignore", "text": "secret.log\ncache/\n"},
+      {"type": "file", "path": "hello.txt", "text": "hello\n"},
+      {"type": "file", "path": "bin.dat", "bytes_b64": "AAECAwQ="},
+      {"type": "file", "path": "crlf.txt", "text": "a\r\nb\r\n"},
+      {"type": "file", "path": "tools/run.sh", "text": "#!/bin/sh\necho run\n", "mode": "0751"},
+      {"type": "file", "path": "sub/target.txt", "text": "target\n"},
+      {"type": "symlink", "path": "link", "target": "sub/target.txt"},
+      {"type": "file", "path": "nested/a/b/c.txt", "text": "deep\n"},
+      {"type": "dir", "path": "empty"},
+      {"type": "file", "path": "secret.log", "text": "do not pack\n"},
+      {"type": "file", "path": "cache/junk.tmp", "text": "cache\n"}
+    ]
+  },
+  "steps": [{"op": "pack"}, {"op": "open"}],
+  "expect": {
+    "tree": true,
+    "members_present": [
+      "manifest.json",
+      "checksums.json",
+      "payload/.bivignore",
+      "payload/hello.txt",
+      "payload/bin.dat",
+      "payload/crlf.txt",
+      "payload/tools/run.sh",
+      "payload/sub/target.txt",
+      "payload/link",
+      "payload/nested/a/b/c.txt",
+      "payload/empty"
+    ],
+    "members_absent": ["payload/secret.log", "payload/cache", "payload/cache/junk.tmp"],
+    "manifest_variant": "file",
+    "prune_summary": [
+      {"path": "secret.log", "source": ".bivignore:1"},
+      {"path": "cache", "source": ".bivignore:2"}
+    ]
+  },
+  "held": []
+}

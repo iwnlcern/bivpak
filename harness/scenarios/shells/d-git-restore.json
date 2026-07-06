@@ -1,0 +1,8 @@
+{
+  "id": "d-git-restore",
+  "tier": "pending",
+  "status": "xfail-pending",
+  "classes": ["D", "K"],
+  "steps": [],
+  "dor_pointers": ["m-1 §5 git restore rows"]
+}

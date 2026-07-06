@@ -1,0 +1,8 @@
+{
+  "id": "f-adapters-identity",
+  "tier": "pending",
+  "status": "xfail-pending",
+  "classes": ["F", "K"],
+  "steps": [],
+  "dor_pointers": ["post-M15 memoryless adapter identity; no registry or echo rows"]
+}

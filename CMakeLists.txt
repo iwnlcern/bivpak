@@ -141,3 +141,5 @@ if(BIV_ENABLE_FUZZ)
     -fsanitize=address,undefined -fsanitize=fuzzer-no-link -fno-omit-frame-pointer)
   target_link_options(fuzz_tar_member PRIVATE -fsanitize=address,undefined)
 endif()
+
+add_subdirectory(harness)

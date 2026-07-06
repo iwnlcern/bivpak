@@ -1,0 +1,19 @@
+{
+  "id": "fv99",
+  "tier": "E2",
+  "classes": ["E", "K"],
+  "fixture": {
+    "entries": [
+      {"type": "file", "path": ".bivignore", "text": "secret.log\n"},
+      {"type": "file", "path": "keep.txt", "text": "keep\n"},
+      {"type": "file", "path": "secret.log", "text": "ignored\n"}
+    ]
+  },
+  "steps": [{"op": "pack"}, {"op": "synthesize-fv99"}, {"op": "open"}],
+  "expect": {
+    "refusal": true,
+    "exit": 3,
+    "error_kind": "FormatVersionUnsupported"
+  },
+  "held": []
+}

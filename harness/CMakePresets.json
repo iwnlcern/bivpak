@@ -1,0 +1,23 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "selftest",
+      "binaryDir": "${sourceDir}/build/selftest",
+      "cacheVariables": {
+        "BIVHARNESS_PYTHON": "${sourceDir}/../.venv-harness/bin/python3"
+      }
+    }
+  ],
+  "buildPresets": [
+    {"name": "selftest", "configurePreset": "selftest"}
+  ],
+  "testPresets": [
+    {
+      "name": "selftest",
+      "configurePreset": "selftest",
+      "output": {"outputOnFailure": true},
+      "filter": {"include": {"name": "harness-selftest"}}
+    }
+  ]
+}

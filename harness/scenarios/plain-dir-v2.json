@@ -1,0 +1,30 @@
+{
+  "id": "plain-dir-v2",
+  "tier": "E2",
+  "classes": ["A", "B", "C", "E", "K"],
+  "fixture": {
+    "entries": [
+      {"type": "file", "path": "app/main.js", "text": "console.log('ok');\n"},
+      {"type": "file", "path": "README.md", "text": "plain dir v2\n"},
+      {"type": "dir", "path": "empty"},
+      {"type": "file", "path": "node_modules/junk.js", "text": "ignored\n"}
+    ]
+  },
+  "steps": [{"op": "pack"}, {"op": "open"}],
+  "expect": {
+    "tree": true,
+    "members_present": [
+      "manifest.json",
+      "checksums.json",
+      "payload/app/main.js",
+      "payload/README.md",
+      "payload/empty"
+    ],
+    "members_absent": ["payload/node_modules", "payload/node_modules/junk.js"],
+    "manifest_variant": "builtin",
+    "prune_summary": [
+      {"path": "node_modules", "source": "builtin-v1"}
+    ]
+  },
+  "held": []
+}

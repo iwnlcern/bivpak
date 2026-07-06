@@ -1,0 +1,8 @@
+{
+  "id": "g-consent-dna",
+  "tier": "pending",
+  "status": "xfail-pending",
+  "classes": ["G", "K"],
+  "steps": [],
+  "dor_pointers": ["R-s2-4/U1 pending", "consent-DNA inventory"]
+}
