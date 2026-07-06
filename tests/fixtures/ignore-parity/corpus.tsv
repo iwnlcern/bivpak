@@ -1,0 +1,3 @@
+pattern-file-hash	path	is_dir	verdict	source-line
+builtin-v1	target	true	ignored	builtin-v1
+builtin-v1	src/main.cpp	false	kept	
