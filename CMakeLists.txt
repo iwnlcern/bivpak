@@ -25,6 +25,8 @@ FetchContent_Declare(catch2
 
 FetchContent_MakeAvailable(simdjson zstd catch2)
 
+option(BIV_ENABLE_FUZZ "Build libFuzzer targets" OFF)
+
 add_library(bivcore STATIC
   src/core/json/writer.cpp
   src/core/container/tar_writer.cpp
@@ -69,3 +71,64 @@ target_compile_definitions(biv_tests PRIVATE
   BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
   BIV_BINARY_PATH="$<TARGET_FILE:biv>")
 add_test(NAME biv_tests COMMAND biv_tests)
+
+if(BIV_ENABLE_FUZZ)
+  execute_process(
+    COMMAND "${CMAKE_CXX_COMPILER}" -print-file-name=libclang_rt.fuzzer-x86_64.a
+    OUTPUT_VARIABLE BIV_FUZZER_RUNTIME
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE BIV_FUZZER_RUNTIME_RESULT)
+  if(NOT BIV_FUZZER_RUNTIME_RESULT EQUAL 0 OR NOT EXISTS "${BIV_FUZZER_RUNTIME}")
+    message(FATAL_ERROR
+      "BIV_ENABLE_FUZZ requires libclang_rt.fuzzer-x86_64.a from ${CMAKE_CXX_COMPILER}")
+  endif()
+  find_program(BIV_OBJCOPY NAMES objcopy llvm-objcopy REQUIRED)
+
+  set(BIV_PATCHED_FUZZER "${CMAKE_CURRENT_BINARY_DIR}/patched_fuzzer.a")
+  set(BIV_FUZZER_ALLOCATOR_SYMBOLS
+    _ZdaPv
+    _ZdaPvm
+    _ZdaPvSt11align_val_t
+    _ZdaPvmSt11align_val_t
+    _ZdlPv
+    _ZdlPvm
+    _ZdlPvSt11align_val_t
+    _ZdlPvmSt11align_val_t
+    _Znam
+    _Znwm
+    _ZnamSt11align_val_t
+    _ZnwmSt11align_val_t)
+  set(BIV_FUZZER_LOCALIZE_COMMANDS)
+  foreach(symbol IN LISTS BIV_FUZZER_ALLOCATOR_SYMBOLS)
+    list(APPEND BIV_FUZZER_LOCALIZE_COMMANDS
+      COMMAND "${BIV_OBJCOPY}" "--localize-symbol=${symbol}" "${BIV_PATCHED_FUZZER}")
+  endforeach()
+
+  # clang 22.1.6 on this distro ships a libFuzzer archive with weak exported
+  # allocator symbols from its private C++ runtime. Localizing them preserves
+  # ASan/UBSan while preventing libFuzzer from satisfying product delete[] refs.
+  # REMOVE-WHEN: re-test unpatched libFuzzer at the next clang toolchain bump.
+  add_custom_command(
+    OUTPUT "${BIV_PATCHED_FUZZER}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${BIV_FUZZER_RUNTIME}" "${BIV_PATCHED_FUZZER}"
+    ${BIV_FUZZER_LOCALIZE_COMMANDS}
+    DEPENDS "${BIV_FUZZER_RUNTIME}"
+    COMMENT "Patching clang libFuzzer allocator symbols for ASan-compatible fuzzing"
+    VERBATIM)
+  add_custom_target(biv_patched_fuzzer_runtime DEPENDS "${BIV_PATCHED_FUZZER}")
+
+  add_executable(fuzz_manifest_json fuzz/fuzz_manifest_json.cc)
+  add_dependencies(fuzz_manifest_json biv_patched_fuzzer_runtime)
+  target_link_libraries(fuzz_manifest_json PRIVATE bivcore "${BIV_PATCHED_FUZZER}")
+  target_compile_options(fuzz_manifest_json PRIVATE
+    -fsanitize=address,undefined -fsanitize=fuzzer-no-link -fno-omit-frame-pointer)
+  target_link_options(fuzz_manifest_json PRIVATE -fsanitize=address,undefined)
+
+  add_executable(fuzz_tar_member fuzz/fuzz_tar_member.cc)
+  add_dependencies(fuzz_tar_member biv_patched_fuzzer_runtime)
+  target_link_libraries(fuzz_tar_member PRIVATE bivcore "${BIV_PATCHED_FUZZER}")
+  target_compile_options(fuzz_tar_member PRIVATE
+    -fsanitize=address,undefined -fsanitize=fuzzer-no-link -fno-omit-frame-pointer)
+  target_link_options(fuzz_tar_member PRIVATE -fsanitize=address,undefined)
+endif()

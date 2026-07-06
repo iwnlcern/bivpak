@@ -72,6 +72,11 @@ expected<void> require_empty_array(simdjson::dom::object object, std::string_vie
   return {};
 }
 
+bool starts_with_json_object(std::string_view text) {
+  const auto pos = text.find_first_not_of(" \t\r\n");
+  return pos != std::string_view::npos && text[pos] == '{';
+}
+
 }  // namespace
 
 std::string to_string(const PathFlavor flavor) {
@@ -154,10 +159,17 @@ expected<Manifest> parse(const std::span<const std::byte> bytes) {
     for (size_t i = 0; i < bytes.size(); ++i) {
       text[i] = static_cast<char>(bytes[i]);
     }
+    if (!starts_with_json_object(text)) {
+      return std::unexpected(BivError{ErrKind::ParseError, {}, "root"});
+    }
 
+    simdjson::padded_string padded{text.data(), text.size()};
+    if (padded.data() == nullptr) {
+      return std::unexpected(BivError{ErrKind::InternalError, {}, "manifest-alloc"});
+    }
     simdjson::dom::parser parser;
     simdjson::dom::element root;
-    if (const auto error = parser.parse(text).get(root); error) {
+    if (const auto error = parser.parse(padded).get(root); error) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, error_message(error)});
     }
     simdjson::dom::object object;

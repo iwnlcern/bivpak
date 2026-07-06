@@ -26,12 +26,24 @@
         "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
       }
+    },
+    {
+      "name": "fuzz",
+      "binaryDir": "build/fuzz",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "BIV_ENABLE_FUZZ": "ON"
+      }
     }
   ],
   "buildPresets": [
     {"name": "dev", "configurePreset": "dev"},
     {"name": "ci", "configurePreset": "ci"},
-    {"name": "sanitize", "configurePreset": "sanitize"}
+    {"name": "sanitize", "configurePreset": "sanitize"},
+    {"name": "fuzz", "configurePreset": "fuzz"}
   ],
   "testPresets": [
     {"name": "dev", "configurePreset": "dev"},
