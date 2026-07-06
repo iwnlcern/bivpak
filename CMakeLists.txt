@@ -27,6 +27,7 @@ FetchContent_MakeAvailable(simdjson zstd catch2)
 
 add_library(bivcore STATIC
   src/core/json/writer.cpp
+  src/core/manifest/manifest.cpp
   src/core/support/error.cpp
   src/core/support/version.cpp)
 target_include_directories(bivcore PUBLIC src)
@@ -41,6 +42,7 @@ enable_testing()
 add_executable(biv_tests
   tests/test_smoke.cpp
   tests/test_json_writer.cpp
+  tests/test_manifest.cpp
   tests/test_support.cpp)
 target_link_libraries(biv_tests PRIVATE bivcore Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
