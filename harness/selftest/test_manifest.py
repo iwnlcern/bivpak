@@ -24,6 +24,32 @@ def _golden_manifest(variant="builtin"):
     }
 
 
+def _agent_session_entry():
+    return {
+        "agent": "codex",
+        "agent_version_at_pack": "0.142.5",
+        "relpath_key": ".",
+        "original_path": "/mnt/c/Users/x/proj",
+        "normalized_path_key": "/mnt/c/users/x/proj",
+        "normalization_scheme": "codex-cwd/v1",
+        "path_flavor": "wsl",
+        "provenance": {
+            "store_root": "/home/u/.codex",
+            "locator": "sessions_root",
+            "discovery_tier": "default",
+            "archived": False,
+        },
+        "original_session_ids": {"primary": "019f-aaaa"},
+        "children": [
+            {"original_id": "019f-bbbb", "artifacts": ["agents/codex/019f-bbbb.jsonl"]}
+        ],
+        "artifacts": ["agents/codex/019f-aaaa.jsonl"],
+        "live_at_pack": False,
+        "imported_at": "2026-07-07T00:00:00Z",
+        "entry_schema": 1,
+    }
+
+
 def test_golden_plain_dir_manifests_validate_for_both_variants():
     assert validate_manifest(_golden_manifest("file"), "file") == []
     assert validate_manifest(_golden_manifest("builtin"), "builtin") == []
@@ -43,11 +69,30 @@ def test_future_format_version_fails():
     assert any("format_version" in item for item in validate_manifest(manifest, "builtin"))
 
 
-def test_agent_memory_fields_fail_m17():
+def test_manifest_with_agent_sessions_entry_validates():
+    manifest = _golden_manifest()
+    manifest["agent_sessions"] = [_agent_session_entry()]
+
+    assert validate_manifest(manifest, "builtin") == []
+
+
+def test_agent_sessions_entry_missing_required_field_fails():
+    manifest = _golden_manifest()
+    entry = _agent_session_entry()
+    del entry["normalization_scheme"]
+    manifest["agent_sessions"] = [entry]
+
+    assert any(
+        "normalization_scheme" in item for item in validate_manifest(manifest, "builtin")
+    )
+
+
+def test_agent_memory_top_level_is_ignored_not_rejected():
+    # seam lock s3-seam-lock-20260707 Part 1 rule 5: unknown top-level field, ignored
     for field in ("agent_memory", "memory"):
         manifest = _golden_manifest()
         manifest[field] = []
-        assert any(field in item for item in validate_manifest(manifest, "builtin"))
+        assert validate_manifest(manifest, "builtin") == []
 
 
 def test_wrong_builtin_id_fails_variant_check():

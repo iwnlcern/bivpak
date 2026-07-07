@@ -50,11 +50,6 @@ def validate_manifest(manifest: dict[str, Any], variant: str) -> list[str]:
         errors.append("required_capabilities must be []")
     if manifest["repos"] != []:
         errors.append("repos must be [] for Step-2 plain-dir")
-    if manifest["agent_sessions"] != []:
-        errors.append("agent_sessions must be []")
-    for forbidden in ("agent_memory", "memory"):
-        if forbidden in manifest:
-            errors.append(f"{forbidden} must be absent")
     if not _is_uuid4(manifest["image_id"]):
         errors.append("image_id must be uuid4")
     if not _is_iso8601_utc(manifest["created_at"]):
