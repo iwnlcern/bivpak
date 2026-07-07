@@ -391,23 +391,18 @@ class CodexAdapter final : public AgentAdapter {
     }
   }
 
-  expected<InstallResult> install(const InstallTarget& /*target*/,
-                                  Consent /*consent*/,
-                                  std::span<const manifest::AgentSessionEntry> /*records*/) const override {
-    return InstallResult{};
+  expected<InstallResult> install(const InstallTarget& target,
+                                  Consent consent,
+                                  std::span<const manifest::AgentSessionEntry> records) const override {
+    return codex_install(target, consent, records);
   }
 
-  expected<RewriteReport> rewrite(std::span<const SessionRecord> /*records*/,
-                                  const InstallTarget& /*target*/) const override {
-    return RewriteReport{};
+  expected<RewriteReport> rewrite(std::span<const SessionRecord> records, const InstallTarget& target) const override {
+    return codex_rewrite(records, target);
   }
 
-  Capabilities capabilities(const Host& /*host*/) const override {
-    return Capabilities{.agent_version = "unknown",
-                        .validated_range = "0.142.x",
-                        .verdict = Capabilities::Verdict::unvalidated_host,
-                        .long_path_keys_pinned = true,
-                        .per_verb = {.collect = true, .install = false, .rewrite = false}};
+  Capabilities capabilities(const Host& host) const override {
+    return codex_capabilities(host);
   }
 };
 
