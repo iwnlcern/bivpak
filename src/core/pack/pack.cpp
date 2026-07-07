@@ -314,6 +314,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .created_at = created.rfc3339,
       .source_path = source.generic_string(),
       .source_path_flavor = report.flavor,
+      .agent_sessions = {},
       .bivignore = scan_result->bivignore,
   };
   const std::string manifest_json = manifest::serialize(manifest_model);

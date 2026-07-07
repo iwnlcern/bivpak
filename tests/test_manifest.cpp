@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,7 @@ biv::manifest::Manifest fixed_manifest() {
       .created_at = "2026-07-05T00:00:00Z",
       .source_path = "/mnt/c/tmp/plain",
       .source_path_flavor = biv::manifest::PathFlavor::wsl,
+      .agent_sessions = {},
       .bivignore = {.source = "builtin", .builtin_id = "builtin-v1", .sha256_hex = "abc123"}};
 }
 
@@ -50,6 +52,37 @@ TEST_CASE("Manifest serializes in the locked field order") {
           "  \"agent_sessions\": []\n"
           "}\n");
   REQUIRE(json.find("agent_memory") == std::string::npos);
+}
+
+TEST_CASE("Manifest serializes agent_sessions entries per seam lock") {
+  auto manifest = fixed_manifest();
+  biv::manifest::AgentSessionEntry entry;
+  entry.agent = "codex";
+  entry.agent_version_at_pack = "0.142.5";
+  entry.relpath_key = ".";
+  entry.original_path = "/mnt/c/Users/x/proj";
+  entry.normalized_path_key = "/mnt/c/users/x/proj";
+  entry.normalization_scheme = "codex-cwd/v1";
+  entry.path_flavor = biv::manifest::PathFlavor::wsl;
+  entry.provenance = {.store_root = "/home/u/.codex",
+                      .locator = "sessions_root",
+                      .discovery_tier = "default",
+                      .archived = false};
+  entry.original_session_ids = {.primary = "019f-aaaa", .parent = std::nullopt, .parent_in_image = std::nullopt};
+  entry.children = {{.original_id = "019f-bbbb", .artifacts = {"agents/codex/019f-bbbb.jsonl"}}};
+  entry.artifacts = {"agents/codex/019f-aaaa.jsonl"};
+  entry.live_at_pack = false;
+  entry.imported_at = "2026-07-07T00:00:00Z";
+  entry.entry_schema = 1;
+  manifest.agent_sessions.push_back(entry);
+
+  const auto json = biv::manifest::serialize(manifest);
+
+  CHECK(json.find("\"agent\": \"codex\"") != std::string::npos);
+  CHECK(json.find("\"normalization_scheme\": \"codex-cwd/v1\"") != std::string::npos);
+  CHECK(json.find("\"parent\":") == std::string::npos);
+  CHECK(json.find("\"parent_in_image\"") == std::string::npos);
+  CHECK(json.find("\"entry_schema\": 1") != std::string::npos);
 }
 
 TEST_CASE("Manifest parse round-trips serialized manifests") {

@@ -81,6 +81,76 @@ bool starts_with_json_object(std::string_view text) {
   return pos != std::string_view::npos && text.at(pos) == '{';
 }
 
+void write_string_array(json::Writer& writer, const std::vector<std::string>& values) {
+  writer.begin_array();
+  for (const auto& value : values) {
+    writer.value_string(value);
+  }
+  writer.end_array();
+}
+
+void write_agent_session(json::Writer& writer, const AgentSessionEntry& entry) {
+  writer.begin_object();
+  writer.key("agent");
+  writer.value_string(entry.agent);
+  writer.key("agent_version_at_pack");
+  writer.value_string(entry.agent_version_at_pack);
+  writer.key("relpath_key");
+  writer.value_string(entry.relpath_key);
+  writer.key("original_path");
+  writer.value_string(entry.original_path);
+  writer.key("normalized_path_key");
+  writer.value_string(entry.normalized_path_key);
+  writer.key("normalization_scheme");
+  writer.value_string(entry.normalization_scheme);
+  writer.key("path_flavor");
+  writer.value_string(to_string(entry.path_flavor));
+  writer.key("provenance");
+  writer.begin_object();
+  writer.key("store_root");
+  writer.value_string(entry.provenance.store_root);
+  writer.key("locator");
+  writer.value_string(entry.provenance.locator);
+  writer.key("discovery_tier");
+  writer.value_string(entry.provenance.discovery_tier);
+  writer.key("archived");
+  writer.value_bool(entry.provenance.archived);
+  writer.end_object();
+  writer.key("original_session_ids");
+  writer.begin_object();
+  writer.key("primary");
+  writer.value_string(entry.original_session_ids.primary);
+  if (entry.original_session_ids.parent.has_value()) {
+    writer.key("parent");
+    writer.value_string(*entry.original_session_ids.parent);
+  }
+  if (entry.original_session_ids.parent_in_image.has_value()) {
+    writer.key("parent_in_image");
+    writer.value_bool(*entry.original_session_ids.parent_in_image);
+  }
+  writer.end_object();
+  writer.key("children");
+  writer.begin_array();
+  for (const auto& child : entry.children) {
+    writer.begin_object();
+    writer.key("original_id");
+    writer.value_string(child.original_id);
+    writer.key("artifacts");
+    write_string_array(writer, child.artifacts);
+    writer.end_object();
+  }
+  writer.end_array();
+  writer.key("artifacts");
+  write_string_array(writer, entry.artifacts);
+  writer.key("live_at_pack");
+  writer.value_bool(entry.live_at_pack);
+  writer.key("imported_at");
+  writer.value_string(entry.imported_at);
+  writer.key("entry_schema");
+  writer.value_int(entry.entry_schema);
+  writer.end_object();
+}
+
 }  // namespace
 
 std::string to_string(const PathFlavor flavor) {
@@ -147,6 +217,9 @@ std::string serialize(const Manifest& manifest) {
   writer.end_array();
   writer.key("agent_sessions");
   writer.begin_array();
+  for (const auto& entry : manifest.agent_sessions) {
+    write_agent_session(writer, entry);
+  }
   writer.end_array();
   writer.end_object();
   return writer.take();

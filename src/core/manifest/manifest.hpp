@@ -21,6 +21,41 @@ struct BivignoreProvenance {
   std::string sha256_hex;
 };
 
+struct SessionProvenance {
+  std::string store_root;
+  std::string locator;
+  std::string discovery_tier;
+  bool archived{false};
+};
+
+struct SessionIds {
+  std::string primary;
+  std::optional<std::string> parent;
+  std::optional<bool> parent_in_image;
+};
+
+struct SessionChild {
+  std::string original_id;
+  std::vector<std::string> artifacts;
+};
+
+struct AgentSessionEntry {
+  std::string agent;
+  std::string agent_version_at_pack;
+  std::string relpath_key;
+  std::string original_path;
+  std::string normalized_path_key;
+  std::string normalization_scheme;
+  PathFlavor path_flavor{PathFlavor::posix};
+  SessionProvenance provenance;
+  SessionIds original_session_ids;
+  std::vector<SessionChild> children;
+  std::vector<std::string> artifacts;
+  bool live_at_pack{false};
+  std::string imported_at;
+  int entry_schema{1};
+};
+
 struct Manifest {
   int format_version{kFormatVersion};
   std::vector<std::string> required_capabilities{};
@@ -29,6 +64,7 @@ struct Manifest {
   std::string created_at;
   std::string source_path;
   PathFlavor source_path_flavor{PathFlavor::posix};
+  std::vector<AgentSessionEntry> agent_sessions;
   BivignoreProvenance bivignore;
 };
 
