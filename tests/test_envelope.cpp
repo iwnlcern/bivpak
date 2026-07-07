@@ -114,7 +114,6 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
       {"PartialPresent", "refusal", biv::report::exit_for_error(biv::ErrKind::PartialPresent)},
       {"SourceUnreadableSubpath", "divergence", biv::report::exit_for_warnings(true)},
       {"UnsupportedFileTypeSkipped", "divergence", biv::report::exit_for_warnings(true)},
-      {"CredentialFloorExcluded", "advisory", 0},
       {"ArchiveWriteFailed", "mid-fail", biv::report::exit_for_error(biv::ErrKind::ArchiveWriteFailed)},
       {"NotABivpakImage", "refusal", biv::report::exit_for_error(biv::ErrKind::NotABivpakImage)},
       {"ImageUnreadable", "refusal", biv::report::exit_for_error(biv::ErrKind::ImageUnreadable)},
@@ -147,9 +146,6 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
   REQUIRE(envelope);
   const std::string envelope_text{std::istreambuf_iterator<char>{envelope}, std::istreambuf_iterator<char>{}};
   CHECK(envelope_text.find("prune-summary") != std::string::npos);
-  CHECK(envelope_text.find("credential-floor") != std::string::npos);
-  CHECK(envelope_text.find("\"count\"") != std::string::npos);
-  CHECK(envelope_text.find("\"rules\"") != std::string::npos);
   CHECK(envelope_text.find("\"detail\"") != std::string::npos);
   CHECK(envelope_text.find("\"refused\"") != std::string::npos);
   CHECK(envelope_text.find("exit_code") != std::string::npos);

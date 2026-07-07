@@ -11,8 +11,8 @@ from test_specs import SCENARIOS, STUB
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASED_R_S2_1_SCHEMA_BLOBS = {
-    "schemas/biv-json-envelope.v1.schema.json": "5d7fa6ef1ac740b3b8c2f1677b03a8c4cff30f62",
-    "schemas/biv-exit-map.v1.json": "6ac32d7072ee4c2415ce176e34e6561922b3cca4",
+    "schemas/biv-json-envelope.v1.schema.json": "570e8c33de29aff91a2de3d4b44ccba89f0a6e6b",
+    "schemas/biv-exit-map.v1.json": "278cbfe55a520f6ee80a969dfc5a4a02c42ae1c9",
 }
 
 

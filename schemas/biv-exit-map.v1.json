@@ -7,7 +7,6 @@
     {"kind": "PartialPresent", "class": "refusal", "exit": 3},
     {"kind": "SourceUnreadableSubpath", "class": "divergence", "exit": 2, "transitional": true},
     {"kind": "UnsupportedFileTypeSkipped", "class": "divergence", "exit": 2, "transitional": true},
-    {"kind": "CredentialFloorExcluded", "class": "advisory", "exit": 0, "pending": "U1", "transitional": true},
     {"kind": "ArchiveWriteFailed", "class": "mid-fail", "exit": 4},
     {"kind": "NotABivpakImage", "class": "refusal", "exit": 3},
     {"kind": "ImageUnreadable", "class": "refusal", "exit": 3},

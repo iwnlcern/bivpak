@@ -57,13 +57,6 @@ void write_advisories(json::Writer& writer, const std::vector<pack::Advisory>& a
     writer.value_string(advisory.kind);
     if (advisory.kind == "prune-summary") {
       write_prune_entries(writer, advisory.entries);
-    } else if (advisory.kind == "credential-floor") {
-      writer.key("count");
-      writer.value_int(static_cast<int64_t>(advisory.paths.size()));
-      writer.key("rules");
-      writer.begin_object();
-      writer.end_object();
-      write_paths(writer, advisory.paths);
     } else {
       write_paths(writer, advisory.paths);
     }
