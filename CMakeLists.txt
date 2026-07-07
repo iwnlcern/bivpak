@@ -93,6 +93,9 @@ target_compile_definitions(biv_tests PRIVATE
   BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
   BIV_BINARY_PATH="$<TARGET_FILE:biv>")
 add_test(NAME biv_tests COMMAND biv_tests)
+add_test(NAME open_no_rewrite_gate
+  COMMAND ${CMAKE_SOURCE_DIR}/tests/check_open_no_rewrite.sh
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 if(BIV_ENABLE_FUZZ)
   execute_process(
