@@ -3,11 +3,12 @@
 #include <array>
 
 #include "adapters/claude_code/claude_code.hpp"
+#include "adapters/codex/codex.hpp"
 
 namespace biv::adapters {
 
 std::span<const AgentAdapter* const> all_adapters() {
-  static const std::array adapters{&claude_code_adapter()};
+  static const std::array adapters{&claude_code_adapter(), &codex_adapter()};
   return std::span<const AgentAdapter* const>{adapters};
 }
 
