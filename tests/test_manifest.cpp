@@ -30,6 +30,34 @@ biv::manifest::Manifest fixed_manifest() {
       .bivignore = {.source = "builtin", .builtin_id = "builtin-v1", .sha256_hex = "abc123"}};
 }
 
+biv::manifest::AgentSessionEntry codex_session_entry() {
+  biv::manifest::AgentSessionEntry entry;
+  entry.agent = "codex";
+  entry.agent_version_at_pack = "0.142.5";
+  entry.relpath_key = ".";
+  entry.original_path = "/mnt/c/Users/x/proj";
+  entry.normalized_path_key = "/mnt/c/users/x/proj";
+  entry.normalization_scheme = "codex-cwd/v1";
+  entry.path_flavor = biv::manifest::PathFlavor::wsl;
+  entry.provenance = {.store_root = "/home/u/.codex",
+                      .locator = "sessions_root",
+                      .discovery_tier = "default",
+                      .archived = false};
+  entry.original_session_ids = {.primary = "019f-aaaa", .parent = std::nullopt, .parent_in_image = std::nullopt};
+  entry.children = {{.original_id = "019f-bbbb", .artifacts = {"agents/codex/019f-bbbb.jsonl"}}};
+  entry.artifacts = {"agents/codex/019f-aaaa.jsonl"};
+  entry.live_at_pack = false;
+  entry.imported_at = "2026-07-07T00:00:00Z";
+  entry.entry_schema = 1;
+  return entry;
+}
+
+std::string manifest_json_with(std::vector<biv::manifest::AgentSessionEntry> entries) {
+  auto manifest = fixed_manifest();
+  manifest.agent_sessions = std::move(entries);
+  return biv::manifest::serialize(manifest);
+}
+
 }  // namespace
 
 TEST_CASE("Manifest serializes in the locked field order") {
@@ -56,24 +84,7 @@ TEST_CASE("Manifest serializes in the locked field order") {
 
 TEST_CASE("Manifest serializes agent_sessions entries per seam lock") {
   auto manifest = fixed_manifest();
-  biv::manifest::AgentSessionEntry entry;
-  entry.agent = "codex";
-  entry.agent_version_at_pack = "0.142.5";
-  entry.relpath_key = ".";
-  entry.original_path = "/mnt/c/Users/x/proj";
-  entry.normalized_path_key = "/mnt/c/users/x/proj";
-  entry.normalization_scheme = "codex-cwd/v1";
-  entry.path_flavor = biv::manifest::PathFlavor::wsl;
-  entry.provenance = {.store_root = "/home/u/.codex",
-                      .locator = "sessions_root",
-                      .discovery_tier = "default",
-                      .archived = false};
-  entry.original_session_ids = {.primary = "019f-aaaa", .parent = std::nullopt, .parent_in_image = std::nullopt};
-  entry.children = {{.original_id = "019f-bbbb", .artifacts = {"agents/codex/019f-bbbb.jsonl"}}};
-  entry.artifacts = {"agents/codex/019f-aaaa.jsonl"};
-  entry.live_at_pack = false;
-  entry.imported_at = "2026-07-07T00:00:00Z";
-  entry.entry_schema = 1;
+  const auto entry = codex_session_entry();
   manifest.agent_sessions.push_back(entry);
 
   const auto json = biv::manifest::serialize(manifest);
@@ -154,4 +165,101 @@ TEST_CASE("Manifest parser refuses malformed or step-incompatible inputs") {
   const auto repo_result = biv::manifest::parse(bytes_of(repos));
   REQUIRE_FALSE(repo_result.has_value());
   REQUIRE(repo_result.error().detail == "step2-plain-dir-only");
+}
+
+TEST_CASE("Manifest parser accepts agent_sessions entries per seam lock") {
+  const auto entry = codex_session_entry();
+  const auto parsed = biv::manifest::parse(bytes_of(manifest_json_with({entry})));
+
+  REQUIRE(parsed.has_value());
+  REQUIRE(parsed->agent_sessions.size() == 1);
+  const auto& actual = parsed->agent_sessions.front();
+  CHECK(actual.agent == entry.agent);
+  CHECK(actual.agent_version_at_pack == entry.agent_version_at_pack);
+  CHECK(actual.relpath_key == entry.relpath_key);
+  CHECK(actual.original_path == entry.original_path);
+  CHECK(actual.normalized_path_key == entry.normalized_path_key);
+  CHECK(actual.normalization_scheme == entry.normalization_scheme);
+  CHECK(actual.path_flavor == entry.path_flavor);
+  CHECK(actual.provenance.store_root == entry.provenance.store_root);
+  CHECK(actual.provenance.locator == entry.provenance.locator);
+  CHECK(actual.provenance.discovery_tier == entry.provenance.discovery_tier);
+  CHECK(actual.provenance.archived == entry.provenance.archived);
+  CHECK(actual.original_session_ids.primary == entry.original_session_ids.primary);
+  CHECK(actual.original_session_ids.parent == std::nullopt);
+  CHECK(actual.original_session_ids.parent_in_image == std::nullopt);
+  REQUIRE(actual.children.size() == 1);
+  CHECK(actual.children.front().original_id == "019f-bbbb");
+  CHECK(actual.children.front().artifacts == std::vector<std::string>{"agents/codex/019f-bbbb.jsonl"});
+  CHECK(actual.artifacts == std::vector<std::string>{"agents/codex/019f-aaaa.jsonl"});
+  CHECK(actual.live_at_pack == entry.live_at_pack);
+  CHECK(actual.imported_at == entry.imported_at);
+  CHECK(actual.entry_schema == entry.entry_schema);
+}
+
+TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
+  auto unknown_agent = codex_session_entry();
+  unknown_agent.agent = "future-tool";
+  unknown_agent.artifacts = {"agents/future-tool/x.jsonl"};
+  unknown_agent.children = {};
+  auto parsed_unknown = biv::manifest::parse(bytes_of(manifest_json_with({unknown_agent})));
+  REQUIRE(parsed_unknown.has_value());
+  REQUIRE(parsed_unknown->agent_sessions.size() == 1);
+  CHECK(parsed_unknown->agent_sessions.front().agent == "future-tool");
+
+  auto future_schema = codex_session_entry();
+  future_schema.entry_schema = 99;
+  auto parsed_future_schema = biv::manifest::parse(bytes_of(manifest_json_with({future_schema})));
+  REQUIRE(parsed_future_schema.has_value());
+  REQUIRE(parsed_future_schema->agent_sessions.size() == 1);
+  CHECK(parsed_future_schema->agent_sessions.front().entry_schema == 99);
+
+  std::string entry_unknown_field = manifest_json_with({codex_session_entry()});
+  entry_unknown_field.replace(entry_unknown_field.find("\"entry_schema\": 1"), 17,
+                              "\"unknown_entry_field\": {\"x\": true},\n"
+                              "      \"entry_schema\": 1");
+  auto parsed_entry_unknown = biv::manifest::parse(bytes_of(entry_unknown_field));
+  REQUIRE(parsed_entry_unknown.has_value());
+  REQUIRE(parsed_entry_unknown->agent_sessions.size() == 1);
+
+  std::string top_unknown_field = manifest_json_with({codex_session_entry()});
+  top_unknown_field.replace(top_unknown_field.rfind("}\n"), 2,
+                            ",\n"
+                            "  \"agent_memory\": []\n"
+                            "}\n");
+  auto parsed_top_unknown = biv::manifest::parse(bytes_of(top_unknown_field));
+  REQUIRE(parsed_top_unknown.has_value());
+  REQUIRE(parsed_top_unknown->agent_sessions.size() == 1);
+}
+
+TEST_CASE("Manifest parser rejects mechanically invalid agent_sessions entries") {
+  auto invalid_agent = codex_session_entry();
+  invalid_agent.agent = "../evil";
+  invalid_agent.artifacts = {"agents/../evil/x.jsonl"};
+  auto agent_result = biv::manifest::parse(bytes_of(manifest_json_with({invalid_agent})));
+  REQUIRE_FALSE(agent_result.has_value());
+  CHECK(agent_result.error().detail == "agent-id-grammar");
+
+  for (const auto& path :
+       std::vector<std::string>{"agents/other/x", "agents/codex/../../x", "/abs/x", "C:\\x", "agents\\codex\\x"}) {
+    auto invalid_path = codex_session_entry();
+    invalid_path.artifacts = {path};
+    invalid_path.children = {};
+    auto path_result = biv::manifest::parse(bytes_of(manifest_json_with({invalid_path})));
+    REQUIRE_FALSE(path_result.has_value());
+    CHECK(path_result.error().detail == "artifact-prefix");
+  }
+
+  auto duplicate_a = codex_session_entry();
+  auto duplicate_b = codex_session_entry();
+  duplicate_b.artifacts = {"agents/codex/dupe.jsonl"};
+  auto duplicate_result = biv::manifest::parse(bytes_of(manifest_json_with({duplicate_a, duplicate_b})));
+  REQUIRE_FALSE(duplicate_result.has_value());
+  CHECK(duplicate_result.error().detail == "session-uniqueness");
+
+  auto parent_true = codex_session_entry();
+  parent_true.original_session_ids.parent_in_image = true;
+  auto parent_result = biv::manifest::parse(bytes_of(manifest_json_with({parent_true})));
+  REQUIRE_FALSE(parent_result.has_value());
+  CHECK(parent_result.error().detail == "session-ids");
 }
