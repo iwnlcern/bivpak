@@ -320,6 +320,7 @@ class ClaudeCodeAdapter final : public AgentAdapter {
                 .child_ids = child_ids_for(session_dir),
                 .original_path = *facts.cwd,
                 .normalized_path_key = normalized_key_for(*facts.cwd),
+                .normalization_scheme = "claude-cwd/v1",
                 .path_flavor = path_flavor_for(*facts.cwd),
                 .provenance = {.store_root = store.root.generic_string(),
                                .locator = "projects",

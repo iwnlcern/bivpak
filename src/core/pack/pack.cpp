@@ -253,16 +253,6 @@ adapters::Env process_env() {
       }()};
 }
 
-std::string normalization_scheme_for(std::string_view agent) {
-  if (agent == "claude-code") {
-    return "claude-cwd/v1";
-  }
-  if (agent == "codex") {
-    return "codex-cwd/v1";
-  }
-  return std::string{agent} + "-cwd/v1";
-}
-
 std::string relpath_key_for(const std::filesystem::path& source, std::string_view original_path) {
   const auto rel = std::filesystem::path{original_path}.lexically_normal().lexically_relative(source.lexically_normal());
   if (rel.empty() || rel == ".") {
@@ -310,7 +300,7 @@ manifest::AgentSessionEntry manifest_entry_for(const adapters::SessionRecord& se
       .relpath_key = relpath_key_for(source, session.original_path),
       .original_path = session.original_path,
       .normalized_path_key = session.normalized_path_key,
-      .normalization_scheme = normalization_scheme_for(session.agent),
+      .normalization_scheme = session.normalization_scheme,
       .path_flavor = session.path_flavor,
       .provenance = session.provenance,
       .original_session_ids = {.primary = session.original_session_id,

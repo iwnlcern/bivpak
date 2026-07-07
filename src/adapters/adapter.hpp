@@ -65,6 +65,7 @@ struct SessionRecord {
   std::vector<std::string> child_ids;
   std::string original_path;
   std::string normalized_path_key;
+  std::string normalization_scheme;
   manifest::PathFlavor path_flavor{manifest::PathFlavor::posix};
   manifest::SessionProvenance provenance;
   std::vector<std::string> artifacts;
