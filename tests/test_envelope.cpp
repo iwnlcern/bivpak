@@ -40,6 +40,8 @@ TEST_CASE("pack success envelope includes advisories") {
   report.image_id = "00000000-0000-4000-8000-000000000000";
   report.member_count = 2;
   report.payload_bytes = 5;
+  report.agent_sessions_summary.push_back(
+      biv::pack::AgentSessionsSummary{.agent = "claude-code", .session_count = 1});
   report.advisories.push_back(biv::pack::Advisory{
       .kind = "prune-summary",
       .entries = {biv::scan::PruneEntry{.relpath = "target", .source = "builtin-v1"}},
@@ -53,6 +55,8 @@ TEST_CASE("pack success envelope includes advisories") {
   CHECK(json.find("\"kind\": \"prune-summary\"") != std::string::npos);
   CHECK(json.find("\"path\": \"target\"") != std::string::npos);
   CHECK(json.find("\"source\": \"builtin-v1\"") != std::string::npos);
+  CHECK(json.find("\"agent\": \"claude-code\"") != std::string::npos);
+  CHECK(json.find("\"session_count\": 1") != std::string::npos);
   CHECK(json.find("\"manifest\"") != std::string::npos);
   CHECK(json.find("\"error\": null") != std::string::npos);
 }

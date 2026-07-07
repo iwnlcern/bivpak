@@ -1,9 +1,11 @@
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -55,6 +57,17 @@ std::span<const std::byte> as_span(const std::vector<std::byte>& bytes) {
   return std::span<const std::byte>{bytes.data(), bytes.size()};
 }
 
+std::map<std::string, std::vector<std::byte>> snapshot_files(const std::filesystem::path& root) {
+  std::map<std::string, std::vector<std::byte>> snapshot;
+  for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+    if (!entry.is_regular_file()) {
+      continue;
+    }
+    snapshot.emplace(std::filesystem::relative(entry.path(), root).generic_string(), read_file_bytes(entry.path()));
+  }
+  return snapshot;
+}
+
 std::vector<ArchiveMember> read_archive(const std::filesystem::path& path) {
   auto compressed = read_file_bytes(path);
   bool served = false;
@@ -98,6 +111,57 @@ std::string byte_string(std::span<const std::byte> bytes) {
   }
   return out;
 }
+
+void copy_fixture_tree_with_workspace(const std::filesystem::path& from,
+                                      const std::filesystem::path& to,
+                                      const std::filesystem::path& workspace) {
+  const auto workspace_text = workspace.generic_string();
+  for (const auto& entry : std::filesystem::recursive_directory_iterator(from)) {
+    const auto rel = std::filesystem::relative(entry.path(), from);
+    const auto dest = to / rel;
+    if (entry.is_directory()) {
+      std::filesystem::create_directories(dest);
+      continue;
+    }
+    if (!entry.is_regular_file()) {
+      continue;
+    }
+    std::string text = byte_string(as_span(read_file_bytes(entry.path())));
+    size_t pos = 0;
+    while ((pos = text.find("/ws/proj", pos)) != std::string::npos) {
+      text.replace(pos, 8, workspace_text);
+      pos += workspace_text.size();
+    }
+    write_file(dest, text);
+  }
+}
+
+class ScopedEnv {
+ public:
+  ScopedEnv(std::string name, std::string value) : name_{std::move(name)} {
+    if (const char* old = std::getenv(name_.c_str()); old != nullptr) {
+      old_value_ = std::string{old};
+    }
+    setenv(name_.c_str(), value.c_str(), 1);
+  }
+
+  ~ScopedEnv() {
+    if (old_value_.has_value()) {
+      setenv(name_.c_str(), old_value_->c_str(), 1);
+    } else {
+      unsetenv(name_.c_str());
+    }
+  }
+
+  ScopedEnv(const ScopedEnv&) = delete;
+  ScopedEnv& operator=(const ScopedEnv&) = delete;
+  ScopedEnv(ScopedEnv&&) = delete;
+  ScopedEnv& operator=(ScopedEnv&&) = delete;
+
+ private:
+  std::string name_;
+  std::optional<std::string> old_value_;
+};
 
 }  // namespace
 
@@ -176,5 +240,66 @@ TEST_CASE("pack refuses repo-bearing source") {
   REQUIRE_FALSE(report.has_value());
   CHECK(report.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
   CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack collects Claude adapter artifacts into agents members and manifest sessions") {
+  const auto root = make_tmp("claude");
+  const auto source = root / "proj";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  const auto store = root / "claude_store";
+  copy_fixture_tree_with_workspace(std::filesystem::path{BIV_SOURCE_DIR} / "tests" / "fixtures" / "claude_store",
+                                   store,
+                                   source);
+  const auto source_before = snapshot_files(source);
+  const auto store_before = snapshot_files(store);
+  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+
+  auto report = biv::pack::pack(source);
+
+  REQUIRE(report.has_value());
+  REQUIRE(report->agent_sessions.size() == 1);
+  CHECK(report->agent_sessions.front().agent == "claude-code");
+  REQUIRE(report->agent_sessions_summary.size() == 1);
+  CHECK(report->agent_sessions_summary.front().agent == "claude-code");
+  CHECK(report->agent_sessions_summary.front().session_count == 1);
+  CHECK(std::ranges::any_of(report->warnings, [](const biv::pack::Warning& warning) {
+    return warning.kind == "SessionLiveAtPack" &&
+           warning.path == "aaaaaaaa-1111-4000-8000-000000000001";
+  }));
+  const auto members = read_archive(root / "proj.bvpk");
+  CHECK(std::ranges::any_of(members, [](const ArchiveMember& member) {
+    return member.meta.path == "agents/claude-code/aaaaaaaa-1111-4000-8000-000000000001.jsonl";
+  }));
+  CHECK(std::ranges::any_of(members, [](const ArchiveMember& member) {
+    return member.meta.path ==
+           "agents/claude-code/aaaaaaaa-1111-4000-8000-000000000001/subagents/agent-a01.jsonl";
+  }));
+  CHECK(std::ranges::any_of(members, [](const ArchiveMember& member) {
+    return member.meta.path ==
+           "agents/claude-code/aaaaaaaa-1111-4000-8000-000000000001/subagents/agent-a01.meta.json";
+  }));
+
+  auto manifest = biv::manifest::parse(as_span(members.at(0).data));
+  REQUIRE(manifest.has_value());
+  REQUIRE(manifest->agent_sessions.size() == 1);
+  CHECK(manifest->agent_sessions.front().agent == "claude-code");
+  CHECK(manifest->agent_sessions.front().artifacts ==
+        std::vector<std::string>{"agents/claude-code/aaaaaaaa-1111-4000-8000-000000000001.jsonl"});
+  REQUIRE(manifest->agent_sessions.front().children.size() == 1);
+  CHECK(manifest->agent_sessions.front().children.front().original_id == "agent-a01");
+
+  auto checksums = biv::manifest::parse_checksums(as_span(members.at(1).data));
+  REQUIRE(checksums.has_value());
+  for (const auto& member : members) {
+    if (!member.meta.path.starts_with("agents/")) {
+      continue;
+    }
+    REQUIRE(checksums->entries.contains(member.meta.path));
+    CHECK(checksums->entries.at(member.meta.path) == member.extent);
+  }
+  CHECK(snapshot_files(source) == source_before);
+  CHECK(snapshot_files(store) == store_before);
   std::filesystem::remove_all(root);
 }

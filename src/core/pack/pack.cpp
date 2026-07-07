@@ -1,12 +1,15 @@
 #include "core/pack/pack.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <cstddef>
 #include <ctime>
 #include <exception>
 #include <fstream>
 #include <random>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <string_view>
@@ -16,6 +19,7 @@
 #include <sys/random.h>
 #include <unistd.h>
 
+#include "adapters/registry.hpp"
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
@@ -171,6 +175,41 @@ expected<std::string> write_payload_member(container::TarWriter& writer,
   return *extent;
 }
 
+expected<std::string> write_file_member(container::TarWriter& writer,
+                                        const std::filesystem::path& source,
+                                        const std::string_view archive_path,
+                                        const int64_t mtime_s) {
+  std::error_code ec;
+  const auto size = std::filesystem::file_size(source, ec);
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, source.generic_string(), ec.message(),
+                                    static_cast<int>(ec.value())});
+  }
+  const container::MemberMeta meta{
+      .path = std::string{archive_path},
+      .kind = scan::NodeKind::file,
+      .mode = 0644,
+      .mtime_s = mtime_s,
+      .mtime_ns = 0,
+      .size = size,
+      .symlink_target = {},
+  };
+  if (auto ok = writer.begin_member(meta); !ok) {
+    return std::unexpected(ok.error());
+  }
+  auto copied = copy_file_to_sink(source, [&](std::span<const std::byte> chunk) -> expected<void> {
+    return writer.write_data(chunk);
+  });
+  if (!copied) {
+    return std::unexpected(copied.error());
+  }
+  auto extent = writer.end_member();
+  if (!extent) {
+    return std::unexpected(extent.error());
+  }
+  return *extent;
+}
+
 expected<void> write_string_member(container::TarWriter& writer,
                                    std::string_view path,
                                    std::string_view bytes,
@@ -195,6 +234,104 @@ expected<void> write_string_member(container::TarWriter& writer,
     return std::unexpected(extent.error());
   }
   return {};
+}
+
+adapters::Env process_env() {
+  return adapters::Env{
+      .getenv = [](const std::string_view name) -> std::optional<std::string> {
+        const std::string key{name};
+        if (const char* value = std::getenv(key.c_str()); value != nullptr) {
+          return std::string{value};
+        }
+        return std::nullopt;
+      },
+      .home = [] {
+        if (const char* value = std::getenv("HOME"); value != nullptr) {
+          return std::filesystem::path{value};
+        }
+        return std::filesystem::path{};
+      }()};
+}
+
+std::string normalization_scheme_for(std::string_view agent) {
+  if (agent == "claude-code") {
+    return "claude-cwd/v1";
+  }
+  if (agent == "codex") {
+    return "codex-cwd/v1";
+  }
+  return std::string{agent} + "-cwd/v1";
+}
+
+std::string relpath_key_for(const std::filesystem::path& source, std::string_view original_path) {
+  const auto rel = std::filesystem::path{original_path}.lexically_normal().lexically_relative(source.lexically_normal());
+  if (rel.empty() || rel == ".") {
+    return ".";
+  }
+  return rel.generic_string();
+}
+
+struct ChildArtifactMatcher {
+  std::string_view child_id;
+
+  bool matches(std::string_view artifact) const {
+    const std::string needle = "/" + std::string{child_id};
+    return artifact.find(needle) != std::string_view::npos;
+  }
+};
+
+manifest::AgentSessionEntry manifest_entry_for(const adapters::SessionRecord& session,
+                                               const std::filesystem::path& source,
+                                               const std::string& imported_at) {
+  std::vector<manifest::SessionChild> children;
+  std::vector<std::string> parent_artifacts;
+  for (const auto& child_id : session.child_ids) {
+    const ChildArtifactMatcher child_matcher{.child_id = child_id};
+    std::vector<std::string> child_artifacts;
+    for (const auto& artifact : session.artifacts) {
+      if (child_matcher.matches(artifact)) {
+        child_artifacts.push_back(artifact);
+      }
+    }
+    children.push_back(manifest::SessionChild{.original_id = child_id, .artifacts = std::move(child_artifacts)});
+  }
+  for (const auto& artifact : session.artifacts) {
+    const bool belongs_to_child = std::ranges::any_of(session.child_ids, [&](const std::string& child_id) {
+      return ChildArtifactMatcher{.child_id = child_id}.matches(artifact);
+    });
+    if (!belongs_to_child) {
+      parent_artifacts.push_back(artifact);
+    }
+  }
+
+  return manifest::AgentSessionEntry{
+      .agent = session.agent,
+      .agent_version_at_pack = session.agent_version_at_pack,
+      .relpath_key = relpath_key_for(source, session.original_path),
+      .original_path = session.original_path,
+      .normalized_path_key = session.normalized_path_key,
+      .normalization_scheme = normalization_scheme_for(session.agent),
+      .path_flavor = session.path_flavor,
+      .provenance = session.provenance,
+      .original_session_ids = {.primary = session.original_session_id,
+                               .parent = std::nullopt,
+                               .parent_in_image = std::nullopt},
+      .children = std::move(children),
+      .artifacts = std::move(parent_artifacts),
+      .live_at_pack = session.live_at_pack,
+      .imported_at = imported_at,
+      .entry_schema = 1};
+}
+
+void add_summary(PackReport& report, std::string_view agent) {
+  auto found = std::ranges::find_if(report.agent_sessions_summary, [&](const AgentSessionsSummary& summary) {
+    return summary.agent == agent;
+  });
+  if (found == report.agent_sessions_summary.end()) {
+    report.agent_sessions_summary.push_back(AgentSessionsSummary{.agent = std::string{agent}, .session_count = 1});
+  } else {
+    ++found->session_count;
+  }
 }
 
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink) {
@@ -280,6 +417,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         Advisory{.kind = "nested-bivignore-ignored", .entries = {}, .paths = scan_result->nested_bivignore});
   }
 
+  const auto created = now_stamp();
   {
     std::ofstream spool{spool_path, std::ios::binary};
     if (!spool) {
@@ -300,12 +438,47 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         report.payload_bytes += node.size;
       }
     }
+    const auto env = process_env();
+    for (const auto* adapter : adapters::all_adapters()) {
+      auto stores = adapter->discover(env);
+      if (!stores) {
+        return cleanup_error(stores.error());
+      }
+      if (stores->empty()) {
+        continue;
+      }
+      auto collected = adapter->collect(source, *stores);
+      if (!collected) {
+        return cleanup_error(collected.error());
+      }
+      for (const auto& path : collected->no_cwd_record) {
+        report.warnings.push_back(Warning{.kind = "SessionNoCwdRecord", .path = path});
+      }
+      for (const auto& session : collected->sessions) {
+        if (session.artifacts.size() != session.artifact_sources.size()) {
+          return cleanup_error(BivError{ErrKind::InternalError, {}, "adapter-artifact-sources"});
+        }
+        for (size_t i = 0; i < session.artifacts.size(); ++i) {
+          auto extent = write_file_member(spool_writer, session.artifact_sources.at(i), session.artifacts.at(i),
+                                          created.seconds);
+          if (!extent) {
+            return cleanup_error(extent.error());
+          }
+          checksums.entries[session.artifacts.at(i)] = std::move(*extent);
+          ++report.member_count;
+        }
+        if (session.live_at_pack) {
+          report.warnings.push_back(Warning{.kind = "SessionLiveAtPack", .path = session.original_session_id});
+        }
+        report.agent_sessions.push_back(manifest_entry_for(session, source, created.rfc3339));
+        add_summary(report, session.agent);
+      }
+    }
     if (auto ok = spool_writer.finish(); !ok) {
       return cleanup_error(ok.error());
     }
   }
 
-  const auto created = now_stamp();
   const manifest::Manifest manifest_model{
       .format_version = manifest::kFormatVersion,
       .required_capabilities = {},
@@ -314,7 +487,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .created_at = created.rfc3339,
       .source_path = source.generic_string(),
       .source_path_flavor = report.flavor,
-      .agent_sessions = {},
+      .agent_sessions = report.agent_sessions,
       .bivignore = scan_result->bivignore,
   };
   const std::string manifest_json = manifest::serialize(manifest_model);

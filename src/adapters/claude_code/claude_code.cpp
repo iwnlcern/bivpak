@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -30,6 +31,11 @@ struct TranscriptFacts {
 struct LiveFacts {
   bool live{false};
   std::optional<std::string> version;
+};
+
+struct ArtifactRef {
+  fs::path source;
+  std::string image_path;
 };
 
 std::optional<std::string> object_string(simdjson::dom::object object, const std::string_view key) {
@@ -95,6 +101,20 @@ bool cwd_matches_source(std::string cwd, const fs::path& source_root) {
     source = ascii_lower(std::move(source));
   }
   return cwd == source || cwd.starts_with(source + '/');
+}
+
+bool ascii_alnum(const char value) {
+  return (value >= '0' && value <= '9') || (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
+}
+
+std::string project_key_for_path(const fs::path& path) {
+  std::string key = path.generic_string();
+  for (char& value : key) {
+    if (!ascii_alnum(value)) {
+      value = '-';
+    }
+  }
+  return key;
 }
 
 std::optional<simdjson::dom::object> parse_json_object(simdjson::dom::parser& parser,
@@ -167,8 +187,8 @@ LiveFacts live_facts_for(const fs::path& store_root, const std::string_view sess
   return facts;
 }
 
-std::vector<std::string> collect_subtree_artifacts(const fs::path& session_dir, const std::string_view session_id) {
-  std::vector<std::string> artifacts;
+std::vector<ArtifactRef> collect_subtree_artifacts(const fs::path& session_dir, const std::string_view session_id) {
+  std::vector<ArtifactRef> artifacts;
   if (!fs::exists(session_dir)) {
     return artifacts;
   }
@@ -180,9 +200,9 @@ std::vector<std::string> collect_subtree_artifacts(const fs::path& session_dir, 
     artifact += session_id;
     artifact += '/';
     artifact += fs::relative(entry.path(), session_dir).generic_string();
-    artifacts.push_back(std::move(artifact));
+    artifacts.push_back(ArtifactRef{.source = entry.path(), .image_path = std::move(artifact)});
   }
-  std::ranges::sort(artifacts);
+  std::ranges::sort(artifacts, {}, &ArtifactRef::image_path);
   return artifacts;
 }
 
@@ -265,13 +285,17 @@ class ClaudeCodeAdapter final : public AgentAdapter {
           if (!project_dir.is_directory()) {
             continue;
           }
+          const bool project_key_matches_source =
+              project_dir.path().filename().generic_string() == project_key_for_path(source_root);
           for (const auto& entry : fs::directory_iterator(project_dir.path())) {
             if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
               continue;
             }
             auto facts = inspect_transcript(entry.path());
             if (!facts.cwd.has_value()) {
-              report.no_cwd_record.push_back(entry.path().generic_string());
+              if (project_key_matches_source) {
+                report.no_cwd_record.push_back(entry.path().generic_string());
+              }
               continue;
             }
             if (!cwd_matches_source(*facts.cwd, source_root)) {
@@ -281,9 +305,14 @@ class ClaudeCodeAdapter final : public AgentAdapter {
             const auto session_dir = project_dir.path() / session_id;
             auto live = live_facts_for(store.root, session_id);
             std::vector<std::string> artifacts;
+            std::vector<fs::path> artifact_sources;
             artifacts.push_back("agents/claude-code/" + session_id + ".jsonl");
+            artifact_sources.push_back(entry.path());
             auto subtree_artifacts = collect_subtree_artifacts(session_dir, session_id);
-            artifacts.insert(artifacts.end(), subtree_artifacts.begin(), subtree_artifacts.end());
+            for (auto& artifact : subtree_artifacts) {
+              artifact_sources.push_back(std::move(artifact.source));
+              artifacts.push_back(std::move(artifact.image_path));
+            }
 
             report.sessions.push_back(SessionRecord{
                 .agent = "claude-code",
@@ -297,6 +326,7 @@ class ClaudeCodeAdapter final : public AgentAdapter {
                                .discovery_tier = discovery_tier_string(store.tier),
                                .archived = store.archived},
                 .artifacts = std::move(artifacts),
+                .artifact_sources = std::move(artifact_sources),
                 .agent_version_at_pack = facts.version.value_or(live.version.value_or("unknown")),
                 .live_at_pack = live.live});
           }

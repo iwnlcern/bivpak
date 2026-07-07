@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -22,6 +23,11 @@ struct Warning {
   std::string path;
 };
 
+struct AgentSessionsSummary {
+  std::string agent;
+  size_t session_count{0};
+};
+
 struct PackReport {
   std::string image_path;
   std::string source_path;
@@ -29,6 +35,8 @@ struct PackReport {
   std::string image_id;
   uint64_t member_count{0};
   uint64_t payload_bytes{0};
+  std::vector<AgentSessionsSummary> agent_sessions_summary;
+  std::vector<manifest::AgentSessionEntry> agent_sessions;
   std::vector<Warning> warnings;
   std::vector<Advisory> advisories;
 };

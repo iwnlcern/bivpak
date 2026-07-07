@@ -68,6 +68,7 @@ struct SessionRecord {
   manifest::PathFlavor path_flavor{manifest::PathFlavor::posix};
   manifest::SessionProvenance provenance;
   std::vector<std::string> artifacts;
+  std::vector<std::filesystem::path> artifact_sources;
   std::string agent_version_at_pack;
   bool live_at_pack{false};
 };
