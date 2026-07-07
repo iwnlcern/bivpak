@@ -338,23 +338,18 @@ class ClaudeCodeAdapter final : public AgentAdapter {
     }
   }
 
-  expected<InstallResult> install(const InstallTarget& /*target*/,
-                                  Consent /*consent*/,
-                                  std::span<const manifest::AgentSessionEntry> /*records*/) const override {
-    return InstallResult{};
+  expected<InstallResult> install(const InstallTarget& target,
+                                  Consent consent,
+                                  std::span<const manifest::AgentSessionEntry> records) const override {
+    return claude_code_install(target, consent, records);
   }
 
-  expected<RewriteReport> rewrite(std::span<const SessionRecord> /*records*/,
-                                  const InstallTarget& /*target*/) const override {
-    return RewriteReport{};
+  expected<RewriteReport> rewrite(std::span<const SessionRecord> records, const InstallTarget& target) const override {
+    return claude_code_rewrite(records, target);
   }
 
-  Capabilities capabilities(const Host& /*host*/) const override {
-    return Capabilities{.agent_version = "unknown",
-                        .validated_range = "2.1.x",
-                        .verdict = Capabilities::Verdict::unvalidated_host,
-                        .long_path_keys_pinned = false,
-                        .per_verb = {.collect = false, .install = false, .rewrite = false}};
+  Capabilities capabilities(const Host& host) const override {
+    return claude_code_capabilities(host);
   }
 };
 
