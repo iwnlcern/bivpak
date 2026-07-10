@@ -15,6 +15,7 @@
 #endif
 
 #include "core/json/writer.hpp"
+#include "core/manifest/agent_member.hpp"
 #include "core/support/version.hpp"
 
 namespace biv::manifest {
@@ -153,70 +154,14 @@ bool agent_id_ok(std::string_view agent) {
   return true;
 }
 
-bool is_ascii_alpha(const char c) {
-  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-
-struct AgentIdView {
-  std::string_view value;
-};
-
-bool artifact_path_ok(AgentIdView agent, std::string_view path) {
-  if (path.empty() || path.front() == '/' || path.find('\\') != std::string_view::npos) {
-    return false;
-  }
-  if (path.size() >= 2 && is_ascii_alpha(path.at(0)) && path.at(1) == ':') {
-    return false;
-  }
-
-  std::string prefix = "agents/";
-  prefix += agent.value;
-  prefix += '/';
-  if (!path.starts_with(prefix)) {
-    return false;
-  }
-
-  const std::string_view rest = path.substr(prefix.size());
-  if (rest.empty()) {
-    return false;
-  }
-
-  bool first_segment = true;
-  size_t start = 0;
-  while (start <= rest.size()) {
-    const size_t slash = rest.find('/', start);
-    const size_t end = slash == std::string_view::npos ? rest.size() : slash;
-    const std::string_view segment = rest.substr(start, end - start);
-    if (segment.empty() || segment == "." || segment == "..") {
-      return false;
-    }
-    if (first_segment && segment.find(':') != std::string_view::npos) {
-      return false;
-    }
-    if (slash == std::string_view::npos) {
-      break;
-    }
-    first_segment = false;
-    start = slash + 1;
-  }
-  return true;
-}
-
 expected<void> validate_artifacts(std::string_view agent, const std::vector<std::string>& artifacts) {
   for (const auto& artifact : artifacts) {
-    if (!artifact_path_ok(AgentIdView{agent}, artifact)) {
+    if (!grammar::agent_member_ok(grammar::AgentId{agent},
+                                  grammar::MemberPath{artifact})) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "artifact-prefix"});
     }
   }
   return {};
-}
-
-bool session_id_ok(const std::string_view value) {
-  return !value.empty() && value != "." && value != ".." &&
-         std::ranges::all_of(value, [](const unsigned char character) {
-           return character >= 0x20U && character != 0x7fU && character != '/' &&
-                  character != '\\';
-         });
 }
 
 expected<PathFlavor> parse_entry_path_flavor(std::string_view value) {
@@ -246,7 +191,7 @@ expected<std::vector<SessionChild>> parse_session_children(simdjson::dom::object
     }
     auto original_id = required_string(child_object, "original_id");
     auto artifacts = required_string_array(child_object, "artifacts");
-    if (!original_id || !artifacts || !session_id_ok(*original_id)) {
+    if (!original_id || !artifacts || !grammar::session_id_ok(*original_id)) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "children"});
     }
     auto valid = validate_artifacts(agent, *artifacts);
@@ -328,8 +273,8 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   if (!primary || !parent || !parent_in_image) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "session-ids"});
   }
-  if (!session_id_ok(*primary) ||
-      (parent->has_value() && !session_id_ok(**parent)) ||
+  if (!grammar::session_id_ok(*primary) ||
+      (parent->has_value() && !grammar::session_id_ok(**parent)) ||
       (parent_in_image->has_value() && (!parent->has_value() || **parent_in_image))) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "session-ids"});
   }

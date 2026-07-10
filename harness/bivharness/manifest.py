@@ -37,6 +37,35 @@ def _path(error: Any) -> str:
     return ".".join(str(part) for part in error.path) or "<root>"
 
 
+def _session_id_ok(value: str) -> bool:
+    return (
+        bool(value)
+        and value not in (".", "..")
+        and all(ord(character) >= 0x20 and ord(character) != 0x7F
+                and character not in "/\\" for character in value)
+    )
+
+
+def _member_segment_ok(segment: str) -> bool:
+    return (
+        bool(segment)
+        and segment not in (".", "..")
+        and all(ord(character) >= 0x20 and ord(character) != 0x7F
+                and character != "\\" for character in segment)
+    )
+
+
+def _agent_member_ok(agent: str, artifact: str) -> bool:
+    prefix = f"agents/{agent}/"
+    if not artifact.startswith(prefix):
+        return False
+    segments = artifact[len(prefix):].split("/")
+    return (
+        all(_member_segment_ok(segment) for segment in segments)
+        and ":" not in segments[0]
+    )
+
+
 def validate_manifest(manifest: dict[str, Any], variant: str) -> list[str]:
     errors = [
         f"{_path(error)}: {error.message}"
@@ -59,7 +88,6 @@ def validate_manifest(manifest: dict[str, Any], variant: str) -> list[str]:
     seen_sessions: set[tuple[str, str]] = set()
     seen_artifacts: set[str] = set()
     agent_pattern = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
-    session_id_pattern = re.compile(r"^[^/\\\x00-\x1f\x7f]+$")
     for index, entry in enumerate(manifest["agent_sessions"]):
         agent = entry["agent"]
         if not agent_pattern.fullmatch(agent):
@@ -67,7 +95,7 @@ def validate_manifest(manifest: dict[str, Any], variant: str) -> list[str]:
         if entry["entry_schema"] > 1:
             continue
         primary = entry["original_session_ids"]["primary"]
-        if primary in (".", "..") or not session_id_pattern.fullmatch(primary):
+        if not _session_id_ok(primary):
             errors.append(f"agent_sessions.{index} primary id grammar invalid")
         session_key = (agent, primary)
         if session_key in seen_sessions:
@@ -76,33 +104,21 @@ def validate_manifest(manifest: dict[str, Any], variant: str) -> list[str]:
 
         ids = entry["original_session_ids"]
         parent = ids.get("parent")
-        if parent is not None and (
-            parent in (".", "..") or not session_id_pattern.fullmatch(parent)
-        ):
+        if parent is not None and not _session_id_ok(parent):
             errors.append(f"agent_sessions.{index} parent id grammar invalid")
         if "parent_in_image" in ids and (
             parent is None or ids["parent_in_image"] is not False
         ):
             errors.append(f"agent_sessions.{index} dangling parent invalid")
 
-        prefix = f"agents/{agent}/"
         artifacts = list(entry["artifacts"])
         for child in entry["children"]:
             child_id = child["original_id"]
-            if child_id in (".", "..") or not session_id_pattern.fullmatch(child_id):
+            if not _session_id_ok(child_id):
                 errors.append(f"agent_sessions.{index} child id grammar invalid")
             artifacts.extend(child["artifacts"])
         for artifact in artifacts:
-            segments = artifact.split("/")
-            rest = artifact[len(prefix):] if artifact.startswith(prefix) else ""
-            first_rest = rest.split("/", 1)[0]
-            if (
-                not artifact.startswith(prefix)
-                or "\\" in artifact
-                or artifact.startswith("/")
-                or any(segment in ("", ".", "..") for segment in segments)
-                or ":" in first_rest
-            ):
+            if not _agent_member_ok(agent, artifact):
                 errors.append(
                     f"agent_sessions.{index} artifact containment invalid"
                 )

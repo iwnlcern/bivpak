@@ -530,6 +530,30 @@ TEST_CASE("Codex sqlite_home config parsing is top-level TOML aware") {
   CHECK(literal->front().locators.at(1).path == literal_home);
 
   write_file(store / "config.toml",
+             "\"sqlite_home\" = '" + literal_home.generic_string() + "'\n");
+  auto quoted_key = discover();
+  REQUIRE(quoted_key.has_value());
+  REQUIRE(quoted_key->front().locators.size() == 2);
+  CHECK(quoted_key->front().locators.at(1).path == literal_home);
+
+  write_file(store / "config.toml",
+             "\"sqlite\\u005fhome\" = '" + literal_home.generic_string() +
+                 "'\n");
+  auto escaped_key = discover();
+  REQUIRE(escaped_key.has_value());
+  REQUIRE(escaped_key->front().locators.size() == 2);
+  CHECK(escaped_key->front().locators.at(1).path == literal_home);
+
+  const auto literal_text = literal_home.generic_string();
+  REQUIRE(literal_text.starts_with('/'));
+  write_file(store / "config.toml",
+             "sqlite_home = \"\\u002f" + literal_text.substr(1) + "\"\n");
+  auto unicode_value = discover();
+  REQUIRE(unicode_value.has_value());
+  REQUIRE(unicode_value->front().locators.size() == 2);
+  CHECK(unicode_value->front().locators.at(1).path == literal_home);
+
+  write_file(store / "config.toml",
              "[other]\nsqlite_home = '" + nested_home.generic_string() + "'\n");
   auto nested = discover();
   REQUIRE(nested.has_value());

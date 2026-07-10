@@ -419,6 +419,130 @@ const Inventory& codex_inventory() {
   return inventory;
 }
 
+int toml_hex_value(const char value) {
+  if (value >= '0' && value <= '9') return value - '0';
+  if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+  if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+  return -1;
+}
+
+void append_toml_utf8(std::string& output, const std::uint32_t codepoint) {
+  if (codepoint <= 0x7fU) {
+    output.push_back(static_cast<char>(codepoint));
+  } else if (codepoint <= 0x7ffU) {
+    output.push_back(static_cast<char>(0xc0U | (codepoint >> 6U)));
+    output.push_back(static_cast<char>(0x80U | (codepoint & 0x3fU)));
+  } else if (codepoint <= 0xffffU) {
+    output.push_back(static_cast<char>(0xe0U | (codepoint >> 12U)));
+    output.push_back(static_cast<char>(0x80U | ((codepoint >> 6U) & 0x3fU)));
+    output.push_back(static_cast<char>(0x80U | (codepoint & 0x3fU)));
+  } else {
+    output.push_back(static_cast<char>(0xf0U | (codepoint >> 18U)));
+    output.push_back(static_cast<char>(0x80U | ((codepoint >> 12U) & 0x3fU)));
+    output.push_back(static_cast<char>(0x80U | ((codepoint >> 6U) & 0x3fU)));
+    output.push_back(static_cast<char>(0x80U | (codepoint & 0x3fU)));
+  }
+}
+
+struct TomlString {
+  std::string value;
+  std::size_t next{};
+};
+
+std::optional<TomlString> parse_toml_string(const std::string_view text,
+                                            const std::size_t start) {
+  if (start >= text.size() || (text.at(start) != '"' && text.at(start) != '\'')) {
+    return std::nullopt;
+  }
+  const char quote = text.at(start);
+  std::string value;
+  for (std::size_t index = start + 1U; index < text.size(); ++index) {
+    const char character = text.at(index);
+    if (character == quote) {
+      return TomlString{.value = std::move(value), .next = index + 1U};
+    }
+    if (quote == '\'' || character != '\\') {
+      value.push_back(character);
+      continue;
+    }
+    if (++index >= text.size()) return std::nullopt;
+    const char escaped = text.at(index);
+    switch (escaped) {
+      case '"': value.push_back('"'); break;
+      case '\\': value.push_back('\\'); break;
+      case 'b': value.push_back('\b'); break;
+      case 't': value.push_back('\t'); break;
+      case 'n': value.push_back('\n'); break;
+      case 'f': value.push_back('\f'); break;
+      case 'r': value.push_back('\r'); break;
+      case 'u':
+      case 'U': {
+        const std::size_t digits = escaped == 'u' ? 4U : 8U;
+        if (index + digits >= text.size()) return std::nullopt;
+        std::uint32_t codepoint = 0;
+        for (std::size_t offset = 1U; offset <= digits; ++offset) {
+          const int digit = toml_hex_value(text.at(index + offset));
+          if (digit < 0) return std::nullopt;
+          codepoint = (codepoint << 4U) | static_cast<std::uint32_t>(digit);
+        }
+        if (codepoint > 0x10ffffU ||
+            (codepoint >= 0xd800U && codepoint <= 0xdfffU)) {
+          return std::nullopt;
+        }
+        append_toml_utf8(value, codepoint);
+        index += digits;
+        break;
+      }
+      default: return std::nullopt;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t> toml_equals(const std::string_view line,
+                                       const std::size_t start) {
+  char quote = '\0';
+  bool escaped = false;
+  for (std::size_t index = start; index < line.size(); ++index) {
+    const char character = line.at(index);
+    if (quote != '\0') {
+      if (quote == '"' && !escaped && character == '\\') {
+        escaped = true;
+      } else if (!escaped && character == quote) {
+        quote = '\0';
+      } else {
+        escaped = false;
+      }
+    } else if (character == '"' || character == '\'') {
+      quote = character;
+    } else if (character == '=') {
+      return index;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string> parse_toml_key(const std::string_view text) {
+  const auto first = text.find_first_not_of(" \t");
+  if (first == std::string_view::npos) return std::nullopt;
+  const auto last = text.find_last_not_of(" \t");
+  if (text.at(first) == '"' || text.at(first) == '\'') {
+    auto parsed = parse_toml_string(text, first);
+    if (!parsed.has_value() || parsed->next - 1U != last) return std::nullopt;
+    return std::move(parsed->value);
+  }
+  const auto key = text.substr(first, last - first + 1U);
+  if (!std::ranges::all_of(key, [](const char character) {
+        return (character >= 'A' && character <= 'Z') ||
+               (character >= 'a' && character <= 'z') ||
+               (character >= '0' && character <= '9') || character == '_' ||
+               character == '-';
+      })) {
+    return std::nullopt;
+  }
+  return std::string{key};
+}
+
 std::optional<std::string> config_string(const fs::path& path,
                                          const std::string_view wanted_key) {
   std::ifstream input{path};
@@ -438,62 +562,28 @@ std::optional<std::string> config_string(const fs::path& path,
     if (in_table) {
       continue;
     }
-    const auto equals = line.find('=', first);
-    if (equals == std::string::npos) {
+    const auto equals = toml_equals(line, first);
+    if (!equals.has_value()) {
       continue;
     }
-    auto key_end = line.find_last_not_of(" \t", equals - 1U);
-    if (key_end == std::string::npos ||
-        std::string_view{line}.substr(first, key_end - first + 1U) != wanted_key) {
+    auto key = parse_toml_key(std::string_view{line}.substr(first, *equals - first));
+    if (!key.has_value() || *key != wanted_key) {
       continue;
     }
-    const auto value_start = line.find_first_not_of(" \t", equals + 1U);
-    if (found || value_start == std::string::npos ||
-        (line.at(value_start) != '"' && line.at(value_start) != '\'')) {
+    const auto value_start = line.find_first_not_of(" \t", *equals + 1U);
+    if (found || value_start == std::string::npos) {
       return std::nullopt;
     }
-    const char quote = line.at(value_start);
-    std::string value;
-    bool escaped = false;
-    for (std::size_t i = value_start + 1U; i < line.size(); ++i) {
-      const char character = line.at(i);
-      if (quote == '\'' && character == '\'') {
-        const auto trailing = line.find_first_not_of(" \t", i + 1U);
-        if (trailing != std::string::npos && line.at(trailing) != '#') {
-          return std::nullopt;
-        }
-        result = std::move(value);
-        found = true;
-        break;
-      } else if (quote == '"' && escaped) {
-        switch (character) {
-          case '"': value.push_back('"'); break;
-          case '\\': value.push_back('\\'); break;
-          case 'b': value.push_back('\b'); break;
-          case 't': value.push_back('\t'); break;
-          case 'n': value.push_back('\n'); break;
-          case 'f': value.push_back('\f'); break;
-          case 'r': value.push_back('\r'); break;
-          default: return std::nullopt;
-        }
-        escaped = false;
-      } else if (quote == '"' && character == '\\') {
-        escaped = true;
-      } else if (quote == '"' && character == '"') {
-        const auto trailing = line.find_first_not_of(" \t", i + 1U);
-        if (trailing != std::string::npos && line.at(trailing) != '#') {
-          return std::nullopt;
-        }
-        result = std::move(value);
-        found = true;
-        break;
-      } else {
-        value.push_back(character);
-      }
-    }
-    if (!found) {
+    auto parsed = parse_toml_string(line, value_start);
+    if (!parsed.has_value()) {
       return std::nullopt;
     }
+    const auto trailing = line.find_first_not_of(" \t", parsed->next);
+    if (trailing != std::string::npos && line.at(trailing) != '#') {
+      return std::nullopt;
+    }
+    result = std::move(parsed->value);
+    found = true;
   }
   return result;
 }

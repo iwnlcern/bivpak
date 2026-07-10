@@ -102,12 +102,12 @@
               "required": ["original_id", "artifacts"],
               "properties": {
                 "original_id": {"type": "string", "minLength": 1},
-                "artifacts": {"type": "array", "items": {"type": "string", "pattern": "^agents/[a-z0-9][a-z0-9._-]*/[^/:]+(?:/[^/]+)*$"}}
+                "artifacts": {"type": "array", "items": {"type": "string", "pattern": "^(?!.*[\\x00-\\x1F\\x7F\\\\])agents/[a-z0-9][a-z0-9._-]*/(?!\\.{1,2}(?:/|$))(?![^/]*:)[^/]+(?:/(?!\\.{1,2}(?:/|$))[^/]+)*$"}}
               },
               "additionalProperties": true
             }
           },
-          "artifacts": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^agents/[a-z0-9][a-z0-9._-]*/[^/:]+(?:/[^/]+)*$"}},
+          "artifacts": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^(?!.*[\\x00-\\x1F\\x7F\\\\])agents/[a-z0-9][a-z0-9._-]*/(?!\\.{1,2}(?:/|$))(?![^/]*:)[^/]+(?:/(?!\\.{1,2}(?:/|$))[^/]+)*$"}},
           "live_at_pack": {"type": "boolean"},
           "imported_at": {"type": "string"},
           "entry_schema": {"type": "integer", "minimum": 1}

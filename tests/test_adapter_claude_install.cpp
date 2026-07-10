@@ -304,6 +304,77 @@ TEST_CASE("rewrite common preserves every non-target JSON value type") {
   CHECK(rewritten.line == expected);
 }
 
+TEST_CASE("rewrite common decodes only string values and verifies decoded values") {
+  const std::vector<std::pair<std::string, std::string>> paths{
+      {"/ws/proj", "/restored/proj"}};
+  const std::string line =
+      "{\"/ws/proj\":\"key-must-not-change\","
+      "\"solidus\":\"\\/ws\\/proj\","
+      "\"unicode\":\"\\u002fws\\u002fproj\","
+      "\"decimal\":0.1,\"integral\":1.0,\"exponent\":1e+03,"
+      "\"unsigned\":18446744073709551615}";
+
+  const auto rewritten = biv::adapters::rewrite::rewrite_jsonl_line(
+      line, biv::adapters::rewrite::PathPairsView{paths},
+      biv::adapters::rewrite::IdPairsView{});
+
+  CHECK(rewritten.line.find("\"/ws/proj\":\"key-must-not-change\"") !=
+        std::string::npos);
+  CHECK(rewritten.line.find("\"solidus\":\"/restored/proj\"") !=
+        std::string::npos);
+  CHECK(rewritten.line.find("\"unicode\":\"/restored/proj\"") !=
+        std::string::npos);
+  CHECK(rewritten.line.find("\"decimal\":0.1") != std::string::npos);
+  CHECK(rewritten.line.find("\"integral\":1.0") != std::string::npos);
+  CHECK(rewritten.line.find("\"exponent\":1e+03") != std::string::npos);
+  CHECK(rewritten.line.find("18446744073709551615") != std::string::npos);
+
+  const auto stale = bytes("{\"cwd\":\"\\/ws\\/\\u0070roj\"}\n");
+  const std::vector<std::string> origins{"/ws/proj"};
+  const auto verify = biv::adapters::rewrite::verify_scan(
+      stale, biv::adapters::rewrite::OriginPathsView{origins},
+      biv::adapters::rewrite::OriginIdsView{});
+  CHECK(verify.origin_path_hits > 0);
+}
+
+TEST_CASE("Claude install rewrites escaped values without changing keys or numbers") {
+  const auto root = make_tmp("escaped-values");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  members.at(main_artifact()) = bytes(
+      std::string{"{\"/ws/proj\":\"key-must-not-change\",\"type\":\"user\","
+                  "\"cwd\":\"\\/ws\\/\\u0070roj\",\"sessionId\":\""} +
+      std::string{kOriginalSession} +
+      "\",\"decimal\":0.1,\"integral\":1.0,\"exponent\":1e+03,"
+      "\"unsigned\":18446744073709551615}\n");
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{claude_entry()};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  REQUIRE(result->id_map.size() == 1);
+  const auto installed_id = result->id_map.front().installed_session_id;
+  const auto installed = read_text(store / "projects" /
+                                   claude_project_key(workspace) /
+                                   (installed_id + ".jsonl"));
+  CHECK(installed.find("\"/ws/proj\":\"key-must-not-change\"") !=
+        std::string::npos);
+  CHECK(installed.find(workspace.generic_string()) != std::string::npos);
+  CHECK(installed.find("\"decimal\":0.1") != std::string::npos);
+  CHECK(installed.find("\"integral\":1.0") != std::string::npos);
+  CHECK(installed.find("\"exponent\":1e+03") != std::string::npos);
+  CHECK(installed.find("18446744073709551615") != std::string::npos);
+  fs::remove_all(root);
+}
+
 TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids collisions") {
   const auto root = make_tmp("install");
   const auto workspace = root / "workspace" / "proj";

@@ -333,7 +333,11 @@ TEST_CASE("pack rejects duplicate adapter members before publishing an image") {
 TEST_CASE("pack rejects traversal and control-character session ids atomically") {
   for (const auto& [name, hostile_id] :
        std::vector<std::pair<std::string, std::string>>{
-           {"traversal", "../escape"}, {"control", R"(bad\u0001id)"}}) {
+           {"traversal", "../escape"},
+           {"backslash", R"(bad\\id)"},
+           {"drive", "C:escape"},
+           {"empty", ""},
+           {"control", R"(bad\u0001id)"}}) {
     const auto root = make_tmp("claude-id-" + name);
     const auto source = root / "proj";
     std::filesystem::create_directories(source);
@@ -343,6 +347,31 @@ TEST_CASE("pack rejects traversal and control-character session ids atomically")
                "{\"type\":\"user\",\"cwd\":\"" + source.generic_string() +
                    "\",\"sessionId\":\"" + hostile_id +
                    "\",\"version\":\"2.1.202\"}\n");
+    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+
+    const auto report = biv::pack::pack(source);
+
+    REQUIRE_FALSE(report.has_value());
+    CHECK_FALSE(std::filesystem::exists(root / "proj.bvpk"));
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("pack rejects control and DEL bytes in collected artifact members") {
+  for (const auto hostile : {static_cast<char>(0x01), static_cast<char>(0x7f)}) {
+    const auto root = make_tmp("claude-member-control-" +
+                               std::to_string(static_cast<unsigned char>(hostile)));
+    const auto source = root / "proj";
+    std::filesystem::create_directories(source);
+    write_file(source / "work.txt", "workspace");
+    const auto store = root / "claude_store";
+    copy_fixture_tree_with_workspace(std::filesystem::path{BIV_SOURCE_DIR} /
+                                         "tests" / "fixtures" / "claude_store",
+                                     store, source);
+    const auto hostile_name = std::string{"bad"} + hostile + ".jsonl";
+    write_file(store / "projects" / "-ws-proj" /
+                   "aaaaaaaa-1111-4000-8000-000000000001" / hostile_name,
+               "{\"message\":\"must-not-pack\"}\n");
     const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
 
     const auto report = biv::pack::pack(source);

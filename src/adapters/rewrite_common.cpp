@@ -300,21 +300,246 @@ std::string json_string_content(const std::string_view value) {
   return out;
 }
 
-std::string apply_encoded_replacements(std::string value,
-                                       const PathPairsView pair_set,
-                                       const IdPairsView id_map) {
+std::string apply_replacements(std::string value, const PathPairsView pair_set,
+                               const IdPairsView id_map) {
   for (const auto& pair : pair_set.values) {
-    const auto from = json_string_content(pair.first);
-    const auto to = json_string_content(pair.second);
-    replace_path_all(value, ReplacementText{.from = from, .to = to});
+    replace_path_all(value,
+                     ReplacementText{.from = pair.first, .to = pair.second});
   }
   for (const auto& pair : id_map.values) {
-    const auto from = json_string_content(pair.first);
-    const auto to = json_string_content(pair.second);
-    replace_all(value, ReplacementText{.from = from, .to = to});
+    replace_all(value, ReplacementText{.from = pair.first, .to = pair.second});
   }
   return value;
 }
+
+int hex_value(const char value) {
+  if (value >= '0' && value <= '9') return value - '0';
+  if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+  if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+  return -1;
+}
+
+void append_utf8(std::string& output, const std::uint32_t codepoint) {
+  if (codepoint <= 0x7fU) {
+    output.push_back(static_cast<char>(codepoint));
+  } else if (codepoint <= 0x7ffU) {
+    output.push_back(static_cast<char>(0xc0U | (codepoint >> 6U)));
+    output.push_back(static_cast<char>(0x80U | (codepoint & 0x3fU)));
+  } else if (codepoint <= 0xffffU) {
+    output.push_back(static_cast<char>(0xe0U | (codepoint >> 12U)));
+    output.push_back(static_cast<char>(0x80U | ((codepoint >> 6U) & 0x3fU)));
+    output.push_back(static_cast<char>(0x80U | (codepoint & 0x3fU)));
+  } else {
+    output.push_back(static_cast<char>(0xf0U | (codepoint >> 18U)));
+    output.push_back(static_cast<char>(0x80U | ((codepoint >> 12U) & 0x3fU)));
+    output.push_back(static_cast<char>(0x80U | ((codepoint >> 6U) & 0x3fU)));
+    output.push_back(static_cast<char>(0x80U | (codepoint & 0x3fU)));
+  }
+}
+
+std::optional<std::uint32_t> unicode_escape(const std::string_view content,
+                                            const std::size_t start) {
+  if (start + 4U > content.size()) return std::nullopt;
+  std::uint32_t value = 0;
+  for (std::size_t offset = 0; offset < 4U; ++offset) {
+    const int digit = hex_value(content.at(start + offset));
+    if (digit < 0) return std::nullopt;
+    value = (value << 4U) | static_cast<std::uint32_t>(digit);
+  }
+  return value;
+}
+
+std::optional<std::string> decode_json_string(const std::string_view content) {
+  std::string output;
+  output.reserve(content.size());
+  for (std::size_t index = 0; index < content.size(); ++index) {
+    const char character = content.at(index);
+    if (character != '\\') {
+      output.push_back(character);
+      continue;
+    }
+    if (++index >= content.size()) return std::nullopt;
+    switch (content.at(index)) {
+      case '"': output.push_back('"'); break;
+      case '\\': output.push_back('\\'); break;
+      case '/': output.push_back('/'); break;
+      case 'b': output.push_back('\b'); break;
+      case 'f': output.push_back('\f'); break;
+      case 'n': output.push_back('\n'); break;
+      case 'r': output.push_back('\r'); break;
+      case 't': output.push_back('\t'); break;
+      case 'u': {
+        auto codepoint = unicode_escape(content, index + 1U);
+        if (!codepoint.has_value()) return std::nullopt;
+        index += 4U;
+        if (*codepoint >= 0xd800U && *codepoint <= 0xdbffU) {
+          if (index + 6U >= content.size() || content.at(index + 1U) != '\\' ||
+              content.at(index + 2U) != 'u') {
+            return std::nullopt;
+          }
+          auto low = unicode_escape(content, index + 3U);
+          if (!low.has_value() || *low < 0xdc00U || *low > 0xdfffU) {
+            return std::nullopt;
+          }
+          *codepoint = 0x10000U + ((*codepoint - 0xd800U) << 10U) +
+                       (*low - 0xdc00U);
+          index += 6U;
+        } else if (*codepoint >= 0xdc00U && *codepoint <= 0xdfffU) {
+          return std::nullopt;
+        }
+        append_utf8(output, *codepoint);
+        break;
+      }
+      default: return std::nullopt;
+    }
+  }
+  return output;
+}
+
+class JsonValueRewriter {
+ public:
+  JsonValueRewriter(const std::string_view input, const PathPairsView pair_set,
+                    const IdPairsView id_map,
+                    std::vector<std::string>* decoded_values = nullptr)
+      : input_{input},
+        pair_set_{pair_set},
+        id_map_{id_map},
+        decoded_values_{decoded_values} {
+    output_.reserve(input.size());
+  }
+
+  std::optional<std::string> run() {
+    if (!value()) return std::nullopt;
+    whitespace();
+    if (position_ != input_.size()) return std::nullopt;
+    return output_;
+  }
+
+ private:
+  void whitespace() {
+    while (position_ < input_.size() &&
+           (input_.at(position_) == ' ' || input_.at(position_) == '\t' ||
+            input_.at(position_) == '\r' || input_.at(position_) == '\n')) {
+      output_.push_back(input_.at(position_++));
+    }
+  }
+
+  std::optional<std::size_t> string_end() const {
+    if (position_ >= input_.size() || input_.at(position_) != '"') {
+      return std::nullopt;
+    }
+    std::size_t end = position_ + 1U;
+    while (end < input_.size()) {
+      if (input_.at(end) == '\\') {
+        end += 2U;
+      } else if (input_.at(end) == '"') {
+        return end;
+      } else {
+        ++end;
+      }
+    }
+    return std::nullopt;
+  }
+
+  bool raw_string() {
+    const auto end = string_end();
+    if (!end.has_value()) return false;
+    output_.append(input_.substr(position_, *end - position_ + 1U));
+    position_ = *end + 1U;
+    return true;
+  }
+
+  bool string_value() {
+    const auto end = string_end();
+    if (!end.has_value()) return false;
+    auto decoded = decode_json_string(
+        input_.substr(position_ + 1U, *end - position_ - 1U));
+    if (!decoded.has_value()) return false;
+    if (decoded_values_ != nullptr) decoded_values_->push_back(*decoded);
+    output_.push_back('"');
+    output_ += json_string_content(
+        apply_replacements(std::move(*decoded), pair_set_, id_map_));
+    output_.push_back('"');
+    position_ = *end + 1U;
+    return true;
+  }
+
+  bool object() {
+    output_.push_back(input_.at(position_++));
+    whitespace();
+    if (position_ < input_.size() && input_.at(position_) == '}') {
+      output_.push_back(input_.at(position_++));
+      return true;
+    }
+    while (position_ < input_.size()) {
+      if (!raw_string()) return false;
+      whitespace();
+      if (position_ >= input_.size() || input_.at(position_) != ':') return false;
+      output_.push_back(input_.at(position_++));
+      if (!value()) return false;
+      whitespace();
+      if (position_ < input_.size() && input_.at(position_) == '}') {
+        output_.push_back(input_.at(position_++));
+        return true;
+      }
+      if (position_ >= input_.size() || input_.at(position_) != ',') return false;
+      output_.push_back(input_.at(position_++));
+      whitespace();
+    }
+    return false;
+  }
+
+  bool array() {
+    output_.push_back(input_.at(position_++));
+    whitespace();
+    if (position_ < input_.size() && input_.at(position_) == ']') {
+      output_.push_back(input_.at(position_++));
+      return true;
+    }
+    while (position_ < input_.size()) {
+      if (!value()) return false;
+      whitespace();
+      if (position_ < input_.size() && input_.at(position_) == ']') {
+        output_.push_back(input_.at(position_++));
+        return true;
+      }
+      if (position_ >= input_.size() || input_.at(position_) != ',') return false;
+      output_.push_back(input_.at(position_++));
+    }
+    return false;
+  }
+
+  bool primitive() {
+    const std::size_t start = position_;
+    while (position_ < input_.size() && input_.at(position_) != ',' &&
+           input_.at(position_) != ']' && input_.at(position_) != '}' &&
+           input_.at(position_) != ' ' && input_.at(position_) != '\t' &&
+           input_.at(position_) != '\r' && input_.at(position_) != '\n') {
+      ++position_;
+    }
+    if (position_ == start) return false;
+    output_.append(input_.substr(start, position_ - start));
+    return true;
+  }
+
+  bool value() {
+    whitespace();
+    if (position_ >= input_.size()) return false;
+    switch (input_.at(position_)) {
+      case '{': return object();
+      case '[': return array();
+      case '"': return string_value();
+      default: return primitive();
+    }
+  }
+
+  std::string_view input_;
+  PathPairsView pair_set_;
+  IdPairsView id_map_;
+  std::vector<std::string>* decoded_values_;
+  std::size_t position_{0};
+  std::string output_;
+};
 
 bool valid_utf8(const std::string_view text) {
   size_t index = 0;
@@ -380,6 +605,18 @@ size_t count_hits_bytes(const std::span<const std::byte> haystack,
       ++hits;
       pos += needle.value.size() - 1U;
     }
+  }
+  return hits;
+}
+
+size_t count_hits_text(const std::string_view haystack, const Needle needle) {
+  if (needle.value.empty()) return 0;
+  size_t hits = 0;
+  size_t position = 0;
+  while ((position = haystack.find(needle.value, position)) !=
+         std::string_view::npos) {
+    ++hits;
+    position += needle.value.size();
   }
   return hits;
 }
@@ -454,34 +691,9 @@ RewriteLineResult rewrite_jsonl_line(const std::string_view line,
   if (parser.parse(padded).get(root)) {
     return RewriteLineResult{.line = std::string{line}};
   }
-  std::string out;
-  out.reserve(line.size());
-  std::size_t start = 0;
-  while (start < line.size()) {
-    const auto quote = line.find('"', start);
-    if (quote == std::string_view::npos) {
-      out.append(line.substr(start));
-      break;
-    }
-    out.append(line.substr(start, quote - start + 1U));
-    std::size_t end = quote + 1U;
-    while (end < line.size()) {
-      if (line.at(end) == '\\') {
-        end += 2U;
-        continue;
-      }
-      if (line.at(end) == '"') {
-        break;
-      }
-      ++end;
-    }
-    out += apply_encoded_replacements(
-        std::string{line.substr(quote + 1U, end - quote - 1U)}, pair_set,
-        id_map);
-    out.push_back('"');
-    start = end + 1U;
-  }
-  return RewriteLineResult{.line = std::move(out)};
+  auto rewritten = JsonValueRewriter{line, pair_set, id_map}.run();
+  return RewriteLineResult{
+      .line = rewritten.has_value() ? std::move(*rewritten) : std::string{line}};
 }
 
 RewriteBytesResult rewrite_jsonl_bytes(const std::span<const std::byte> bytes,
@@ -523,11 +735,46 @@ InstallVerify verify_scan(const std::span<const std::byte> artifact_bytes,
                           const OriginIdsView origin_ids) {
   InstallVerify verify;
   verify.artifacts_checked = 1;
-  for (const auto& origin : pair_set_origins.values) {
-    verify.origin_path_hits += count_hits_bytes(artifact_bytes, Needle{origin});
-  }
-  for (const auto& id : origin_ids.values) {
-    verify.origin_id_hits += count_hits_bytes(artifact_bytes, Needle{id});
+  const std::string input = string_from_bytes(artifact_bytes);
+  size_t start = 0;
+  while (start < input.size()) {
+    const size_t newline = input.find('\n', start);
+    const size_t end = newline == std::string::npos ? input.size() : newline;
+    const std::string_view line = std::string_view{input}.substr(start, end - start);
+    bool decoded = false;
+    if (valid_utf8(line)) {
+      simdjson::padded_string padded{line};
+      simdjson::dom::parser parser;
+      simdjson::dom::element root;
+      if (!parser.parse(padded).get(root)) {
+        std::vector<std::string> values;
+        auto parsed = JsonValueRewriter{line, PathPairsView{}, IdPairsView{},
+                                        &values}
+                          .run();
+        if (parsed.has_value()) {
+          decoded = true;
+          for (const auto& value : values) {
+            for (const auto& origin : pair_set_origins.values) {
+              verify.origin_path_hits += count_hits_text(value, Needle{origin});
+            }
+            for (const auto& id : origin_ids.values) {
+              verify.origin_id_hits += count_hits_text(value, Needle{id});
+            }
+          }
+        }
+      }
+    }
+    if (!decoded) {
+      const auto line_bytes = artifact_bytes.subspan(start, end - start);
+      for (const auto& origin : pair_set_origins.values) {
+        verify.origin_path_hits += count_hits_bytes(line_bytes, Needle{origin});
+      }
+      for (const auto& id : origin_ids.values) {
+        verify.origin_id_hits += count_hits_bytes(line_bytes, Needle{id});
+      }
+    }
+    if (newline == std::string::npos) break;
+    start = newline + 1U;
   }
   return verify;
 }

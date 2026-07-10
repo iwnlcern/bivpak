@@ -258,6 +258,50 @@ TEST_CASE(
   fs::remove_all(root);
 }
 
+TEST_CASE("Codex install rewrites escaped values without changing keys or numbers") {
+  const auto root = make_tmp("escaped-values");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = codex_members();
+  members.at(parent_artifact()) = bytes(
+      std::string{"{\"/ws/proj\":\"key-must-not-change\",\"timestamp\":"
+                  "\"2026-07-06T01:00:00Z\",\"type\":\"session_meta\","
+                  "\"payload\":{\"id\":\""} +
+      std::string{kParent} + "\",\"session_id\":\"" +
+      std::string{kParent} +
+      "\",\"cwd\":\"\\/ws\\/\\u0070roj\",\"cli_version\":\"0.142.5\","
+      "\"decimal\":0.1,\"integral\":1.0,\"exponent\":1e+03,"
+      "\"unsigned\":18446744073709551615}}\n");
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry()};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  REQUIRE(result->id_map.size() == 1);
+  const auto installed_id = result->id_map.front().installed_session_id;
+  const auto files = relative_files(store);
+  const auto parent_file = std::ranges::find_if(files, [&](const std::string& file) {
+    return file.find(installed_id) != std::string::npos;
+  });
+  REQUIRE(parent_file != files.end());
+  const auto installed = read_text(store / *parent_file);
+  CHECK(installed.find("\"/ws/proj\":\"key-must-not-change\"") !=
+        std::string::npos);
+  CHECK(installed.find(workspace.generic_string()) != std::string::npos);
+  CHECK(installed.find("\"decimal\":0.1") != std::string::npos);
+  CHECK(installed.find("\"integral\":1.0") != std::string::npos);
+  CHECK(installed.find("\"exponent\":1e+03") != std::string::npos);
+  CHECK(installed.find("18446744073709551615") != std::string::npos);
+  fs::remove_all(root);
+}
+
 TEST_CASE("Codex install gates host and image-entry capability verdicts") {
   const auto root = make_tmp("capability-gate");
   const auto workspace = root / "workspace";

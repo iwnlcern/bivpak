@@ -272,7 +272,9 @@ TEST_CASE("Manifest parser rejects mechanically invalid agent_sessions entries")
 
   for (const auto& path :
        std::vector<std::string>{"agents/other/x", "agents/codex/../../x", "/abs/x", "C:\\x", "agents\\codex\\x",
-                                "agents/codex/C:/rollout.jsonl"}) {
+                                "agents/codex/C:/rollout.jsonl",
+                                std::string{"agents/codex/bad"} + '\x01' + ".jsonl",
+                                std::string{"agents/codex/bad"} + '\x7f' + ".jsonl"}) {
     auto invalid_path = codex_session_entry();
     invalid_path.artifacts = {path};
     invalid_path.children = {};

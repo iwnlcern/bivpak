@@ -25,6 +25,7 @@
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
+#include "core/manifest/agent_member.hpp"
 #include "core/scan/scan.hpp"
 #include "core/support/version.hpp"
 
@@ -327,49 +328,7 @@ bool agent_id_ok(const std::string_view value) {
 }
 
 bool session_id_ok(const std::string_view value) {
-  return !value.empty() && value != "." && value != ".." &&
-         std::ranges::all_of(value, [](const unsigned char character) {
-           return character >= 0x20U && character != 0x7fU && character != '/' &&
-                  character != '\\';
-         });
-}
-
-struct AgentId {
-  std::string_view value;
-};
-
-struct MemberPath {
-  std::string_view value;
-};
-
-bool agent_member_ok(const AgentId agent, const MemberPath path) {
-  const std::string prefix = "agents/" + std::string{agent.value} + "/";
-  if (!path.value.starts_with(prefix) || path.value.size() == prefix.size() ||
-      path.value.find('\\') != std::string_view::npos) {
-    return false;
-  }
-  const auto rest = path.value.substr(prefix.size());
-  const auto first_slash = rest.find('/');
-  if (rest.substr(0, first_slash).find(':') != std::string_view::npos) {
-    return false;
-  }
-  size_t start = 0;
-  while (start <= path.value.size()) {
-    const auto slash = path.value.find('/', start);
-    const auto end = slash == std::string_view::npos ? path.value.size() : slash;
-    const auto segment = path.value.substr(start, end - start);
-    if (segment.empty() || segment == "." || segment == ".." ||
-        std::ranges::any_of(segment, [](const unsigned char character) {
-          return character < 0x20U || character == 0x7fU;
-        })) {
-      return false;
-    }
-    if (slash == std::string_view::npos) {
-      break;
-    }
-    start = slash + 1U;
-  }
-  return true;
+  return manifest::grammar::session_id_ok(value);
 }
 
 Warning adapter_warning(const std::string_view encoded) {
@@ -599,7 +558,9 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
                                       "adapter-parent-session-id"});
       }
       for (const auto& artifact : session.artifacts) {
-        if (!agent_member_ok(AgentId{session.agent}, MemberPath{artifact}) ||
+        if (!manifest::grammar::agent_member_ok(
+                manifest::grammar::AgentId{session.agent},
+                manifest::grammar::MemberPath{artifact}) ||
             !emitted_members.insert(artifact).second) {
           return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, artifact,
                                         "adapter-member-invalid"});

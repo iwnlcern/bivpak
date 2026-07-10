@@ -98,9 +98,21 @@ def test_agent_session_locked_mechanical_rules_are_enforced():
     escaped_artifact["artifacts"] = ["agents/codex/../../auth.json"]
     cases.append(escaped_artifact)
 
+    backslash_artifact = _agent_session_entry()
+    backslash_artifact["artifacts"] = ["agents/codex/bad\\name.jsonl"]
+    cases.append(backslash_artifact)
+
     drive_artifact = _agent_session_entry()
     drive_artifact["artifacts"] = ["agents/codex/C:/rollout.jsonl"]
     cases.append(drive_artifact)
+
+    control_artifact = _agent_session_entry()
+    control_artifact["artifacts"] = ["agents/codex/bad\x01.jsonl"]
+    cases.append(control_artifact)
+
+    del_artifact = _agent_session_entry()
+    del_artifact["artifacts"] = ["agents/codex/bad\x7f.jsonl"]
+    cases.append(del_artifact)
 
     empty_primary = _agent_session_entry()
     empty_primary["original_session_ids"]["primary"] = ""
