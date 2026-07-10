@@ -1,6 +1,10 @@
 #include "adapters/codex/codex.hpp"
 
 #include <algorithm>
+#include <charconv>
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -11,6 +15,9 @@
 #include <string_view>
 #include <system_error>
 #include <vector>
+
+#include <sqlite3.h>
+#include <unistd.h>
 
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
@@ -39,6 +46,13 @@ struct RolloutFacts {
   fs::file_time_type mtime{};
 };
 
+struct TimestampKey {
+  enum class Kind { iso_utc, integer } kind{Kind::iso_utc};
+  std::string whole;
+  std::string fraction;
+  std::int64_t integer{};
+};
+
 struct Candidate {
   Store store;
   SessionRecord::ArtifactSource source;
@@ -48,7 +62,8 @@ struct Candidate {
   manifest::PathFlavor path_flavor{manifest::PathFlavor::posix};
   std::string cli_version;
   std::optional<std::string> parent_id;
-  std::string newest_timestamp;
+  std::optional<TimestampKey> newest_timestamp;
+  std::optional<TimestampKey> db_updated_at;
   fs::file_time_type mtime{};
 };
 
@@ -167,8 +182,77 @@ RolloutFacts inspect_rollout_head(const std::string_view rollout) {
   return facts;
 }
 
-std::string newest_rollout_timestamp(const std::string_view rollout) {
-  std::string newest;
+std::optional<TimestampKey> timestamp_key(const std::string_view value) {
+  std::int64_t integer = 0;
+  const auto integer_result = std::from_chars(value.begin(), value.end(), integer);
+  if (integer_result.ec == std::errc{} &&
+      integer_result.ptr == value.end()) {
+    return TimestampKey{.kind = TimestampKey::Kind::integer,
+                        .whole = {},
+                        .fraction = {},
+                        .integer = integer};
+  }
+  if (value.size() < 20U || value.back() != 'Z' || value.at(4) != '-' ||
+      value.at(7) != '-' || value.at(10) != 'T' || value.at(13) != ':' ||
+      value.at(16) != ':') {
+    return std::nullopt;
+  }
+  for (std::size_t index = 0; index < 19U; ++index) {
+    if (index == 4U || index == 7U || index == 10U || index == 13U ||
+        index == 16U) {
+      continue;
+    }
+    if (value.at(index) < '0' || value.at(index) > '9') {
+      return std::nullopt;
+    }
+  }
+  std::string fraction;
+  if (value.size() > 20U) {
+    if (value.at(19) != '.') {
+      return std::nullopt;
+    }
+    fraction = std::string{value.substr(20, value.size() - 21U)};
+    if (fraction.empty() ||
+        !std::ranges::all_of(fraction, [](const char character) {
+          return character >= '0' && character <= '9';
+        })) {
+      return std::nullopt;
+    }
+    while (!fraction.empty() && fraction.back() == '0') {
+      fraction.pop_back();
+    }
+  }
+  return TimestampKey{.kind = TimestampKey::Kind::iso_utc,
+                      .whole = std::string{value.substr(0, 19)},
+                      .fraction = std::move(fraction),
+                      .integer = 0};
+}
+
+std::optional<int> compare_timestamp(const std::optional<TimestampKey>& lhs,
+                                     const std::optional<TimestampKey>& rhs) {
+  if (!lhs.has_value() || !rhs.has_value() || lhs->kind != rhs->kind) {
+    return std::nullopt;
+  }
+  if (lhs->kind == TimestampKey::Kind::integer) {
+    return lhs->integer < rhs->integer ? -1 : lhs->integer > rhs->integer ? 1 : 0;
+  }
+  if (lhs->whole != rhs->whole) {
+    return lhs->whole < rhs->whole ? -1 : 1;
+  }
+  const auto width = std::max(lhs->fraction.size(), rhs->fraction.size());
+  for (std::size_t index = 0; index < width; ++index) {
+    const char left = index < lhs->fraction.size() ? lhs->fraction.at(index) : '0';
+    const char right = index < rhs->fraction.size() ? rhs->fraction.at(index) : '0';
+    if (left != right) {
+      return left < right ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
+std::optional<TimestampKey> newest_rollout_timestamp(
+    const std::string_view rollout) {
+  std::optional<TimestampKey> newest;
   std::istringstream input{std::string{rollout}};
   std::string line;
   while (std::getline(input, line)) {
@@ -178,9 +262,13 @@ std::string newest_rollout_timestamp(const std::string_view rollout) {
     if (!object) {
       continue;
     }
-    if (auto timestamp = object_string(*object, "timestamp");
-        timestamp.has_value() && *timestamp > newest) {
-      newest = *timestamp;
+    if (auto timestamp = object_string(*object, "timestamp"); timestamp.has_value()) {
+      auto candidate = timestamp_key(*timestamp);
+      const auto order = compare_timestamp(candidate, newest);
+      if (candidate.has_value() && (!newest.has_value() ||
+                                    (order.has_value() && *order > 0))) {
+        newest = std::move(candidate);
+      }
     }
   }
   return newest;
@@ -234,21 +322,28 @@ std::string discovery_tier_string(const DiscoveryTier tier) {
 
 int tier_rank(const DiscoveryTier tier) {
   switch (tier) {
-    case DiscoveryTier::explicit_flag:
-      return 0;
     case DiscoveryTier::env:
+      return 0;
+    case DiscoveryTier::defaults:
       return 1;
     case DiscoveryTier::config:
       return 2;
-    case DiscoveryTier::defaults:
+    case DiscoveryTier::explicit_flag:
       return 3;
   }
   return 3;
 }
 
 bool better_candidate(const Candidate& candidate, const Candidate& current) {
-  if (candidate.newest_timestamp != current.newest_timestamp) {
-    return candidate.newest_timestamp > current.newest_timestamp;
+  if (const auto order = compare_timestamp(candidate.newest_timestamp,
+                                            current.newest_timestamp);
+      order.has_value() && *order != 0) {
+    return *order > 0;
+  }
+  if (const auto order = compare_timestamp(candidate.db_updated_at,
+                                            current.db_updated_at);
+      order.has_value() && *order != 0) {
+    return *order > 0;
   }
   if (candidate.mtime != current.mtime) {
     return candidate.mtime > current.mtime;
@@ -256,8 +351,10 @@ bool better_candidate(const Candidate& candidate, const Candidate& current) {
   if (tier_rank(candidate.store.tier) != tier_rank(current.store.tier)) {
     return tier_rank(candidate.store.tier) < tier_rank(current.store.tier);
   }
-  return candidate.source.path.generic_string() <
-         current.source.path.generic_string();
+  if (candidate.store.root.generic_string() != current.store.root.generic_string()) {
+    return candidate.store.root.generic_string() < current.store.root.generic_string();
+  }
+  return candidate.source.path.generic_string() < current.source.path.generic_string();
 }
 
 std::string artifact_for(std::string_view id) {
@@ -310,7 +407,9 @@ const Inventory& codex_inventory() {
         .caveat_facts = {.env_var = "CODEX_HOME",
                          .relocated_contents = {},
                          .login_flow_owner = "codex",
-                         .notes = {}}};
+                         .notes = {{
+                             "picker_gap",
+                             "session may not appear in the default picker until first opened by id"}}}};
     value.caveat_facts.relocated_contents.push_back("sessions");
     value.caveat_facts.relocated_contents.insert(
         value.caveat_facts.relocated_contents.end(), value.never_collect.begin(),
@@ -324,9 +423,19 @@ std::optional<std::string> config_string(const fs::path& path,
                                          const std::string_view wanted_key) {
   std::ifstream input{path};
   std::string line;
+  bool in_table = false;
+  bool found = false;
+  std::optional<std::string> result;
   while (std::getline(input, line)) {
     const auto first = line.find_first_not_of(" \t");
     if (first == std::string::npos || line.at(first) == '#') {
+      continue;
+    }
+    if (line.at(first) == '[') {
+      in_table = true;
+      continue;
+    }
+    if (in_table) {
       continue;
     }
     const auto equals = line.find('=', first);
@@ -339,31 +448,144 @@ std::optional<std::string> config_string(const fs::path& path,
       continue;
     }
     const auto value_start = line.find_first_not_of(" \t", equals + 1U);
-    if (value_start == std::string::npos || line.at(value_start) != '"') {
+    if (found || value_start == std::string::npos ||
+        (line.at(value_start) != '"' && line.at(value_start) != '\'')) {
       return std::nullopt;
     }
+    const char quote = line.at(value_start);
     std::string value;
     bool escaped = false;
     for (std::size_t i = value_start + 1U; i < line.size(); ++i) {
       const char character = line.at(i);
-      if (escaped) {
-        if (character == '"' || character == '\\') {
-          value.push_back(character);
-        } else {
+      if (quote == '\'' && character == '\'') {
+        const auto trailing = line.find_first_not_of(" \t", i + 1U);
+        if (trailing != std::string::npos && line.at(trailing) != '#') {
           return std::nullopt;
         }
+        result = std::move(value);
+        found = true;
+        break;
+      } else if (quote == '"' && escaped) {
+        switch (character) {
+          case '"': value.push_back('"'); break;
+          case '\\': value.push_back('\\'); break;
+          case 'b': value.push_back('\b'); break;
+          case 't': value.push_back('\t'); break;
+          case 'n': value.push_back('\n'); break;
+          case 'f': value.push_back('\f'); break;
+          case 'r': value.push_back('\r'); break;
+          default: return std::nullopt;
+        }
         escaped = false;
-      } else if (character == '\\') {
+      } else if (quote == '"' && character == '\\') {
         escaped = true;
-      } else if (character == '"') {
-        return value;
+      } else if (quote == '"' && character == '"') {
+        const auto trailing = line.find_first_not_of(" \t", i + 1U);
+        if (trailing != std::string::npos && line.at(trailing) != '#') {
+          return std::nullopt;
+        }
+        result = std::move(value);
+        found = true;
+        break;
       } else {
         value.push_back(character);
       }
     }
+    if (!found) {
+      return std::nullopt;
+    }
+  }
+  return result;
+}
+
+class TemporaryDatabaseCopy {
+ public:
+  TemporaryDatabaseCopy() = default;
+  ~TemporaryDatabaseCopy() {
+    if (!path_.empty()) {
+      ::unlink(path_.c_str());
+    }
+  }
+  TemporaryDatabaseCopy(const TemporaryDatabaseCopy&) = delete;
+  TemporaryDatabaseCopy& operator=(const TemporaryDatabaseCopy&) = delete;
+  TemporaryDatabaseCopy(TemporaryDatabaseCopy&&) = delete;
+  TemporaryDatabaseCopy& operator=(TemporaryDatabaseCopy&&) = delete;
+
+  fs::path path_;
+};
+
+std::optional<std::map<std::string, TimestampKey>> thread_updates(
+    const fs::path& database_path) {
+  auto source = secure_io::open_read_no_follow(database_path);
+  if (!source) {
     return std::nullopt;
   }
-  return std::nullopt;
+  std::string pattern =
+      (fs::temp_directory_path() / "bivpak-codex-state-XXXXXX").string();
+  std::vector<char> mutable_pattern(pattern.begin(), pattern.end());
+  mutable_pattern.push_back('\0');
+  const int output = ::mkstemp(mutable_pattern.data());
+  if (output < 0) {
+    return std::nullopt;
+  }
+  TemporaryDatabaseCopy copy;
+  copy.path_ = mutable_pattern.data();
+  auto copied = source->stream([&](std::span<const std::byte> bytes) -> expected<void> {
+    while (!bytes.empty()) {
+      const auto count = ::write(output, bytes.data(), bytes.size());
+      if (count < 0) {
+        if (errno == EINTR) continue;
+        return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, {}, {}, errno});
+      }
+      bytes = bytes.subspan(static_cast<std::size_t>(count));
+    }
+    return {};
+  });
+  const int close_result = ::close(output);
+  if (!copied || close_result != 0) {
+    return std::nullopt;
+  }
+
+  sqlite3* raw_database = nullptr;
+  if (sqlite3_open_v2(copy.path_.c_str(), &raw_database,
+                      SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nullptr) !=
+      SQLITE_OK) {
+    if (raw_database != nullptr) sqlite3_close(raw_database);
+    return std::nullopt;
+  }
+  sqlite3_stmt* statement = nullptr;
+  if (sqlite3_prepare_v2(raw_database, "SELECT id, updated_at FROM threads", -1,
+                         &statement, nullptr) != SQLITE_OK) {
+    sqlite3_close(raw_database);
+    return std::nullopt;
+  }
+  std::map<std::string, TimestampKey> updates;
+  int step = SQLITE_ROW;
+  while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
+    const auto sqlite_text = [&](const int column) -> std::optional<std::string> {
+      const auto* data = sqlite3_column_text(statement, column);
+      if (data == nullptr) return std::nullopt;
+      const auto size = static_cast<std::size_t>(sqlite3_column_bytes(statement, column));
+      std::string text;
+      text.reserve(size);
+      for (const unsigned char byte : std::span{data, size}) {
+        text.push_back(static_cast<char>(byte));
+      }
+      return text;
+    };
+    const auto id = sqlite_text(0);
+    const auto updated = sqlite_text(1);
+    if (!id.has_value() || !updated.has_value()) continue;
+    if (auto key = timestamp_key(*updated); key.has_value()) {
+      updates.emplace(*id, std::move(*key));
+    }
+  }
+  sqlite3_finalize(statement);
+  sqlite3_close(raw_database);
+  if (step != SQLITE_DONE) {
+    return std::nullopt;
+  }
+  return updates;
 }
 
 class CodexAdapter final : public AgentAdapter {
@@ -438,23 +660,28 @@ class CodexAdapter final : public AgentAdapter {
           return std::unexpected(valid.error());
         }
         std::error_code ec;
+        std::optional<fs::path> database_path;
         for (const auto& locator : store.locators) {
           if (locator.kind == "sqlite_home" &&
               fs::exists(locator.path / "state_5.sqlite", ec)) {
-            db_warnings.push_back({
-                store.root.generic_string(),
-                "CodexDbEnrichmentSkipped:" +
-                    (locator.path / "state_5.sqlite").generic_string()});
+            database_path = locator.path / "state_5.sqlite";
+            break;
           }
         }
-        if (fs::exists(store.root / "state_5.sqlite", ec) &&
-            std::ranges::none_of(store.locators, [](const StoreLocator& locator) {
-              return locator.kind == "sqlite_home";
-            })) {
-          db_warnings.push_back({
-              store.root.generic_string(),
-              "CodexDbEnrichmentSkipped:" +
-                  (store.root / "state_5.sqlite").generic_string()});
+        if (!database_path.has_value() &&
+            fs::exists(store.root / "state_5.sqlite", ec)) {
+          database_path = store.root / "state_5.sqlite";
+        }
+        std::map<std::string, TimestampKey> db_updates;
+        if (database_path.has_value()) {
+          auto loaded = thread_updates(*database_path);
+          if (loaded.has_value()) {
+            db_updates = std::move(*loaded);
+          } else {
+            db_warnings.push_back({
+                store.root.generic_string(),
+                "CodexDbEnrichmentSkipped:" + database_path->generic_string()});
+          }
         }
         std::vector<fs::path> session_roots;
         for (const auto& locator : store.locators) {
@@ -492,6 +719,7 @@ class CodexAdapter final : public AgentAdapter {
               continue;
             }
             const auto mtime = fs::last_write_time(path, ec);
+            const auto db_update = db_updates.find(*facts.id);
             grouped[*facts.id].push_back(Candidate{
                 .store = store,
                 .source = std::move(*source),
@@ -502,6 +730,10 @@ class CodexAdapter final : public AgentAdapter {
                 .cli_version = facts.cli_version.value_or("unknown"),
                 .parent_id = std::move(facts.parent_id),
                 .newest_timestamp = newest_rollout_timestamp(*text),
+                .db_updated_at = db_update == db_updates.end()
+                                     ? std::nullopt
+                                     : std::optional<TimestampKey>{
+                                           db_update->second},
                 .mtime = ec ? fs::file_time_type{} : mtime});
             ec.clear();
           }

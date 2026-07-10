@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.27)
 project(bivpak CXX)
 
+find_package(SQLite3 REQUIRED)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -65,7 +67,7 @@ add_library(biv_adapters STATIC
   src/adapters/codex/codex.cpp
   src/adapters/codex/install.cpp)
 target_include_directories(biv_adapters PUBLIC src)
-target_link_libraries(biv_adapters PUBLIC simdjson)
+target_link_libraries(biv_adapters PUBLIC simdjson SQLite3::SQLite3)
 target_compile_options(biv_adapters PRIVATE -Wall -Wextra -Werror)
 
 add_executable(biv src/cli/main.cpp src/cli/args.cpp)
@@ -101,6 +103,9 @@ add_test(NAME biv_tests COMMAND biv_tests)
 add_test(NAME open_no_rewrite_gate
   COMMAND ${CMAKE_SOURCE_DIR}/tests/check_open_no_rewrite.sh
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+add_test(NAME core_adapter_purity_selftest
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/harness/ci/check_core_adapter_purity.py
+          --self-test)
 
 if(BIV_ENABLE_FUZZ)
   execute_process(

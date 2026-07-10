@@ -288,8 +288,9 @@ TEST_CASE("rewrite common preserves every non-target JSON value type") {
   const std::vector<std::pair<std::string, std::string>> ids{{"old-id", "new-id"}};
   const std::string line =
       "{\"path\":\"/old\",\"id\":\"old-id\",\"signed\":-7,"
-      "\"unsigned\":9223372036854775808,\"decimal\":1.25,\"flag\":true,"
-      "\"nothing\":null,\"array\":[1,2.5,false,null],"
+      "\"unsigned\":18446744073709551615,\"decimal\":0.1,"
+      "\"integral_float\":1.0,\"exponent\":1e+03,\"negative_zero\":-0.0,"
+      "\"flag\":true,\"nothing\":null,\"array\":[1,2.5,false,null],"
       "\"object\":{\"value\":3.75}}";
 
   const auto rewritten = biv::adapters::rewrite::rewrite_jsonl_line(
@@ -297,13 +298,10 @@ TEST_CASE("rewrite common preserves every non-target JSON value type") {
       biv::adapters::rewrite::IdPairsView{ids});
 
   CHECK_FALSE(rewritten.skipped_non_utf8);
-  CHECK(rewritten.line.find("\"signed\": -7") != std::string::npos);
-  CHECK(rewritten.line.find("9223372036854775808") != std::string::npos);
-  CHECK(rewritten.line.find("\"decimal\": 1.25") != std::string::npos);
-  CHECK(rewritten.line.find("\"flag\": true") != std::string::npos);
-  CHECK(rewritten.line.find("\"nothing\": null") != std::string::npos);
-  CHECK(rewritten.line.find("2.5") != std::string::npos);
-  CHECK(rewritten.line.find("3.75") != std::string::npos);
+  std::string expected = line;
+  expected.replace(expected.find("/old"), 4, "/new");
+  expected.replace(expected.find("old-id"), 6, "new-id");
+  CHECK(rewritten.line == expected);
 }
 
 TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids collisions") {
@@ -598,6 +596,54 @@ TEST_CASE("secure install batch refuses a leaf symlink before any publication") 
   CHECK(result.error().detail == "containment_refused");
   CHECK_FALSE(fs::exists(store / "sessions" / "good.jsonl"));
   CHECK(read_text(outside) == "sentinel");
+  fs::remove_all(root);
+}
+
+TEST_CASE("secure install preserves unowned temporary-name collisions") {
+  const auto root = make_tmp("temporary-collision");
+  const auto store = root / "store";
+  const auto sessions = store / "sessions";
+  fs::create_directories(sessions);
+  const auto first_collision =
+      sessions / (".bivpak-install-" + std::to_string(::getpid()) + "-0.tmp");
+  {
+    std::ofstream output{first_collision, std::ios::binary};
+    output << "first-host-bytes";
+  }
+  const auto payload = bytes("new bytes\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> first_write{
+      {.relative_path = "sessions/target.jsonl", .bytes = payload}};
+
+  const auto first_result =
+      biv::adapters::secure_io::write_batch_no_replace(store, first_write);
+
+  REQUIRE(first_result.has_value());
+  CHECK(read_text(first_collision) == "first-host-bytes");
+  CHECK(read_text(sessions / "target.jsonl") == "new bytes\n");
+
+  fs::remove(first_collision);
+  fs::remove(sessions / "target.jsonl");
+  const auto later_collision =
+      sessions / (".bivpak-install-" + std::to_string(::getpid()) + "-1.tmp");
+  {
+    std::ofstream output{later_collision, std::ios::binary};
+    output << "later-host-bytes";
+  }
+  const auto first = bytes("first\n");
+  const auto second = bytes("second\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> later_writes{
+      {.relative_path = "sessions/first.jsonl", .bytes = first},
+      {.relative_path = "sessions/second.jsonl", .bytes = second}};
+
+  const auto later_result =
+      biv::adapters::secure_io::write_batch_no_replace(store, later_writes);
+
+  REQUIRE(later_result.has_value());
+  CHECK(read_text(later_collision) == "later-host-bytes");
+  CHECK(read_text(sessions / "first.jsonl") == "first\n");
+  CHECK(read_text(sessions / "second.jsonl") == "second\n");
+  CHECK_FALSE(fs::exists(sessions / (".bivpak-install-" +
+                                     std::to_string(::getpid()) + "-0.tmp")));
   fs::remove_all(root);
 }
 

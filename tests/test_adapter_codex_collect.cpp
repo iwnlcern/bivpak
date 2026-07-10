@@ -1,6 +1,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
+#include <sqlite3.h>
 
 #include "adapters/codex/codex.hpp"
 
@@ -53,6 +55,33 @@ void write_file(const fs::path& path, std::string_view content) {
   fs::create_directories(path.parent_path());
   std::ofstream out{path, std::ios::binary};
   out << content;
+}
+
+void write_rollout(const fs::path& store, std::string_view id,
+                   std::string_view timestamp, std::string_view marker) {
+  write_file(store / "sessions" / "2026" / "07" / "06" /
+                 ("rollout-2026-07-06T01-00-00-" + std::string{id} + ".jsonl"),
+             "{\"timestamp\":\"" + std::string{timestamp} +
+                 "\",\"type\":\"session_meta\",\"payload\":{\"id\":\"" +
+                 std::string{id} + "\",\"session_id\":\"" + std::string{id} +
+                 "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"" +
+                 std::string{marker} + "\"}}\n");
+}
+
+void write_threads_db(const fs::path& directory, std::string_view id,
+                      std::int64_t updated_at) {
+  fs::create_directories(directory);
+  sqlite3* database = nullptr;
+  REQUIRE(sqlite3_open((directory / "state_5.sqlite").c_str(), &database) ==
+          SQLITE_OK);
+  const std::string sql =
+      "CREATE TABLE threads(id TEXT PRIMARY KEY, updated_at INTEGER, extra TEXT);"
+      "INSERT INTO threads(id, updated_at, extra) VALUES('" +
+      std::string{id} + "'," + std::to_string(updated_at) + ",'ignored');";
+  char* error = nullptr;
+  CHECK(sqlite3_exec(database, sql.c_str(), nullptr, nullptr, &error) == SQLITE_OK);
+  sqlite3_free(error);
+  CHECK(sqlite3_close(database) == SQLITE_OK);
 }
 
 fs::path make_tmp(std::string_view name) {
@@ -286,6 +315,11 @@ TEST_CASE("Codex adapter inventory denies credentials and installation ids") {
         inventory.caveat_facts.relocated_contents.end());
   CHECK(std::ranges::find(inventory.caveat_facts.relocated_contents, "sessions") !=
         inventory.caveat_facts.relocated_contents.end());
+  CHECK(std::ranges::find(inventory.caveat_facts.notes,
+                          std::pair<std::string, std::string>{
+                              "picker_gap",
+                              "session may not appear in the default picker until first opened by id"}) !=
+        inventory.caveat_facts.notes.end());
 }
 
 TEST_CASE("Codex adapter skips symlinked and compressed rollout files") {
@@ -388,4 +422,127 @@ TEST_CASE("Codex duplicate-store E-3 warns and picks by declared freshness") {
   CHECK(std::ranges::any_of(report->warnings, [](const std::string& warning) {
     return warning == "SessionDuplicateStore:" + std::string{kParent};
   }));
+}
+
+TEST_CASE("Codex duplicate selection follows every locked A5 freshness key") {
+  const auto root = make_tmp("a5-keys");
+  const auto db_old_store = root / "db-old";
+  const auto db_new_store = root / "db-new";
+  const auto db_old = root / "db-old-sqlite";
+  const auto db_new = root / "db-new-sqlite";
+  const std::string db_id{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee8100"};
+  write_rollout(db_old_store, db_id, "2026-07-06T01:00:00Z", "db-old");
+  write_rollout(db_new_store, db_id, "2026-07-06T01:00:00Z", "db-new");
+  write_threads_db(db_old, db_id, 100);
+  write_threads_db(db_new, db_id, 200);
+  const auto now = fs::file_time_type::clock::now();
+  for (const auto& entry : fs::recursive_directory_iterator(db_old_store)) {
+    if (entry.is_regular_file()) fs::last_write_time(entry.path(), now);
+  }
+  for (const auto& entry : fs::recursive_directory_iterator(db_new_store)) {
+    if (entry.is_regular_file()) fs::last_write_time(entry.path(), now - std::chrono::hours{1});
+  }
+
+  const auto fractional_a = root / "fractional-a";
+  const auto fractional_b = root / "fractional-b";
+  const std::string fractional_id{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee8101"};
+  write_rollout(fractional_a, fractional_id, "2026-07-06T01:00:00.1Z", "fractional-a");
+  write_rollout(fractional_b, fractional_id, "2026-07-06T01:00:00.10Z", "fractional-b");
+  for (const auto& entry : fs::recursive_directory_iterator(fractional_a)) {
+    if (entry.is_regular_file()) fs::last_write_time(entry.path(), now - std::chrono::hours{2});
+  }
+  for (const auto& entry : fs::recursive_directory_iterator(fractional_b)) {
+    if (entry.is_regular_file()) fs::last_write_time(entry.path(), now);
+  }
+
+  const auto default_store = root / "default";
+  const auto config_store = root / "config";
+  const std::string tier_id{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee8102"};
+  write_rollout(default_store, tier_id, "2026-07-06T01:00:00Z", "default-wins");
+  write_rollout(config_store, tier_id, "2026-07-06T01:00:00Z", "config-loses");
+  for (const auto& store : {default_store, config_store}) {
+    for (const auto& entry : fs::recursive_directory_iterator(store)) {
+      if (entry.is_regular_file()) fs::last_write_time(entry.path(), now);
+    }
+  }
+
+  const std::vector<biv::adapters::Store> stores{
+      {.root = db_old_store,
+       .locators = {{.kind = "sessions_root", .path = db_old_store / "sessions"},
+                    {.kind = "sqlite_home", .path = db_old}},
+       .tier = biv::adapters::DiscoveryTier::env},
+      {.root = db_new_store,
+       .locators = {{.kind = "sessions_root", .path = db_new_store / "sessions"},
+                    {.kind = "sqlite_home", .path = db_new}},
+       .tier = biv::adapters::DiscoveryTier::env},
+      {.root = fractional_a,
+       .locators = {{.kind = "sessions_root", .path = fractional_a / "sessions"}},
+       .tier = biv::adapters::DiscoveryTier::env},
+      {.root = fractional_b,
+       .locators = {{.kind = "sessions_root", .path = fractional_b / "sessions"}},
+       .tier = biv::adapters::DiscoveryTier::env},
+      {.root = default_store,
+       .locators = {{.kind = "sessions_root", .path = default_store / "sessions"}},
+       .tier = biv::adapters::DiscoveryTier::defaults},
+      {.root = config_store,
+       .locators = {{.kind = "sessions_root", .path = config_store / "sessions"}},
+       .tier = biv::adapters::DiscoveryTier::config}};
+
+  const auto report =
+      biv::adapters::codex_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(report.has_value());
+  CHECK(find_session(*report, db_id).agent_version_at_pack == "db-new");
+  CHECK(find_session(*report, db_id).provenance.store_root ==
+        db_new_store.generic_string());
+  CHECK(find_session(*report, fractional_id).agent_version_at_pack ==
+        "fractional-b");
+  CHECK(find_session(*report, tier_id).agent_version_at_pack == "default-wins");
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex sqlite_home config parsing is top-level TOML aware") {
+  const auto root = make_tmp("toml");
+  const auto store = root / "codex";
+  const auto literal_home = root / "literal";
+  const auto nested_home = root / "nested";
+  const auto env_home = root / "env";
+  fs::create_directories(store);
+  fs::create_directories(literal_home);
+  fs::create_directories(nested_home);
+  fs::create_directories(env_home);
+  const auto discover = [&](std::optional<std::string> env_sqlite = std::nullopt) {
+    return biv::adapters::codex_adapter().discover(biv::adapters::Env{
+        .getenv = [&](const std::string_view name) -> std::optional<std::string> {
+          if (name == "CODEX_HOME") return store.string();
+          if (name == "CODEX_SQLITE_HOME") return env_sqlite;
+          return std::nullopt;
+        },
+        .home = root});
+  };
+
+  write_file(store / "config.toml",
+             "sqlite_home = '" + literal_home.generic_string() + "' # valid literal\n"
+             "[other]\nsqlite_home = \"" + nested_home.generic_string() + "\"\n");
+  auto literal = discover();
+  REQUIRE(literal.has_value());
+  REQUIRE(literal->front().locators.size() == 2);
+  CHECK(literal->front().locators.at(1).path == literal_home);
+
+  write_file(store / "config.toml",
+             "[other]\nsqlite_home = '" + nested_home.generic_string() + "'\n");
+  auto nested = discover();
+  REQUIRE(nested.has_value());
+  CHECK(nested->front().locators.size() == 1);
+
+  write_file(store / "config.toml", "sqlite_home = 42\n");
+  auto malformed = discover();
+  REQUIRE(malformed.has_value());
+  CHECK(malformed->front().locators.size() == 1);
+
+  auto env = discover(env_home.string());
+  REQUIRE(env.has_value());
+  REQUIRE(env->front().locators.size() == 2);
+  CHECK(env->front().locators.at(1).path == env_home);
+  fs::remove_all(root);
 }

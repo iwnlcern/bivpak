@@ -252,7 +252,7 @@ adapters::Env process_env() {
 std::vector<std::string> path_segments(std::string text,
                                        const manifest::PathFlavor flavor) {
   if (flavor == manifest::PathFlavor::windows) {
-    if (text.starts_with("\\\\?\\")) {
+    if (text.starts_with("\\\\?\\") || text.starts_with("//?/")) {
       text.erase(0, 4);
     }
     std::ranges::replace(text, '\\', '/');
@@ -346,6 +346,11 @@ bool agent_member_ok(const AgentId agent, const MemberPath path) {
   const std::string prefix = "agents/" + std::string{agent.value} + "/";
   if (!path.value.starts_with(prefix) || path.value.size() == prefix.size() ||
       path.value.find('\\') != std::string_view::npos) {
+    return false;
+  }
+  const auto rest = path.value.substr(prefix.size());
+  const auto first_slash = rest.find('/');
+  if (rest.substr(0, first_slash).find(':') != std::string_view::npos) {
     return false;
   }
   size_t start = 0;

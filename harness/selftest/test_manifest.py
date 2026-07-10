@@ -98,6 +98,14 @@ def test_agent_session_locked_mechanical_rules_are_enforced():
     escaped_artifact["artifacts"] = ["agents/codex/../../auth.json"]
     cases.append(escaped_artifact)
 
+    drive_artifact = _agent_session_entry()
+    drive_artifact["artifacts"] = ["agents/codex/C:/rollout.jsonl"]
+    cases.append(drive_artifact)
+
+    empty_primary = _agent_session_entry()
+    empty_primary["original_session_ids"]["primary"] = ""
+    cases.append(empty_primary)
+
     empty_parent = _agent_session_entry()
     empty_parent["artifacts"] = []
     cases.append(empty_parent)
@@ -129,6 +137,15 @@ def test_agent_session_uniqueness_and_nullable_parent():
     entry["original_session_ids"]["parent"] = None
     nullable["agent_sessions"] = [entry]
     assert validate_manifest(nullable, "builtin") == []
+
+    duplicate_member = _golden_manifest()
+    first = _agent_session_entry()
+    second = deepcopy(first)
+    second["original_session_ids"]["primary"] = "different-primary"
+    second["children"] = []
+    duplicate_member["agent_sessions"] = [first, second]
+    assert any("artifact" in item and "unique" in item for item in
+               validate_manifest(duplicate_member, "builtin"))
 
 
 def test_future_entry_schema_reaches_per_entry_skip_with_only_dispatch_fields():

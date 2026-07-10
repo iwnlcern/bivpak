@@ -126,6 +126,7 @@ struct Target {
   std::string leaf;
   std::string temporary;
   std::span<const std::byte> bytes;
+  bool temporary_owned{false};
   bool published{false};
 };
 
@@ -214,7 +215,7 @@ expected<Target> prepare_target(const int root_fd, const WriteRequest& request,
 void rollback(std::vector<Target>& targets,
               std::vector<CreatedDirectory>& created) {
   for (auto& target : targets) {
-    if (!target.temporary.empty()) {
+    if (target.temporary_owned) {
       ::unlinkat(target.parent.get(), target.temporary.c_str(), 0);
     }
     if (target.published) {
@@ -320,9 +321,23 @@ expected<void> write_batch_no_replace(const fs::path& root,
   }
 
   for (auto& target : targets) {
-    Fd temporary{::openat(target.parent.get(), target.temporary.c_str(),
-                          O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
-                          0600)};
+    Fd temporary;
+    const std::string base_name = target.temporary;
+    for (std::size_t attempt = 0; attempt < 1024U; ++attempt) {
+      target.temporary =
+          attempt == 0U ? base_name : base_name + "." + std::to_string(attempt);
+      temporary = Fd{::openat(target.parent.get(), target.temporary.c_str(),
+                              O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW |
+                                  O_CLOEXEC,
+                              0600)};
+      if (temporary.valid()) {
+        target.temporary_owned = true;
+        break;
+      }
+      if (errno != EEXIST) {
+        break;
+      }
+    }
     if (!temporary.valid()) {
       const auto error = containment_error(target.temporary, errno);
       rollback(targets, created);
@@ -352,6 +367,7 @@ expected<void> write_batch_no_replace(const fs::path& root,
       rollback(targets, created);
       return std::unexpected(error);
     }
+    target.temporary_owned = false;
     target.temporary.clear();
   }
   return {};

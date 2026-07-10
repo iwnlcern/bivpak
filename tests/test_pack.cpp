@@ -380,6 +380,8 @@ TEST_CASE("pack carries duplicate-store warning and A5 pick into the envelope") 
 
   REQUIRE(report.has_value());
   REQUIRE(report->agent_sessions.size() == 1);
+  CHECK(report->agent_sessions.front().provenance.store_root ==
+        default_store.generic_string());
   CHECK(std::ranges::any_of(report->warnings, [&](const biv::pack::Warning& warning) {
     return warning.kind == "SessionDuplicateStore" && warning.path == session_id;
   }));
@@ -387,6 +389,15 @@ TEST_CASE("pack carries duplicate-store warning and A5 pick into the envelope") 
                                           std::nullopt, 2);
   CHECK(json.find("\"kind\": \"SessionDuplicateStore\"") != std::string::npos);
   CHECK(json.find(session_id) != std::string::npos);
+  const auto members = read_archive(root / "proj.bvpk");
+  const auto winner = std::ranges::find_if(members, [&](const ArchiveMember& member) {
+    return member.meta.path == "agents/codex/" + session_id + ".jsonl";
+  });
+  REQUIRE(winner != members.end());
+  CHECK(byte_string(as_span(winner->data)).find("2026-07-06T02:00:00Z") !=
+        std::string::npos);
+  CHECK(byte_string(as_span(winner->data)).find("2026-07-06T01:00:00Z") ==
+        std::string::npos);
   std::filesystem::remove_all(root);
 }
 
@@ -408,6 +419,13 @@ TEST_CASE("pack excludes symlinked Claude agent artifacts") {
                  "aaaaaaaa-1111-4000-8000-000000000001" /
                  ".credentials.json",
              "DO_NOT_COLLECT_REGULAR_CREDENTIAL");
+  write_file(store / "projects" / "-ws-proj" / "history.jsonl",
+             "{\"type\":\"user\",\"cwd\":\"" + source.generic_string() +
+                 "\",\"sessionId\":\"history-sentinel\",\"version\":"
+                 "\"2.1.202\",\"message\":\"DO_NOT_COLLECT_MAIN_HISTORY\"}\n");
+  write_file(store / "projects" / "-ws-proj" /
+                 "aaaaaaaa-1111-4000-8000-000000000001" / "history.jsonl",
+             "DO_NOT_COLLECT_SUBTREE_HISTORY");
   const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
 
   auto report = biv::pack::pack(source);
@@ -425,6 +443,39 @@ TEST_CASE("pack excludes symlinked Claude agent artifacts") {
     return byte_string(as_span(member.data))
                .find("DO_NOT_COLLECT_REGULAR_CREDENTIAL") != std::string::npos;
   }));
+  CHECK(std::ranges::none_of(members, [](const ArchiveMember& member) {
+    return member.meta.path.find("history.jsonl") != std::string::npos ||
+           byte_string(as_span(member.data)).find("DO_NOT_COLLECT_MAIN_HISTORY") !=
+               std::string::npos ||
+           byte_string(as_span(member.data)).find(
+               "DO_NOT_COLLECT_SUBTREE_HISTORY") != std::string::npos;
+  }));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack derives relpath from slash-form Windows extended paths") {
+  const auto token = "biv-pack-extended-" + std::to_string(::getpid());
+  const auto source = std::filesystem::path{"/mnt/c/tmp"} / token / "proj";
+  const auto root = make_tmp("extended-relpath");
+  const auto store = root / "codex";
+  const auto session_id = std::string{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee9900"};
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  write_file(store / "sessions" / "2026" / "07" / "06" /
+                 ("rollout-2026-07-06T01-00-00-" + session_id + ".jsonl"),
+             "{\"timestamp\":\"2026-07-06T01:00:00Z\",\"type\":"
+             "\"session_meta\",\"payload\":{\"id\":\"" + session_id +
+                 "\",\"session_id\":\"" + session_id +
+                 "\",\"cwd\":\"//?/C:/tmp/" + token +
+                 "/proj/sub\",\"cli_version\":\"0.142.5\"}}\n");
+  const ScopedEnv codex_home{"CODEX_HOME", store.string()};
+
+  const auto report = biv::pack::pack(source);
+
+  REQUIRE(report.has_value());
+  REQUIRE(report->agent_sessions.size() == 1);
+  CHECK(report->agent_sessions.front().relpath_key == "sub");
+  std::filesystem::remove_all(source.parent_path());
   std::filesystem::remove_all(root);
 }
 

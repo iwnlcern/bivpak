@@ -271,7 +271,8 @@ TEST_CASE("Manifest parser rejects mechanically invalid agent_sessions entries")
   CHECK(agent_result.error().detail == "agent-id-grammar");
 
   for (const auto& path :
-       std::vector<std::string>{"agents/other/x", "agents/codex/../../x", "/abs/x", "C:\\x", "agents\\codex\\x"}) {
+       std::vector<std::string>{"agents/other/x", "agents/codex/../../x", "/abs/x", "C:\\x", "agents\\codex\\x",
+                                "agents/codex/C:/rollout.jsonl"}) {
     auto invalid_path = codex_session_entry();
     invalid_path.artifacts = {path};
     invalid_path.children = {};
@@ -311,4 +312,20 @@ TEST_CASE("Manifest parser rejects mechanically invalid agent_sessions entries")
       biv::manifest::parse(bytes_of(manifest_json_with({parent, child})));
   REQUIRE_FALSE(in_image_marker.has_value());
   CHECK(in_image_marker.error().detail == "session-parent-relationship");
+
+  auto empty_primary = codex_session_entry();
+  empty_primary.original_session_ids.primary.clear();
+  auto empty_primary_result =
+      biv::manifest::parse(bytes_of(manifest_json_with({empty_primary})));
+  REQUIRE_FALSE(empty_primary_result.has_value());
+  CHECK(empty_primary_result.error().detail == "session-ids");
+
+  auto duplicate_member_a = codex_session_entry();
+  auto duplicate_member_b = codex_session_entry();
+  duplicate_member_b.original_session_ids.primary = "different-primary";
+  duplicate_member_b.children.clear();
+  auto duplicate_member_result = biv::manifest::parse(
+      bytes_of(manifest_json_with({duplicate_member_a, duplicate_member_b})));
+  REQUIRE_FALSE(duplicate_member_result.has_value());
+  CHECK(duplicate_member_result.error().detail == "artifact-uniqueness");
 }

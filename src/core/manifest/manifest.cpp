@@ -211,6 +211,14 @@ expected<void> validate_artifacts(std::string_view agent, const std::vector<std:
   return {};
 }
 
+bool session_id_ok(const std::string_view value) {
+  return !value.empty() && value != "." && value != ".." &&
+         std::ranges::all_of(value, [](const unsigned char character) {
+           return character >= 0x20U && character != 0x7fU && character != '/' &&
+                  character != '\\';
+         });
+}
+
 expected<PathFlavor> parse_entry_path_flavor(std::string_view value) {
   if (value == "posix") {
     return PathFlavor::posix;
@@ -238,7 +246,7 @@ expected<std::vector<SessionChild>> parse_session_children(simdjson::dom::object
     }
     auto original_id = required_string(child_object, "original_id");
     auto artifacts = required_string_array(child_object, "artifacts");
-    if (!original_id || !artifacts) {
+    if (!original_id || !artifacts || !session_id_ok(*original_id)) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "children"});
     }
     auto valid = validate_artifacts(agent, *artifacts);
@@ -320,7 +328,9 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   if (!primary || !parent || !parent_in_image) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "session-ids"});
   }
-  if (primary->empty() || (parent_in_image->has_value() && (!parent->has_value() || **parent_in_image))) {
+  if (!session_id_ok(*primary) ||
+      (parent->has_value() && !session_id_ok(**parent)) ||
+      (parent_in_image->has_value() && (!parent->has_value() || **parent_in_image))) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "session-ids"});
   }
   entry.original_session_ids = {
@@ -361,6 +371,7 @@ expected<std::vector<AgentSessionEntry>> parse_agent_sessions(simdjson::dom::obj
   }
 
   std::set<std::pair<std::string, std::string>> seen;
+  std::set<std::string> seen_artifacts;
   std::vector<AgentSessionEntry> out;
   for (auto item : array) {
     simdjson::dom::object entry_object;
@@ -374,6 +385,20 @@ expected<std::vector<AgentSessionEntry>> parse_agent_sessions(simdjson::dom::obj
     if (!entry->original_session_ids.primary.empty() &&
         !seen.insert({entry->agent, entry->original_session_ids.primary}).second) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "session-uniqueness"});
+    }
+    for (const auto& artifact : entry->artifacts) {
+      if (!seen_artifacts.insert(artifact).second) {
+        return std::unexpected(BivError{ErrKind::ParseError, {},
+                                        "artifact-uniqueness"});
+      }
+    }
+    for (const auto& child : entry->children) {
+      for (const auto& artifact : child.artifacts) {
+        if (!seen_artifacts.insert(artifact).second) {
+          return std::unexpected(BivError{ErrKind::ParseError, {},
+                                          "artifact-uniqueness"});
+        }
+      }
     }
     out.push_back(std::move(*entry));
   }

@@ -368,7 +368,8 @@ class ClaudeCodeAdapter final : public AgentAdapter {
                !ec && entry_it != entry_end; entry_it.increment(ec)) {
             const auto& entry = *entry_it;
             if (entry.is_symlink(ec) || !entry.is_regular_file(ec) ||
-                entry.path().extension() != ".jsonl") {
+                entry.path().extension() != ".jsonl" ||
+                never_collect_path(entry.path().lexically_relative(store.root))) {
               continue;
             }
             auto main_source = open_artifact_source(entry.path());

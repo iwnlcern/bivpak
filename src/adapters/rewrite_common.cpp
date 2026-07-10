@@ -1,11 +1,7 @@
 #include "adapters/rewrite_common.hpp"
 
 #include <algorithm>
-#include <array>
-#include <charconv>
-#include <cmath>
 #include <cstdint>
-#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -286,14 +282,36 @@ void replace_path_all(std::string& text, const ReplacementText replacement) {
   }
 }
 
-std::string apply_replacements(std::string value, const PathPairsView pair_set,
-                               const IdPairsView id_map) {
+std::string json_string_content(const std::string_view value) {
+  constexpr std::string_view hex = "0123456789ABCDEF";
+  std::string out;
+  for (const unsigned char character : value) {
+    if (character == '"' || character == '\\') {
+      out.push_back('\\');
+      out.push_back(static_cast<char>(character));
+    } else if (character < 0x20U) {
+      out += "\\u00";
+      out.push_back(hex.at(character >> 4U));
+      out.push_back(hex.at(character & 0x0FU));
+    } else {
+      out.push_back(static_cast<char>(character));
+    }
+  }
+  return out;
+}
+
+std::string apply_encoded_replacements(std::string value,
+                                       const PathPairsView pair_set,
+                                       const IdPairsView id_map) {
   for (const auto& pair : pair_set.values) {
-    replace_path_all(value,
-                     ReplacementText{.from = pair.first, .to = pair.second});
+    const auto from = json_string_content(pair.first);
+    const auto to = json_string_content(pair.second);
+    replace_path_all(value, ReplacementText{.from = from, .to = to});
   }
   for (const auto& pair : id_map.values) {
-    replace_all(value, ReplacementText{.from = pair.first, .to = pair.second});
+    const auto from = json_string_content(pair.first);
+    const auto to = json_string_content(pair.second);
+    replace_all(value, ReplacementText{.from = from, .to = to});
   }
   return value;
 }
@@ -331,181 +349,6 @@ bool valid_utf8(const std::string_view text) {
     index += needed + 1;
   }
   return true;
-}
-
-class RewriteWriter {
- public:
-  void begin_object() { begin_value(); out_.push_back('{'); frames_.push_back({true, true, false}); }
-  void end_object() { end_container('}', true); }
-  void begin_array() { begin_value(); out_.push_back('['); frames_.push_back({false, true, false}); }
-  void end_array() { end_container(']', false); }
-  void key(const std::string_view value) {
-    before_item();
-    write_string(value);
-    out_ += ": ";
-    frames_.back().pending_key = true;
-  }
-  void value_string(const std::string_view value) { begin_value(); write_string(value); end_value(); }
-  void value_int(const std::int64_t value) { value_number(value); }
-  void value_uint(const std::uint64_t value) { value_number(value); }
-  void value_double(const double value) {
-    begin_value();
-    std::array<char, 64> buffer{};
-    const auto result = std::to_chars(buffer.begin(), buffer.end(),
-                                      value, std::chars_format::general,
-                                      std::numeric_limits<double>::max_digits10);
-    if (result.ec != std::errc{} || !std::isfinite(value)) {
-      out_ += "null";
-    } else {
-      out_.append(buffer.data(), result.ptr);
-    }
-    end_value();
-  }
-  void value_bool(const bool value) { begin_value(); out_ += value ? "true" : "false"; end_value(); }
-  void value_null() { begin_value(); out_ += "null"; end_value(); }
-  std::string take() { out_.push_back('\n'); return std::move(out_); }
-
- private:
-  struct Frame { bool object; bool first; bool pending_key; };
-
-  template <typename Integer>
-  void value_number(const Integer value) {
-    begin_value();
-    std::array<char, 32> buffer{};
-    const auto result = std::to_chars(buffer.begin(), buffer.end(), value);
-    out_.append(buffer.data(), result.ptr);
-    end_value();
-  }
-  void begin_value() {
-    if (frames_.empty()) return;
-    if (frames_.back().object) return;
-    before_item();
-  }
-  void end_value() {
-    if (!frames_.empty() && frames_.back().object) frames_.back().pending_key = false;
-  }
-  void before_item() {
-    auto& frame = frames_.back();
-    if (!frame.first) out_.push_back(',');
-    out_.push_back('\n');
-    out_.append(frames_.size() * 2U, ' ');
-    frame.first = false;
-  }
-  void end_container(const char close, const bool object) {
-    const auto frame = frames_.back();
-    frames_.pop_back();
-    if (!frame.first) {
-      out_.push_back('\n');
-      out_.append(frames_.size() * 2U, ' ');
-    }
-    out_.push_back(close);
-    if (!frames_.empty() && frames_.back().object) frames_.back().pending_key = false;
-    (void)object;
-  }
-  void write_string(const std::string_view value) {
-    constexpr std::string_view hex = "0123456789ABCDEF";
-    out_.push_back('"');
-    for (const unsigned char character : value) {
-      if (character == '"' || character == '\\') {
-        out_.push_back('\\');
-        out_.push_back(static_cast<char>(character));
-      } else if (character < 0x20U) {
-        out_ += "\\u00";
-        out_.push_back(hex.at(character >> 4U));
-        out_.push_back(hex.at(character & 0x0FU));
-      } else {
-        out_.push_back(static_cast<char>(character));
-      }
-    }
-    out_.push_back('"');
-  }
-
-  std::string out_;
-  std::vector<Frame> frames_;
-};
-
-void write_element(RewriteWriter& writer,
-                   simdjson::dom::element element,
-                   const PathPairsView pair_set,
-                   const IdPairsView id_map) {
-  switch (element.type()) {
-    case simdjson::dom::element_type::ARRAY: {
-      simdjson::dom::array array;
-      if (element.get(array)) {
-        writer.value_null();
-        return;
-      }
-      writer.begin_array();
-      for (auto item : array) {
-        write_element(writer, item, pair_set, id_map);
-      }
-      writer.end_array();
-      return;
-    }
-    case simdjson::dom::element_type::OBJECT: {
-      simdjson::dom::object object;
-      if (element.get(object)) {
-        writer.value_null();
-        return;
-      }
-      writer.begin_object();
-      for (auto field : object) {
-        writer.key(field.key);
-        write_element(writer, field.value, pair_set, id_map);
-      }
-      writer.end_object();
-      return;
-    }
-    case simdjson::dom::element_type::INT64: {
-      int64_t value = 0;
-      if (element.get(value)) {
-        writer.value_null();
-      } else {
-        writer.value_int(value);
-      }
-      return;
-    }
-    case simdjson::dom::element_type::UINT64: {
-      uint64_t value = 0;
-      if (element.get(value)) {
-        writer.value_null();
-      } else {
-        writer.value_uint(value);
-      }
-      return;
-    }
-    case simdjson::dom::element_type::DOUBLE: {
-      double value = 0.0;
-      if (element.get(value)) {
-        writer.value_null();
-      } else {
-        writer.value_double(value);
-      }
-      return;
-    }
-    case simdjson::dom::element_type::STRING: {
-      std::string_view value;
-      if (element.get(value)) {
-        writer.value_null();
-      } else {
-        writer.value_string(apply_replacements(std::string{value}, pair_set, id_map));
-      }
-      return;
-    }
-    case simdjson::dom::element_type::BOOL: {
-      bool value = false;
-      if (element.get(value)) {
-        writer.value_null();
-      } else {
-        writer.value_bool(value);
-      }
-      return;
-    }
-    case simdjson::dom::element_type::NULL_VALUE:
-      writer.value_null();
-      return;
-  }
-  writer.value_null();
 }
 
 std::string string_from_bytes(const std::span<const std::byte> bytes) {
@@ -611,11 +454,32 @@ RewriteLineResult rewrite_jsonl_line(const std::string_view line,
   if (parser.parse(padded).get(root)) {
     return RewriteLineResult{.line = std::string{line}};
   }
-  RewriteWriter writer;
-  write_element(writer, root, pair_set, id_map);
-  std::string out = writer.take();
-  if (!out.empty() && out.back() == '\n') {
-    out.pop_back();
+  std::string out;
+  out.reserve(line.size());
+  std::size_t start = 0;
+  while (start < line.size()) {
+    const auto quote = line.find('"', start);
+    if (quote == std::string_view::npos) {
+      out.append(line.substr(start));
+      break;
+    }
+    out.append(line.substr(start, quote - start + 1U));
+    std::size_t end = quote + 1U;
+    while (end < line.size()) {
+      if (line.at(end) == '\\') {
+        end += 2U;
+        continue;
+      }
+      if (line.at(end) == '"') {
+        break;
+      }
+      ++end;
+    }
+    out += apply_encoded_replacements(
+        std::string{line.substr(quote + 1U, end - quote - 1U)}, pair_set,
+        id_map);
+    out.push_back('"');
+    start = end + 1U;
   }
   return RewriteLineResult{.line = std::move(out)};
 }
