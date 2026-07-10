@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -70,7 +71,13 @@ struct SessionRecord {
   manifest::PathFlavor path_flavor{manifest::PathFlavor::posix};
   manifest::SessionProvenance provenance;
   std::vector<std::string> artifacts;
-  std::vector<std::filesystem::path> artifact_sources;
+  struct ArtifactSource {
+    std::filesystem::path path;
+    std::uint64_t size{0};
+    std::function<expected<void>(
+        const std::function<expected<void>(std::span<const std::byte>)>&)> stream;
+  };
+  std::vector<ArtifactSource> artifact_sources;
   std::string agent_version_at_pack;
   bool live_at_pack{false};
 };

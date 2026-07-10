@@ -153,6 +153,48 @@ TEST_CASE("Codex adapter discovers CODEX_HOME as an env-tier store") {
   fs::remove_all(root / "archived_sessions");
 }
 
+TEST_CASE("Codex adapter reads sqlite_home from config and collection honors it") {
+  const auto root = make_tmp("config-sqlite-home");
+  const auto store = root / "codex";
+  const auto sqlite_home = root / "sqlite";
+  fs::create_directories(store);
+  fs::create_directories(sqlite_home);
+  write_file(store / "config.toml",
+             "model = \"gpt-5\"\nsqlite_home = \"" +
+                 sqlite_home.generic_string() + "\"\n");
+  write_file(sqlite_home / "state_5.sqlite", "not-a-database");
+  const auto session_id = std::string{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee6611"};
+  write_file(store / "sessions" / "2026" / "07" / "06" /
+                 ("rollout-2026-07-06T01-00-00-" + session_id + ".jsonl"),
+             "{\"timestamp\":\"2026-07-06T01:00:00Z\",\"type\":"
+             "\"session_meta\",\"payload\":{\"id\":\"" + session_id +
+                 "\",\"session_id\":\"" + session_id +
+                 "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n");
+  const biv::adapters::Env env{
+      .getenv = [&](const std::string_view name) -> std::optional<std::string> {
+        return name == "CODEX_HOME" ? std::optional<std::string>{store.string()}
+                                    : std::nullopt;
+      },
+      .home = root};
+
+  const auto stores = biv::adapters::codex_adapter().discover(env);
+
+  REQUIRE(stores.has_value());
+  REQUIRE(stores->size() == 1);
+  REQUIRE(stores->front().locators.size() == 2);
+  CHECK(stores->front().locators.at(1).kind == "sqlite_home");
+  CHECK(stores->front().locators.at(1).path == sqlite_home);
+
+  const auto report = biv::adapters::codex_adapter().collect("/ws/proj", *stores);
+  REQUIRE(report.has_value());
+  CHECK(std::ranges::any_of(report->warnings, [&](const std::string& warning) {
+    return warning ==
+           "CodexDbEnrichmentSkipped:" +
+               (sqlite_home / "state_5.sqlite").generic_string();
+  }));
+  fs::remove_all(root);
+}
+
 TEST_CASE("Codex adapter collects rollout parent, child, and same-store newest duplicate") {
   const auto& adapter = biv::adapters::codex_adapter();
   const auto root = fixture_root();
@@ -182,13 +224,13 @@ TEST_CASE("Codex adapter collects rollout parent, child, and same-store newest d
   CHECK(parent.artifacts == std::vector<std::string>{"agents/codex/" + std::string{kParent} + ".jsonl",
                                                      "agents/codex/" + std::string{kChild} + ".jsonl"});
   REQUIRE(parent.artifact_sources.size() == 2);
-  const auto child_text = read_text(parent.artifact_sources.at(1));
+  const auto child_text = read_text(parent.artifact_sources.at(1).path);
   CHECK(count_occurrences(child_text, kParent) == 2);
 
   const auto& duplicate = find_session(*report, kDuplicate);
   CHECK(duplicate.agent_version_at_pack == "0.142.7");
   REQUIRE(duplicate.artifact_sources.size() == 1);
-  CHECK(duplicate.artifact_sources.front()
+  CHECK(duplicate.artifact_sources.front().path
             .filename()
             .generic_string()
             .starts_with("rollout-2026-07-06T02-00-00"));
@@ -238,6 +280,12 @@ TEST_CASE("Codex adapter inventory denies credentials and installation ids") {
         inventory.never_collect.end());
   CHECK(std::ranges::find(inventory.never_collect, "installation_id") !=
         inventory.never_collect.end());
+  CHECK(std::ranges::find(inventory.caveat_facts.relocated_contents, "auth.json") !=
+        inventory.caveat_facts.relocated_contents.end());
+  CHECK(std::ranges::find(inventory.caveat_facts.relocated_contents, "config.toml") !=
+        inventory.caveat_facts.relocated_contents.end());
+  CHECK(std::ranges::find(inventory.caveat_facts.relocated_contents, "sessions") !=
+        inventory.caveat_facts.relocated_contents.end());
 }
 
 TEST_CASE("Codex adapter skips symlinked and compressed rollout files") {
@@ -318,10 +366,7 @@ TEST_CASE("Codex adapter keeps dangling parent ids for manifest emission") {
   fs::remove_all(root);
 }
 
-TEST_CASE("Codex duplicate-store E-3 fail-safe excludes duplicated ids",
-          "[!mayfail][pending-e3]") {
-  // E-3 answer relay under s3-escalate-3 -> replace exclusion with ruled A5
-  // behavior.
+TEST_CASE("Codex duplicate-store E-3 warns and picks by declared freshness") {
   const auto& adapter = biv::adapters::codex_adapter();
   const auto root = fixture_root();
   const auto duplicate_root = fixture_root() / "duplicate_store";
@@ -337,10 +382,10 @@ TEST_CASE("Codex duplicate-store E-3 fail-safe excludes duplicated ids",
   const auto report = adapter.collect("/ws/proj", stores);
 
   REQUIRE(report.has_value());
-  CHECK(std::ranges::none_of(report->sessions, [](const biv::adapters::SessionRecord& session) {
+  CHECK(std::ranges::any_of(report->sessions, [](const biv::adapters::SessionRecord& session) {
     return session.original_session_id == kParent;
   }));
   CHECK(std::ranges::any_of(report->warnings, [](const std::string& warning) {
-    return warning.find("SessionDuplicateStorePending") != std::string::npos;
+    return warning == "SessionDuplicateStore:" + std::string{kParent};
   }));
 }

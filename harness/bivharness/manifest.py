@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -54,6 +55,55 @@ def validate_manifest(manifest: dict[str, Any], variant: str) -> list[str]:
         errors.append("image_id must be uuid4")
     if not _is_iso8601_utc(manifest["created_at"]):
         errors.append("created_at must be ISO-8601 UTC")
+
+    seen_sessions: set[tuple[str, str]] = set()
+    agent_pattern = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+    for index, entry in enumerate(manifest["agent_sessions"]):
+        agent = entry["agent"]
+        if not agent_pattern.fullmatch(agent):
+            errors.append(f"agent_sessions.{index}.agent grammar invalid")
+        if entry["entry_schema"] > 1:
+            continue
+        primary = entry["original_session_ids"]["primary"]
+        session_key = (agent, primary)
+        if session_key in seen_sessions:
+            errors.append(f"agent_sessions.{index} session must be unique")
+        seen_sessions.add(session_key)
+
+        ids = entry["original_session_ids"]
+        parent = ids.get("parent")
+        if "parent_in_image" in ids and (
+            parent is None or ids["parent_in_image"] is not False
+        ):
+            errors.append(f"agent_sessions.{index} dangling parent invalid")
+
+        prefix = f"agents/{agent}/"
+        artifacts = list(entry["artifacts"])
+        for child in entry["children"]:
+            artifacts.extend(child["artifacts"])
+        for artifact in artifacts:
+            segments = artifact.split("/")
+            if (
+                not artifact.startswith(prefix)
+                or "\\" in artifact
+                or artifact.startswith("/")
+                or any(segment in ("", ".", "..") for segment in segments)
+            ):
+                errors.append(
+                    f"agent_sessions.{index} artifact containment invalid"
+                )
+    for index, entry in enumerate(manifest["agent_sessions"]):
+        if entry["entry_schema"] > 1:
+            continue
+        ids = entry["original_session_ids"]
+        parent = ids.get("parent")
+        if parent is None:
+            continue
+        parent_in_set = (entry["agent"], parent) in seen_sessions
+        if (parent_in_set and "parent_in_image" in ids) or (
+            not parent_in_set and ids.get("parent_in_image") is not False
+        ):
+            errors.append(f"agent_sessions.{index} parent relationship invalid")
 
     bivignore = manifest["bivignore"]
     if variant == "file":

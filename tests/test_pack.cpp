@@ -19,6 +19,7 @@
 #include "core/manifest/checksums.hpp"
 #include "core/manifest/manifest.hpp"
 #include "core/pack/pack.hpp"
+#include "core/report/envelope.hpp"
 
 namespace {
 
@@ -306,7 +307,7 @@ TEST_CASE(
   std::filesystem::remove_all(root);
 }
 
-TEST_CASE("pack dedupes adapter-visible sessions before emitting artifacts") {
+TEST_CASE("pack rejects duplicate adapter members before publishing an image") {
   const auto root = make_tmp("claude-dedupe");
   const auto source = root / "proj";
   std::filesystem::create_directories(source);
@@ -324,15 +325,68 @@ TEST_CASE("pack dedupes adapter-visible sessions before emitting artifacts") {
 
   const auto report = biv::pack::pack(source);
 
+  REQUIRE_FALSE(report.has_value());
+  CHECK_FALSE(std::filesystem::exists(root / "proj.bvpk"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack rejects traversal and control-character session ids atomically") {
+  for (const auto& [name, hostile_id] :
+       std::vector<std::pair<std::string, std::string>>{
+           {"traversal", "../escape"}, {"control", R"(bad\u0001id)"}}) {
+    const auto root = make_tmp("claude-id-" + name);
+    const auto source = root / "proj";
+    std::filesystem::create_directories(source);
+    write_file(source / "work.txt", "workspace");
+    const auto store = root / "claude_store";
+    write_file(store / "projects" / "project" / "safe.jsonl",
+               "{\"type\":\"user\",\"cwd\":\"" + source.generic_string() +
+                   "\",\"sessionId\":\"" + hostile_id +
+                   "\",\"version\":\"2.1.202\"}\n");
+    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+
+    const auto report = biv::pack::pack(source);
+
+    REQUIRE_FALSE(report.has_value());
+    CHECK_FALSE(std::filesystem::exists(root / "proj.bvpk"));
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("pack carries duplicate-store warning and A5 pick into the envelope") {
+  const auto root = make_tmp("codex-duplicate-warning");
+  const auto source = root / "proj";
+  const auto env_store = root / "env-codex";
+  const auto default_store = root / "home" / ".codex";
+  const auto session_id = std::string{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee7700"};
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  const auto rollout = [&](const std::filesystem::path& store,
+                           const std::string_view timestamp) {
+    write_file(store / "sessions" / "2026" / "07" / "06" /
+                   ("rollout-2026-07-06T01-00-00-" + session_id + ".jsonl"),
+               "{\"timestamp\":\"" + std::string{timestamp} +
+                   "\",\"type\":\"session_meta\",\"payload\":{\"id\":\"" +
+                   session_id + "\",\"session_id\":\"" + session_id +
+                   "\",\"cwd\":\"" + source.generic_string() +
+                   "\",\"cli_version\":\"0.142.5\"}}\n");
+  };
+  rollout(env_store, "2026-07-06T01:00:00Z");
+  rollout(default_store, "2026-07-06T02:00:00Z");
+  const ScopedEnv codex_home{"CODEX_HOME", env_store.string()};
+  const ScopedEnv home{"HOME", (root / "home").string()};
+
+  const auto report = biv::pack::pack(source);
+
   REQUIRE(report.has_value());
   REQUIRE(report->agent_sessions.size() == 1);
-  REQUIRE(report->agent_sessions_summary.size() == 1);
-  CHECK(report->agent_sessions_summary.front().session_count == 1);
-  const auto members = read_archive(root / "proj.bvpk");
-  CHECK(std::ranges::count_if(members, [&](const ArchiveMember& member) {
-          return member.meta.path ==
-                 "agents/claude-code/" + session_id + ".jsonl";
-        }) == 1);
+  CHECK(std::ranges::any_of(report->warnings, [&](const biv::pack::Warning& warning) {
+    return warning.kind == "SessionDuplicateStore" && warning.path == session_id;
+  }));
+  const auto json = biv::report::envelope("pack", *report, std::nullopt,
+                                          std::nullopt, 2);
+  CHECK(json.find("\"kind\": \"SessionDuplicateStore\"") != std::string::npos);
+  CHECK(json.find(session_id) != std::string::npos);
   std::filesystem::remove_all(root);
 }
 
@@ -350,6 +404,10 @@ TEST_CASE("pack excludes symlinked Claude agent artifacts") {
                                   store / "projects" / "-ws-proj" /
                                       "aaaaaaaa-1111-4000-8000-000000000001" /
                                       "leak.jsonl");
+  write_file(store / "projects" / "-ws-proj" /
+                 "aaaaaaaa-1111-4000-8000-000000000001" /
+                 ".credentials.json",
+             "DO_NOT_COLLECT_REGULAR_CREDENTIAL");
   const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
 
   auto report = biv::pack::pack(source);
@@ -363,6 +421,48 @@ TEST_CASE("pack excludes symlinked Claude agent artifacts") {
     return byte_string(as_span(member.data))
                .find("DO_NOT_COLLECT_SYMLINK_SECRET") != std::string::npos;
   }));
+  CHECK(std::ranges::none_of(members, [](const ArchiveMember& member) {
+    return byte_string(as_span(member.data))
+               .find("DO_NOT_COLLECT_REGULAR_CREDENTIAL") != std::string::npos;
+  }));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack computes foreign-flavor session relpaths without host path parsing") {
+  const auto root = std::filesystem::path{"/mnt/c/tmp"} /
+                    ("biv-pack-foreign-relpath-" +
+                     std::to_string(static_cast<long long>(::getpid())));
+  std::filesystem::remove_all(root);
+  const auto source = root / "proj";
+  const auto store = root / "codex";
+  const auto session_id = std::string{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee7800"};
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  auto windows_cwd = "C:" + source.generic_string().substr(6);
+  std::ranges::replace(windows_cwd, '/', '\\');
+  windows_cwd += "\\sub";
+  std::string json_cwd;
+  for (const char character : windows_cwd) {
+    if (character == '\\') {
+      json_cwd += "\\\\";
+    } else {
+      json_cwd.push_back(character);
+    }
+  }
+  write_file(store / "sessions" / "2026" / "07" / "06" /
+                 ("rollout-2026-07-06T01-00-00-" + session_id + ".jsonl"),
+             "{\"timestamp\":\"2026-07-06T01:00:00Z\",\"type\":"
+             "\"session_meta\",\"payload\":{\"id\":\"" + session_id +
+                 "\",\"session_id\":\"" + session_id +
+                 "\",\"cwd\":\"" + json_cwd +
+                 "\",\"cli_version\":\"0.142.5\"}}\n");
+  const ScopedEnv codex_home{"CODEX_HOME", store.string()};
+
+  const auto report = biv::pack::pack(source);
+
+  REQUIRE(report.has_value());
+  REQUIRE(report->agent_sessions.size() == 1);
+  CHECK(report->agent_sessions.front().relpath_key == "sub");
   std::filesystem::remove_all(root);
 }
 

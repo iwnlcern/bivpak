@@ -87,6 +87,57 @@ def test_agent_sessions_entry_missing_required_field_fails():
     )
 
 
+def test_agent_session_locked_mechanical_rules_are_enforced():
+    cases = []
+
+    invalid_agent = _agent_session_entry()
+    invalid_agent["agent"] = "../evil"
+    cases.append(invalid_agent)
+
+    escaped_artifact = _agent_session_entry()
+    escaped_artifact["artifacts"] = ["agents/codex/../../auth.json"]
+    cases.append(escaped_artifact)
+
+    empty_parent = _agent_session_entry()
+    empty_parent["artifacts"] = []
+    cases.append(empty_parent)
+
+    dangling_without_parent = _agent_session_entry()
+    dangling_without_parent["original_session_ids"]["parent_in_image"] = False
+    cases.append(dangling_without_parent)
+
+    dangling_without_marker = _agent_session_entry()
+    dangling_without_marker["original_session_ids"]["parent"] = "missing"
+    cases.append(dangling_without_marker)
+
+    for entry in cases:
+        manifest = _golden_manifest()
+        manifest["agent_sessions"] = [entry]
+        assert validate_manifest(manifest, "builtin")
+
+
+def test_agent_session_uniqueness_and_nullable_parent():
+    manifest = _golden_manifest()
+    first = _agent_session_entry()
+    second = deepcopy(first)
+    second["artifacts"] = ["agents/codex/other.jsonl"]
+    manifest["agent_sessions"] = [first, second]
+    assert any("unique" in item for item in validate_manifest(manifest, "builtin"))
+
+    nullable = _golden_manifest()
+    entry = _agent_session_entry()
+    entry["original_session_ids"]["parent"] = None
+    nullable["agent_sessions"] = [entry]
+    assert validate_manifest(nullable, "builtin") == []
+
+
+def test_future_entry_schema_reaches_per_entry_skip_with_only_dispatch_fields():
+    manifest = _golden_manifest()
+    manifest["agent_sessions"] = [{"agent": "future-tool", "entry_schema": 99}]
+
+    assert validate_manifest(manifest, "builtin") == []
+
+
 def test_agent_memory_top_level_is_ignored_not_rejected():
     # seam lock s3-seam-lock-20260707 Part 1 rule 5: unknown top-level field, ignored
     for field in ("agent_memory", "memory"):

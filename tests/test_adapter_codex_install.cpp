@@ -394,6 +394,90 @@ TEST_CASE(
   fs::remove_all(root);
 }
 
+TEST_CASE("Codex install refuses parent symlinks without visible writes") {
+  const auto root = make_tmp("parent-symlink");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  const auto outside = root / "outside";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  fs::create_directories(outside);
+  fs::create_directory_symlink(outside, store / "sessions");
+  auto members = codex_members();
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry()};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(relative_files(outside).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex install refuses nonzero rewrite verification before writing") {
+  const auto root = make_tmp("verify-refuse");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = codex_members();
+  auto hostile = bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"
+                                   "\"id\":\""} +
+                       std::string{kParent} + "\",\"session_id\":\"" +
+                       std::string{kParent} + "\",\"cwd\":\"/ws/proj\"}}");
+  hostile.push_back(static_cast<std::byte>(0xff));
+  hostile.push_back(static_cast<std::byte>('\n'));
+  members.at(parent_artifact()) = std::move(hostile);
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry()};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().verify.origin_path_hits > 0);
+  CHECK(result->sessions.front().verify.origin_id_hits > 0);
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(relative_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex install reads the whole set before its first host write") {
+  const auto root = make_tmp("read-before-write");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = codex_members();
+  auto target = target_for(workspace, store, members);
+  target.member_read = [&](const std::string_view path)
+      -> biv::expected<std::vector<std::byte>> {
+    if (path == child_artifact()) {
+      return std::unexpected(
+          biv::BivError{biv::ErrKind::ImageUnreadable, std::string{path}});
+    }
+    return members.at(std::string{path});
+  };
+  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry()};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(relative_files(store).empty());
+  fs::remove_all(root);
+}
+
 TEST_CASE("Codex rewrite applies pair rewrites and reports non-UTF8 skips") {
   const auto root = make_tmp("rewrite");
   const auto workspace = root / "workspace";

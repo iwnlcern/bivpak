@@ -227,6 +227,47 @@ TEST_CASE("Claude adapter inventory denies credential and settings files") {
         inventory.never_collect.end());
   CHECK(std::ranges::find(inventory.never_collect, "settings.local.json") !=
         inventory.never_collect.end());
+  CHECK(std::ranges::find(inventory.caveat_facts.relocated_contents,
+                          ".credentials.json") !=
+        inventory.caveat_facts.relocated_contents.end());
+  CHECK(std::ranges::find(inventory.caveat_facts.relocated_contents,
+                          "settings.json") !=
+        inventory.caveat_facts.relocated_contents.end());
+  CHECK(std::ranges::find(inventory.caveat_facts.relocated_contents, "projects") !=
+        inventory.caveat_facts.relocated_contents.end());
+}
+
+TEST_CASE("Claude adapter rejects symlinked project and session roots") {
+  const auto root = make_tmp("symlink-roots");
+  const auto store = root / "claude_store";
+  const auto outside = root / "outside";
+  copy_fixture_tree(fixture_root(), outside);
+  fs::create_directories(store);
+  fs::create_directory_symlink(outside / "projects", store / "projects");
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{.kind = "sessions_root",
+                                               .path = store / "projects"}},
+      .tier = biv::adapters::DiscoveryTier::defaults}};
+
+  const auto project_result =
+      biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+  REQUIRE_FALSE(project_result.has_value());
+
+  fs::remove(store / "projects");
+  fs::create_directories(store / "projects" / "-ws-proj");
+  const auto session_id = std::string{"aaaaaaaa-1111-4000-8000-000000000001"};
+  write_file(store / "projects" / "-ws-proj" / (session_id + ".jsonl"),
+             "{\"cwd\":\"/ws/proj\",\"sessionId\":\"" + session_id +
+                 "\"}\n");
+  fs::create_directory_symlink(
+      outside / "projects" / "-ws-proj" / session_id,
+      store / "projects" / "-ws-proj" / session_id);
+
+  const auto session_result =
+      biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+  REQUIRE_FALSE(session_result.has_value());
+  fs::remove_all(root);
 }
 
 TEST_CASE("Claude adapter does not collect symlinked subtree artifacts") {
@@ -259,5 +300,40 @@ TEST_CASE("Claude adapter does not collect symlinked subtree artifacts") {
       session,
       "agents/claude-code/aaaaaaaa-1111-4000-8000-000000000001/leak.jsonl"));
   CHECK(joined_record_text(session).find("leak.jsonl") == std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude collected sources stay fd-bound across a leaf swap") {
+  const auto root = make_tmp("fd-bound-swap");
+  const auto store = root / "claude_store";
+  copy_fixture_tree(fixture_root(), store);
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{.kind = "sessions_root",
+                                               .path = store / "projects"}},
+      .tier = biv::adapters::DiscoveryTier::defaults}};
+  const auto report =
+      biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+  REQUIRE(report.has_value());
+  REQUIRE(report->sessions.size() == 1);
+  const auto source = report->sessions.front().artifact_sources.front();
+  const auto moved = source.path.string() + ".approved";
+  fs::rename(source.path, moved);
+  write_file(root / "credential.jsonl", "DO_NOT_COLLECT_SWAPPED_CREDENTIAL\n");
+  fs::create_symlink(root / "credential.jsonl", source.path);
+
+  std::string streamed;
+  const auto read = source.stream(
+      [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+        for (const auto byte : chunk) {
+          streamed.push_back(static_cast<char>(byte));
+        }
+        return {};
+      });
+
+  REQUIRE(read.has_value());
+  CHECK(streamed.find("DO_NOT_COLLECT_SWAPPED_CREDENTIAL") == std::string::npos);
+  CHECK(streamed.find("aaaaaaaa-1111-4000-8000-000000000001") !=
+        std::string::npos);
   fs::remove_all(root);
 }

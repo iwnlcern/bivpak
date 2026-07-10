@@ -18,6 +18,8 @@ jobs:
           .venv-harness/bin/python -m pip install -r harness/requirements.lock
       - name: Configure harness
         run: cmake -S harness -B harness/build/ci
+      - name: Enforce generic core adapter purity
+        run: python harness/ci/check_core_adapter_purity.py
       - name: Run harness-selftest
         run: ctest --test-dir harness/build/ci -R harness-selftest --output-on-failure
 

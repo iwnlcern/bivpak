@@ -4,12 +4,14 @@
 #include <fstream>
 #include <map>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
 
 #include "adapters/rewrite_common.hpp"
+#include "adapters/secure_io.hpp"
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -38,9 +40,21 @@ struct LiveFacts {
 };
 
 struct ArtifactRef {
-  fs::path source;
+  SessionRecord::ArtifactSource source;
   std::string image_path;
 };
+
+expected<SessionRecord::ArtifactSource> open_artifact_source(const fs::path& path) {
+  auto handle = secure_io::open_read_no_follow(path);
+  if (!handle) {
+    return std::unexpected(handle.error());
+  }
+  return SessionRecord::ArtifactSource{
+      .path = path,
+      .size = handle->size(),
+      .stream = [handle = std::move(*handle)](
+                    const secure_io::ByteSink& sink) { return handle.stream(sink); }};
+}
 
 std::optional<std::string> object_string(simdjson::dom::object object, const std::string_view key) {
   std::string_view value;
@@ -91,9 +105,25 @@ std::optional<simdjson::dom::object> parse_json_object(simdjson::dom::parser& pa
   return object;
 }
 
-TranscriptFacts inspect_transcript(const fs::path& transcript) {
+expected<std::string> source_text(const SessionRecord::ArtifactSource& source) {
+  std::string text;
+  text.reserve(static_cast<size_t>(source.size));
+  auto read = source.stream(
+      [&](const std::span<const std::byte> chunk) -> expected<void> {
+        for (const auto byte : chunk) {
+          text.push_back(static_cast<char>(byte));
+        }
+        return {};
+      });
+  if (!read) {
+    return std::unexpected(read.error());
+  }
+  return text;
+}
+
+TranscriptFacts inspect_transcript(const std::string_view transcript) {
   TranscriptFacts facts;
-  std::ifstream input{transcript};
+  std::istringstream input{std::string{transcript}};
   std::string line;
   while (std::getline(input, line)) {
     simdjson::padded_string padded{line};
@@ -166,16 +196,27 @@ bool lexically_inside(const fs::path& candidate, const fs::path& root) {
   return begin != rel.end() && *begin != "..";
 }
 
-std::vector<ArtifactRef> collect_subtree_artifacts(
+bool never_collect_path(const fs::path& relative) {
+  const auto& denied = claude_code_adapter().state_inventory().never_collect;
+  for (const auto& component : relative) {
+    const auto name = component.generic_string();
+    if (std::ranges::find(denied, name) != denied.end() ||
+        (name.starts_with("settings") && name.ends_with(".json"))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+expected<std::vector<ArtifactRef>> collect_subtree_artifacts(
     const fs::path& session_dir, const std::string_view session_id) {
   std::vector<ArtifactRef> artifacts;
   std::error_code ec;
   if (!fs::exists(session_dir, ec)) {
     return artifacts;
   }
-  const auto canonical_session = fs::weakly_canonical(session_dir, ec);
-  if (ec) {
-    return artifacts;
+  if (auto valid = secure_io::validate_directory_no_follow(session_dir); !valid) {
+    return std::unexpected(valid.error());
   }
   for (fs::recursive_directory_iterator
            it{session_dir, fs::directory_options::none, ec},
@@ -185,16 +226,21 @@ std::vector<ArtifactRef> collect_subtree_artifacts(
     if (entry.is_symlink(ec) || !entry.is_regular_file(ec)) {
       continue;
     }
-    const auto canonical_entry = fs::weakly_canonical(entry.path(), ec);
-    if (ec || !lexically_inside(canonical_entry, canonical_session)) {
-      ec.clear();
+    const auto relative = entry.path().lexically_relative(session_dir);
+    if (!lexically_inside(entry.path(), session_dir) ||
+        never_collect_path(relative)) {
       continue;
+    }
+    auto source = open_artifact_source(entry.path());
+    if (!source) {
+      return std::unexpected(source.error());
     }
     std::string artifact = "agents/claude-code/";
     artifact += session_id;
     artifact += '/';
-    artifact += fs::relative(entry.path(), session_dir).generic_string();
-    artifacts.push_back(ArtifactRef{.source = entry.path(), .image_path = std::move(artifact)});
+    artifact += relative.generic_string();
+    artifacts.push_back(ArtifactRef{.source = std::move(*source),
+                                    .image_path = std::move(artifact)});
   }
   std::ranges::sort(artifacts, {}, &ArtifactRef::image_path);
   return artifacts;
@@ -220,20 +266,27 @@ std::vector<std::string> child_ids_for(const fs::path& session_dir) {
 }
 
 const Inventory& claude_inventory() {
-  static const Inventory inventory{
-      .collect = {ArtifactClass{.name = "project-transcripts",
-                                .globs = {"projects/*/*.jsonl"}}},
-      .rewrite = {ArtifactClass{.name = "jsonl-session-fields",
-                                .globs = {"agents/claude-code/**/*.jsonl"}}},
-      .never_collect = {".credentials.json", ".claude.json", "settings.json",
-                        "settings.local.json", "settings*.json",
-                        "history.jsonl", "shell-snapshots", "memory",
-                        "file-history", "tasks", "session-env"},
-      .never_rewrite = {".meta.json"},
-      .caveat_facts = {.env_var = "CLAUDE_CONFIG_DIR",
-                       .relocated_contents = {"projects"},
-                       .login_flow_owner = "claude-code",
-                       .notes = {}}};
+  static const Inventory inventory = [] {
+    Inventory value{
+        .collect = {ArtifactClass{.name = "project-transcripts",
+                                  .globs = {"projects/*/*.jsonl"}}},
+        .rewrite = {ArtifactClass{.name = "jsonl-session-fields",
+                                  .globs = {"agents/claude-code/**/*.jsonl"}}},
+        .never_collect = {".credentials.json", ".claude.json", "settings.json",
+                          "settings.local.json", "settings*.json",
+                          "history.jsonl", "shell-snapshots", "memory",
+                          "file-history", "tasks", "session-env"},
+        .never_rewrite = {".meta.json"},
+        .caveat_facts = {.env_var = "CLAUDE_CONFIG_DIR",
+                         .relocated_contents = {},
+                         .login_flow_owner = "claude-code",
+                         .notes = {}}};
+    value.caveat_facts.relocated_contents.push_back("projects");
+    value.caveat_facts.relocated_contents.insert(
+        value.caveat_facts.relocated_contents.end(), value.never_collect.begin(),
+        value.never_collect.end());
+    return value;
+  }();
   return inventory;
 }
 
@@ -275,15 +328,35 @@ class ClaudeCodeAdapter final : public AgentAdapter {
     try {
       CollectReport report;
       for (const auto& store : stores) {
+        if (auto valid = secure_io::validate_directory_no_follow(store.root);
+            !valid) {
+          return std::unexpected(valid.error());
+        }
         const auto projects_dir = store.root / "projects";
         std::error_code ec;
         if (!fs::exists(projects_dir, ec)) {
           continue;
         }
+        if (auto valid = secure_io::validate_directory_no_follow(projects_dir);
+            !valid) {
+          return std::unexpected(valid.error());
+        }
+        const auto sessions_dir = store.root / "sessions";
+        if (fs::exists(sessions_dir, ec)) {
+          if (auto valid = secure_io::validate_directory_no_follow(sessions_dir);
+              !valid) {
+            return std::unexpected(valid.error());
+          }
+        }
         const auto live_by_id = live_facts_by_id(store.root);
         for (fs::directory_iterator project_it{projects_dir, ec}, project_end;
              !ec && project_it != project_end; project_it.increment(ec)) {
           const auto& project_dir = *project_it;
+          if (project_dir.is_symlink(ec)) {
+            return std::unexpected(BivError{ErrKind::ArchiveWriteFailed,
+                                            project_dir.path().generic_string(),
+                                            "containment_refused"});
+          }
           if (!project_dir.is_directory(ec)) {
             continue;
           }
@@ -294,11 +367,19 @@ class ClaudeCodeAdapter final : public AgentAdapter {
                entry_end;
                !ec && entry_it != entry_end; entry_it.increment(ec)) {
             const auto& entry = *entry_it;
-            if (!entry.is_regular_file(ec) ||
+            if (entry.is_symlink(ec) || !entry.is_regular_file(ec) ||
                 entry.path().extension() != ".jsonl") {
               continue;
             }
-            auto facts = inspect_transcript(entry.path());
+            auto main_source = open_artifact_source(entry.path());
+            if (!main_source) {
+              return std::unexpected(main_source.error());
+            }
+            auto main_text = source_text(*main_source);
+            if (!main_text) {
+              return std::unexpected(main_text.error());
+            }
+            auto facts = inspect_transcript(*main_text);
             if (!facts.cwd.has_value()) {
               if (project_key_matches_source) {
                 report.no_cwd_record.push_back(entry.path().generic_string());
@@ -316,11 +397,14 @@ class ClaudeCodeAdapter final : public AgentAdapter {
             auto live = live_found == live_by_id.end() ? LiveFacts{}
                                                        : live_found->second;
             std::vector<std::string> artifacts;
-            std::vector<fs::path> artifact_sources;
+            std::vector<SessionRecord::ArtifactSource> artifact_sources;
             artifacts.push_back("agents/claude-code/" + session_id + ".jsonl");
-            artifact_sources.push_back(entry.path());
+            artifact_sources.push_back(std::move(*main_source));
             auto subtree_artifacts = collect_subtree_artifacts(session_dir, session_id);
-            for (auto& artifact : subtree_artifacts) {
+            if (!subtree_artifacts) {
+              return std::unexpected(subtree_artifacts.error());
+            }
+            for (auto& artifact : *subtree_artifacts) {
               artifact_sources.push_back(std::move(artifact.source));
               artifacts.push_back(std::move(artifact.image_path));
             }

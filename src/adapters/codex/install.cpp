@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #include "adapters/rewrite_common.hpp"
+#include "adapters/secure_io.hpp"
 
 namespace biv::adapters {
 
@@ -59,6 +60,8 @@ struct PreparedSession {
   std::vector<WritePlan> writes;
   bool host_version_unverified{false};
   InstallVerify verify;
+  std::vector<std::vector<std::byte>> outputs;
+  size_t skipped_non_utf8{0};
 };
 
 bool ascii_alpha(const char value) {
@@ -183,45 +186,6 @@ std::optional<std::string> non_utf8_detail(const size_t skipped_non_utf8) {
     return std::nullopt;
   }
   return "non_utf8_skipped=" + std::to_string(skipped_non_utf8);
-}
-
-expected<void> write_all(const int fd, std::span<const std::byte> bytes) {
-  while (!bytes.empty()) {
-    const auto written = ::write(fd, bytes.data(), bytes.size());
-    if (written < 0) {
-      return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, {}, {}, errno});
-    }
-    bytes = bytes.subspan(static_cast<size_t>(written));
-  }
-  return {};
-}
-
-expected<void> write_no_replace(const fs::path& final_path, std::span<const std::byte> bytes) {
-  std::error_code ec;
-  fs::create_directories(final_path.parent_path(), ec);
-  if (ec) {
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, final_path.generic_string(), ec.message(),
-                                    static_cast<int>(ec.value())});
-  }
-  const int fd = ::open(final_path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
-  if (fd < 0) {
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, final_path.generic_string(), {}, errno});
-  }
-  if (auto ok = write_all(fd, bytes); !ok) {
-    ::close(fd);
-    fs::remove(final_path, ec);
-    return ok;
-  }
-  if (::fsync(fd) != 0) {
-    const int saved_errno = errno;
-    ::close(fd);
-    fs::remove(final_path, ec);
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, final_path.generic_string(), {}, saved_errno});
-  }
-  if (::close(fd) != 0) {
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, final_path.generic_string(), {}, errno});
-  }
-  return {};
 }
 
 void merge_verify(InstallVerify& total, const InstallVerify& next) {
@@ -413,7 +377,9 @@ expected<InstallResult> codex_install(const InstallTarget& target,
                              .writes = {},
                              .host_version_unverified =
                                  *host_version_unverified,
-                             .verify = {}};
+                             .verify = {},
+                             .outputs = {},
+                             .skipped_non_utf8 = 0};
     for (const auto& child : record.children) {
       rollouts.emplace(child.original_id, mint_rollout_name());
       prepared.child_ids.push_back({child.original_id, rollouts.at(child.original_id).id});
@@ -448,6 +414,82 @@ expected<InstallResult> codex_install(const InstallTarget& target,
     prepared_sessions.push_back(std::move(prepared));
   }
 
+  if (consent == Consent::yes) {
+    for (auto& prepared : prepared_sessions) {
+      const auto pair_set = rewrite::derive_pair_set(
+          prepared.record.original_path, prepared.record.path_flavor,
+          target.workspace_root.generic_string(),
+          path_flavor_for(target.workspace_root));
+      const auto origins = rewrite::origins_from_pairs(pair_set);
+      const auto id_map = id_pairs_for(prepared.record, prepared.installed_id,
+                                       prepared.child_ids);
+      const auto origin_ids = origin_ids_for(prepared.record);
+      for (const auto& write : prepared.writes) {
+        auto data = target.member_read(write.artifact);
+        if (!data) {
+          return std::unexpected(data.error());
+        }
+        auto rewritten = rewrite::rewrite_jsonl_bytes(
+            *data, rewrite::PathPairsView{pair_set},
+            rewrite::IdPairsView{id_map});
+        prepared.skipped_non_utf8 += rewritten.skipped_non_utf8;
+        merge_verify(prepared.verify,
+                     rewrite::verify_scan(rewritten.bytes,
+                         rewrite::OriginPathsView{origins},
+                         rewrite::OriginIdsView{origin_ids}));
+        prepared.outputs.push_back(std::move(rewritten.bytes));
+      }
+    }
+    if (std::ranges::any_of(prepared_sessions,
+                           [](const PreparedSession& prepared) {
+          return prepared.verify.origin_path_hits != 0U ||
+                 prepared.verify.origin_id_hits != 0U;
+        })) {
+      result.sessions.clear();
+      for (const auto& prepared : prepared_sessions) {
+        result.sessions.push_back(InstallSessionOutcome{
+            .image_session_id = prepared.record.original_session_ids.primary,
+            .outcome = InstallSessionOutcome::Outcome::failed,
+            .reason = "containment_refused",
+            .content_rewrite = std::nullopt,
+            .host_version_unverified = prepared.host_version_unverified,
+            .verify = prepared.verify,
+            .detail = "rewrite_verify_failed"});
+      }
+      return result;
+    }
+
+    std::vector<secure_io::WriteRequest> writes;
+    for (const auto& prepared : prepared_sessions) {
+      for (size_t i = 0; i < prepared.writes.size(); ++i) {
+        writes.push_back(secure_io::WriteRequest{
+            .relative_path = prepared.writes.at(i).path.lexically_relative(
+                target.target_store.root),
+            .bytes = prepared.outputs.at(i)});
+      }
+    }
+    if (!writes.empty()) {
+      auto ok = secure_io::write_batch_no_replace(target.target_store.root, writes);
+      if (!ok) {
+        if (ok.error().detail != "containment_refused") {
+          return std::unexpected(ok.error());
+        }
+        result.sessions.clear();
+        for (const auto& prepared : prepared_sessions) {
+          result.sessions.push_back(InstallSessionOutcome{
+              .image_session_id = prepared.record.original_session_ids.primary,
+              .outcome = InstallSessionOutcome::Outcome::failed,
+              .reason = "containment_refused",
+              .content_rewrite = std::nullopt,
+              .host_version_unverified = prepared.host_version_unverified,
+              .verify = prepared.verify,
+              .detail = ok.error().path});
+        }
+        return result;
+      }
+    }
+  }
+
   for (auto& prepared : prepared_sessions) {
     result.id_map.push_back(IdMapEntry{
         .agent = "codex",
@@ -466,32 +508,6 @@ expected<InstallResult> codex_install(const InstallTarget& target,
       continue;
     }
 
-    const auto pair_set = rewrite::derive_pair_set(
-        prepared.record.original_path, prepared.record.path_flavor,
-        target.workspace_root.generic_string(),
-        path_flavor_for(target.workspace_root));
-    const auto origins = rewrite::origins_from_pairs(pair_set);
-    const auto id_map = id_pairs_for(prepared.record, prepared.installed_id,
-                                     prepared.child_ids);
-    const auto origin_ids = origin_ids_for(prepared.record);
-    size_t skipped_non_utf8 = 0;
-    for (const auto& write : prepared.writes) {
-      auto data = target.member_read(write.artifact);
-      if (!data) {
-        return std::unexpected(data.error());
-      }
-      auto rewritten =
-          rewrite::rewrite_jsonl_bytes(*data, rewrite::PathPairsView{pair_set},
-                                       rewrite::IdPairsView{id_map});
-      skipped_non_utf8 += rewritten.skipped_non_utf8;
-      auto verify = rewrite::verify_scan(rewritten.bytes,
-                                         rewrite::OriginPathsView{origins},
-                                         rewrite::OriginIdsView{origin_ids});
-      merge_verify(prepared.verify, verify);
-      if (auto ok = write_no_replace(write.path, rewritten.bytes); !ok) {
-        return std::unexpected(ok.error());
-      }
-    }
     result.sessions.push_back(InstallSessionOutcome{
         .image_session_id = prepared.record.original_session_ids.primary,
         .outcome = InstallSessionOutcome::Outcome::installed,
@@ -499,7 +515,7 @@ expected<InstallResult> codex_install(const InstallTarget& target,
         .content_rewrite = "pair",
         .host_version_unverified = prepared.host_version_unverified,
         .verify = prepared.verify,
-        .detail = non_utf8_detail(skipped_non_utf8)});
+        .detail = non_utf8_detail(prepared.skipped_non_utf8)});
     result.activation.push_back(Activation{
         .agent = "codex", .command = "codex resume " + prepared.installed_id});
   }

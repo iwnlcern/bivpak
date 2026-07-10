@@ -57,6 +57,7 @@ target_compile_options(bivcore PRIVATE -Wall -Wextra -Werror)
 
 # ADAPTER TARGETS
 add_library(biv_adapters STATIC
+  src/adapters/secure_io.cpp
   src/adapters/rewrite_common.cpp
   src/adapters/registry.cpp
   src/adapters/claude_code/claude_code.cpp

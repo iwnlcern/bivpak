@@ -6,12 +6,14 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
 
 #include "adapters/rewrite_common.hpp"
+#include "adapters/secure_io.hpp"
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -39,7 +41,7 @@ struct RolloutFacts {
 
 struct Candidate {
   Store store;
-  fs::path source;
+  SessionRecord::ArtifactSource source;
   std::string id;
   std::string cwd;
   std::string normalized_path_key;
@@ -49,6 +51,18 @@ struct Candidate {
   std::string newest_timestamp;
   fs::file_time_type mtime{};
 };
+
+expected<SessionRecord::ArtifactSource> open_artifact_source(const fs::path& path) {
+  auto handle = secure_io::open_read_no_follow(path);
+  if (!handle) {
+    return std::unexpected(handle.error());
+  }
+  return SessionRecord::ArtifactSource{
+      .path = path,
+      .size = handle->size(),
+      .stream = [handle = std::move(*handle)](
+                    const secure_io::ByteSink& sink) { return handle.stream(sink); }};
+}
 
 std::optional<simdjson::dom::object> parse_json_object(
     simdjson::dom::parser& parser, simdjson::padded_string& padded) {
@@ -95,9 +109,25 @@ std::optional<std::string> nested_parent_id(simdjson::dom::object payload) {
   return object_string(*thread_spawn, "parent_thread_id");
 }
 
-RolloutFacts inspect_rollout_head(const fs::path& rollout) {
+expected<std::string> source_text(const SessionRecord::ArtifactSource& source) {
+  std::string text;
+  text.reserve(static_cast<size_t>(source.size));
+  auto read = source.stream(
+      [&](const std::span<const std::byte> chunk) -> expected<void> {
+        for (const auto byte : chunk) {
+          text.push_back(static_cast<char>(byte));
+        }
+        return {};
+      });
+  if (!read) {
+    return std::unexpected(read.error());
+  }
+  return text;
+}
+
+RolloutFacts inspect_rollout_head(const std::string_view rollout) {
   RolloutFacts facts;
-  std::ifstream input{rollout};
+  std::istringstream input{std::string{rollout}};
   std::string line;
   while (std::getline(input, line)) {
     simdjson::padded_string padded{line};
@@ -137,9 +167,9 @@ RolloutFacts inspect_rollout_head(const fs::path& rollout) {
   return facts;
 }
 
-std::string newest_rollout_timestamp(const fs::path& rollout) {
+std::string newest_rollout_timestamp(const std::string_view rollout) {
   std::string newest;
-  std::ifstream input{rollout};
+  std::istringstream input{std::string{rollout}};
   std::string line;
   while (std::getline(input, line)) {
     simdjson::padded_string padded{line};
@@ -226,7 +256,8 @@ bool better_candidate(const Candidate& candidate, const Candidate& current) {
   if (tier_rank(candidate.store.tier) != tier_rank(current.store.tier)) {
     return tier_rank(candidate.store.tier) < tier_rank(current.store.tier);
   }
-  return candidate.source.generic_string() < current.source.generic_string();
+  return candidate.source.path.generic_string() <
+         current.source.path.generic_string();
 }
 
 std::string artifact_for(std::string_view id) {
@@ -236,7 +267,7 @@ std::string artifact_for(std::string_view id) {
 SessionRecord session_for(const Candidate& candidate, const std::vector<Candidate>& children) {
   std::vector<std::string> child_ids;
   std::vector<std::string> artifacts{artifact_for(candidate.id)};
-  std::vector<fs::path> artifact_sources{candidate.source};
+  std::vector<SessionRecord::ArtifactSource> artifact_sources{candidate.source};
   for (const auto& child : children) {
     child_ids.push_back(child.id);
     artifacts.push_back(artifact_for(child.id));
@@ -264,22 +295,75 @@ SessionRecord session_for(const Candidate& candidate, const std::vector<Candidat
 }
 
 const Inventory& codex_inventory() {
-  static const Inventory inventory{
-      .collect = {ArtifactClass{.name = "rollouts",
-                                .globs = {"sessions/**/rollout-*.jsonl"}}},
-      .rewrite = {ArtifactClass{.name = "jsonl-session-fields",
-                                .globs = {"agents/codex/*.jsonl"}}},
-      .never_collect = {"auth.json", "config.toml", "history.jsonl",
-                        "installation_id", "state_5.sqlite",
-                        "state_5.sqlite-wal", "state_5.sqlite-shm",
-                        "session_index.jsonl", "shell_snapshots",
-                        "goals_1.sqlite", "logs_2.sqlite", "memories_1.sqlite"},
-      .never_rewrite = {},
-      .caveat_facts = {.env_var = "CODEX_HOME",
-                       .relocated_contents = {"sessions"},
-                       .login_flow_owner = "codex",
-                       .notes = {}}};
+  static const Inventory inventory = [] {
+    Inventory value{
+        .collect = {ArtifactClass{.name = "rollouts",
+                                  .globs = {"sessions/**/rollout-*.jsonl"}}},
+        .rewrite = {ArtifactClass{.name = "jsonl-session-fields",
+                                  .globs = {"agents/codex/*.jsonl"}}},
+        .never_collect = {"auth.json", "config.toml", "history.jsonl",
+                          "installation_id", "state_5.sqlite",
+                          "state_5.sqlite-wal", "state_5.sqlite-shm",
+                          "session_index.jsonl", "shell_snapshots",
+                          "goals_1.sqlite", "logs_2.sqlite", "memories_1.sqlite"},
+        .never_rewrite = {},
+        .caveat_facts = {.env_var = "CODEX_HOME",
+                         .relocated_contents = {},
+                         .login_flow_owner = "codex",
+                         .notes = {}}};
+    value.caveat_facts.relocated_contents.push_back("sessions");
+    value.caveat_facts.relocated_contents.insert(
+        value.caveat_facts.relocated_contents.end(), value.never_collect.begin(),
+        value.never_collect.end());
+    return value;
+  }();
   return inventory;
+}
+
+std::optional<std::string> config_string(const fs::path& path,
+                                         const std::string_view wanted_key) {
+  std::ifstream input{path};
+  std::string line;
+  while (std::getline(input, line)) {
+    const auto first = line.find_first_not_of(" \t");
+    if (first == std::string::npos || line.at(first) == '#') {
+      continue;
+    }
+    const auto equals = line.find('=', first);
+    if (equals == std::string::npos) {
+      continue;
+    }
+    auto key_end = line.find_last_not_of(" \t", equals - 1U);
+    if (key_end == std::string::npos ||
+        std::string_view{line}.substr(first, key_end - first + 1U) != wanted_key) {
+      continue;
+    }
+    const auto value_start = line.find_first_not_of(" \t", equals + 1U);
+    if (value_start == std::string::npos || line.at(value_start) != '"') {
+      return std::nullopt;
+    }
+    std::string value;
+    bool escaped = false;
+    for (std::size_t i = value_start + 1U; i < line.size(); ++i) {
+      const char character = line.at(i);
+      if (escaped) {
+        if (character == '"' || character == '\\') {
+          value.push_back(character);
+        } else {
+          return std::nullopt;
+        }
+        escaped = false;
+      } else if (character == '\\') {
+        escaped = true;
+      } else if (character == '"') {
+        return value;
+      } else {
+        value.push_back(character);
+      }
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
 }
 
 class CodexAdapter final : public AgentAdapter {
@@ -288,11 +372,12 @@ class CodexAdapter final : public AgentAdapter {
 
   expected<std::vector<Store>> discover(const Env& env) const override {
     std::vector<Store> stores;
-    auto sqlite_locator = [&]() -> std::optional<StoreLocator> {
-      if (!env.getenv) {
-        return std::nullopt;
+    auto sqlite_locator = [&](const fs::path& root) -> std::optional<StoreLocator> {
+      auto configured = env.getenv ? env.getenv("CODEX_SQLITE_HOME")
+                                   : std::nullopt;
+      if (!configured.has_value()) {
+        configured = config_string(root / "config.toml", "sqlite_home");
       }
-      auto configured = env.getenv("CODEX_SQLITE_HOME");
       if (!configured.has_value()) {
         return std::nullopt;
       }
@@ -305,7 +390,7 @@ class CodexAdapter final : public AgentAdapter {
     auto append_store_set = [&](const fs::path& root, DiscoveryTier tier) {
       std::vector<StoreLocator> locators{
           StoreLocator{.kind = "sessions_root", .path = root / "sessions"}};
-      if (auto sqlite = sqlite_locator(); sqlite.has_value()) {
+      if (auto sqlite = sqlite_locator(root); sqlite.has_value()) {
         locators.push_back(std::move(*sqlite));
       }
       stores.push_back(Store{.root = root,
@@ -323,17 +408,18 @@ class CodexAdapter final : public AgentAdapter {
       }
     };
     std::error_code ec;
+    std::optional<fs::path> env_root;
     if (env.getenv) {
       auto configured = env.getenv("CODEX_HOME");
       if (configured.has_value() && fs::exists(*configured, ec)) {
-        const fs::path root{*configured};
-        append_store_set(root, DiscoveryTier::env);
-        return stores;
+        env_root = fs::path{*configured};
+        append_store_set(*env_root, DiscoveryTier::env);
       }
     }
 
     const auto root = env.home / ".codex";
-    if (fs::exists(root, ec)) {
+    if (fs::exists(root, ec) &&
+        (!env_root.has_value() || root.lexically_normal() != env_root->lexically_normal())) {
       append_store_set(root, DiscoveryTier::defaults);
     }
     return stores;
@@ -344,13 +430,31 @@ class CodexAdapter final : public AgentAdapter {
   expected<CollectReport> collect(const fs::path& source_root, std::span<const Store> stores) const override {
     try {
       CollectReport report;
+      std::vector<std::pair<std::string, std::string>> db_warnings;
       std::map<std::string, std::vector<Candidate>> grouped;
       for (const auto& store : stores) {
+        if (auto valid = secure_io::validate_directory_no_follow(store.root);
+            !valid) {
+          return std::unexpected(valid.error());
+        }
         std::error_code ec;
-        if (fs::exists(store.root / "state_5.sqlite", ec)) {
-          report.warnings.push_back(
+        for (const auto& locator : store.locators) {
+          if (locator.kind == "sqlite_home" &&
+              fs::exists(locator.path / "state_5.sqlite", ec)) {
+            db_warnings.push_back({
+                store.root.generic_string(),
+                "CodexDbEnrichmentSkipped:" +
+                    (locator.path / "state_5.sqlite").generic_string()});
+          }
+        }
+        if (fs::exists(store.root / "state_5.sqlite", ec) &&
+            std::ranges::none_of(store.locators, [](const StoreLocator& locator) {
+              return locator.kind == "sqlite_home";
+            })) {
+          db_warnings.push_back({
+              store.root.generic_string(),
               "CodexDbEnrichmentSkipped:" +
-              (store.root / "state_5.sqlite").generic_string());
+                  (store.root / "state_5.sqlite").generic_string()});
         }
         std::vector<fs::path> session_roots;
         for (const auto& locator : store.locators) {
@@ -362,9 +466,25 @@ class CodexAdapter final : public AgentAdapter {
           session_roots.push_back(store.root / "sessions");
         }
         for (const auto& sessions_root : session_roots) {
+          if (!fs::exists(sessions_root, ec)) {
+            ec.clear();
+            continue;
+          }
+          if (auto valid = secure_io::validate_directory_no_follow(sessions_root);
+              !valid) {
+            return std::unexpected(valid.error());
+          }
           for (const auto& path :
                rollout_paths(sessions_root, report.warnings)) {
-            auto facts = inspect_rollout_head(path);
+            auto source = open_artifact_source(path);
+            if (!source) {
+              return std::unexpected(source.error());
+            }
+            auto text = source_text(*source);
+            if (!text) {
+              return std::unexpected(text.error());
+            }
+            auto facts = inspect_rollout_head(*text);
             if (!facts.id || !facts.cwd ||
                 !rewrite::path_is_same_or_descendant(rewrite::PathMembership{
                     .candidate = *facts.cwd,
@@ -374,14 +494,14 @@ class CodexAdapter final : public AgentAdapter {
             const auto mtime = fs::last_write_time(path, ec);
             grouped[*facts.id].push_back(Candidate{
                 .store = store,
-                .source = path,
+                .source = std::move(*source),
                 .id = *facts.id,
                 .cwd = *facts.cwd,
                 .normalized_path_key = rewrite::normalized_path_key(*facts.cwd),
                 .path_flavor = rewrite::path_flavor_for(*facts.cwd),
                 .cli_version = facts.cli_version.value_or("unknown"),
                 .parent_id = std::move(facts.parent_id),
-                .newest_timestamp = std::move(facts.newest_timestamp),
+                .newest_timestamp = newest_rollout_timestamp(*text),
                 .mtime = ec ? fs::file_time_type{} : mtime});
             ec.clear();
           }
@@ -395,14 +515,7 @@ class CodexAdapter final : public AgentAdapter {
           roots.insert(candidate.store.root.generic_string());
         }
         if (roots.size() > 1U) {
-          report.warnings.push_back("SessionDuplicateStorePending:" + id);
-          continue;
-        }
-        if (candidates.size() > 1U) {
-          for (auto& candidate : candidates) {
-            candidate.newest_timestamp =
-                newest_rollout_timestamp(candidate.source);
-          }
+          report.warnings.push_back("SessionDuplicateStore:" + id);
         }
         auto best = candidates.front();
         for (const auto& candidate : candidates) {
@@ -429,6 +542,14 @@ class CodexAdapter final : public AgentAdapter {
           continue;
         }
         report.sessions.push_back(session_for(candidate, children_by_parent[id]));
+      }
+      for (const auto& [store_root, warning] : db_warnings) {
+        if (std::ranges::any_of(
+                report.sessions, [&](const SessionRecord& session) {
+                  return session.provenance.store_root == store_root;
+                })) {
+          report.warnings.push_back(warning);
+        }
       }
       std::ranges::sort(report.sessions, {}, &SessionRecord::original_session_id);
       return report;

@@ -103,6 +103,9 @@ expected<std::optional<std::string>> optional_string(simdjson::dom::object objec
     return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{key}});
   }
 
+  if (element.is_null()) {
+    return std::optional<std::string>{};
+  }
   std::string_view value;
   if (const auto error = element.get(value); error) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, std::string{key}});
@@ -258,6 +261,18 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   }
   entry.agent = std::move(*agent);
 
+  auto entry_schema = required_int(object, "entry_schema");
+  if (!entry_schema) {
+    return std::unexpected(entry_schema.error());
+  }
+  entry.entry_schema = *entry_schema;
+  if (entry.entry_schema < 1) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, "entry_schema"});
+  }
+  if (entry.entry_schema > 1) {
+    return entry;
+  }
+
   auto agent_version = required_string(object, "agent_version_at_pack");
   auto relpath_key = required_string(object, "relpath_key");
   auto original_path = required_string(object, "original_path");
@@ -315,19 +330,20 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   auto artifacts = required_string_array(object, "artifacts");
   auto live_at_pack = required_bool(object, "live_at_pack");
   auto imported_at = required_string(object, "imported_at");
-  auto entry_schema = required_int(object, "entry_schema");
-  if (!children || !artifacts || !live_at_pack || !imported_at || !entry_schema) {
+  if (!children || !artifacts || !live_at_pack || !imported_at) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "agent-session-field"});
   }
   auto valid = validate_artifacts(entry.agent, *artifacts);
   if (!valid) {
     return std::unexpected(valid.error());
   }
+  if (artifacts->empty()) {
+    return std::unexpected(BivError{ErrKind::ParseError, {}, "artifacts-empty"});
+  }
   entry.children = std::move(*children);
   entry.artifacts = std::move(*artifacts);
   entry.live_at_pack = *live_at_pack;
   entry.imported_at = std::move(*imported_at);
-  entry.entry_schema = *entry_schema;
   return entry;
 }
 
@@ -355,10 +371,25 @@ expected<std::vector<AgentSessionEntry>> parse_agent_sessions(simdjson::dom::obj
     if (!entry) {
       return std::unexpected(entry.error());
     }
-    if (!seen.insert({entry->agent, entry->original_session_ids.primary}).second) {
+    if (!entry->original_session_ids.primary.empty() &&
+        !seen.insert({entry->agent, entry->original_session_ids.primary}).second) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "session-uniqueness"});
     }
     out.push_back(std::move(*entry));
+  }
+  for (const auto& entry : out) {
+    if (!entry.original_session_ids.parent.has_value()) {
+      continue;
+    }
+    const bool parent_in_set = seen.contains(
+        {entry.agent, *entry.original_session_ids.parent});
+    if ((parent_in_set && entry.original_session_ids.parent_in_image.has_value()) ||
+        (!parent_in_set &&
+         entry.original_session_ids.parent_in_image !=
+             std::optional<bool>{false})) {
+      return std::unexpected(BivError{ErrKind::ParseError, {},
+                                      "session-parent-relationship"});
+    }
   }
   return out;
 }

@@ -230,6 +230,36 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
   auto parsed_top_unknown = biv::manifest::parse(bytes_of(top_unknown_field));
   REQUIRE(parsed_top_unknown.has_value());
   REQUIRE(parsed_top_unknown->agent_sessions.size() == 1);
+
+  std::string minimal_future = manifest_json_with({codex_session_entry()});
+  const auto entry_begin = minimal_future.find("{", minimal_future.find("\"agent_sessions\""));
+  const auto entry_end = minimal_future.find("\n  ]", entry_begin);
+  REQUIRE(entry_begin != std::string::npos);
+  REQUIRE(entry_end != std::string::npos);
+  minimal_future.replace(entry_begin, entry_end - entry_begin,
+                         "{\"agent\":\"future-tool\",\"entry_schema\":99}");
+  auto parsed_minimal_future = biv::manifest::parse(bytes_of(minimal_future));
+  REQUIRE(parsed_minimal_future.has_value());
+  REQUIRE(parsed_minimal_future->agent_sessions.size() == 1);
+  CHECK(parsed_minimal_future->agent_sessions.front().entry_schema == 99);
+}
+
+TEST_CASE("Manifest parser accepts null parents and rejects empty parent artifacts") {
+  std::string explicit_null = manifest_json_with({codex_session_entry()});
+  const auto primary_end = explicit_null.find("\n", explicit_null.find("\"primary\""));
+  REQUIRE(primary_end != std::string::npos);
+  explicit_null.insert(primary_end, ",\n        \"parent\": null");
+  const auto parsed_null = biv::manifest::parse(bytes_of(explicit_null));
+  REQUIRE(parsed_null.has_value());
+  REQUIRE(parsed_null->agent_sessions.size() == 1);
+  CHECK_FALSE(parsed_null->agent_sessions.front().original_session_ids.parent.has_value());
+
+  auto empty_artifacts = codex_session_entry();
+  empty_artifacts.artifacts.clear();
+  const auto empty_result =
+      biv::manifest::parse(bytes_of(manifest_json_with({empty_artifacts})));
+  REQUIRE_FALSE(empty_result.has_value());
+  CHECK(empty_result.error().detail == "artifacts-empty");
 }
 
 TEST_CASE("Manifest parser rejects mechanically invalid agent_sessions entries") {
@@ -262,4 +292,23 @@ TEST_CASE("Manifest parser rejects mechanically invalid agent_sessions entries")
   auto parent_result = biv::manifest::parse(bytes_of(manifest_json_with({parent_true})));
   REQUIRE_FALSE(parent_result.has_value());
   CHECK(parent_result.error().detail == "session-ids");
+
+  auto dangling_without_marker = codex_session_entry();
+  dangling_without_marker.original_session_ids.parent = "missing-parent";
+  auto dangling_result = biv::manifest::parse(
+      bytes_of(manifest_json_with({dangling_without_marker})));
+  REQUIRE_FALSE(dangling_result.has_value());
+  CHECK(dangling_result.error().detail == "session-parent-relationship");
+
+  auto parent = codex_session_entry();
+  auto child = codex_session_entry();
+  child.original_session_ids.primary = "child";
+  child.original_session_ids.parent = parent.original_session_ids.primary;
+  child.original_session_ids.parent_in_image = false;
+  child.artifacts = {"agents/codex/child.jsonl"};
+  child.children.clear();
+  auto in_image_marker =
+      biv::manifest::parse(bytes_of(manifest_json_with({parent, child})));
+  REQUIRE_FALSE(in_image_marker.has_value());
+  CHECK(in_image_marker.error().detail == "session-parent-relationship");
 }

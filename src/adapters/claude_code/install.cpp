@@ -32,6 +32,7 @@
 #include <unistd.h>
 
 #include "adapters/rewrite_common.hpp"
+#include "adapters/secure_io.hpp"
 
 namespace biv::adapters {
 
@@ -53,6 +54,8 @@ struct PreparedSession {
   std::vector<DestinationPlan> destinations;
   bool host_version_unverified{false};
   InstallVerify verify;
+  std::vector<std::vector<std::byte>> outputs;
+  size_t skipped_non_utf8{0};
   std::optional<std::string> refusal_reason;
   std::optional<std::string> refusal_detail;
 };
@@ -300,58 +303,6 @@ std::optional<std::string> non_utf8_detail(const size_t skipped_non_utf8) {
   return "non_utf8_skipped=" + std::to_string(skipped_non_utf8);
 }
 
-expected<void> write_all(const int fd, std::span<const std::byte> bytes) {
-  while (!bytes.empty()) {
-    const auto written = ::write(fd, bytes.data(), bytes.size());
-    if (written < 0) {
-      return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, {}, {}, errno});
-    }
-    bytes = bytes.subspan(static_cast<size_t>(written));
-  }
-  return {};
-}
-
-expected<void> write_no_replace(const fs::path& final_path, std::span<const std::byte> bytes) {
-  std::error_code ec;
-  fs::create_directories(final_path.parent_path(), ec);
-  if (ec) {
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, final_path.generic_string(), ec.message(),
-                                    static_cast<int>(ec.value())});
-  }
-  const auto tmp_path = final_path.parent_path() / (".bivpak-install-" + uuid4() + ".tmp");
-  const int fd = ::open(tmp_path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
-  if (fd < 0) {
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, tmp_path.generic_string(), {}, errno});
-  }
-  auto cleanup_fd = [&] {
-    const int saved_errno = errno;
-    ::close(fd);
-    std::error_code remove_ec;
-    fs::remove(tmp_path, remove_ec);
-    errno = saved_errno;
-  };
-  if (auto ok = write_all(fd, bytes); !ok) {
-    cleanup_fd();
-    return ok;
-  }
-  if (::fsync(fd) != 0) {
-    cleanup_fd();
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, tmp_path.generic_string(), {}, errno});
-  }
-  if (::close(fd) != 0) {
-    std::error_code remove_ec;
-    fs::remove(tmp_path, remove_ec);
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, tmp_path.generic_string(), {}, errno});
-  }
-  if (::link(tmp_path.c_str(), final_path.c_str()) != 0) {
-    std::error_code remove_ec;
-    fs::remove(tmp_path, remove_ec);
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, final_path.generic_string(), {}, errno});
-  }
-  fs::remove(tmp_path, ec);
-  return {};
-}
-
 void merge_verify(InstallVerify& total, const InstallVerify& next) {
   total.origin_path_hits += next.origin_path_hits;
   total.origin_id_hits += next.origin_id_hits;
@@ -514,6 +465,8 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
           .destinations = {},
           .host_version_unverified = false,
           .verify = {},
+          .outputs = {},
+          .skipped_non_utf8 = 0,
           .refusal_reason = "error",
           .refusal_detail = "capability_refused"});
       continue;
@@ -524,6 +477,8 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
                             .host_version_unverified =
                                 *host_version_unverified,
                             .verify = {},
+                            .outputs = {},
+                            .skipped_non_utf8 = 0,
                             .refusal_reason = std::nullopt,
                             .refusal_detail = std::nullopt};
     for (const auto& artifact : all_artifacts(record)) {
@@ -549,6 +504,88 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
     prepared.push_back(std::move(session));
   }
 
+  if (consent == Consent::yes) {
+    for (auto& session : prepared) {
+      if (session.refusal_reason.has_value()) {
+        continue;
+      }
+      const auto pair_set = rewrite::derive_pair_set(
+          session.record.original_path, session.record.path_flavor,
+          target.workspace_root.generic_string(),
+          path_flavor_for(target.workspace_root));
+      const auto origins = rewrite::origins_from_pairs(pair_set);
+      std::vector<std::vector<std::byte>> inputs;
+      inputs.reserve(session.destinations.size());
+      std::set<std::string> message_uuid_origins;
+      for (const auto& destination : session.destinations) {
+        auto data = target.member_read(destination.artifact);
+        if (!data) {
+          return std::unexpected(data.error());
+        }
+        if (destination.rewrite_content) {
+          collect_message_uuid_values_from_jsonl(*data, message_uuid_origins);
+        }
+        inputs.push_back(std::move(*data));
+      }
+      auto message_ids = minted_message_uuid_pairs(message_uuid_origins);
+      auto ids = id_pairs_for(session.record, session.installed_session_id);
+      ids.insert(ids.end(), message_ids.begin(), message_ids.end());
+      const auto origin_ids = origin_ids_for(session.record, message_ids);
+      for (size_t i = 0; i < session.destinations.size(); ++i) {
+        const auto& destination = session.destinations.at(i);
+        auto output = std::move(inputs.at(i));
+        if (destination.rewrite_content) {
+          auto rewritten = rewrite::rewrite_jsonl_bytes(
+              output, rewrite::PathPairsView{pair_set},
+              rewrite::IdPairsView{ids});
+          session.skipped_non_utf8 += rewritten.skipped_non_utf8;
+          output = std::move(rewritten.bytes);
+        }
+        merge_verify(session.verify,
+                     rewrite::verify_scan(output,
+                         rewrite::OriginPathsView{origins},
+                         rewrite::OriginIdsView{origin_ids}));
+        session.outputs.push_back(std::move(output));
+      }
+    }
+    if (std::ranges::any_of(prepared, [](const PreparedSession& session) {
+          return session.verify.origin_path_hits != 0U ||
+                 session.verify.origin_id_hits != 0U;
+        })) {
+      for (const auto& session : prepared) {
+        auto outcome = failed_outcome(session.record, "containment_refused",
+                                      "rewrite_verify_failed");
+        outcome.verify = session.verify;
+        result.sessions.push_back(std::move(outcome));
+      }
+      return result;
+    }
+
+    std::vector<secure_io::WriteRequest> writes;
+    for (const auto& session : prepared) {
+      for (size_t i = 0; i < session.destinations.size(); ++i) {
+        writes.push_back(secure_io::WriteRequest{
+            .relative_path = session.destinations.at(i).path.lexically_relative(
+                target.target_store.root),
+            .bytes = session.outputs.at(i)});
+      }
+    }
+    if (!writes.empty()) {
+      auto ok = secure_io::write_batch_no_replace(target.target_store.root, writes);
+      if (!ok) {
+        if (ok.error().detail != "containment_refused") {
+          return std::unexpected(ok.error());
+        }
+        result.sessions.clear();
+        for (const auto& session : prepared) {
+          result.sessions.push_back(failed_outcome(
+              session.record, "containment_refused", ok.error().path));
+        }
+        return result;
+      }
+    }
+  }
+
   for (auto& session : prepared) {
     if (session.refusal_reason.has_value()) {
       result.sessions.push_back(failed_outcome(
@@ -571,45 +608,6 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
       continue;
     }
 
-    const auto pair_set = rewrite::derive_pair_set(session.record.original_path,
-                                                   session.record.path_flavor,
-                                                   target.workspace_root.generic_string(),
-                                                   path_flavor_for(target.workspace_root));
-    const auto origins = rewrite::origins_from_pairs(pair_set);
-    std::vector<std::vector<std::byte>> inputs;
-    inputs.reserve(session.destinations.size());
-    std::set<std::string> message_uuid_origins;
-    for (const auto& destination : session.destinations) {
-      auto data = target.member_read(destination.artifact);
-      if (!data) {
-        return std::unexpected(data.error());
-      }
-      if (destination.rewrite_content) {
-        collect_message_uuid_values_from_jsonl(*data, message_uuid_origins);
-      }
-      inputs.push_back(std::move(*data));
-    }
-    auto message_ids = minted_message_uuid_pairs(message_uuid_origins);
-    auto ids = id_pairs_for(session.record, session.installed_session_id);
-    ids.insert(ids.end(), message_ids.begin(), message_ids.end());
-    const auto origin_ids = origin_ids_for(session.record, message_ids);
-    size_t skipped_non_utf8 = 0;
-    for (size_t i = 0; i < session.destinations.size(); ++i) {
-      const auto& destination = session.destinations.at(i);
-      auto output = std::move(inputs.at(i));
-      if (destination.rewrite_content) {
-        auto rewritten = rewrite::rewrite_jsonl_bytes(
-            output, rewrite::PathPairsView{pair_set},
-            rewrite::IdPairsView{ids});
-        skipped_non_utf8 += rewritten.skipped_non_utf8;
-        output = std::move(rewritten.bytes);
-      }
-      auto verify = rewrite::verify_scan(output, rewrite::OriginPathsView{origins}, rewrite::OriginIdsView{origin_ids});
-      merge_verify(session.verify, verify);
-      if (auto ok = write_no_replace(destination.path, output); !ok) {
-        return std::unexpected(ok.error());
-      }
-    }
     result.sessions.push_back(InstallSessionOutcome{
         .image_session_id = session.record.original_session_ids.primary,
         .outcome = InstallSessionOutcome::Outcome::installed,
@@ -617,7 +615,7 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
         .content_rewrite = "pair",
         .host_version_unverified = session.host_version_unverified,
         .verify = session.verify,
-        .detail = non_utf8_detail(skipped_non_utf8)});
+        .detail = non_utf8_detail(session.skipped_non_utf8)});
   }
   if (std::ranges::any_of(
           result.sessions, [](const InstallSessionOutcome& session) {

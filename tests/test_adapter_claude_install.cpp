@@ -17,6 +17,7 @@
 
 #include "adapters/claude_code/claude_code.hpp"
 #include "adapters/rewrite_common.hpp"
+#include "adapters/secure_io.hpp"
 
 namespace {
 
@@ -282,6 +283,29 @@ TEST_CASE("rewrite common derives pair sets and rewrites JSONL strings") {
   CHECK(boundary_rewritten.line.find("/tmp/restored2") == std::string::npos);
 }
 
+TEST_CASE("rewrite common preserves every non-target JSON value type") {
+  const std::vector<std::pair<std::string, std::string>> paths{{"/old", "/new"}};
+  const std::vector<std::pair<std::string, std::string>> ids{{"old-id", "new-id"}};
+  const std::string line =
+      "{\"path\":\"/old\",\"id\":\"old-id\",\"signed\":-7,"
+      "\"unsigned\":9223372036854775808,\"decimal\":1.25,\"flag\":true,"
+      "\"nothing\":null,\"array\":[1,2.5,false,null],"
+      "\"object\":{\"value\":3.75}}";
+
+  const auto rewritten = biv::adapters::rewrite::rewrite_jsonl_line(
+      line, biv::adapters::rewrite::PathPairsView{paths},
+      biv::adapters::rewrite::IdPairsView{ids});
+
+  CHECK_FALSE(rewritten.skipped_non_utf8);
+  CHECK(rewritten.line.find("\"signed\": -7") != std::string::npos);
+  CHECK(rewritten.line.find("9223372036854775808") != std::string::npos);
+  CHECK(rewritten.line.find("\"decimal\": 1.25") != std::string::npos);
+  CHECK(rewritten.line.find("\"flag\": true") != std::string::npos);
+  CHECK(rewritten.line.find("\"nothing\": null") != std::string::npos);
+  CHECK(rewritten.line.find("2.5") != std::string::npos);
+  CHECK(rewritten.line.find("3.75") != std::string::npos);
+}
+
 TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids collisions") {
   const auto root = make_tmp("install");
   const auto workspace = root / "workspace" / "proj";
@@ -520,6 +544,87 @@ TEST_CASE("Claude containment refusal fails every session before writing") {
                outcome.reason ==
                    std::optional<std::string>{"containment_refused"};
       }));
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude install refuses parent symlinks without visible writes") {
+  const auto root = make_tmp("parent-symlink");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  const auto outside = root / "outside";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  fs::create_directories(outside);
+  fs::create_directory_symlink(outside, store / "projects");
+  auto members = claude_members();
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{claude_entry()};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(outside).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("secure install batch refuses a leaf symlink before any publication") {
+  const auto root = make_tmp("leaf-symlink-batch");
+  const auto store = root / "store";
+  const auto outside = root / "outside";
+  fs::create_directories(store / "sessions");
+  {
+    std::ofstream output{outside};
+    output << "sentinel";
+  }
+  fs::create_symlink(outside, store / "sessions" / "blocked.jsonl");
+  const auto first = bytes("first\n");
+  const auto second = bytes("second\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> writes{
+      {.relative_path = "sessions/good.jsonl", .bytes = first},
+      {.relative_path = "sessions/blocked.jsonl", .bytes = second}};
+
+  const auto result = biv::adapters::secure_io::write_batch_no_replace(store, writes);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().detail == "containment_refused");
+  CHECK_FALSE(fs::exists(store / "sessions" / "good.jsonl"));
+  CHECK(read_text(outside) == "sentinel");
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude install refuses nonzero rewrite verification before writing") {
+  const auto root = make_tmp("verify-refuse");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  auto hostile = bytes(std::string{"{\"cwd\":\"/ws/proj\",\"sessionId\":\""} +
+                       std::string{kOriginalSession} + "\"}");
+  hostile.push_back(static_cast<std::byte>(0xff));
+  hostile.push_back(static_cast<std::byte>('\n'));
+  members.at(main_artifact()) = std::move(hostile);
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{claude_entry()};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().verify.origin_path_hits > 0);
+  CHECK(result->sessions.front().verify.origin_id_hits > 0);
   CHECK(result->id_map.empty());
   CHECK(result->activation.empty());
   CHECK(regular_files(store).empty());

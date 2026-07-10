@@ -15,6 +15,7 @@
 #include <sstream>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 #include <fcntl.h>
 #include <sys/random.h>
@@ -177,28 +178,22 @@ expected<std::string> write_payload_member(container::TarWriter& writer,
 }
 
 expected<std::string> write_file_member(container::TarWriter& writer,
-                                        const std::filesystem::path& source,
+                                        const adapters::SessionRecord::ArtifactSource& source,
                                         const std::string_view archive_path,
                                         const int64_t mtime_s) {
-  std::error_code ec;
-  const auto size = std::filesystem::file_size(source, ec);
-  if (ec) {
-    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed, source.generic_string(), ec.message(),
-                                    static_cast<int>(ec.value())});
-  }
   const container::MemberMeta meta{
       .path = std::string{archive_path},
       .kind = scan::NodeKind::file,
       .mode = 0644,
       .mtime_s = mtime_s,
       .mtime_ns = 0,
-      .size = size,
+      .size = source.size,
       .symlink_target = {},
   };
   if (auto ok = writer.begin_member(meta); !ok) {
     return std::unexpected(ok.error());
   }
-  auto copied = copy_file_to_sink(source, [&](std::span<const std::byte> chunk) -> expected<void> {
+  auto copied = source.stream([&](std::span<const std::byte> chunk) -> expected<void> {
     return writer.write_data(chunk);
   });
   if (!copied) {
@@ -254,12 +249,131 @@ adapters::Env process_env() {
       }()};
 }
 
-std::string relpath_key_for(const std::filesystem::path& source, std::string_view original_path) {
-  const auto rel = std::filesystem::path{original_path}.lexically_normal().lexically_relative(source.lexically_normal());
-  if (rel.empty() || rel == ".") {
+std::vector<std::string> path_segments(std::string text,
+                                       const manifest::PathFlavor flavor) {
+  if (flavor == manifest::PathFlavor::windows) {
+    if (text.starts_with("\\\\?\\")) {
+      text.erase(0, 4);
+    }
+    std::ranges::replace(text, '\\', '/');
+  } else if (flavor == manifest::PathFlavor::wsl && text.size() >= 7U &&
+             text.starts_with("/mnt/") && text.at(6) == '/') {
+    text = text.substr(5, 1) + ":/" + text.substr(7);
+  }
+  std::vector<std::string> segments;
+  size_t start = 0;
+  while (start <= text.size()) {
+    const auto slash = text.find('/', start);
+    const auto end = slash == std::string::npos ? text.size() : slash;
+    auto segment = text.substr(start, end - start);
+    if (!segment.empty() && segment != ".") {
+      if (flavor != manifest::PathFlavor::posix) {
+        std::ranges::transform(segment, segment.begin(), [](const char value) {
+          return value >= 'A' && value <= 'Z'
+                     ? static_cast<char>(value - 'A' + 'a')
+                     : value;
+        });
+      }
+      if (segment == "..") {
+        if (!segments.empty()) {
+          segments.pop_back();
+        }
+      } else {
+        segments.push_back(std::move(segment));
+      }
+    }
+    if (slash == std::string::npos) {
+      break;
+    }
+    start = slash + 1U;
+  }
+  return segments;
+}
+
+std::string relpath_key_for(const std::filesystem::path& source,
+                            const adapters::SessionRecord& session) {
+  const auto source_flavor = path_flavor(source);
+  const auto source_segments = path_segments(source.generic_string(), source_flavor);
+  const auto original_segments =
+      path_segments(session.original_path, session.path_flavor);
+  if (original_segments.size() < source_segments.size() ||
+      !std::equal(source_segments.begin(), source_segments.end(),
+                  original_segments.begin())) {
     return ".";
   }
-  return rel.generic_string();
+  if (original_segments.size() == source_segments.size()) {
+    return ".";
+  }
+  std::string relative;
+  for (size_t i = source_segments.size(); i < original_segments.size(); ++i) {
+    if (!relative.empty()) {
+      relative.push_back('/');
+    }
+    relative += original_segments.at(i);
+  }
+  return relative;
+}
+
+bool agent_id_ok(const std::string_view value) {
+  if (value.empty() || !((value.front() >= 'a' && value.front() <= 'z') ||
+                         (value.front() >= '0' && value.front() <= '9'))) {
+    return false;
+  }
+  return std::ranges::all_of(value.substr(1), [](const char character) {
+    return (character >= 'a' && character <= 'z') ||
+           (character >= '0' && character <= '9') || character == '.' ||
+           character == '_' || character == '-';
+  });
+}
+
+bool session_id_ok(const std::string_view value) {
+  return !value.empty() && value != "." && value != ".." &&
+         std::ranges::all_of(value, [](const unsigned char character) {
+           return character >= 0x20U && character != 0x7fU && character != '/' &&
+                  character != '\\';
+         });
+}
+
+struct AgentId {
+  std::string_view value;
+};
+
+struct MemberPath {
+  std::string_view value;
+};
+
+bool agent_member_ok(const AgentId agent, const MemberPath path) {
+  const std::string prefix = "agents/" + std::string{agent.value} + "/";
+  if (!path.value.starts_with(prefix) || path.value.size() == prefix.size() ||
+      path.value.find('\\') != std::string_view::npos) {
+    return false;
+  }
+  size_t start = 0;
+  while (start <= path.value.size()) {
+    const auto slash = path.value.find('/', start);
+    const auto end = slash == std::string_view::npos ? path.value.size() : slash;
+    const auto segment = path.value.substr(start, end - start);
+    if (segment.empty() || segment == "." || segment == ".." ||
+        std::ranges::any_of(segment, [](const unsigned char character) {
+          return character < 0x20U || character == 0x7fU;
+        })) {
+      return false;
+    }
+    if (slash == std::string_view::npos) {
+      break;
+    }
+    start = slash + 1U;
+  }
+  return true;
+}
+
+Warning adapter_warning(const std::string_view encoded) {
+  const auto colon = encoded.find(':');
+  if (colon == std::string_view::npos) {
+    return Warning{.kind = std::string{encoded}, .path = {}};
+  }
+  return Warning{.kind = std::string{encoded.substr(0, colon)},
+                 .path = std::string{encoded.substr(colon + 1U)}};
 }
 
 struct ChildArtifactMatcher {
@@ -314,7 +428,7 @@ manifest::AgentSessionEntry manifest_entry_for(const adapters::SessionRecord& se
   return manifest::AgentSessionEntry{
       .agent = session.agent,
       .agent_version_at_pack = session.agent_version_at_pack,
-      .relpath_key = relpath_key_for(source, session.original_path),
+      .relpath_key = relpath_key_for(source, session),
       .original_path = session.original_path,
       .normalized_path_key = session.normalized_path_key,
       .normalization_scheme = session.normalization_scheme,
@@ -428,6 +542,91 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   }
 
   const auto created = now_stamp();
+  std::vector<adapters::SessionRecord> collected_sessions;
+  std::set<std::pair<std::string, std::string>> emitted_agent_sessions;
+  std::set<std::string> emitted_members{"manifest.json", "checksums.json"};
+  for (const auto& node : scan_result->payload) {
+    emitted_members.insert("payload/" + node.relpath);
+  }
+  const auto env = process_env();
+  for (const auto* adapter : adapters::all_adapters()) {
+    if (!agent_id_ok(adapter->id())) {
+      return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                    "adapter-id-grammar"});
+    }
+    auto stores = adapter->discover(env);
+    if (!stores) {
+      return cleanup_error(stores.error());
+    }
+    if (stores->empty()) {
+      continue;
+    }
+    auto collected = adapter->collect(source, *stores);
+    if (!collected) {
+      return cleanup_error(collected.error());
+    }
+    for (const auto& path : collected->no_cwd_record) {
+      report.warnings.push_back(
+          Warning{.kind = "SessionNoCwdRecord", .path = path});
+    }
+    for (const auto& warning : collected->warnings) {
+      report.warnings.push_back(adapter_warning(warning));
+    }
+    for (auto& session : collected->sessions) {
+      if (session.agent != adapter->id() || !agent_id_ok(session.agent) ||
+          !session_id_ok(session.original_session_id) ||
+          session.artifacts.empty() ||
+          session.artifacts.size() != session.artifact_sources.size() ||
+          !emitted_agent_sessions
+               .insert({session.agent, session.original_session_id})
+               .second) {
+        return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                      "adapter-session-invalid"});
+      }
+      for (const auto& child_id : session.child_ids) {
+        if (!session_id_ok(child_id)) {
+          return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                        "adapter-session-id"});
+        }
+      }
+      if (session.parent_id.has_value() && !session_id_ok(*session.parent_id)) {
+        return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                      "adapter-parent-session-id"});
+      }
+      for (const auto& artifact : session.artifacts) {
+        if (!agent_member_ok(AgentId{session.agent}, MemberPath{artifact}) ||
+            !emitted_members.insert(artifact).second) {
+          return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, artifact,
+                                        "adapter-member-invalid"});
+        }
+      }
+      if (session.live_at_pack) {
+        report.warnings.push_back(Warning{.kind = "SessionLiveAtPack",
+                                          .path = session.original_session_id});
+      }
+      auto entry = manifest_entry_for(session, source, created.rfc3339);
+      if (entry.artifacts.empty()) {
+        return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                      "adapter-parent-artifacts-empty"});
+      }
+      report.agent_sessions.push_back(std::move(entry));
+      add_summary(report, session.agent);
+      collected_sessions.push_back(std::move(session));
+    }
+  }
+
+  std::set<std::pair<std::string, std::string>> image_session_ids;
+  for (const auto& entry : report.agent_sessions) {
+    image_session_ids.insert({entry.agent, entry.original_session_ids.primary});
+  }
+  for (auto& entry : report.agent_sessions) {
+    if (entry.original_session_ids.parent.has_value() &&
+        image_session_ids.contains(
+            {entry.agent, *entry.original_session_ids.parent})) {
+      entry.original_session_ids.parent_in_image = std::nullopt;
+    }
+  }
+
   {
     std::ofstream spool{spool_path, std::ios::binary};
     if (!spool) {
@@ -437,7 +636,6 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         [&](std::span<const std::byte> chunk) -> expected<void> {
           return write_bytes(spool, chunk, spool_path);
         }};
-    std::set<std::pair<std::string, std::string>> emitted_agent_sessions;
     for (const auto& node : scan_result->payload) {
       auto extent = write_payload_member(spool_writer, source, node);
       if (!extent) {
@@ -450,45 +648,15 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         report.payload_bytes += node.size;
       }
     }
-    const auto env = process_env();
-    for (const auto* adapter : adapters::all_adapters()) {
-      auto stores = adapter->discover(env);
-      if (!stores) {
-        return cleanup_error(stores.error());
-      }
-      if (stores->empty()) {
-        continue;
-      }
-      auto collected = adapter->collect(source, *stores);
-      if (!collected) {
-        return cleanup_error(collected.error());
-      }
-      for (const auto& path : collected->no_cwd_record) {
-        report.warnings.push_back(Warning{.kind = "SessionNoCwdRecord", .path = path});
-      }
-      for (const auto& session : collected->sessions) {
-        if (!emitted_agent_sessions
-                 .insert({session.agent, session.original_session_id})
-                 .second) {
-          continue;
+    for (const auto& session : collected_sessions) {
+      for (size_t i = 0; i < session.artifacts.size(); ++i) {
+        auto extent = write_file_member(spool_writer, session.artifact_sources.at(i), session.artifacts.at(i),
+                                        created.seconds);
+        if (!extent) {
+          return cleanup_error(extent.error());
         }
-        if (session.artifacts.size() != session.artifact_sources.size()) {
-          return cleanup_error(BivError{ErrKind::InternalError, {}, "adapter-artifact-sources"});
-        }
-        for (size_t i = 0; i < session.artifacts.size(); ++i) {
-          auto extent = write_file_member(spool_writer, session.artifact_sources.at(i), session.artifacts.at(i),
-                                          created.seconds);
-          if (!extent) {
-            return cleanup_error(extent.error());
-          }
-          checksums.entries[session.artifacts.at(i)] = std::move(*extent);
-          ++report.member_count;
-        }
-        if (session.live_at_pack) {
-          report.warnings.push_back(Warning{.kind = "SessionLiveAtPack", .path = session.original_session_id});
-        }
-        report.agent_sessions.push_back(manifest_entry_for(session, source, created.rfc3339));
-        add_summary(report, session.agent);
+        checksums.entries[session.artifacts.at(i)] = std::move(*extent);
+        ++report.member_count;
       }
     }
     if (auto ok = spool_writer.finish(); !ok) {
