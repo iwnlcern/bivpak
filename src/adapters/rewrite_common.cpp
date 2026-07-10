@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -34,10 +35,6 @@ struct ReplacementText {
   std::string_view to;
 };
 
-struct Haystack {
-  std::string_view value;
-};
-
 struct Needle {
   std::string_view value;
 };
@@ -53,6 +50,10 @@ bool wsl_mount_path(const std::string_view path) {
 bool windows_drive_path(const std::string_view path) {
   return path.size() >= 3 && ascii_alpha(path.at(0)) && path.at(1) == ':' &&
          (path.at(2) == '\\' || path.at(2) == '/');
+}
+
+bool windows_extended_path(const std::string_view path) {
+  return path.starts_with("\\\\?\\") || path.starts_with("//?/");
 }
 
 std::string ascii_lower(std::string value) {
@@ -110,8 +111,88 @@ std::string swap_windows_separator(std::string path, const char separator) {
   return path;
 }
 
-std::vector<Spelling> origin_spellings(const std::string_view original_path,
-                                       const manifest::PathFlavor original_flavor) {
+struct CanonicalPath {
+  manifest::PathFlavor flavor{manifest::PathFlavor::posix};
+  bool drive_mapped{false};
+  std::vector<std::string> segments;
+};
+
+bool case_insensitive(const manifest::PathFlavor flavor) {
+  return flavor == manifest::PathFlavor::windows ||
+         flavor == manifest::PathFlavor::wsl;
+}
+
+bool append_segment(CanonicalPath& path, std::string segment) {
+  if (segment.empty() || segment == ".") {
+    return true;
+  }
+  if (segment == "..") {
+    if (path.segments.empty()) {
+      return false;
+    }
+    path.segments.pop_back();
+    return true;
+  }
+  if (case_insensitive(path.flavor)) {
+    segment = ascii_lower(std::move(segment));
+  }
+  path.segments.push_back(std::move(segment));
+  return true;
+}
+
+std::optional<CanonicalPath> canonical_path(const std::string_view input) {
+  CanonicalPath out{
+      .flavor = path_flavor_for(input), .drive_mapped = false, .segments = {}};
+  std::string text{input};
+  size_t start = 0;
+  if (out.flavor == manifest::PathFlavor::windows) {
+    if (windows_extended_path(text)) {
+      text.erase(0, 4);
+    }
+    text = swap_windows_separator(std::move(text), '/');
+    if (windows_drive_path(text)) {
+      out.drive_mapped = true;
+      if (!append_segment(out, text.substr(0, 1))) {
+        return std::nullopt;
+      }
+      start = 3;
+    }
+  } else if (out.flavor == manifest::PathFlavor::wsl) {
+    out.drive_mapped = true;
+    if (!append_segment(out, text.substr(5, 1))) {
+      return std::nullopt;
+    }
+    start = 7;
+  }
+
+  while (start <= text.size()) {
+    const size_t slash = text.find('/', start);
+    const size_t end = slash == std::string::npos ? text.size() : slash;
+    if (!append_segment(out, text.substr(start, end - start))) {
+      return std::nullopt;
+    }
+    if (slash == std::string::npos) {
+      break;
+    }
+    start = slash + 1U;
+  }
+  return out;
+}
+
+bool compatible_flavors(const CanonicalPath& lhs, const CanonicalPath& rhs) {
+  if (lhs.flavor == rhs.flavor) {
+    return true;
+  }
+  const bool wsl_windows_pair = (lhs.flavor == manifest::PathFlavor::wsl &&
+                                 rhs.flavor == manifest::PathFlavor::windows) ||
+                                (lhs.flavor == manifest::PathFlavor::windows &&
+                                 rhs.flavor == manifest::PathFlavor::wsl);
+  return wsl_windows_pair && lhs.drive_mapped && rhs.drive_mapped;
+}
+
+std::vector<Spelling> origin_spellings(
+    const std::string_view original_path,
+    const manifest::PathFlavor original_flavor) {
   std::vector<Spelling> out;
   if ((original_flavor == manifest::PathFlavor::windows || windows_drive_path(original_path)) &&
       windows_drive_path(original_path)) {
@@ -170,11 +251,45 @@ void replace_all(std::string& text, const ReplacementText replacement) {
   }
 }
 
-std::string apply_replacements(std::string value,
-                               const PathPairsView pair_set,
+bool path_token_char(const char value) {
+  return ascii_alpha(value) || (value >= '0' && value <= '9') || value == '_' ||
+         value == '-' || value == '.' || value == ':' || value == '/' ||
+         value == '\\';
+}
+
+bool path_replacement_boundary_ok(const std::string_view text, const size_t pos,
+                                  const size_t match_size) {
+  if (pos > 0U && path_token_char(text.at(pos - 1U))) {
+    return false;
+  }
+  const size_t after = pos + match_size;
+  if (after >= text.size()) {
+    return true;
+  }
+  const char next = text.at(after);
+  return next == '/' || next == '\\' || !path_token_char(next);
+}
+
+void replace_path_all(std::string& text, const ReplacementText replacement) {
+  if (replacement.from.empty()) {
+    return;
+  }
+  size_t pos = 0;
+  while ((pos = text.find(replacement.from, pos)) != std::string::npos) {
+    if (!path_replacement_boundary_ok(text, pos, replacement.from.size())) {
+      pos += replacement.from.size();
+      continue;
+    }
+    text.replace(pos, replacement.from.size(), replacement.to);
+    pos += replacement.to.size();
+  }
+}
+
+std::string apply_replacements(std::string value, const PathPairsView pair_set,
                                const IdPairsView id_map) {
   for (const auto& pair : pair_set.values) {
-    replace_all(value, ReplacementText{.from = pair.first, .to = pair.second});
+    replace_path_all(value,
+                     ReplacementText{.from = pair.first, .to = pair.second});
   }
   for (const auto& pair : id_map.values) {
     replace_all(value, ReplacementText{.from = pair.first, .to = pair.second});
@@ -295,20 +410,85 @@ void write_element(json::Writer& writer,
   writer.value_null();
 }
 
-size_t count_hits(const Haystack haystack, const Needle needle) {
+std::string string_from_bytes(const std::span<const std::byte> bytes) {
+  std::string out;
+  out.reserve(bytes.size());
+  for (const std::byte value : bytes) {
+    out.push_back(static_cast<char>(value));
+  }
+  return out;
+}
+
+size_t count_hits_bytes(const std::span<const std::byte> haystack,
+                        const Needle needle) {
   if (needle.value.empty()) {
     return 0;
   }
   size_t hits = 0;
-  size_t pos = 0;
-  while ((pos = haystack.value.find(needle.value, pos)) != std::string_view::npos) {
-    ++hits;
-    pos += needle.value.size();
+  for (size_t pos = 0; pos + needle.value.size() <= haystack.size(); ++pos) {
+    bool matched = true;
+    size_t offset = 0;
+    for (const std::byte value : haystack.subspan(pos, needle.value.size())) {
+      if (static_cast<char>(value) != needle.value.at(offset)) {
+        matched = false;
+        break;
+      }
+      ++offset;
+    }
+    if (matched) {
+      ++hits;
+      pos += needle.value.size() - 1U;
+    }
   }
   return hits;
 }
 
 }  // namespace
+
+manifest::PathFlavor path_flavor_for(const std::string_view path) {
+  if (wsl_mount_path(path)) {
+    return manifest::PathFlavor::wsl;
+  }
+  if (windows_drive_path(path) || windows_extended_path(path)) {
+    return manifest::PathFlavor::windows;
+  }
+  return manifest::PathFlavor::posix;
+}
+
+std::string normalized_path_key(const std::string_view path) {
+  const auto flavor = path_flavor_for(path);
+  if (flavor == manifest::PathFlavor::wsl) {
+    return ascii_lower(std::string{path});
+  }
+  if (flavor != manifest::PathFlavor::windows) {
+    return std::string{path};
+  }
+  std::string normalized{path};
+  if (windows_extended_path(normalized)) {
+    normalized.erase(0, 4);
+  }
+  normalized = ascii_lower(swap_windows_separator(std::move(normalized), '/'));
+  while (normalized.size() > 3U && normalized.ends_with('/')) {
+    normalized.pop_back();
+  }
+  return normalized;
+}
+
+bool path_is_same_or_descendant(const PathMembership membership) {
+  const auto candidate_path = canonical_path(membership.candidate);
+  const auto root_path = canonical_path(membership.root);
+  if (!candidate_path.has_value() || !root_path.has_value() ||
+      !compatible_flavors(*candidate_path, *root_path) ||
+      candidate_path->segments.size() < root_path->segments.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < root_path->segments.size(); ++i) {
+    if (root_path->segments.at(i) != candidate_path->segments.at(i)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 ReplacementPairs derive_pair_set(const std::string_view original_path,
                                   const manifest::PathFlavor original_flavor,
@@ -342,21 +522,50 @@ RewriteLineResult rewrite_jsonl_line(const std::string_view line,
   return RewriteLineResult{.line = std::move(out)};
 }
 
+RewriteBytesResult rewrite_jsonl_bytes(const std::span<const std::byte> bytes,
+                                       const PathPairsView pair_set,
+                                       const IdPairsView id_map) {
+  const std::string input_storage = string_from_bytes(bytes);
+  const std::string_view input{input_storage};
+  std::string output;
+  output.reserve(input.size());
+  size_t skipped_non_utf8 = 0;
+  size_t start = 0;
+  while (start < input.size()) {
+    const size_t newline = input.find('\n', start);
+    const size_t end =
+        newline == std::string_view::npos ? input.size() : newline;
+    const std::string_view line = input.substr(start, end - start);
+    auto rewritten = rewrite_jsonl_line(line, pair_set, id_map);
+    if (rewritten.skipped_non_utf8) {
+      ++skipped_non_utf8;
+    }
+    output += rewritten.line;
+    if (newline == std::string_view::npos) {
+      break;
+    }
+    output.push_back('\n');
+    start = newline + 1U;
+  }
+
+  RewriteBytesResult result{.bytes = {}, .skipped_non_utf8 = skipped_non_utf8};
+  result.bytes.reserve(output.size());
+  for (const char value : output) {
+    result.bytes.push_back(static_cast<std::byte>(value));
+  }
+  return result;
+}
+
 InstallVerify verify_scan(const std::span<const std::byte> artifact_bytes,
                           const OriginPathsView pair_set_origins,
                           const OriginIdsView origin_ids) {
-  std::string content;
-  content.reserve(artifact_bytes.size());
-  for (const std::byte value : artifact_bytes) {
-    content.push_back(static_cast<char>(value));
-  }
   InstallVerify verify;
   verify.artifacts_checked = 1;
   for (const auto& origin : pair_set_origins.values) {
-    verify.origin_path_hits += count_hits(Haystack{content}, Needle{origin});
+    verify.origin_path_hits += count_hits_bytes(artifact_bytes, Needle{origin});
   }
   for (const auto& id : origin_ids.values) {
-    verify.origin_id_hits += count_hits(Haystack{content}, Needle{id});
+    verify.origin_id_hits += count_hits_bytes(artifact_bytes, Needle{id});
   }
   return verify;
 }

@@ -4,6 +4,7 @@
 #include <fstream>
 #include <map>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -23,6 +24,12 @@ namespace fs = std::filesystem;
 
 constexpr std::string_view kOriginalSession = "aaaaaaaa-1111-4000-8000-000000000001";
 constexpr std::string_view kBridgeSession = "bbbb-1111-4000-8000-000000000001";
+constexpr std::string_view kRootUuid = "00000000-0000-4000-8000-000000000100";
+constexpr std::string_view kUserUuid = "00000000-0000-4000-8000-000000000101";
+constexpr std::string_view kLeafUuid = "00000000-0000-4000-8000-000000000102";
+constexpr std::string_view kToolUuid = "00000000-0000-4000-8000-000000000103";
+constexpr std::string_view kSubagentUuid =
+    "00000000-0000-4000-8000-000000000201";
 
 fs::path make_tmp(std::string_view name) {
   auto base = fs::temp_directory_path() /
@@ -70,6 +77,33 @@ std::vector<fs::path> regular_files(const fs::path& root) {
   return out;
 }
 
+std::set<std::string> uuid_strings(std::string_view input) {
+  std::set<std::string> out;
+  for (size_t i = 0; i + 36U <= input.size(); ++i) {
+    const auto candidate = input.substr(i, 36U);
+    const bool hyphens = candidate.at(8) == '-' && candidate.at(13) == '-' &&
+                         candidate.at(18) == '-' && candidate.at(23) == '-';
+    const bool hex = std::ranges::all_of(candidate, [](const char value) {
+      return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f') ||
+             value == '-';
+    });
+    if (hyphens && hex) {
+      out.emplace(candidate);
+    }
+  }
+  return out;
+}
+
+bool disjoint(const std::set<std::string>& lhs,
+              const std::set<std::string>& rhs) {
+  for (const auto& value : lhs) {
+    if (rhs.contains(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::string claude_project_key(const fs::path& path) {
   std::string key = path.generic_string();
   for (char& value : key) {
@@ -94,7 +128,9 @@ std::string meta_artifact(std::string_view session_id = kOriginalSession) {
   return "agents/claude-code/" + std::string{session_id} + "/subagents/agent-a01.meta.json";
 }
 
-biv::manifest::AgentSessionEntry claude_entry(std::string original_path = "/ws/proj") {
+biv::manifest::AgentSessionEntry claude_entry(
+    std::string original_path = "/ws/proj",
+    std::string session_id = std::string{kOriginalSession}) {
   biv::manifest::AgentSessionEntry entry;
   entry.agent = "claude-code";
   entry.agent_version_at_pack = "2.1.202";
@@ -103,11 +139,14 @@ biv::manifest::AgentSessionEntry claude_entry(std::string original_path = "/ws/p
   entry.normalized_path_key = entry.original_path;
   entry.normalization_scheme = "claude-cwd/v1";
   entry.path_flavor = biv::manifest::PathFlavor::posix;
-  entry.provenance = {.store_root = "/source/.claude", .locator = "projects", .discovery_tier = "env"};
-  entry.original_session_ids.primary = std::string{kOriginalSession};
+  entry.provenance = {.store_root = "/source/.claude",
+                      .locator = "sessions_root",
+                      .discovery_tier = "env"};
+  entry.original_session_ids.primary = session_id;
   entry.children = {biv::manifest::SessionChild{
-      .original_id = "agent-a01", .artifacts = {subagent_artifact(), meta_artifact()}}};
-  entry.artifacts = {main_artifact()};
+      .original_id = "agent-a01",
+      .artifacts = {subagent_artifact(session_id), meta_artifact(session_id)}}};
+  entry.artifacts = {main_artifact(session_id)};
   entry.live_at_pack = false;
   entry.imported_at = "2026-07-07T00:00:00Z";
   entry.entry_schema = 1;
@@ -116,18 +155,27 @@ biv::manifest::AgentSessionEntry claude_entry(std::string original_path = "/ws/p
 
 std::map<std::string, std::vector<std::byte>> claude_members() {
   std::map<std::string, std::vector<std::byte>> members;
-  const std::string main = std::string{
-                               "{\"type\":\"bridge-session\",\"sessionId\":\""} +
-                           std::string{kOriginalSession} + "\",\"bridgeSessionId\":\"" +
-                           std::string{kBridgeSession} + "\",\"lastSequenceNum\":3}\n" +
-                           "{\"type\":\"user\",\"cwd\":\"/ws/proj\",\"uuid\":\"u1\",\"parentUuid\":\"p1\","
-                           "\"sessionId\":\"" +
-                           std::string{kOriginalSession} +
-                           "\",\"message\":\"tool saw /ws/proj and /other/machine/path\"}\n";
-  const std::string subagent = std::string{"{\"type\":\"assistant\",\"cwd\":\"/ws/proj\",\"sessionId\":\""} +
-                               std::string{kOriginalSession} +
-                               "\",\"agentId\":\"agent-a01\",\"message\":\"sub\"}\n";
-  const std::string meta = "{\"agentType\":\"explore\",\"description\":\"d\",\"toolUseId\":\"tu1\",\"spawnDepth\":1}\n";
+  const std::string main =
+      std::string{"{\"type\":\"bridge-session\",\"sessionId\":\""} +
+      std::string{kOriginalSession} + "\",\"bridgeSessionId\":\"" +
+      std::string{kBridgeSession} + "\",\"lastSequenceNum\":3}\n" +
+      "{\"type\":\"user\",\"cwd\":\"/ws/proj\",\"uuid\":\"" +
+      std::string{kUserUuid} + "\",\"parentUuid\":\"" + std::string{kRootUuid} +
+      "\",\"leafUuid\":\"" + std::string{kLeafUuid} +
+      "\",\"sourceToolAssistantUUID\":\"" + std::string{kToolUuid} +
+      "\",\"sessionId\":\"" + std::string{kOriginalSession} +
+      "\",\"message\":\"tool saw /ws/proj and /other/machine/path\"}\n";
+  const std::string subagent =
+      std::string{
+          "{\"type\":\"assistant\",\"cwd\":\"/ws/proj\",\"sessionId\":\""} +
+      std::string{kOriginalSession} + "\",\"uuid\":\"" +
+      std::string{kSubagentUuid} + "\",\"parentUuid\":\"" +
+      std::string{kLeafUuid} + "\",\"sourceToolAssistantUUID\":\"" +
+      std::string{kToolUuid} +
+      "\",\"agentId\":\"agent-a01\",\"message\":\"sub\"}\n";
+  const std::string meta =
+      "{\"agentType\":\"explore\",\"description\":\"d\","
+      "\"toolUseId\":\"tu1\",\"spawnDepth\":1}\n";
   members.emplace(main_artifact(), bytes(main));
   members.emplace(subagent_artifact(), bytes(subagent));
   members.emplace(meta_artifact(), bytes(meta));
@@ -220,6 +268,18 @@ TEST_CASE("rewrite common derives pair sets and rewrites JSONL strings") {
                                                                   biv::adapters::rewrite::IdPairsView{ids});
   CHECK(skipped.skipped_non_utf8);
   CHECK(skipped.line == binary_line);
+
+  const auto boundary_pairs = biv::adapters::rewrite::derive_pair_set(
+      "/ws/proj", biv::manifest::PathFlavor::posix, "/tmp/restored",
+      biv::manifest::PathFlavor::posix);
+  const std::string boundary_line =
+      "{\"cwd\":\"/ws/proj\",\"message\":\"/ws/proj /ws/proj/sub /ws/proj2\"}";
+  const auto boundary_rewritten = biv::adapters::rewrite::rewrite_jsonl_line(
+      boundary_line, biv::adapters::rewrite::PathPairsView{boundary_pairs},
+      biv::adapters::rewrite::IdPairsView{});
+  CHECK(boundary_rewritten.line.find(
+            "/tmp/restored /tmp/restored/sub /ws/proj2") != std::string::npos);
+  CHECK(boundary_rewritten.line.find("/tmp/restored2") == std::string::npos);
 }
 
 TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids collisions") {
@@ -227,6 +287,7 @@ TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids colli
   const auto workspace = root / "workspace" / "proj";
   const auto store = root / "target-claude";
   fs::create_directories(workspace);
+  fs::create_directories(store);
   auto members = claude_members();
   auto target = target_for(workspace, store, members);
   const auto& adapter = biv::adapters::claude_code_adapter();
@@ -240,8 +301,11 @@ TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids colli
   CHECK(first->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::installed);
   CHECK(first->sessions.front().image_session_id == kOriginalSession);
   CHECK(first->sessions.front().host_version_unverified);
+  REQUIRE(first->sessions.front().content_rewrite.has_value());
+  CHECK(*first->sessions.front().content_rewrite == "pair");
   CHECK(first->sessions.front().verify.origin_path_hits == 0);
   CHECK(first->sessions.front().verify.origin_id_hits == 0);
+  CHECK(first->sessions.front().verify.artifacts_checked == 3);
   REQUIRE(first->id_map.size() == 1);
   const std::string first_id = first->id_map.front().installed_session_id;
   CHECK(first_id != kOriginalSession);
@@ -257,11 +321,18 @@ TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids colli
   const auto main_text = read_text(main_path);
   CHECK(main_text.find(first_id) != std::string::npos);
   CHECK(main_text.find(kOriginalSession) == std::string::npos);
+  CHECK(main_text.find(kRootUuid) == std::string::npos);
+  CHECK(main_text.find(kUserUuid) == std::string::npos);
+  CHECK(main_text.find(kLeafUuid) == std::string::npos);
+  CHECK(main_text.find(kToolUuid) == std::string::npos);
   CHECK(main_text.find(workspace.generic_string()) != std::string::npos);
   CHECK(main_text.find("/other/machine/path") != std::string::npos);
   CHECK(main_text.find(kBridgeSession) != std::string::npos);
   const auto subagent_text = read_text(subagent_path);
   CHECK(subagent_text.find(first_id) != std::string::npos);
+  CHECK(subagent_text.find(kSubagentUuid) == std::string::npos);
+  CHECK(subagent_text.find(kLeafUuid) == std::string::npos);
+  CHECK(subagent_text.find(kToolUuid) == std::string::npos);
   CHECK(subagent_text.find("agent-a01") != std::string::npos);
   CHECK(read_text(meta_path) == text(members.at(meta_artifact())));
 
@@ -270,6 +341,13 @@ TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids colli
   REQUIRE(second.has_value());
   REQUIRE(second->id_map.size() == 1);
   CHECK(second->id_map.front().installed_session_id != first_id);
+  const auto second_id = second->id_map.front().installed_session_id;
+  const auto second_main = read_text(project_dir / (second_id + ".jsonl"));
+  auto first_uuids = uuid_strings(main_text + subagent_text);
+  auto second_uuids = uuid_strings(second_main);
+  first_uuids.erase(std::string{kBridgeSession});
+  second_uuids.erase(std::string{kBridgeSession});
+  CHECK(disjoint(first_uuids, second_uuids));
   size_t main_transcripts = 0;
   for (const auto& file : regular_files(project_dir)) {
     if (file.parent_path() == project_dir && file.extension() == ".jsonl") {
@@ -280,7 +358,111 @@ TEST_CASE("Claude install rewrites transcripts, preserves meta, and avoids colli
   fs::remove_all(root);
 }
 
-TEST_CASE("Claude install refuses unpinned long project keys and unsafe artifacts") {
+TEST_CASE("Claude install gates host and image-entry capability verdicts") {
+  const auto root = make_tmp("capability-gate");
+  const auto workspace = root / "workspace";
+  fs::create_directories(workspace);
+  auto members = claude_members();
+  const auto& adapter = biv::adapters::claude_code_adapter();
+  const std::vector<biv::manifest::AgentSessionEntry> valid_records{
+      claude_entry()};
+
+  const auto absent_store = root / "absent-claude";
+  auto absent_target = target_for(workspace, absent_store, members);
+  const auto absent = adapter.install(
+      absent_target, biv::adapters::Consent::yes, valid_records);
+  REQUIRE(absent.has_value());
+  REQUIRE(absent->sessions.size() == 1);
+  CHECK(absent->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(absent->sessions.front().reason == std::optional<std::string>{"error"});
+  CHECK(absent->sessions.front().detail ==
+        std::optional<std::string>{"capability_refused"});
+  CHECK_FALSE(absent->sessions.front().host_version_unverified);
+  CHECK(absent->id_map.empty());
+  CHECK(absent->activation.empty());
+  CHECK(regular_files(absent_store).empty());
+
+  const auto unsupported_store = root / "unsupported-claude";
+  fs::create_directories(unsupported_store);
+  {
+    std::ofstream marker{unsupported_store / ".last-update-result.json"};
+    marker << "{\"version\":\"3.0.0\"}\n";
+  }
+  auto unsupported_target = target_for(workspace, unsupported_store, members);
+  const auto unsupported = adapter.install(
+      unsupported_target, biv::adapters::Consent::yes, valid_records);
+  REQUIRE(unsupported.has_value());
+  REQUIRE(unsupported->sessions.size() == 1);
+  CHECK(unsupported->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(unsupported->sessions.front().detail ==
+        std::optional<std::string>{"capability_refused"});
+  CHECK(unsupported->id_map.empty());
+  CHECK(unsupported->activation.empty());
+  CHECK_FALSE(fs::exists(unsupported_store / "projects"));
+
+  const auto unknown_image_store = root / "unknown-image-claude";
+  fs::create_directories(unknown_image_store);
+  auto unknown_record = claude_entry();
+  unknown_record.agent_version_at_pack = "unknown";
+  const std::vector<biv::manifest::AgentSessionEntry> unknown_records{
+      unknown_record};
+  auto unknown_target = target_for(workspace, unknown_image_store, members);
+  const auto unknown = adapter.install(
+      unknown_target, biv::adapters::Consent::yes, unknown_records);
+  REQUIRE(unknown.has_value());
+  REQUIRE(unknown->sessions.size() == 1);
+  CHECK(unknown->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(unknown->sessions.front().detail ==
+        std::optional<std::string>{"capability_refused"});
+  CHECK_FALSE(unknown->sessions.front().host_version_unverified);
+  CHECK(unknown->id_map.empty());
+  CHECK(unknown->activation.empty());
+  CHECK(regular_files(unknown_image_store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude rewrite applies pair rewrites and reports non-UTF8 skips") {
+  const auto root = make_tmp("rewrite");
+  const auto workspace = root / "workspace" / "proj";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  auto members = claude_members();
+  members.at(main_artifact()).push_back(static_cast<std::byte>(0xff));
+  auto target = target_for(workspace, store, members);
+  const auto& adapter = biv::adapters::claude_code_adapter();
+  const auto entry = claude_entry();
+  std::vector<biv::adapters::SessionRecord> records{
+      biv::adapters::SessionRecord{
+          .agent = "claude-code",
+          .original_session_id = entry.original_session_ids.primary,
+          .parent_id = std::nullopt,
+          .child_ids = {"agent-a01"},
+          .original_path = entry.original_path,
+          .normalized_path_key = entry.normalized_path_key,
+          .normalization_scheme = entry.normalization_scheme,
+          .path_flavor = entry.path_flavor,
+          .provenance = entry.provenance,
+          .artifacts = {main_artifact(), subagent_artifact()},
+          .artifact_sources = {},
+          .agent_version_at_pack = entry.agent_version_at_pack,
+          .live_at_pack = false}};
+
+  const auto report = adapter.rewrite(records, target);
+
+  REQUIRE(report.has_value());
+  CHECK(report->per_artifact_hits.size() == 2);
+  CHECK(report->verify.origin_path_hits == 0);
+  CHECK(report->verify.origin_id_hits == 0);
+  CHECK(report->verify.artifacts_checked == 2);
+  CHECK(report->skipped_non_utf8 == 1);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Claude install refuses unpinned long project keys and unsafe artifacts") {
   const auto root = make_tmp("refusal");
   const auto store = root / "target-claude";
   auto members = claude_members();
@@ -313,7 +495,39 @@ TEST_CASE("Claude install refuses unpinned long project keys and unsafe artifact
   fs::remove_all(root);
 }
 
-TEST_CASE("Claude capabilities report absent, unvalidated, and validated hosts") {
+TEST_CASE("Claude containment refusal fails every session before writing") {
+  const auto root = make_tmp("multi-containment");
+  const auto store = root / "target-claude";
+  auto members = claude_members();
+  auto good = claude_entry();
+  const auto unsafe_id = std::string{"dddddddd-1111-4000-8000-000000000001"};
+  auto unsafe = claude_entry("/ws/proj", unsafe_id);
+  unsafe.children.clear();
+  unsafe.artifacts = {"agents/claude-code/" + unsafe_id + "/../escape.jsonl"};
+  const std::vector<biv::manifest::AgentSessionEntry> records{good, unsafe};
+  auto target = target_for(root / "workspace", store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2);
+  CHECK(std::ranges::all_of(
+      result->sessions,
+      [](const biv::adapters::InstallSessionOutcome& outcome) {
+        return outcome.outcome ==
+                   biv::adapters::InstallSessionOutcome::Outcome::failed &&
+               outcome.reason ==
+                   std::optional<std::string>{"containment_refused"};
+      }));
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Claude capabilities report absent, unvalidated, and validated hosts") {
   const auto root = make_tmp("capabilities");
   const auto& adapter = biv::adapters::claude_code_adapter();
   const biv::adapters::Env env{

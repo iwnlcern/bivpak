@@ -2,10 +2,14 @@
 
 #include <algorithm>
 #include <fstream>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
+
+#include "adapters/rewrite_common.hpp"
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -60,49 +64,6 @@ std::string discovery_tier_string(const DiscoveryTier tier) {
   return "default";
 }
 
-manifest::PathFlavor path_flavor_for(const std::string_view path) {
-  if (path.size() >= 7 && path.starts_with("/mnt/") && path.at(6) == '/') {
-    return manifest::PathFlavor::wsl;
-  }
-  if (path.size() >= 3 && path.at(1) == ':' && (path.at(2) == '\\' || path.at(2) == '/')) {
-    return manifest::PathFlavor::windows;
-  }
-  return manifest::PathFlavor::posix;
-}
-
-std::string ascii_lower(std::string value) {
-  for (char& character : value) {
-    if (character >= 'A' && character <= 'Z') {
-      character = static_cast<char>(character - 'A' + 'a');
-    }
-  }
-  return value;
-}
-
-std::string normalized_key_for(std::string path) {
-  if (path_flavor_for(path) == manifest::PathFlavor::wsl) {
-    return ascii_lower(std::move(path));
-  }
-  return path;
-}
-
-std::string trimmed_source_root(const fs::path& source_root) {
-  std::string source = source_root.generic_string();
-  while (source.size() > 1 && source.ends_with('/')) {
-    source.pop_back();
-  }
-  return source;
-}
-
-bool cwd_matches_source(std::string cwd, const fs::path& source_root) {
-  std::string source = trimmed_source_root(source_root);
-  if (path_flavor_for(cwd) == manifest::PathFlavor::wsl && path_flavor_for(source) == manifest::PathFlavor::wsl) {
-    cwd = ascii_lower(std::move(cwd));
-    source = ascii_lower(std::move(source));
-  }
-  return cwd == source || cwd.starts_with(source + '/');
-}
-
 bool ascii_alnum(const char value) {
   return (value >= '0' && value <= '9') || (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
 }
@@ -150,6 +111,10 @@ TranscriptFacts inspect_transcript(const fs::path& transcript) {
     if (!facts.cwd.has_value()) {
       facts.cwd = object_string(*object, "cwd");
     }
+    if (facts.cwd.has_value() && facts.session_id.has_value() &&
+        facts.version.has_value()) {
+      break;
+    }
   }
   return facts;
 }
@@ -158,14 +123,17 @@ bool terminal_status(const std::string_view status) {
   return status == "completed" || status == "exited" || status == "stopped" || status == "failed";
 }
 
-LiveFacts live_facts_for(const fs::path& store_root, const std::string_view session_id) {
-  LiveFacts facts;
+std::map<std::string, LiveFacts> live_facts_by_id(const fs::path& store_root) {
+  std::map<std::string, LiveFacts> facts;
   const auto sessions_dir = store_root / "sessions";
-  if (!fs::exists(sessions_dir)) {
+  std::error_code ec;
+  if (!fs::exists(sessions_dir, ec)) {
     return facts;
   }
-  for (const auto& entry : fs::directory_iterator(sessions_dir)) {
-    if (!entry.is_regular_file() || entry.path().extension() != ".json") {
+  for (fs::directory_iterator it{sessions_dir, ec}, end; !ec && it != end;
+       it.increment(ec)) {
+    const auto& entry = *it;
+    if (!entry.is_regular_file(ec) || entry.path().extension() != ".json") {
       continue;
     }
     std::ifstream input{entry.path()};
@@ -177,23 +145,49 @@ LiveFacts live_facts_for(const fs::path& store_root, const std::string_view sess
       continue;
     }
     auto candidate = object_string(*object, "sessionId");
-    if (!candidate.has_value() || *candidate != session_id) {
+    if (!candidate.has_value()) {
       continue;
     }
     auto status = object_string(*object, "status");
-    facts.live = !status.has_value() || !terminal_status(*status);
-    facts.version = object_string(*object, "version");
+    facts[*candidate] =
+        LiveFacts{.live = !status.has_value() || !terminal_status(*status),
+                  .version = object_string(*object, "version")};
   }
   return facts;
 }
 
-std::vector<ArtifactRef> collect_subtree_artifacts(const fs::path& session_dir, const std::string_view session_id) {
+bool lexically_inside(const fs::path& candidate, const fs::path& root) {
+  const auto rel =
+      candidate.lexically_normal().lexically_relative(root.lexically_normal());
+  if (rel.empty()) {
+    return false;
+  }
+  const auto begin = rel.begin();
+  return begin != rel.end() && *begin != "..";
+}
+
+std::vector<ArtifactRef> collect_subtree_artifacts(
+    const fs::path& session_dir, const std::string_view session_id) {
   std::vector<ArtifactRef> artifacts;
-  if (!fs::exists(session_dir)) {
+  std::error_code ec;
+  if (!fs::exists(session_dir, ec)) {
     return artifacts;
   }
-  for (const auto& entry : fs::recursive_directory_iterator(session_dir)) {
-    if (!entry.is_regular_file()) {
+  const auto canonical_session = fs::weakly_canonical(session_dir, ec);
+  if (ec) {
+    return artifacts;
+  }
+  for (fs::recursive_directory_iterator
+           it{session_dir, fs::directory_options::none, ec},
+       end;
+       !ec && it != end; it.increment(ec)) {
+    const auto& entry = *it;
+    if (entry.is_symlink(ec) || !entry.is_regular_file(ec)) {
+      continue;
+    }
+    const auto canonical_entry = fs::weakly_canonical(entry.path(), ec);
+    if (ec || !lexically_inside(canonical_entry, canonical_session)) {
+      ec.clear();
       continue;
     }
     std::string artifact = "agents/claude-code/";
@@ -209,11 +203,15 @@ std::vector<ArtifactRef> collect_subtree_artifacts(const fs::path& session_dir, 
 std::vector<std::string> child_ids_for(const fs::path& session_dir) {
   std::vector<std::string> child_ids;
   const auto subagents = session_dir / "subagents";
-  if (!fs::exists(subagents)) {
+  std::error_code ec;
+  if (!fs::exists(subagents, ec)) {
     return child_ids;
   }
-  for (const auto& entry : fs::directory_iterator(subagents)) {
-    if (entry.is_regular_file() && entry.path().extension() == ".jsonl") {
+  for (fs::directory_iterator it{subagents, ec}, end; !ec && it != end;
+       it.increment(ec)) {
+    const auto& entry = *it;
+    if (!entry.is_symlink(ec) && entry.is_regular_file(ec) &&
+        entry.path().extension() == ".jsonl") {
       child_ids.push_back(entry.path().stem().string());
     }
   }
@@ -223,17 +221,14 @@ std::vector<std::string> child_ids_for(const fs::path& session_dir) {
 
 const Inventory& claude_inventory() {
   static const Inventory inventory{
-      .collect = {ArtifactClass{.name = "project-transcripts", .globs = {"projects/*/*.jsonl"}}},
-      .rewrite = {ArtifactClass{.name = "jsonl-session-fields", .globs = {"agents/claude-code/**/*.jsonl"}}},
-      .never_collect = {".credentials.json",
-                        "settings.json",
-                        "settings.local.json",
-                        "history.jsonl",
-                        "shell-snapshots",
-                        "memory",
-                        "file-history",
-                        "tasks",
-                        "session-env"},
+      .collect = {ArtifactClass{.name = "project-transcripts",
+                                .globs = {"projects/*/*.jsonl"}}},
+      .rewrite = {ArtifactClass{.name = "jsonl-session-fields",
+                                .globs = {"agents/claude-code/**/*.jsonl"}}},
+      .never_collect = {".credentials.json", ".claude.json", "settings.json",
+                        "settings.local.json", "settings*.json",
+                        "history.jsonl", "shell-snapshots", "memory",
+                        "file-history", "tasks", "session-env"},
       .never_rewrite = {".meta.json"},
       .caveat_facts = {.env_var = "CLAUDE_CONFIG_DIR",
                        .relocated_contents = {"projects"},
@@ -248,9 +243,10 @@ class ClaudeCodeAdapter final : public AgentAdapter {
 
   expected<std::vector<Store>> discover(const Env& env) const override {
     std::vector<Store> stores;
+    std::error_code ec;
     if (env.getenv) {
       auto configured = env.getenv("CLAUDE_CONFIG_DIR");
-      if (configured.has_value() && fs::exists(*configured)) {
+      if (configured.has_value() && fs::exists(*configured, ec)) {
         const fs::path root{*configured};
         stores.push_back(Store{.root = root,
                                .locators = {StoreLocator{.kind = "sessions_root", .path = root / "projects"}},
@@ -261,11 +257,13 @@ class ClaudeCodeAdapter final : public AgentAdapter {
     }
 
     const auto root = env.home / ".claude";
-    if (fs::exists(root)) {
-      stores.push_back(Store{.root = root,
-                             .locators = {StoreLocator{.kind = "sessions_root", .path = root / "projects"}},
-                             .tier = DiscoveryTier::defaults,
-                             .archived = false});
+    if (fs::exists(root, ec)) {
+      stores.push_back(
+          Store{.root = root,
+                .locators = {StoreLocator{.kind = "sessions_root",
+                                          .path = root / "projects"}},
+                .tier = DiscoveryTier::defaults,
+                .archived = false});
     }
     return stores;
   }
@@ -278,17 +276,26 @@ class ClaudeCodeAdapter final : public AgentAdapter {
       CollectReport report;
       for (const auto& store : stores) {
         const auto projects_dir = store.root / "projects";
-        if (!fs::exists(projects_dir)) {
+        std::error_code ec;
+        if (!fs::exists(projects_dir, ec)) {
           continue;
         }
-        for (const auto& project_dir : fs::directory_iterator(projects_dir)) {
-          if (!project_dir.is_directory()) {
+        const auto live_by_id = live_facts_by_id(store.root);
+        for (fs::directory_iterator project_it{projects_dir, ec}, project_end;
+             !ec && project_it != project_end; project_it.increment(ec)) {
+          const auto& project_dir = *project_it;
+          if (!project_dir.is_directory(ec)) {
             continue;
           }
           const bool project_key_matches_source =
-              project_dir.path().filename().generic_string() == project_key_for_path(source_root);
-          for (const auto& entry : fs::directory_iterator(project_dir.path())) {
-            if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+              project_dir.path().filename().generic_string() ==
+              project_key_for_path(source_root);
+          for (fs::directory_iterator entry_it{project_dir.path(), ec},
+               entry_end;
+               !ec && entry_it != entry_end; entry_it.increment(ec)) {
+            const auto& entry = *entry_it;
+            if (!entry.is_regular_file(ec) ||
+                entry.path().extension() != ".jsonl") {
               continue;
             }
             auto facts = inspect_transcript(entry.path());
@@ -298,12 +305,16 @@ class ClaudeCodeAdapter final : public AgentAdapter {
               }
               continue;
             }
-            if (!cwd_matches_source(*facts.cwd, source_root)) {
+            if (!rewrite::path_is_same_or_descendant(rewrite::PathMembership{
+                    .candidate = *facts.cwd,
+                    .root = source_root.generic_string()})) {
               continue;
             }
             const std::string session_id = facts.session_id.value_or(entry.path().stem().string());
             const auto session_dir = project_dir.path() / session_id;
-            auto live = live_facts_for(store.root, session_id);
+            const auto live_found = live_by_id.find(session_id);
+            auto live = live_found == live_by_id.end() ? LiveFacts{}
+                                                       : live_found->second;
             std::vector<std::string> artifacts;
             std::vector<fs::path> artifact_sources;
             artifacts.push_back("agents/claude-code/" + session_id + ".jsonl");
@@ -317,14 +328,16 @@ class ClaudeCodeAdapter final : public AgentAdapter {
             report.sessions.push_back(SessionRecord{
                 .agent = "claude-code",
                 .original_session_id = session_id,
+                .parent_id = std::nullopt,
                 .child_ids = child_ids_for(session_dir),
                 .original_path = *facts.cwd,
-                .normalized_path_key = normalized_key_for(*facts.cwd),
+                .normalized_path_key = rewrite::normalized_path_key(*facts.cwd),
                 .normalization_scheme = "claude-cwd/v1",
-                .path_flavor = path_flavor_for(*facts.cwd),
+                .path_flavor = rewrite::path_flavor_for(*facts.cwd),
                 .provenance = {.store_root = store.root.generic_string(),
-                               .locator = "projects",
-                               .discovery_tier = discovery_tier_string(store.tier),
+                               .locator = "sessions_root",
+                               .discovery_tier =
+                                   discovery_tier_string(store.tier),
                                .archived = store.archived},
                 .artifacts = std::move(artifacts),
                 .artifact_sources = std::move(artifact_sources),

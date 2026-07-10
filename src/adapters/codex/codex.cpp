@@ -8,7 +8,10 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
+
+#include "adapters/rewrite_common.hpp"
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -31,6 +34,7 @@ struct RolloutFacts {
   std::optional<std::string> cli_version;
   std::optional<std::string> parent_id;
   std::string newest_timestamp;
+  fs::file_time_type mtime{};
 };
 
 struct Candidate {
@@ -43,58 +47,11 @@ struct Candidate {
   std::string cli_version;
   std::optional<std::string> parent_id;
   std::string newest_timestamp;
+  fs::file_time_type mtime{};
 };
 
-bool ascii_alpha(const char value) {
-  return (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
-}
-
-std::string ascii_lower(std::string value) {
-  for (char& character : value) {
-    if (character >= 'A' && character <= 'Z') {
-      character = static_cast<char>(character - 'A' + 'a');
-    }
-  }
-  return value;
-}
-
-manifest::PathFlavor path_flavor_for(const std::string_view path) {
-  if (path.size() >= 7 && path.starts_with("/mnt/") && path.at(6) == '/' && ascii_alpha(path.at(5))) {
-    return manifest::PathFlavor::wsl;
-  }
-  if (path.size() >= 3 && ascii_alpha(path.at(0)) && path.at(1) == ':' &&
-      (path.at(2) == '\\' || path.at(2) == '/')) {
-    return manifest::PathFlavor::windows;
-  }
-  return manifest::PathFlavor::posix;
-}
-
-std::string normalized_key_for(std::string path) {
-  if (path_flavor_for(path) == manifest::PathFlavor::wsl) {
-    return ascii_lower(std::move(path));
-  }
-  return path;
-}
-
-std::string trimmed_source_root(const fs::path& source_root) {
-  std::string source = source_root.generic_string();
-  while (source.size() > 1 && source.ends_with('/')) {
-    source.pop_back();
-  }
-  return source;
-}
-
-bool cwd_matches_source(std::string cwd, const fs::path& source_root) {
-  std::string source = trimmed_source_root(source_root);
-  if (path_flavor_for(cwd) == manifest::PathFlavor::wsl && path_flavor_for(source) == manifest::PathFlavor::wsl) {
-    cwd = ascii_lower(std::move(cwd));
-    source = ascii_lower(std::move(source));
-  }
-  return cwd == source || cwd.starts_with(source + '/');
-}
-
-std::optional<simdjson::dom::object> parse_json_object(simdjson::dom::parser& parser,
-                                                       simdjson::padded_string& padded) {
+std::optional<simdjson::dom::object> parse_json_object(
+    simdjson::dom::parser& parser, simdjson::padded_string& padded) {
   simdjson::dom::element root;
   if (parser.parse(padded).get(root)) {
     return std::nullopt;
@@ -138,7 +95,7 @@ std::optional<std::string> nested_parent_id(simdjson::dom::object payload) {
   return object_string(*thread_spawn, "parent_thread_id");
 }
 
-RolloutFacts inspect_rollout(const fs::path& rollout) {
+RolloutFacts inspect_rollout_head(const fs::path& rollout) {
   RolloutFacts facts;
   std::ifstream input{rollout};
   std::string line;
@@ -148,9 +105,6 @@ RolloutFacts inspect_rollout(const fs::path& rollout) {
     auto object = parse_json_object(parser, padded);
     if (!object) {
       continue;
-    }
-    if (auto timestamp = object_string(*object, "timestamp"); timestamp.has_value() && *timestamp > facts.newest_timestamp) {
-      facts.newest_timestamp = *timestamp;
     }
     auto type = object_string(*object, "type");
     if (!type || *type != "session_meta") {
@@ -178,22 +132,55 @@ RolloutFacts inspect_rollout(const fs::path& rollout) {
         facts.parent_id = nested_parent_id(*payload);
       }
     }
+    return facts;
   }
   return facts;
 }
 
-std::vector<fs::path> rollout_paths(const fs::path& sessions_dir) {
+std::string newest_rollout_timestamp(const fs::path& rollout) {
+  std::string newest;
+  std::ifstream input{rollout};
+  std::string line;
+  while (std::getline(input, line)) {
+    simdjson::padded_string padded{line};
+    simdjson::dom::parser parser;
+    auto object = parse_json_object(parser, padded);
+    if (!object) {
+      continue;
+    }
+    if (auto timestamp = object_string(*object, "timestamp");
+        timestamp.has_value() && *timestamp > newest) {
+      newest = *timestamp;
+    }
+  }
+  return newest;
+}
+
+std::vector<fs::path> rollout_paths(const fs::path& sessions_dir,
+                                    std::vector<std::string>& warnings) {
   std::vector<fs::path> paths;
-  if (!fs::exists(sessions_dir)) {
+  std::error_code ec;
+  if (!fs::exists(sessions_dir, ec)) {
     return paths;
   }
-  for (const auto& entry : fs::recursive_directory_iterator(sessions_dir)) {
-    if (!entry.is_regular_file()) {
+  for (fs::recursive_directory_iterator
+           it{sessions_dir, fs::directory_options::none, ec},
+       end;
+       !ec && it != end; it.increment(ec)) {
+    const auto& entry = *it;
+    if (entry.is_symlink(ec) || !entry.is_regular_file(ec)) {
       continue;
     }
     const auto filename = entry.path().filename().generic_string();
-    if (filename.starts_with("rollout-") &&
-        (entry.path().extension() == ".jsonl" || filename.ends_with(".jsonl.zst"))) {
+    if (!filename.starts_with("rollout-")) {
+      continue;
+    }
+    if (filename.ends_with(".jsonl.zst")) {
+      warnings.push_back("CompressedRolloutSkipped:" +
+                         entry.path().generic_string());
+      continue;
+    }
+    if (entry.path().extension() == ".jsonl") {
       paths.push_back(entry.path());
     }
   }
@@ -233,6 +220,9 @@ bool better_candidate(const Candidate& candidate, const Candidate& current) {
   if (candidate.newest_timestamp != current.newest_timestamp) {
     return candidate.newest_timestamp > current.newest_timestamp;
   }
+  if (candidate.mtime != current.mtime) {
+    return candidate.mtime > current.mtime;
+  }
   if (tier_rank(candidate.store.tier) != tier_rank(current.store.tier)) {
     return tier_rank(candidate.store.tier) < tier_rank(current.store.tier);
   }
@@ -253,38 +243,37 @@ SessionRecord session_for(const Candidate& candidate, const std::vector<Candidat
     artifact_sources.push_back(child.source);
   }
   std::ranges::sort(child_ids);
-  return SessionRecord{.agent = "codex",
-                       .original_session_id = candidate.id,
-                       .child_ids = std::move(child_ids),
-                       .original_path = candidate.cwd,
-                       .normalized_path_key = candidate.normalized_path_key,
-                       .normalization_scheme = "codex-cwd/v1",
-                       .path_flavor = candidate.path_flavor,
-                       .provenance = {.store_root = candidate.store.root.generic_string(),
-                                      .locator = "sessions",
-                                      .discovery_tier = discovery_tier_string(candidate.store.tier),
-                                      .archived = candidate.store.archived},
-                       .artifacts = std::move(artifacts),
-                       .artifact_sources = std::move(artifact_sources),
-                       .agent_version_at_pack = candidate.cli_version,
-                       .live_at_pack = false};
+  return SessionRecord{
+      .agent = "codex",
+      .original_session_id = candidate.id,
+      .parent_id = candidate.parent_id,
+      .child_ids = std::move(child_ids),
+      .original_path = candidate.cwd,
+      .normalized_path_key = candidate.normalized_path_key,
+      .normalization_scheme = "codex-cwd/v1",
+      .path_flavor = candidate.path_flavor,
+      .provenance = {.store_root = candidate.store.root.generic_string(),
+                     .locator = "sessions_root",
+                     .discovery_tier =
+                         discovery_tier_string(candidate.store.tier),
+                     .archived = candidate.store.archived},
+      .artifacts = std::move(artifacts),
+      .artifact_sources = std::move(artifact_sources),
+      .agent_version_at_pack = candidate.cli_version,
+      .live_at_pack = false};
 }
 
 const Inventory& codex_inventory() {
   static const Inventory inventory{
-      .collect = {ArtifactClass{.name = "rollouts", .globs = {"sessions/**/rollout-*.jsonl"}}},
-      .rewrite = {ArtifactClass{.name = "jsonl-session-fields", .globs = {"agents/codex/*.jsonl"}}},
-      .never_collect = {"auth.json",
-                        "config.toml",
-                        "history.jsonl",
-                        "state_5.sqlite",
-                        "state_5.sqlite-wal",
-                        "state_5.sqlite-shm",
-                        "session_index.jsonl",
-                        "shell_snapshots",
-                        "goals_1.sqlite",
-                        "logs_2.sqlite",
-                        "memories_1.sqlite"},
+      .collect = {ArtifactClass{.name = "rollouts",
+                                .globs = {"sessions/**/rollout-*.jsonl"}}},
+      .rewrite = {ArtifactClass{.name = "jsonl-session-fields",
+                                .globs = {"agents/codex/*.jsonl"}}},
+      .never_collect = {"auth.json", "config.toml", "history.jsonl",
+                        "installation_id", "state_5.sqlite",
+                        "state_5.sqlite-wal", "state_5.sqlite-shm",
+                        "session_index.jsonl", "shell_snapshots",
+                        "goals_1.sqlite", "logs_2.sqlite", "memories_1.sqlite"},
       .never_rewrite = {},
       .caveat_facts = {.env_var = "CODEX_HOME",
                        .relocated_contents = {"sessions"},
@@ -299,24 +288,53 @@ class CodexAdapter final : public AgentAdapter {
 
   expected<std::vector<Store>> discover(const Env& env) const override {
     std::vector<Store> stores;
+    auto sqlite_locator = [&]() -> std::optional<StoreLocator> {
+      if (!env.getenv) {
+        return std::nullopt;
+      }
+      auto configured = env.getenv("CODEX_SQLITE_HOME");
+      if (!configured.has_value()) {
+        return std::nullopt;
+      }
+      std::error_code ec;
+      if (!fs::exists(*configured, ec)) {
+        return std::nullopt;
+      }
+      return StoreLocator{.kind = "sqlite_home", .path = fs::path{*configured}};
+    };
+    auto append_store_set = [&](const fs::path& root, DiscoveryTier tier) {
+      std::vector<StoreLocator> locators{
+          StoreLocator{.kind = "sessions_root", .path = root / "sessions"}};
+      if (auto sqlite = sqlite_locator(); sqlite.has_value()) {
+        locators.push_back(std::move(*sqlite));
+      }
+      stores.push_back(Store{.root = root,
+                             .locators = std::move(locators),
+                             .tier = tier,
+                             .archived = false});
+      std::error_code ec;
+      if (fs::exists(root / "archived_sessions", ec)) {
+        stores.push_back(Store{
+            .root = root,
+            .locators = {StoreLocator{.kind = "sessions_root",
+                                      .path = root / "archived_sessions"}},
+            .tier = tier,
+            .archived = true});
+      }
+    };
+    std::error_code ec;
     if (env.getenv) {
       auto configured = env.getenv("CODEX_HOME");
-      if (configured.has_value() && fs::exists(*configured)) {
+      if (configured.has_value() && fs::exists(*configured, ec)) {
         const fs::path root{*configured};
-        stores.push_back(Store{.root = root,
-                               .locators = {StoreLocator{.kind = "sessions_root", .path = root / "sessions"}},
-                               .tier = DiscoveryTier::env,
-                               .archived = false});
+        append_store_set(root, DiscoveryTier::env);
         return stores;
       }
     }
 
     const auto root = env.home / ".codex";
-    if (fs::exists(root)) {
-      stores.push_back(Store{.root = root,
-                             .locators = {StoreLocator{.kind = "sessions_root", .path = root / "sessions"}},
-                             .tier = DiscoveryTier::defaults,
-                             .archived = false});
+    if (fs::exists(root, ec)) {
+      append_store_set(root, DiscoveryTier::defaults);
     }
     return stores;
   }
@@ -328,23 +346,45 @@ class CodexAdapter final : public AgentAdapter {
       CollectReport report;
       std::map<std::string, std::vector<Candidate>> grouped;
       for (const auto& store : stores) {
-        if (fs::exists(store.root / "state_5.sqlite")) {
-          report.warnings.push_back("CodexDbEnrichmentSkipped:" + (store.root / "state_5.sqlite").generic_string());
+        std::error_code ec;
+        if (fs::exists(store.root / "state_5.sqlite", ec)) {
+          report.warnings.push_back(
+              "CodexDbEnrichmentSkipped:" +
+              (store.root / "state_5.sqlite").generic_string());
         }
-        for (const auto& path : rollout_paths(store.root / "sessions")) {
-          auto facts = inspect_rollout(path);
-          if (!facts.id || !facts.cwd || !cwd_matches_source(*facts.cwd, source_root)) {
-            continue;
+        std::vector<fs::path> session_roots;
+        for (const auto& locator : store.locators) {
+          if (locator.kind == "sessions_root") {
+            session_roots.push_back(locator.path);
           }
-          grouped[*facts.id].push_back(Candidate{.store = store,
-                                                 .source = path,
-                                                 .id = *facts.id,
-                                                 .cwd = *facts.cwd,
-                                                 .normalized_path_key = normalized_key_for(*facts.cwd),
-                                                 .path_flavor = path_flavor_for(*facts.cwd),
-                                                 .cli_version = facts.cli_version.value_or("unknown"),
-                                                 .parent_id = std::move(facts.parent_id),
-                                                 .newest_timestamp = std::move(facts.newest_timestamp)});
+        }
+        if (session_roots.empty()) {
+          session_roots.push_back(store.root / "sessions");
+        }
+        for (const auto& sessions_root : session_roots) {
+          for (const auto& path :
+               rollout_paths(sessions_root, report.warnings)) {
+            auto facts = inspect_rollout_head(path);
+            if (!facts.id || !facts.cwd ||
+                !rewrite::path_is_same_or_descendant(rewrite::PathMembership{
+                    .candidate = *facts.cwd,
+                    .root = source_root.generic_string()})) {
+              continue;
+            }
+            const auto mtime = fs::last_write_time(path, ec);
+            grouped[*facts.id].push_back(Candidate{
+                .store = store,
+                .source = path,
+                .id = *facts.id,
+                .cwd = *facts.cwd,
+                .normalized_path_key = rewrite::normalized_path_key(*facts.cwd),
+                .path_flavor = rewrite::path_flavor_for(*facts.cwd),
+                .cli_version = facts.cli_version.value_or("unknown"),
+                .parent_id = std::move(facts.parent_id),
+                .newest_timestamp = std::move(facts.newest_timestamp),
+                .mtime = ec ? fs::file_time_type{} : mtime});
+            ec.clear();
+          }
         }
       }
 
@@ -357,6 +397,12 @@ class CodexAdapter final : public AgentAdapter {
         if (roots.size() > 1U) {
           report.warnings.push_back("SessionDuplicateStorePending:" + id);
           continue;
+        }
+        if (candidates.size() > 1U) {
+          for (auto& candidate : candidates) {
+            candidate.newest_timestamp =
+                newest_rollout_timestamp(candidate.source);
+          }
         }
         auto best = candidates.front();
         for (const auto& candidate : candidates) {

@@ -62,6 +62,7 @@ struct Inventory {
 struct SessionRecord {
   std::string agent;
   std::string original_session_id;
+  std::optional<std::string> parent_id;
   std::vector<std::string> child_ids;
   std::string original_path;
   std::string normalized_path_key;

@@ -12,6 +12,7 @@
 #include <limits>
 #include <optional>
 #include <random>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -50,8 +51,10 @@ struct PreparedSession {
   manifest::AgentSessionEntry record;
   std::string installed_session_id;
   std::vector<DestinationPlan> destinations;
+  bool host_version_unverified{false};
   InstallVerify verify;
   std::optional<std::string> refusal_reason;
+  std::optional<std::string> refusal_detail;
 };
 
 struct ProjectRoot {
@@ -185,20 +188,12 @@ std::vector<std::pair<std::string, std::string>> id_pairs_for(const manifest::Ag
   return {{record.original_session_ids.primary, std::string{installed_session_id}}};
 }
 
-std::vector<std::string> origin_ids_for(const manifest::AgentSessionEntry& record) {
-  return {record.original_session_ids.primary};
+bool message_uuid_field(const std::string_view key) {
+  return key == "uuid" || key == "parentUuid" || key == "leafUuid" ||
+         key == "sourceToolAssistantUUID";
 }
 
-std::vector<std::byte> as_bytes(std::string_view text) {
-  std::vector<std::byte> out;
-  out.reserve(text.size());
-  for (const char value : text) {
-    out.push_back(static_cast<std::byte>(value));
-  }
-  return out;
-}
-
-std::string as_string(std::span<const std::byte> bytes) {
+std::string string_from_bytes(const std::span<const std::byte> bytes) {
   std::string out;
   out.reserve(bytes.size());
   for (const std::byte value : bytes) {
@@ -207,33 +202,102 @@ std::string as_string(std::span<const std::byte> bytes) {
   return out;
 }
 
-std::vector<std::byte> rewrite_jsonl_bytes(std::span<const std::byte> bytes,
-                                           rewrite::PathPairsView pair_set,
-                                           rewrite::IdPairsView id_map,
-                                           size_t& skipped_non_utf8) {
-  const std::string input = as_string(bytes);
-  std::string output;
-  output.reserve(input.size());
+void collect_message_uuid_values(simdjson::dom::element element,
+                                 std::set<std::string>& values);
+
+void collect_message_uuid_object(simdjson::dom::object object,
+                                 std::set<std::string>& values) {
+  for (auto field : object) {
+    if (message_uuid_field(field.key)) {
+      std::string_view value;
+      if (!field.value.get(value) && !value.empty()) {
+        values.emplace(value);
+      }
+    }
+    collect_message_uuid_values(field.value, values);
+  }
+}
+
+void collect_message_uuid_values(simdjson::dom::element element,
+                                 std::set<std::string>& values) {
+  switch (element.type()) {
+    case simdjson::dom::element_type::ARRAY: {
+      simdjson::dom::array array;
+      if (element.get(array)) {
+        return;
+      }
+      for (auto item : array) {
+        collect_message_uuid_values(item, values);
+      }
+      return;
+    }
+    case simdjson::dom::element_type::OBJECT: {
+      simdjson::dom::object object;
+      if (!element.get(object)) {
+        collect_message_uuid_object(object, values);
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+void collect_message_uuid_values_from_jsonl(std::span<const std::byte> bytes,
+                                            std::set<std::string>& values) {
+  const std::string input_storage = string_from_bytes(bytes);
+  const std::string_view input{input_storage};
   size_t start = 0;
   while (start < input.size()) {
     const size_t newline = input.find('\n', start);
-    const size_t end = newline == std::string::npos ? input.size() : newline;
-    const std::string_view line = std::string_view{input}.substr(start, end - start);
-    auto rewritten = rewrite::rewrite_jsonl_line(line, pair_set, id_map);
-    if (rewritten.skipped_non_utf8) {
-      ++skipped_non_utf8;
+    const size_t end =
+        newline == std::string_view::npos ? input.size() : newline;
+    const std::string_view line = input.substr(start, end - start);
+    simdjson::padded_string padded{line};
+    simdjson::dom::parser parser;
+    simdjson::dom::element root;
+    if (!parser.parse(padded).get(root)) {
+      collect_message_uuid_values(root, values);
     }
-    output += rewritten.line;
-    if (newline == std::string::npos) {
+    if (newline == std::string_view::npos) {
       break;
     }
-    output.push_back('\n');
-    start = newline + 1;
+    start = newline + 1U;
   }
-  if (input.empty()) {
-    return {};
+}
+
+std::vector<std::pair<std::string, std::string>> minted_message_uuid_pairs(
+    const std::set<std::string>& origins) {
+  std::vector<std::pair<std::string, std::string>> pairs;
+  pairs.reserve(origins.size());
+  for (const auto& origin : origins) {
+    pairs.push_back({origin, uuid4()});
   }
-  return as_bytes(output);
+  return pairs;
+}
+
+std::vector<std::string> origin_ids_for_primary(
+    const std::string_view primary,
+    const std::vector<std::pair<std::string, std::string>>& message_ids) {
+  std::vector<std::string> ids{std::string{primary}};
+  for (const auto& pair : message_ids) {
+    ids.push_back(pair.first);
+  }
+  return ids;
+}
+
+std::vector<std::string> origin_ids_for(
+    const manifest::AgentSessionEntry& record,
+    const std::vector<std::pair<std::string, std::string>>& message_ids) {
+  return origin_ids_for_primary(record.original_session_ids.primary,
+                                message_ids);
+}
+
+std::optional<std::string> non_utf8_detail(const size_t skipped_non_utf8) {
+  if (skipped_non_utf8 == 0U) {
+    return std::nullopt;
+  }
+  return "non_utf8_skipped=" + std::to_string(skipped_non_utf8);
 }
 
 expected<void> write_all(const int fd, std::span<const std::byte> bytes) {
@@ -294,14 +358,17 @@ void merge_verify(InstallVerify& total, const InstallVerify& next) {
   total.artifacts_checked += next.artifacts_checked;
 }
 
-InstallSessionOutcome failed_outcome(const manifest::AgentSessionEntry& record, std::string reason) {
-  return InstallSessionOutcome{.image_session_id = record.original_session_ids.primary,
-                               .outcome = InstallSessionOutcome::Outcome::failed,
-                               .reason = std::move(reason),
-                               .content_rewrite = std::nullopt,
-                               .host_version_unverified = false,
-                               .verify = {},
-                               .detail = std::nullopt};
+InstallSessionOutcome failed_outcome(
+    const manifest::AgentSessionEntry& record, std::string reason,
+    std::optional<std::string> detail = std::nullopt) {
+  return InstallSessionOutcome{
+      .image_session_id = record.original_session_ids.primary,
+      .outcome = InstallSessionOutcome::Outcome::failed,
+      .reason = std::move(reason),
+      .content_rewrite = std::nullopt,
+      .host_version_unverified = false,
+      .verify = {},
+      .detail = std::move(detail)};
 }
 
 std::optional<std::string> string_field_from_json_file(const fs::path& path, std::string_view key) {
@@ -332,11 +399,14 @@ std::optional<std::string> claude_version_from_store(const fs::path& root) {
     return version;
   }
   const auto sessions = root / "sessions";
-  if (!fs::exists(sessions)) {
+  std::error_code ec;
+  if (!fs::exists(sessions, ec)) {
     return std::nullopt;
   }
-  for (const auto& entry : fs::directory_iterator(sessions)) {
-    if (!entry.is_regular_file() || entry.path().extension() != ".json") {
+  for (fs::directory_iterator it{sessions, ec}, end; !ec && it != end;
+       it.increment(ec)) {
+    const auto& entry = *it;
+    if (!entry.is_regular_file(ec) || entry.path().extension() != ".json") {
       continue;
     }
     if (auto version = string_field_from_json_file(entry.path(), "version"); version.has_value()) {
@@ -363,13 +433,27 @@ bool validated_claude_version(const std::string_view version) {
   return version.starts_with("2.1.");
 }
 
+std::optional<bool> host_version_unverified_for_install(
+    const Capabilities& caps, const std::string_view image_version) {
+  if (caps.verdict == Capabilities::Verdict::validated) {
+    return false;
+  }
+  if (caps.verdict == Capabilities::Verdict::unvalidated_host &&
+      validated_claude_version(image_version)) {
+    return true;
+  }
+  return std::nullopt;
+}
+
 Capabilities capabilities_for_root(const fs::path& root) {
-  Capabilities caps{.agent_version = "unknown",
-                    .validated_range = "2.1.x",
-                    .verdict = Capabilities::Verdict::absent,
-                    .long_path_keys_pinned = false,
-                    .per_verb = {.collect = false, .install = false, .rewrite = false}};
-  if (!fs::exists(root)) {
+  Capabilities caps{
+      .agent_version = "unknown",
+      .validated_range = "2.1.x",
+      .verdict = Capabilities::Verdict::absent,
+      .long_path_keys_pinned = false,
+      .per_verb = {.collect = false, .install = false, .rewrite = false}};
+  std::error_code ec;
+  if (!fs::exists(root, ec)) {
     return caps;
   }
   caps.per_verb = {.collect = true, .install = true, .rewrite = true};
@@ -400,27 +484,64 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
   }
 
   const auto project_root = ProjectRoot{target.target_store.root / "projects" / project_key};
+  constexpr std::string_view containment_probe_id =
+      "00000000-0000-4000-8000-000000000000";
+  for (const auto& record : records) {
+    for (const auto& artifact : all_artifacts(record)) {
+      if (!destination_for_artifact(
+               artifact, SessionImageId{record.original_session_ids.primary},
+               containment_probe_id, project_root)
+               .has_value()) {
+        for (const auto& refused : records) {
+          result.sessions.push_back(
+              failed_outcome(refused, "containment_refused"));
+        }
+        return result;
+      }
+    }
+  }
+
+  const auto caps = capabilities_for_root(target.target_store.root);
   std::vector<PreparedSession> prepared;
   prepared.reserve(records.size());
-  bool containment_refused = false;
   for (const auto& record : records) {
+    const auto host_version_unverified =
+        host_version_unverified_for_install(caps, record.agent_version_at_pack);
+    if (!host_version_unverified.has_value()) {
+      prepared.push_back(PreparedSession{
+          .record = record,
+          .installed_session_id = {},
+          .destinations = {},
+          .host_version_unverified = false,
+          .verify = {},
+          .refusal_reason = "error",
+          .refusal_detail = "capability_refused"});
+      continue;
+    }
     PreparedSession session{.record = record,
                             .installed_session_id = uuid4(),
                             .destinations = {},
+                            .host_version_unverified =
+                                *host_version_unverified,
                             .verify = {},
-                            .refusal_reason = std::nullopt};
+                            .refusal_reason = std::nullopt,
+                            .refusal_detail = std::nullopt};
     for (const auto& artifact : all_artifacts(record)) {
       auto destination = destination_for_artifact(artifact,
                                                  SessionImageId{record.original_session_ids.primary},
                                                  session.installed_session_id,
                                                  project_root);
       if (!destination.has_value()) {
-        session.refusal_reason = "containment_refused";
-        containment_refused = true;
-        break;
+        for (const auto& refused : records) {
+          result.sessions.push_back(
+              failed_outcome(refused, "containment_refused"));
+        }
+        return result;
       }
-      if (fs::exists(destination->path)) {
-        session.refusal_reason = "collision_refused";
+      std::error_code ec;
+      if (fs::exists(destination->path, ec)) {
+        session.refusal_reason = "error";
+        session.refusal_detail = "collision_refused";
         break;
       }
       session.destinations.push_back(std::move(*destination));
@@ -428,17 +549,10 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
     prepared.push_back(std::move(session));
   }
 
-  if (containment_refused) {
-    for (const auto& record : records) {
-      result.sessions.push_back(failed_outcome(record, "containment_refused"));
-    }
-    return result;
-  }
-
-  const auto caps = capabilities_for_root(target.target_store.root);
   for (auto& session : prepared) {
     if (session.refusal_reason.has_value()) {
-      result.sessions.push_back(failed_outcome(session.record, *session.refusal_reason));
+      result.sessions.push_back(failed_outcome(
+          session.record, *session.refusal_reason, session.refusal_detail));
       continue;
     }
     result.id_map.push_back(IdMapEntry{.agent = "claude-code",
@@ -446,13 +560,14 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
                                        .installed_session_id = session.installed_session_id,
                                        .children = {}});
     if (consent == Consent::no) {
-      result.sessions.push_back(InstallSessionOutcome{.image_session_id = session.record.original_session_ids.primary,
-                                                      .outcome = InstallSessionOutcome::Outcome::staged,
-                                                      .reason = std::nullopt,
-                                                      .content_rewrite = std::nullopt,
-                                                      .host_version_unverified = false,
-                                                      .verify = {},
-                                                      .detail = std::nullopt});
+      result.sessions.push_back(InstallSessionOutcome{
+          .image_session_id = session.record.original_session_ids.primary,
+          .outcome = InstallSessionOutcome::Outcome::staged,
+          .reason = std::nullopt,
+          .content_rewrite = std::nullopt,
+          .host_version_unverified = session.host_version_unverified,
+          .verify = {},
+          .detail = std::nullopt});
       continue;
     }
 
@@ -461,17 +576,33 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
                                                    target.workspace_root.generic_string(),
                                                    path_flavor_for(target.workspace_root));
     const auto origins = rewrite::origins_from_pairs(pair_set);
-    const auto ids = id_pairs_for(session.record, session.installed_session_id);
-    const auto origin_ids = origin_ids_for(session.record);
-    size_t skipped_non_utf8 = 0;
+    std::vector<std::vector<std::byte>> inputs;
+    inputs.reserve(session.destinations.size());
+    std::set<std::string> message_uuid_origins;
     for (const auto& destination : session.destinations) {
       auto data = target.member_read(destination.artifact);
       if (!data) {
         return std::unexpected(data.error());
       }
-      std::vector<std::byte> output = *data;
       if (destination.rewrite_content) {
-        output = rewrite_jsonl_bytes(*data, rewrite::PathPairsView{pair_set}, rewrite::IdPairsView{ids}, skipped_non_utf8);
+        collect_message_uuid_values_from_jsonl(*data, message_uuid_origins);
+      }
+      inputs.push_back(std::move(*data));
+    }
+    auto message_ids = minted_message_uuid_pairs(message_uuid_origins);
+    auto ids = id_pairs_for(session.record, session.installed_session_id);
+    ids.insert(ids.end(), message_ids.begin(), message_ids.end());
+    const auto origin_ids = origin_ids_for(session.record, message_ids);
+    size_t skipped_non_utf8 = 0;
+    for (size_t i = 0; i < session.destinations.size(); ++i) {
+      const auto& destination = session.destinations.at(i);
+      auto output = std::move(inputs.at(i));
+      if (destination.rewrite_content) {
+        auto rewritten = rewrite::rewrite_jsonl_bytes(
+            output, rewrite::PathPairsView{pair_set},
+            rewrite::IdPairsView{ids});
+        skipped_non_utf8 += rewritten.skipped_non_utf8;
+        output = std::move(rewritten.bytes);
       }
       auto verify = rewrite::verify_scan(output, rewrite::OriginPathsView{origins}, rewrite::OriginIdsView{origin_ids});
       merge_verify(session.verify, verify);
@@ -479,21 +610,21 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
         return std::unexpected(ok.error());
       }
     }
-    result.sessions.push_back(InstallSessionOutcome{.image_session_id = session.record.original_session_ids.primary,
-                                                    .outcome = InstallSessionOutcome::Outcome::installed,
-                                                    .reason = std::nullopt,
-                                                    .content_rewrite = skipped_non_utf8 == 0
-                                                                           ? std::optional<std::string>{"jsonl"}
-                                                                           : std::optional<std::string>{"partial"},
-                                                    .host_version_unverified =
-                                                        caps.verdict != Capabilities::Verdict::validated,
-                                                    .verify = session.verify,
-                                                    .detail = std::nullopt});
+    result.sessions.push_back(InstallSessionOutcome{
+        .image_session_id = session.record.original_session_ids.primary,
+        .outcome = InstallSessionOutcome::Outcome::installed,
+        .reason = std::nullopt,
+        .content_rewrite = "pair",
+        .host_version_unverified = session.host_version_unverified,
+        .verify = session.verify,
+        .detail = non_utf8_detail(skipped_non_utf8)});
   }
-  if (std::ranges::any_of(result.sessions, [](const InstallSessionOutcome& session) {
-        return session.outcome == InstallSessionOutcome::Outcome::installed;
-      })) {
-    result.activation.push_back(Activation{.agent = "claude-code", .command = "claude"});
+  if (std::ranges::any_of(
+          result.sessions, [](const InstallSessionOutcome& session) {
+            return session.outcome == InstallSessionOutcome::Outcome::installed;
+          })) {
+    result.activation.push_back(
+        Activation{.agent = "claude-code", .command = "claude"});
   }
   return result;
 }
@@ -508,13 +639,32 @@ expected<RewriteReport> claude_code_rewrite(const std::span<const SessionRecord>
                                                    target.workspace_root.generic_string(),
                                                    target_flavor);
     const auto origins = rewrite::origins_from_pairs(pair_set);
-    const auto origin_ids = std::vector<std::string>{record.original_session_id};
+    std::vector<std::vector<std::byte>> inputs;
+    inputs.reserve(record.artifacts.size());
+    std::set<std::string> message_uuid_origins;
     for (const auto& artifact : record.artifacts) {
       auto data = target.member_read(artifact);
       if (!data) {
         return std::unexpected(data.error());
       }
-      auto verify = rewrite::verify_scan(*data, rewrite::OriginPathsView{origins}, rewrite::OriginIdsView{origin_ids});
+      collect_message_uuid_values_from_jsonl(*data, message_uuid_origins);
+      inputs.push_back(std::move(*data));
+    }
+    auto ids = std::vector<std::pair<std::string, std::string>>{
+        {record.original_session_id, uuid4()}};
+    auto message_ids = minted_message_uuid_pairs(message_uuid_origins);
+    ids.insert(ids.end(), message_ids.begin(), message_ids.end());
+    const auto origin_ids =
+        origin_ids_for_primary(record.original_session_id, message_ids);
+    for (size_t i = 0; i < record.artifacts.size(); ++i) {
+      auto rewritten = rewrite::rewrite_jsonl_bytes(
+          inputs.at(i), rewrite::PathPairsView{pair_set},
+          rewrite::IdPairsView{ids});
+      report.skipped_non_utf8 += rewritten.skipped_non_utf8;
+      auto verify = rewrite::verify_scan(rewritten.bytes,
+                                         rewrite::OriginPathsView{origins},
+                                         rewrite::OriginIdsView{origin_ids});
+      const auto& artifact = record.artifacts.at(i);
       report.per_artifact_hits.push_back({artifact, verify});
       merge_verify(report.verify, verify);
     }

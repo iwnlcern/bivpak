@@ -8,8 +8,9 @@
 #include <ctime>
 #include <exception>
 #include <fstream>
-#include <random>
 #include <optional>
+#include <random>
+#include <set>
 #include <span>
 #include <sstream>
 #include <string_view>
@@ -265,8 +266,24 @@ struct ChildArtifactMatcher {
   std::string_view child_id;
 
   bool matches(std::string_view artifact) const {
-    const std::string needle = "/" + std::string{child_id};
-    return artifact.find(needle) != std::string_view::npos;
+    const std::string child_jsonl = std::string{child_id} + ".jsonl";
+    size_t start = 0;
+    while (start <= artifact.size()) {
+      const size_t slash = artifact.find('/', start);
+      const size_t end =
+          slash == std::string_view::npos ? artifact.size() : slash;
+      const std::string_view segment = artifact.substr(start, end - start);
+      if (segment == child_id || segment == child_jsonl ||
+          (segment.starts_with(child_id) && segment.size() > child_id.size() &&
+           segment.at(child_id.size()) == '.')) {
+        return true;
+      }
+      if (slash == std::string_view::npos) {
+        break;
+      }
+      start = slash + 1U;
+    }
+    return false;
   }
 };
 
@@ -304,8 +321,11 @@ manifest::AgentSessionEntry manifest_entry_for(const adapters::SessionRecord& se
       .path_flavor = session.path_flavor,
       .provenance = session.provenance,
       .original_session_ids = {.primary = session.original_session_id,
-                               .parent = std::nullopt,
-                               .parent_in_image = std::nullopt},
+                               .parent = session.parent_id,
+                               .parent_in_image =
+                                   session.parent_id.has_value()
+                                       ? std::optional<bool>{false}
+                                       : std::nullopt},
       .children = std::move(children),
       .artifacts = std::move(parent_artifacts),
       .live_at_pack = session.live_at_pack,
@@ -413,9 +433,11 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     if (!spool) {
       return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, spool_path.generic_string()});
     }
-    container::TarWriter spool_writer{[&](std::span<const std::byte> chunk) -> expected<void> {
-      return write_bytes(spool, chunk, spool_path);
-    }};
+    container::TarWriter spool_writer{
+        [&](std::span<const std::byte> chunk) -> expected<void> {
+          return write_bytes(spool, chunk, spool_path);
+        }};
+    std::set<std::pair<std::string, std::string>> emitted_agent_sessions;
     for (const auto& node : scan_result->payload) {
       auto extent = write_payload_member(spool_writer, source, node);
       if (!extent) {
@@ -445,6 +467,11 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         report.warnings.push_back(Warning{.kind = "SessionNoCwdRecord", .path = path});
       }
       for (const auto& session : collected->sessions) {
+        if (!emitted_agent_sessions
+                 .insert({session.agent, session.original_session_id})
+                 .second) {
+          continue;
+        }
         if (session.artifacts.size() != session.artifact_sources.size()) {
           return cleanup_error(BivError{ErrKind::InternalError, {}, "adapter-artifact-sources"});
         }

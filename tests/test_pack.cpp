@@ -243,7 +243,9 @@ TEST_CASE("pack refuses repo-bearing source") {
   std::filesystem::remove_all(root);
 }
 
-TEST_CASE("pack collects Claude adapter artifacts into agents members and manifest sessions") {
+TEST_CASE(
+    "pack collects Claude adapter artifacts into agents members and "
+    "manifest sessions") {
   const auto root = make_tmp("claude");
   const auto source = root / "proj";
   std::filesystem::create_directories(source);
@@ -301,5 +303,111 @@ TEST_CASE("pack collects Claude adapter artifacts into agents members and manife
   }
   CHECK(snapshot_files(source) == source_before);
   CHECK(snapshot_files(store) == store_before);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack dedupes adapter-visible sessions before emitting artifacts") {
+  const auto root = make_tmp("claude-dedupe");
+  const auto source = root / "proj";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  const auto store = root / "claude_store";
+  copy_fixture_tree_with_workspace(std::filesystem::path{BIV_SOURCE_DIR} /
+                                       "tests" / "fixtures" / "claude_store",
+                                   store, source);
+  const auto session_id = std::string{"aaaaaaaa-1111-4000-8000-000000000001"};
+  write_file(store / "projects" / "-ws-proj" / "duplicate.jsonl",
+             "{\"type\":\"user\",\"cwd\":\"" + source.generic_string() +
+                 "\",\"sessionId\":\"" + session_id +
+                 "\",\"version\":\"2.1.202\"}\n");
+  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+
+  const auto report = biv::pack::pack(source);
+
+  REQUIRE(report.has_value());
+  REQUIRE(report->agent_sessions.size() == 1);
+  REQUIRE(report->agent_sessions_summary.size() == 1);
+  CHECK(report->agent_sessions_summary.front().session_count == 1);
+  const auto members = read_archive(root / "proj.bvpk");
+  CHECK(std::ranges::count_if(members, [&](const ArchiveMember& member) {
+          return member.meta.path ==
+                 "agents/claude-code/" + session_id + ".jsonl";
+        }) == 1);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack excludes symlinked Claude agent artifacts") {
+  const auto root = make_tmp("claude-symlink");
+  const auto source = root / "proj";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  const auto store = root / "claude_store";
+  copy_fixture_tree_with_workspace(std::filesystem::path{BIV_SOURCE_DIR} /
+                                       "tests" / "fixtures" / "claude_store",
+                                   store, source);
+  write_file(root / "secret.jsonl", "DO_NOT_COLLECT_SYMLINK_SECRET");
+  std::filesystem::create_symlink(root / "secret.jsonl",
+                                  store / "projects" / "-ws-proj" /
+                                      "aaaaaaaa-1111-4000-8000-000000000001" /
+                                      "leak.jsonl");
+  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+
+  auto report = biv::pack::pack(source);
+
+  REQUIRE(report.has_value());
+  const auto members = read_archive(root / "proj.bvpk");
+  CHECK(std::ranges::none_of(members, [](const ArchiveMember& member) {
+    return member.meta.path.find("leak.jsonl") != std::string::npos;
+  }));
+  CHECK(std::ranges::none_of(members, [](const ArchiveMember& member) {
+    return byte_string(as_span(member.data))
+               .find("DO_NOT_COLLECT_SYMLINK_SECRET") != std::string::npos;
+  }));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack writes dangling Codex parent fields as parent not in image") {
+  const auto root = make_tmp("codex-dangling-parent");
+  const auto source = root / "proj";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  const auto store = root / "codex_store";
+  const auto missing_parent =
+      std::string{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee7000"};
+  const auto child = std::string{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee7001"};
+  write_file(store / "sessions" / "2026" / "07" / "06" /
+                 ("rollout-2026-07-06T11-00-00-" + child + ".jsonl"),
+             "{\"timestamp\":\"2026-07-06T11:00:00Z\",\"type\":\"session_"
+             "meta\",\"payload\":{\"id\":\"" +
+                 child + "\",\"session_id\":\"" + child + "\",\"cwd\":\"" +
+                 source.generic_string() +
+                 "\",\"cli_version\":\"0.142.5\",\"parent_thread_id\":\"" +
+                 missing_parent + "\"}}\n");
+  const ScopedEnv codex_home{"CODEX_HOME", store.string()};
+
+  auto report = biv::pack::pack(source);
+
+  REQUIRE(report.has_value());
+  REQUIRE(report->agent_sessions.size() == 1);
+  const auto& entry = report->agent_sessions.front();
+  CHECK(entry.agent == "codex");
+  CHECK(entry.original_session_ids.primary == child);
+  REQUIRE(entry.original_session_ids.parent.has_value());
+  CHECK(*entry.original_session_ids.parent == missing_parent);
+  REQUIRE(entry.original_session_ids.parent_in_image.has_value());
+  CHECK_FALSE(*entry.original_session_ids.parent_in_image);
+
+  const auto members = read_archive(root / "proj.bvpk");
+  auto manifest = biv::manifest::parse(as_span(members.at(0).data));
+  REQUIRE(manifest.has_value());
+  REQUIRE(manifest->agent_sessions.size() == 1);
+  REQUIRE(
+      manifest->agent_sessions.front().original_session_ids.parent.has_value());
+  CHECK(*manifest->agent_sessions.front().original_session_ids.parent ==
+        missing_parent);
+  REQUIRE(manifest->agent_sessions.front()
+              .original_session_ids.parent_in_image.has_value());
+  CHECK_FALSE(
+      *manifest->agent_sessions.front().original_session_ids.parent_in_image);
   std::filesystem::remove_all(root);
 }
