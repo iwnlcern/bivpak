@@ -77,6 +77,27 @@ biv::manifest::Manifest manifest_model(int format_version = 1) {
       .bivignore = {.source = "builtin", .builtin_id = "builtin-v1", .sha256_hex = "abc123"}};
 }
 
+biv::manifest::Manifest session_manifest(std::string artifact = "agents/codex/session.jsonl") {
+  auto manifest = manifest_model();
+  biv::manifest::AgentSessionEntry entry;
+  entry.agent = "codex";
+  entry.agent_version_at_pack = "0.142.5";
+  entry.relpath_key = ".";
+  entry.original_path = "/tmp/source";
+  entry.normalized_path_key = "/tmp/source";
+  entry.normalization_scheme = "codex-cwd/v1";
+  entry.path_flavor = biv::manifest::PathFlavor::posix;
+  entry.provenance = {.store_root = "/tmp/codex",
+                      .locator = "sessions_root",
+                      .discovery_tier = "default",
+                      .archived = false};
+  entry.original_session_ids = {.primary = "019f-aaaa", .parent = std::nullopt, .parent_in_image = std::nullopt};
+  entry.artifacts = {std::move(artifact)};
+  entry.imported_at = "2026-07-11T00:00:00Z";
+  manifest.agent_sessions.push_back(std::move(entry));
+  return manifest;
+}
+
 struct MemberFixture {
   biv::container::MemberMeta meta;
   std::vector<std::byte> data;
@@ -363,5 +384,81 @@ TEST_CASE("open refuses payload members absent from checksums") {
   REQUIRE_FALSE(opened.has_value());
   CHECK(opened.error().kind == biv::ErrKind::UnmanifestedMember);
   CHECK_FALSE(std::filesystem::exists(root / "restore"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("planned agent member reader survives execute without materializing agents") {
+  const auto root = make_tmp("agent-reader");
+  const auto image = root / "session.bvpk";
+  const auto dest = root / "restore";
+  const auto data = bytes("session-data");
+  const biv::container::MemberMeta meta{.path = "agents/codex/session.jsonl",
+                                        .kind = biv::scan::NodeKind::file,
+                                        .mode = 0600,
+                                        .mtime_s = 1,
+                                        .mtime_ns = 0,
+                                        .size = data.size(),
+                                        .symlink_target = {}};
+  biv::manifest::Checksums checksums;
+  checksums.entries[meta.path] = payload_extent_digest(meta, data);
+  write_bivpak(image, session_manifest(), checksums, {{.meta = meta, .data = data}});
+
+  auto plan = biv::open::plan_open({.image = image, .dest = dest, .verify = true});
+  REQUIRE(plan);
+  REQUIRE(plan->manifest().agent_sessions.size() == 1U);
+  REQUIRE(plan->agent_members().members.size() == 1U);
+  auto reader = plan->make_reader();
+  auto report = biv::open::execute_open(std::move(*plan), {.collision = biv::open::Collision::refuse});
+  REQUIRE(report);
+  auto read = reader(meta.path);
+  REQUIRE(read);
+  CHECK(*read == data);
+  CHECK_FALSE(std::filesystem::exists(dest / "agents"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open rejects checksummed unreferenced agent members") {
+  const auto root = make_tmp("agent-smuggle");
+  const auto image = root / "smuggle.bvpk";
+  const auto data = bytes("smuggled");
+  const biv::container::MemberMeta meta{.path = "agents/codex/smuggled.jsonl",
+                                        .kind = biv::scan::NodeKind::file,
+                                        .mode = 0600,
+                                        .mtime_s = 1,
+                                        .mtime_ns = 0,
+                                        .size = data.size(),
+                                        .symlink_target = {}};
+  biv::manifest::Checksums checksums;
+  checksums.entries[meta.path] = payload_extent_digest(meta, data);
+  write_bivpak(image, manifest_model(), checksums, {{.meta = meta, .data = data}});
+
+  auto opened = biv::open::plan_open({.image = image, .dest = root / "restore"});
+  REQUIRE_FALSE(opened);
+  CHECK(opened.error().kind == biv::ErrKind::UnmanifestedMember);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open rejects missing and non-regular referenced agent members") {
+  const auto root = make_tmp("agent-invalid");
+  const auto missing_image = root / "missing.bvpk";
+  write_bivpak(missing_image, session_manifest(), {}, {});
+  auto missing = biv::open::plan_open({.image = missing_image, .dest = root / "missing"});
+  REQUIRE_FALSE(missing);
+  CHECK(missing.error().kind == biv::ErrKind::IntegrityFailurePreApply);
+
+  const auto link_image = root / "link.bvpk";
+  const biv::container::MemberMeta link{.path = "agents/codex/session.jsonl",
+                                        .kind = biv::scan::NodeKind::symlink,
+                                        .mode = 0777,
+                                        .mtime_s = 1,
+                                        .mtime_ns = 0,
+                                        .size = 0,
+                                        .symlink_target = "../../escape"};
+  biv::manifest::Checksums checksums;
+  checksums.entries[link.path] = payload_extent_digest(link, {});
+  write_bivpak(link_image, session_manifest(), checksums, {{.meta = link, .data = {}}});
+  auto linked = biv::open::plan_open({.image = link_image, .dest = root / "link"});
+  REQUIRE_FALSE(linked);
+  CHECK(linked.error().kind == biv::ErrKind::MemberPathUnsafe);
   std::filesystem::remove_all(root);
 }

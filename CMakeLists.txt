@@ -47,6 +47,7 @@ add_library(bivcore STATIC
   src/core/manifest/checksums.cpp
   src/core/manifest/manifest.cpp
   src/core/open/open.cpp
+  src/core/open/sessions.cpp
   src/core/pack/pack.cpp
   src/core/report/envelope.cpp
   src/core/scan/scan.cpp
@@ -94,6 +95,7 @@ target_sources(biv_tests PRIVATE tests/test_adapter_claude_collect.cpp)
 target_sources(biv_tests PRIVATE tests/test_adapter_claude_install.cpp)
 target_sources(biv_tests PRIVATE tests/test_adapter_codex_collect.cpp)
 target_sources(biv_tests PRIVATE tests/test_adapter_codex_install.cpp)
+target_sources(biv_tests PRIVATE tests/test_sessions.cpp)
 target_link_libraries(biv_tests PRIVATE bivcore biv_adapters Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_tests PRIVATE
