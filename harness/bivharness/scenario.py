@@ -192,11 +192,14 @@ def _prepare_agent_profiles(work: Path, source: Path, agents: list[str]) -> tupl
         transcript.write_text(
             "\n".join(
                 (
-                    json.dumps({"type": "user", "cwd": source.as_posix(), "uuid": "u1",
+                    json.dumps({"type": "user", "cwd": source.as_posix(),
+                                "uuid": "11111111-1111-4111-8111-111111111111",
                                 "parentUuid": None, "sessionId": session_id,
                                 "version": "2.1.202", "message": "seed one"}),
-                    json.dumps({"type": "assistant", "cwd": source.as_posix(), "uuid": "a1",
-                                "parentUuid": "u1", "sessionId": session_id,
+                    json.dumps({"type": "assistant", "cwd": source.as_posix(),
+                                "uuid": "22222222-2222-4222-8222-222222222222",
+                                "parentUuid": "11111111-1111-4111-8111-111111111111",
+                                "sessionId": session_id,
                                 "message": "seed two"}),
                 )
             ) + "\n",
@@ -461,6 +464,11 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
             if changed != (delta == "changed"):
                 findings.append(f"target-store delta for {agent}: expected {delta}")
             exercised.add("G")
+    if not invalids and expect.get("claude_project_key_from_output"):
+        project_dir = target_stores["claude-code"] / "projects" / _project_key(restored)
+        if not project_dir.is_dir() or not any(project_dir.glob("*.jsonl")):
+            findings.append(f"Claude project key not derived from restored output: {project_dir}")
+        exercised.add("K")
     if not invalids and not expect.get("refusal") and artifact_ready:
         try:
             members = list_members(image)
