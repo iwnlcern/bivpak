@@ -1,0 +1,9 @@
+{
+  "id": "open-unknown-agent",
+  "tier": "pending",
+  "status": "xfail-pending",
+  "classes": ["E", "K"],
+  "steps": [],
+  "dor_pointers": ["requires a sealed unknown-agent image producer; manifest write side remains s3-pack-owned"],
+  "held": ["unknown agent is skipped with typed exit 2"]
+}

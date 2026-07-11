@@ -1,0 +1,15 @@
+{
+  "id": "open-consent-no",
+  "tier": "E2",
+  "classes": ["A", "B", "C", "E", "G", "K"],
+  "agents": ["codex"],
+  "fixture": {"entries": [{"type": "file", "path": "work.txt", "text": "workspace\n"}]},
+  "steps": [{"op": "pack"}, {"op": "open", "args": ["--consent", "no"]}],
+  "expect": {
+    "tree": true,
+    "manifest_variant": "builtin",
+    "session_rows": [{"agent": "codex", "outcome": "skipped", "reason": "consent-denied"}],
+    "target_delta": {"codex": "unchanged"}
+  },
+  "held": []
+}

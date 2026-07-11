@@ -4,5 +4,6 @@
   "status": "xfail-pending",
   "classes": ["G", "K"],
   "steps": [],
-  "dor_pointers": ["R-s2-4/U1 pending", "consent-DNA inventory"]
+  "dor_pointers": ["superseded by runnable open-consent-*.json rows"],
+  "held": ["legacy aggregate consent-DNA row"]
 }

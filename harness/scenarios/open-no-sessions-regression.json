@@ -1,0 +1,9 @@
+{
+  "id": "open-no-sessions-regression",
+  "tier": "E2",
+  "classes": ["A", "B", "C", "E", "K"],
+  "fixture": {"entries": [{"type": "file", "path": "work.txt", "text": "workspace\n"}]},
+  "steps": [{"op": "pack"}, {"op": "open", "args": ["--consent", "yes"]}],
+  "expect": {"tree": true, "manifest_variant": "builtin", "sessions_absent": true},
+  "held": []
+}
