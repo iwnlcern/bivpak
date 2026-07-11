@@ -146,10 +146,11 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       }
       continue;
     }
-    if (!agent.caps.has_value() || agent.caps->verdict == adapters::Capabilities::Verdict::unvalidated ||
-        agent.caps->verdict == adapters::Capabilities::Verdict::absent || !agent.store.has_value()) {
-      const bool absent = !agent.store.has_value() ||
-                          (agent.caps.has_value() && agent.caps->verdict == adapters::Capabilities::Verdict::absent);
+    const auto caps = agent.caps.value_or(adapters::Capabilities{});
+    const auto target_store = agent.store.value_or(adapters::Store{});
+    if (!agent.caps.has_value() || caps.verdict == adapters::Capabilities::Verdict::unvalidated ||
+        caps.verdict == adapters::Capabilities::Verdict::absent || !agent.store.has_value()) {
+      const bool absent = !agent.store.has_value() || caps.verdict == adapters::Capabilities::Verdict::absent;
       for (const auto& entry : eligible) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
@@ -164,7 +165,7 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
     }
 
     auto installed = agent.adapter->install(adapters::InstallTarget{.workspace_root = final_workspace_root,
-                                                                     .target_store = *agent.store,
+                                                                     .target_store = target_store,
                                                                      .member_read = member_read},
                                             adapters::Consent::yes,
                                             std::span<const manifest::AgentSessionEntry>{eligible});

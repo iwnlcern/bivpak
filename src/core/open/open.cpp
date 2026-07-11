@@ -745,7 +745,8 @@ expected<OpenPlanHandle> plan_open(const OpenOptions& options) {
 
 expected<OpenReport> execute_open(OpenPlanHandle&& handle, const OpenDecisions& decisions) {
   try {
-    auto impl = std::move(handle.impl_);
+    OpenPlanHandle owned = std::move(handle);
+    auto impl = std::move(owned.impl_);
     return execute_archive(impl->image, impl->dest, impl->verify, std::move(impl->archive), decisions.collision);
   } catch (const std::exception& error) {
     return std::unexpected(BivError{ErrKind::InternalError, {}, error.what()});

@@ -62,7 +62,7 @@ expected<core_sessions::ConsentSpec> parse_consent(const std::string_view value)
     if (!seen.insert(std::string{agent}).second) {
       return std::unexpected(usage("consent-duplicate-agent"));
     }
-    core_sessions::ConsentValue parsed;
+    core_sessions::ConsentValue parsed = core_sessions::ConsentValue::unset;
     if (decision == "yes") {
       parsed = core_sessions::ConsentValue::yes;
     } else if (decision == "no") {
