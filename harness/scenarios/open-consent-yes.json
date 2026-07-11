@@ -9,10 +9,12 @@
     "tree": true,
     "manifest_variant": "builtin",
     "session_rows": [
-      {"agent": "claude-code", "outcome": "installed"},
-      {"agent": "codex", "outcome": "installed"}
+      {"agent": "claude-code", "outcome": "installed", "host_version_unverified": true, "activation_suppressed": false},
+      {"agent": "codex", "outcome": "installed", "host_version_unverified": true, "activation_suppressed": false}
     ],
-    "target_delta": {"claude-code": "changed", "codex": "changed"}
+    "target_delta": {"claude-code": "changed", "codex": "changed"},
+    "exact_imported_set": ["claude-code", "codex"],
+    "agent_caveats": {"claude-code": [], "codex": ["picker_gap: session may not appear in the default picker until first opened by id"]}
   },
   "held": []
 }

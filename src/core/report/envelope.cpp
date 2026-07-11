@@ -154,8 +154,13 @@ std::string_view row_name(const core_sessions::SessionRowReport::Row row) {
     case core_sessions::SessionRowReport::Row::installed:
       return "installed";
     case core_sessions::SessionRowReport::Row::skipped:
+    case core_sessions::SessionRowReport::Row::unknown_agent_skipped:
+    case core_sessions::SessionRowReport::Row::sessions_consent_skipped:
       return "skipped";
     case core_sessions::SessionRowReport::Row::failed:
+    case core_sessions::SessionRowReport::Row::containment_refused:
+    case core_sessions::SessionRowReport::Row::session_install_failed:
+    case core_sessions::SessionRowReport::Row::agent_not_validated_failed:
       return "failed";
   }
   return "failed";
@@ -221,10 +226,19 @@ void write_sessions(json::Writer& writer, const OpenSessionsReport& report) {
       }
       writer.key("outcome");
       writer.value_string(row_name(row.row));
+      const auto kind = core_sessions::kind_for_row(row.row, row.reason.value_or(""));
+      if (kind.has_value()) {
+        writer.key("kind");
+        writer.value_string(to_string(*kind));
+      }
       if (row.reason.has_value()) {
         writer.key("reason");
         writer.value_string(*row.reason);
       }
+      writer.key("host_version_unverified");
+      writer.value_bool(row.host_version_unverified);
+      writer.key("activation_suppressed");
+      writer.value_bool(row.activation_suppressed);
       writer.end_object();
     }
     writer.end_array();
@@ -238,8 +252,10 @@ void write_sessions(json::Writer& writer, const OpenSessionsReport& report) {
     writer.end_array();
     writer.key("caveats");
     writer.begin_array();
-    for (const auto& [kind, note] : report.outcome.caveats) {
-      writer.value_string(kind + ": " + note);
+    for (const auto& caveat : report.outcome.caveats) {
+      if (caveat.agent == agent.agent) {
+        writer.value_string(caveat.kind + ": " + caveat.note);
+      }
     }
     writer.end_array();
     writer.end_object();
@@ -331,13 +347,14 @@ int exit_for_warnings(const bool any_divergence_warning) noexcept {
 }
 
 int exit_for_sessions(const core_sessions::SessionsOutcome& outcome) noexcept {
+  int exit_code = 0;
   for (const auto& row : outcome.rows) {
-    if (row.row == core_sessions::SessionRowReport::Row::failed ||
-        (row.row == core_sessions::SessionRowReport::Row::skipped && row.reason != "consent-denied")) {
-      return 2;
+    const auto kind = core_sessions::kind_for_row(row.row, row.reason.value_or(""));
+    if (kind.has_value()) {
+      exit_code = std::max(exit_code, exit_for_error(*kind));
     }
   }
-  return 0;
+  return exit_code;
 }
 
 std::string envelope(std::string_view verb,

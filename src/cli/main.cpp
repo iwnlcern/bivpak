@@ -164,7 +164,6 @@ int main(int argc, char** argv) {
         if (!sessions) {
           return emit_error("open", sessions.error(), parsed->json);
         }
-        sessions->warning_shown = warning_shown;
         const int exit_code = biv::report::exit_for_sessions(*sessions);
         biv::report::OpenSessionsReport sessions_report{.prompt_shown = prompt_shown,
                                                          .warning_shown = warning_shown,

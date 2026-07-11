@@ -1,7 +1,7 @@
 #include "core/open/sessions.hpp"
 
 #include <algorithm>
-#include <map>
+#include <iterator>
 #include <span>
 #include <string_view>
 
@@ -16,15 +16,6 @@ bool decision_for(const ConsentDecision& consent, const std::string_view agent) 
   return found != consent.per_agent.end() && found->second;
 }
 
-std::string failure_reason(const BivError& error) {
-  for (const std::string_view reason : {"store_locked", "write_protected", "containment_refused"}) {
-    if (error.detail.find(reason) != std::string::npos) {
-      return std::string{reason};
-    }
-  }
-  return "error";
-}
-
 std::optional<std::string> installed_id(const std::vector<adapters::IdMapEntry>& ids,
                                         const std::string_view image_id) {
   const auto found = std::ranges::find(ids, image_id, &adapters::IdMapEntry::image_session_id);
@@ -34,7 +25,83 @@ std::optional<std::string> installed_id(const std::vector<adapters::IdMapEntry>&
   return found->installed_session_id;
 }
 
+bool store_write_bits_absent(const std::filesystem::path& root) {
+  std::error_code error;
+  const auto permissions = std::filesystem::status(root, error).permissions();
+  if (error) {
+    return false;
+  }
+  constexpr auto write_bits = std::filesystem::perms::owner_write |
+                              std::filesystem::perms::group_write |
+                              std::filesystem::perms::others_write;
+  return (permissions & write_bits) == std::filesystem::perms::none;
+}
+
 }  // namespace
+
+std::string install_failure_reason(const BivError& error) {
+  for (const std::string_view reason : {"store_locked", "write_protected", "containment_refused"}) {
+    if (error.detail.find(reason) != std::string::npos) {
+      return std::string{reason};
+    }
+  }
+  return "error";
+}
+
+std::optional<ErrKind> kind_for_row(const SessionRowReport::Row row, const std::string_view reason) {
+  switch (row) {
+    case SessionRowReport::Row::installed:
+      return std::nullopt;
+    case SessionRowReport::Row::containment_refused:
+      return ErrKind::ContainmentRefused;
+    case SessionRowReport::Row::session_install_failed:
+      return ErrKind::SessionInstallFailed;
+    case SessionRowReport::Row::unknown_agent_skipped:
+      return ErrKind::UnknownAgentSkipped;
+    case SessionRowReport::Row::sessions_consent_skipped:
+      return ErrKind::SessionsConsentSkipped;
+    case SessionRowReport::Row::agent_not_validated_failed:
+      return ErrKind::AgentNotValidatedFailed;
+    case SessionRowReport::Row::skipped:
+      return reason == "consent-denied" ? ErrKind::SessionsConsentSkipped : ErrKind::UnknownAgentSkipped;
+    case SessionRowReport::Row::failed:
+      break;
+  }
+  if (reason == "containment_refused" || reason == "verify-hits") {
+    return ErrKind::ContainmentRefused;
+  }
+  if (reason == "store-absent" || reason == "not-validated") {
+    return ErrKind::AgentNotValidatedFailed;
+  }
+  return ErrKind::SessionInstallFailed;
+}
+
+std::vector<adapters::Activation> filter_activation(
+    const std::span<const adapters::Activation> activation,
+    const std::span<const SessionRowReport> rows) {
+  std::vector<adapters::Activation> safe;
+  for (const auto& candidate : activation) {
+    bool belongs_to_clean = false;
+    bool belongs_to_suppressed = false;
+    for (const auto& row : rows) {
+      if (row.agent != candidate.agent || !row.installed_session_id.has_value()) {
+        continue;
+      }
+      if (candidate.command.find(*row.installed_session_id) == std::string::npos) {
+        continue;
+      }
+      belongs_to_suppressed = belongs_to_suppressed || row.activation_suppressed;
+      belongs_to_clean = belongs_to_clean || !row.activation_suppressed;
+    }
+    const bool agent_has_suppressed = std::ranges::any_of(rows, [&](const auto& row) {
+      return row.agent == candidate.agent && row.activation_suppressed;
+    });
+    if (!belongs_to_suppressed && (belongs_to_clean || !agent_has_suppressed)) {
+      safe.push_back(candidate);
+    }
+  }
+  return safe;
+}
 
 bool SessionPreview::any_sessions() const {
   return std::ranges::any_of(agents, [](const AgentPreview& agent) {
@@ -111,7 +178,7 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       if (!agent.known_adapter) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
-                                                .row = SessionRowReport::Row::skipped,
+                                                .row = SessionRowReport::Row::unknown_agent_skipped,
                                                 .reason = "unknown-agent",
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
@@ -120,7 +187,7 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       } else if (entry.entry_schema > 1) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
-                                                .row = SessionRowReport::Row::skipped,
+                                                .row = SessionRowReport::Row::unknown_agent_skipped,
                                                 .reason = "entry-schema",
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
@@ -137,7 +204,7 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       for (const auto& entry : eligible) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
-                                                .row = SessionRowReport::Row::skipped,
+                                                .row = SessionRowReport::Row::sessions_consent_skipped,
                                                 .reason = "consent-denied",
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
@@ -154,8 +221,21 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       for (const auto& entry : eligible) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
-                                                .row = SessionRowReport::Row::failed,
+                                                .row = SessionRowReport::Row::agent_not_validated_failed,
                                                 .reason = absent ? "store-absent" : "not-validated",
+                                                .installed_session_id = std::nullopt,
+                                                .host_version_unverified = false,
+                                                .activation_suppressed = true,
+                                                .live_at_pack = entry.live_at_pack});
+      }
+      continue;
+    }
+    if (store_write_bits_absent(target_store.root)) {
+      for (const auto& entry : eligible) {
+        outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
+                                                .image_session_id = entry.original_session_ids.primary,
+                                                .row = SessionRowReport::Row::session_install_failed,
+                                                .reason = "store_locked",
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = true,
@@ -171,10 +251,13 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                             std::span<const manifest::AgentSessionEntry>{eligible});
     if (!installed) {
       for (const auto& entry : eligible) {
+        const auto reason = install_failure_reason(installed.error());
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
-                                                .row = SessionRowReport::Row::failed,
-                                                .reason = failure_reason(installed.error()),
+                                                .row = reason == "containment_refused"
+                                                           ? SessionRowReport::Row::containment_refused
+                                                           : SessionRowReport::Row::session_install_failed,
+                                                .reason = reason,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = true,
@@ -184,11 +267,14 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
     }
 
     bool any_clean = false;
+    const size_t first_adapter_row = outcome.rows.size();
     for (const auto& row : installed->sessions) {
       const bool verify_hits = row.verify.origin_path_hits != 0U || row.verify.origin_id_hits != 0U;
       SessionRowReport report{.agent = agent.agent,
                               .image_session_id = row.image_session_id,
-                              .row = SessionRowReport::Row::failed,
+                              .row = row.reason == "containment_refused"
+                                         ? SessionRowReport::Row::containment_refused
+                                         : SessionRowReport::Row::session_install_failed,
                               .reason = row.reason,
                               .installed_session_id = installed_id(installed->id_map, row.image_session_id),
                               .host_version_unverified = row.host_version_unverified,
@@ -201,23 +287,26 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
         report.live_at_pack = source->live_at_pack;
       }
       if (verify_hits) {
+        report.row = SessionRowReport::Row::containment_refused;
         report.reason = "verify-hits";
       } else if (row.outcome == adapters::InstallSessionOutcome::Outcome::installed) {
         report.row = SessionRowReport::Row::installed;
         report.reason.reset();
         any_clean = true;
       } else if (row.outcome == adapters::InstallSessionOutcome::Outcome::staged) {
-        report.row = SessionRowReport::Row::failed;
+        report.row = SessionRowReport::Row::session_install_failed;
         report.reason = "error";
       }
       outcome.rows.push_back(std::move(report));
     }
     outcome.id_map.insert(outcome.id_map.end(), installed->id_map.begin(), installed->id_map.end());
     if (any_clean) {
-      outcome.activation.insert(outcome.activation.end(), installed->activation.begin(), installed->activation.end());
+      const auto adapter_rows = std::span<const SessionRowReport>{outcome.rows}.subspan(first_adapter_row);
+      auto safe = filter_activation(installed->activation, adapter_rows);
+      outcome.activation.insert(outcome.activation.end(), safe.begin(), safe.end());
     }
     for (const auto& note : agent.adapter->state_inventory().caveat_facts.notes) {
-      outcome.caveats.push_back(note);
+      outcome.caveats.push_back(AgentCaveat{.agent = agent.agent, .kind = note.first, .note = note.second});
     }
   }
   return outcome;

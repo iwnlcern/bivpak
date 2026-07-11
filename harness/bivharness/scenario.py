@@ -1,13 +1,17 @@
+import copy
 import hashlib
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 from typing import Any, NamedTuple
 
 from jsonschema import Draft202012Validator
+import zstandard
 
 from bivharness.artifact import extract_member, list_members, mutate_in_stream, payload_extent_digests
 from bivharness.compare import assert_members, compare_trees, load_tolerance
@@ -248,6 +252,57 @@ def _session_rows(envelope: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def _file_fingerprint(facts: list[tuple[str, str, Any]]) -> dict[str, bytes]:
+    return {path: value for path, kind, value in facts if kind == "file"}
+
+
+def _rebuild_unknown_agent(image: Path, output: Path, source_agent: str = "codex", unknown: str = "ghost") -> None:
+    with zstandard.ZstdDecompressor().stream_reader(io.BytesIO(image.read_bytes())) as reader:
+        raw = reader.read()
+    members: list[tuple[tarfile.TarInfo, bytes]] = []
+    with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as archive:
+        for info in archive:
+            extracted = archive.extractfile(info)
+            data = extracted.read() if extracted is not None else b""
+            cloned = copy.copy(info)
+            if cloned.name.startswith(f"agents/{source_agent}/"):
+                cloned.name = f"agents/{unknown}/" + cloned.name.removeprefix(f"agents/{source_agent}/")
+            members.append((cloned, data))
+
+    manifest_index = next(index for index, (info, _) in enumerate(members) if info.name == "manifest.json")
+    checksums_index = next(index for index, (info, _) in enumerate(members) if info.name == "checksums.json")
+    manifest = json.loads(members[manifest_index][1])
+    for entry in manifest["agent_sessions"]:
+        if entry["agent"] == source_agent:
+            entry["agent"] = unknown
+            entry["artifacts"] = [path.replace(f"agents/{source_agent}/", f"agents/{unknown}/", 1)
+                                  for path in entry["artifacts"]]
+    checksums = json.loads(members[checksums_index][1])
+    checksums["entries"] = {
+        path.replace(f"agents/{source_agent}/", f"agents/{unknown}/", 1): digest
+        for path, digest in checksums["entries"].items()
+    }
+    members[manifest_index] = (members[manifest_index][0], json.dumps(manifest).encode())
+
+    def build(rows: list[tuple[tarfile.TarInfo, bytes]]) -> bytes:
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+            for info, data in rows:
+                info.size = len(data) if info.isfile() else 0
+                archive.addfile(info, io.BytesIO(data) if info.isfile() else None)
+        return stream.getvalue()
+
+    provisional = build(members)
+    with tarfile.open(fileobj=io.BytesIO(provisional), mode="r:") as archive:
+        for info in archive:
+            if not (info.name.startswith("payload/") or info.name.startswith("agents/")):
+                continue
+            end = info.offset_data + ((info.size + 511) // 512) * 512
+            checksums["entries"][info.name] = hashlib.sha256(provisional[info.offset:end]).hexdigest()
+    members[checksums_index] = (members[checksums_index][0], json.dumps(checksums).encode())
+    output.write_bytes(zstandard.ZstdCompressor().compress(build(members)))
+
+
 def _check_bivignore_sha(img: Path, manifest: dict[str, Any]) -> list[str]:
     bivignore = manifest.get("bivignore", {})
     expected = bivignore.get("sha256")
@@ -388,6 +443,10 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
             mutated = work / "source-fv99.bvpk"
             mutate_in_stream(image, mutated, b'"format_version": 1', b'"format_version": 9')
             image = mutated
+        elif op == "synthesize-unknown-agent":
+            mutated = work / "source-unknown-agent.bvpk"
+            _rebuild_unknown_agent(image, mutated)
+            image = mutated
         elif op == "open":
             open_cwd = work / "open-cwd"
             open_cwd.mkdir(exist_ok=True)
@@ -464,6 +523,37 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
             if changed != (delta == "changed"):
                 findings.append(f"target-store delta for {agent}: expected {delta}")
             exercised.add("G")
+    if not invalids and expect.get("exact_imported_set"):
+        rows = [row for row in _session_rows(run.envelope) if row.get("outcome") == "installed"]
+        for agent in expect["exact_imported_set"]:
+            agent_rows = [row for row in rows if row.get("agent") == agent]
+            installed_ids = [row.get("installed_session_id") for row in agent_rows]
+            if any(not value for value in installed_ids) or any(
+                row["image_session_id"] == row.get("installed_session_id") for row in agent_rows
+            ):
+                findings.append(f"installed ids are not fresh for {agent}: {agent_rows}")
+                continue
+            before_files = _file_fingerprint(target_before[agent])
+            after_files = _file_fingerprint(_fingerprint(target_stores[agent]))
+            changed = {path: data for path, data in after_files.items()
+                       if path not in before_files or before_files[path] != data}
+            removed = set(before_files) - set(after_files)
+            if removed or len(changed) != len(installed_ids):
+                findings.append(f"target-store imported-set mismatch for {agent}: {sorted(changed)}")
+                continue
+            for row in agent_rows:
+                installed_id = row["installed_session_id"]
+                matches = [(path, data) for path, data in changed.items() if installed_id in path]
+                if len(matches) != 1 or installed_id.encode() not in matches[0][1] or \
+                        row["image_session_id"].encode() in matches[0][1]:
+                    findings.append(f"id-map round-trip mismatch for {agent}: {row}")
+        exercised.add("G")
+    if not invalids:
+        for agent, expected_caveats in expect.get("agent_caveats", {}).items():
+            groups = run.envelope.get("result", {}).get("sessions", {}).get("agents", [])
+            group = next((item for item in groups if item.get("agent") == agent), {})
+            if group.get("caveats", []) != expected_caveats:
+                findings.append(f"caveats mismatch for {agent}: {group.get('caveats', [])}")
     if not invalids and expect.get("claude_project_key_from_output"):
         project_dir = target_stores["claude-code"] / "projects" / _project_key(restored)
         if not project_dir.is_dir() or not any(project_dir.glob("*.jsonl")):

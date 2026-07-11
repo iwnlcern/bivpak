@@ -9,7 +9,7 @@
   "expect": {
     "tree": true,
     "manifest_variant": "builtin",
-    "session_rows": [{"agent": "codex", "outcome": "failed"}],
+    "session_rows": [{"agent": "codex", "outcome": "failed", "kind": "SessionInstallFailed", "reason": "store_locked"}],
     "target_delta": {"codex": "unchanged"}
   },
   "held": []

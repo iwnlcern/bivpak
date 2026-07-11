@@ -71,6 +71,7 @@ add_library(biv_adapters STATIC
 target_include_directories(biv_adapters PUBLIC src)
 target_link_libraries(biv_adapters PUBLIC simdjson SQLite3::SQLite3)
 target_compile_options(biv_adapters PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(bivcore PUBLIC biv_adapters)
 
 add_executable(biv src/cli/main.cpp src/cli/args.cpp)
 target_link_libraries(biv PRIVATE bivcore biv_adapters)

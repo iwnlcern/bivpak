@@ -107,9 +107,50 @@ TEST_CASE("session leg skips denied and unknown rows without reading members") {
   auto outcome = biv::core_sessions::run_session_leg(*preview, consent, manifest, home / "workspace", reader);
   REQUIRE(outcome);
   REQUIRE(outcome->rows.size() == 1U);
-  CHECK(outcome->rows.front().row == biv::core_sessions::SessionRowReport::Row::skipped);
+  CHECK(outcome->rows.front().row == biv::core_sessions::SessionRowReport::Row::unknown_agent_skipped);
   CHECK(outcome->rows.front().reason == "unknown-agent");
+  CHECK(biv::core_sessions::kind_for_row(outcome->rows.front().row, *outcome->rows.front().reason) ==
+        biv::ErrKind::UnknownAgentSkipped);
   CHECK_FALSE(read_called);
   CHECK(outcome->activation.empty());
   std::filesystem::remove_all(home);
+}
+
+TEST_CASE("typed session kinds cover every advisory and divergence class") {
+  using Row = biv::core_sessions::SessionRowReport;
+  CHECK(biv::core_sessions::kind_for_row(Row::Row::sessions_consent_skipped, "") ==
+        biv::ErrKind::SessionsConsentSkipped);
+  CHECK(biv::core_sessions::kind_for_row(Row::Row::unknown_agent_skipped, "") ==
+        biv::ErrKind::UnknownAgentSkipped);
+  CHECK(biv::core_sessions::kind_for_row(Row::Row::containment_refused, "") ==
+        biv::ErrKind::ContainmentRefused);
+  CHECK(biv::core_sessions::kind_for_row(Row::Row::agent_not_validated_failed, "") ==
+        biv::ErrKind::AgentNotValidatedFailed);
+  CHECK(biv::core_sessions::kind_for_row(Row::Row::session_install_failed, "") ==
+        biv::ErrKind::SessionInstallFailed);
+  CHECK_FALSE(biv::core_sessions::kind_for_row(Row::Row::installed, "").has_value());
+  CHECK(biv::core_sessions::install_failure_reason(
+            biv::BivError{biv::ErrKind::RestoreWriteFailed, {}, "write_protected"}) == "write_protected");
+}
+
+TEST_CASE("activation filtering suppresses only the failed session command") {
+  biv::adapters::InstallResult installed;
+  installed.activation = {{.agent = "future-tool", .command = "future resume clean-id"},
+                          {.agent = "future-tool", .command = "future resume bad-id"}};
+  std::vector<biv::core_sessions::SessionRowReport> rows{
+      {.agent = "future-tool",
+       .image_session_id = "clean-image",
+       .row = biv::core_sessions::SessionRowReport::Row::installed,
+       .reason = std::nullopt,
+       .installed_session_id = "clean-id"},
+      {.agent = "future-tool",
+       .image_session_id = "bad-image",
+       .row = biv::core_sessions::SessionRowReport::Row::containment_refused,
+       .reason = "verify-hits",
+       .installed_session_id = "bad-id",
+       .activation_suppressed = true}};
+
+  const auto safe = biv::core_sessions::filter_activation(installed.activation, rows);
+  REQUIRE(safe.size() == 1U);
+  CHECK(safe.front().command == "future resume clean-id");
 }

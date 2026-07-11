@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,7 +40,16 @@ struct ConsentDecision {
 struct SessionRowReport {
   std::string agent;
   std::string image_session_id;
-  enum class Row { installed, skipped, failed } row{Row::failed};
+  enum class Row {
+    installed,
+    skipped,
+    failed,
+    containment_refused,
+    session_install_failed,
+    unknown_agent_skipped,
+    sessions_consent_skipped,
+    agent_not_validated_failed,
+  } row{Row::failed};
   std::optional<std::string> reason;
   std::optional<std::string> installed_session_id;
   bool host_version_unverified{false};
@@ -47,13 +57,24 @@ struct SessionRowReport {
   bool live_at_pack{false};
 };
 
+struct AgentCaveat {
+  std::string agent;
+  std::string kind;
+  std::string note;
+};
+
 struct SessionsOutcome {
   std::vector<SessionRowReport> rows;
   std::vector<adapters::Activation> activation;
   std::vector<adapters::IdMapEntry> id_map;
-  std::vector<std::pair<std::string, std::string>> caveats;
-  bool warning_shown{false};
+  std::vector<AgentCaveat> caveats;
 };
+
+std::optional<ErrKind> kind_for_row(SessionRowReport::Row row, std::string_view reason);
+std::string install_failure_reason(const BivError& error);
+std::vector<adapters::Activation> filter_activation(
+    std::span<const adapters::Activation> activation,
+    std::span<const SessionRowReport> rows);
 
 expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const adapters::Env& env);
 ConsentDecision resolve_consent(const ConsentSpec& spec,

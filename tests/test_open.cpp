@@ -1,8 +1,12 @@
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <chrono>
+#include <cstdio>
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -167,6 +171,72 @@ std::string read_binary_or_throw(const std::filesystem::path& source) {
     throw std::runtime_error("source-open");
   }
   return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+}
+
+std::vector<std::byte> decompress_image(const std::filesystem::path& image) {
+  const auto text = read_binary_or_throw(image);
+  const auto compressed = std::as_bytes(std::span<const char>{text.data(), text.size()});
+  bool served = false;
+  biv::container::ZstdDecompressSource source{[&]() -> biv::expected<std::span<const std::byte>> {
+    if (served) {
+      return std::span<const std::byte>{};
+    }
+    served = true;
+    return compressed;
+  }};
+  std::vector<std::byte> raw;
+  while (true) {
+    auto chunk = source.pull();
+    REQUIRE(chunk);
+    if (chunk->empty()) {
+      break;
+    }
+    raw.insert(raw.end(), chunk->begin(), chunk->end());
+  }
+  return raw;
+}
+
+void recompute_header_checksum(std::span<std::byte> header) {
+  std::fill(header.begin() + 148, header.begin() + 156, static_cast<std::byte>(' '));
+  uint64_t sum = 0;
+  for (const auto value : header) {
+    sum += std::to_integer<unsigned char>(value);
+  }
+  std::array<char, 8> encoded{};
+  std::snprintf(encoded.data(), encoded.size(), "%06llo", static_cast<unsigned long long>(sum));
+  for (size_t index = 0; index < 6; ++index) {
+    header[148 + index] = static_cast<std::byte>(encoded[index]);
+  }
+  header[154] = std::byte{0};
+  header[155] = static_cast<std::byte>(' ');
+}
+
+void mutate_member_header(const std::filesystem::path& image,
+                          const std::string_view member,
+                          const std::function<void(std::span<std::byte>)>& mutate) {
+  auto raw = decompress_image(image);
+  bool found = false;
+  for (size_t offset = 0; offset + 512U <= raw.size(); offset += 512U) {
+    auto header = std::span<std::byte>{raw}.subspan(offset, 512U);
+    std::string name;
+    for (size_t index = 0; index < 100U && header[index] != std::byte{0}; ++index) {
+      name.push_back(static_cast<char>(header[index]));
+    }
+    if (name == member) {
+      mutate(header);
+      recompute_header_checksum(header);
+      found = true;
+      break;
+    }
+  }
+  REQUIRE(found);
+  std::ofstream out{image, std::ios::binary | std::ios::trunc};
+  biv::container::ZstdCompressSink zstd{[&](std::span<const std::byte> chunk) -> biv::expected<void> {
+    out.write(reinterpret_cast<const char*>(chunk.data()), static_cast<std::streamsize>(chunk.size()));
+    return {};
+  }};
+  REQUIRE(zstd.as_sink()(raw));
+  REQUIRE(zstd.finish());
 }
 
 void copy_file_to_fifo(const std::filesystem::path& source, const std::filesystem::path& fifo) {
@@ -408,12 +478,42 @@ TEST_CASE("planned agent member reader survives execute without materializing ag
   REQUIRE(plan->manifest().agent_sessions.size() == 1U);
   REQUIRE(plan->agent_members().members.size() == 1U);
   auto reader = plan->make_reader();
+  auto unknown = reader("agents/codex/not-planned.jsonl");
+  REQUIRE_FALSE(unknown);
+  CHECK(unknown.error().kind == biv::ErrKind::UnmanifestedMember);
   auto report = biv::open::execute_open(std::move(*plan), {.collision = biv::open::Collision::refuse});
   REQUIRE(report);
   auto read = reader(meta.path);
   REQUIRE(read);
   CHECK(*read == data);
   CHECK_FALSE(std::filesystem::exists(dest / "agents"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("planned agent reader refuses bytes changed after planning") {
+  const auto root = make_tmp("agent-reader-corrupt");
+  const auto image = root / "session.bvpk";
+  const auto good = bytes("session-data");
+  const auto bad = bytes("tampered-dat");
+  const biv::container::MemberMeta meta{.path = "agents/codex/session.jsonl",
+                                        .kind = biv::scan::NodeKind::file,
+                                        .mode = 0600,
+                                        .mtime_s = 1,
+                                        .mtime_ns = 0,
+                                        .size = good.size(),
+                                        .symlink_target = {}};
+  biv::manifest::Checksums checksums;
+  checksums.entries[meta.path] = payload_extent_digest(meta, good);
+  write_bivpak(image, session_manifest(), checksums, {{.meta = meta, .data = good}});
+  auto plan = biv::open::plan_open({.image = image, .dest = root / "restore", .verify = true});
+  REQUIRE(plan);
+  auto reader = plan->make_reader();
+  write_bivpak(image, session_manifest(), checksums, {{.meta = meta, .data = bad}});
+
+  auto read = reader(meta.path);
+  REQUIRE_FALSE(read);
+  CHECK(read.error().kind == biv::ErrKind::IntegrityFailurePreApply);
+  CHECK(read.error().detail == "checksum");
   std::filesystem::remove_all(root);
 }
 
@@ -460,5 +560,46 @@ TEST_CASE("open rejects missing and non-regular referenced agent members") {
   auto linked = biv::open::plan_open({.image = link_image, .dest = root / "link"});
   REQUIRE_FALSE(linked);
   CHECK(linked.error().kind == biv::ErrKind::MemberPathUnsafe);
+
+  for (const char typeflag : {'1', '3', '6'}) {
+    const auto kind_image = root / ("kind-" + std::string{typeflag} + ".bvpk");
+    write_bivpak(kind_image, session_manifest(), checksums, {{.meta = biv::container::MemberMeta{
+                                                                .path = "agents/codex/session.jsonl",
+                                                                .kind = biv::scan::NodeKind::file,
+                                                                .mode = 0600,
+                                                                .mtime_s = 1,
+                                                                .mtime_ns = 0,
+                                                                .size = 0,
+                                                                .symlink_target = {}},
+                                                            .data = {}}});
+    mutate_member_header(kind_image, "agents/codex/session.jsonl", [&](std::span<std::byte> header) {
+      header[156] = static_cast<std::byte>(typeflag);
+    });
+    auto refused = biv::open::plan_open({.image = kind_image, .dest = root / "kind"});
+    REQUIRE_FALSE(refused);
+    CHECK(refused.error().kind == biv::ErrKind::MemberPathUnsafe);
+  }
+
+  const auto large_image = root / "large.bvpk";
+  write_bivpak(large_image, session_manifest(), checksums, {{.meta = biv::container::MemberMeta{
+                                                               .path = "agents/codex/session.jsonl",
+                                                               .kind = biv::scan::NodeKind::file,
+                                                               .mode = 0600,
+                                                               .mtime_s = 1,
+                                                               .mtime_ns = 0,
+                                                               .size = 0,
+                                                               .symlink_target = {}},
+                                                           .data = {}}});
+  mutate_member_header(large_image, "agents/codex/session.jsonl", [](std::span<std::byte> header) {
+    constexpr std::string_view oversized = "00400000001";
+    for (size_t index = 0; index < oversized.size(); ++index) {
+      header[124 + index] = static_cast<std::byte>(oversized[index]);
+    }
+    header[135] = std::byte{0};
+  });
+  auto large = biv::open::plan_open({.image = large_image, .dest = root / "large"});
+  REQUIRE_FALSE(large);
+  CHECK(large.error().kind == biv::ErrKind::MemberPathUnsafe);
+  CHECK(large.error().detail == "agent-member-size");
   std::filesystem::remove_all(root);
 }

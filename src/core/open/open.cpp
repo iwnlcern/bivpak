@@ -49,6 +49,7 @@ namespace {
 
 constexpr uint64_t kManifestMemberCap = manifest::kManifestByteCap;
 constexpr uint64_t kChecksumsMemberCap = manifest::kChecksumsByteCap;
+constexpr uint64_t kAgentMemberByteCap = 64ULL << 20;
 
 bool has_zstd_magic(std::span<const std::byte> bytes) {
   if (bytes.size() < container::kZstdMagic.size()) {
@@ -125,6 +126,9 @@ BivError preapply_error(BivError error, const std::filesystem::path& image) {
   }
   if (error.kind == ErrKind::IntegrityFailurePreApply) {
     return error;
+  }
+  if (error.kind == ErrKind::ParseError && error.detail == "unsupported-typeflag") {
+    return BivError{ErrKind::MemberPathUnsafe, error.path, "agent-member-kind"};
   }
   return BivError{ErrKind::IntegrityFailurePreApply, image.generic_string(), error.detail, error.err_no, error.facts};
 }
@@ -278,6 +282,9 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
       }
       if (agent && member.meta.kind != scan::NodeKind::file) {
         return std::unexpected(BivError{ErrKind::MemberPathUnsafe, member.meta.path, "agent-member-kind"});
+      }
+      if (agent && member.meta.size > kAgentMemberByteCap) {
+        return std::unexpected(BivError{ErrKind::MemberPathUnsafe, member.meta.path, "agent-member-size"});
       }
       if (auto ok = drain_member(reader); !ok) {
         return std::unexpected(ok.error());
@@ -674,6 +681,9 @@ const PlannedAgentMember* AgentMemberTable::find(const std::string_view name) co
 }
 
 adapters::MemberRead make_member_read(std::filesystem::path image, AgentMemberTable table) {
+  // Each request deliberately replays the archive so no session bytes persist in
+  // Bivpak state. At v1's bounded member sizes this favors containment over speed;
+  // a future single-pass prefetch can replace it if profiles make replay material.
   return [image = std::move(image), table = std::move(table)](const std::string_view name)
              -> expected<std::vector<std::byte>> {
     const auto* planned = table.find(name);
