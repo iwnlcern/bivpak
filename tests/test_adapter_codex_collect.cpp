@@ -554,6 +554,38 @@ TEST_CASE("Codex sqlite_home config parsing is top-level TOML aware") {
   CHECK(unicode_value->front().locators.at(1).path == literal_home);
 
   write_file(store / "config.toml",
+             "sqlite_home = \"" + literal_home.generic_string() + "\"\r\n");
+  auto crlf_basic = discover();
+  REQUIRE(crlf_basic.has_value());
+  REQUIRE(crlf_basic->front().locators.size() == 2);
+  CHECK(crlf_basic->front().locators.at(1).path == literal_home);
+
+  write_file(store / "config.toml",
+             "sqlite_home = '" + literal_home.generic_string() + "'\r\n");
+  auto crlf_literal = discover();
+  REQUIRE(crlf_literal.has_value());
+  REQUIRE(crlf_literal->front().locators.size() == 2);
+  CHECK(crlf_literal->front().locators.at(1).path == literal_home);
+
+  write_file(store / "config.toml",
+             "sqlite_home = '" + literal_home.generic_string() + "'\n"
+             "sqlite_home = '" + nested_home.generic_string() + "'\n");
+  auto duplicate = discover();
+  REQUIRE(duplicate.has_value());
+  CHECK(duplicate->front().locators.size() == 1);
+
+  write_file(store / "config.toml", R"(sqlite_home = "/tmp/\uD800")" "\n");
+  auto surrogate = discover();
+  REQUIRE(surrogate.has_value());
+  CHECK(surrogate->front().locators.size() == 1);
+
+  write_file(store / "config.toml",
+             R"(sqlite_home = "/tmp/\U00110000")" "\n");
+  auto out_of_range = discover();
+  REQUIRE(out_of_range.has_value());
+  CHECK(out_of_range->front().locators.size() == 1);
+
+  write_file(store / "config.toml",
              "[other]\nsqlite_home = '" + nested_home.generic_string() + "'\n");
   auto nested = discover();
   REQUIRE(nested.has_value());

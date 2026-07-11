@@ -551,6 +551,9 @@ std::optional<std::string> config_string(const fs::path& path,
   bool found = false;
   std::optional<std::string> result;
   while (std::getline(input, line)) {
+    if (line.ends_with('\r')) {
+      line.pop_back();
+    }
     const auto first = line.find_first_not_of(" \t");
     if (first == std::string::npos || line.at(first) == '#') {
       continue;

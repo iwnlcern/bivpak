@@ -765,6 +765,13 @@ InstallVerify verify_scan(const std::span<const std::byte> artifact_bytes,
       }
     }
     if (!decoded) {
+      // A line that cannot complete decoded verification is not safe to
+      // publish. Reuse the existing nonzero-hit install refusal contract.
+      if (!pair_set_origins.values.empty()) {
+        ++verify.origin_path_hits;
+      } else if (!origin_ids.values.empty()) {
+        ++verify.origin_id_hits;
+      }
       const auto line_bytes = artifact_bytes.subspan(start, end - start);
       for (const auto& origin : pair_set_origins.values) {
         verify.origin_path_hits += count_hits_bytes(line_bytes, Needle{origin});

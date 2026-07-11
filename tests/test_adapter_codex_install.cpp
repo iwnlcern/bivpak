@@ -496,6 +496,51 @@ TEST_CASE("Codex install refuses nonzero rewrite verification before writing") {
   fs::remove_all(root);
 }
 
+TEST_CASE("Codex install refuses every unverifiable escaped origin line") {
+  struct HostileLine {
+    std::string name;
+    std::vector<std::byte> content;
+  };
+  std::vector<HostileLine> hostile_lines{
+      {"malformed escaped solidus", bytes(R"({"cwd":"\/ws\/proj")")},
+      {"malformed Unicode escape", bytes(R"({"cwd":"\u002fws\u002fproj")")},
+      {"non-UTF8 escaped solidus", bytes(R"({"cwd":"\/ws\/proj"})")},
+      {"non-UTF8 Unicode escape", bytes(R"({"cwd":"\u002fws\u002fproj"})")},
+  };
+  hostile_lines.at(2).content.push_back(static_cast<std::byte>(0xff));
+  hostile_lines.at(3).content.push_back(static_cast<std::byte>(0xff));
+
+  for (const auto& hostile : hostile_lines) {
+    DYNAMIC_SECTION(hostile.name) {
+      const auto root = make_tmp("unverifiable-escaped");
+      const auto workspace = root / "workspace";
+      const auto store = root / "codex";
+      fs::create_directories(workspace);
+      fs::create_directories(store);
+      auto members = codex_members();
+      members.at(parent_artifact()) = hostile.content;
+      auto target = target_for(workspace, store, members);
+      const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry()};
+
+      const auto result = biv::adapters::codex_adapter().install(
+          target, biv::adapters::Consent::yes, records);
+
+      REQUIRE(result.has_value());
+      REQUIRE(result->sessions.size() == 1);
+      CHECK(result->sessions.front().outcome ==
+            biv::adapters::InstallSessionOutcome::Outcome::failed);
+      CHECK(result->sessions.front().reason ==
+            std::optional<std::string>{"containment_refused"});
+      CHECK(result->sessions.front().detail ==
+            std::optional<std::string>{"rewrite_verify_failed"});
+      CHECK(result->id_map.empty());
+      CHECK(result->activation.empty());
+      CHECK(relative_files(store).empty());
+      fs::remove_all(root);
+    }
+  }
+}
+
 TEST_CASE("Codex install reads the whole set before its first host write") {
   const auto root = make_tmp("read-before-write");
   const auto workspace = root / "workspace";
@@ -552,7 +597,7 @@ TEST_CASE("Codex rewrite applies pair rewrites and reports non-UTF8 skips") {
 
   REQUIRE(report.has_value());
   CHECK(report->per_artifact_hits.size() == 2);
-  CHECK(report->verify.origin_path_hits == 0);
+  CHECK(report->verify.origin_path_hits > 0);
   CHECK(report->verify.origin_id_hits == 0);
   CHECK(report->verify.artifacts_checked == 2);
   CHECK(report->skipped_non_utf8 == 1);
