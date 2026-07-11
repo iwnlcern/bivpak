@@ -1,23 +1,35 @@
+import io
 import json
 import os
 import shutil
+import tarfile
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import zstandard
 
 from bivharness import e3
 from bivharness.e3 import (
     CLAUDE_RESUME_MUTATION,
     CODEX_RESUME_SHAPE,
     CREDENTIAL_ENV_NAMES,
+    assert_exact_install_delta,
     assert_resume_containment,
     assert_one_checkpoint,
+    capture_inventory,
     class_j_failures,
+    classify_capture,
+    format_cleanup_report,
     ordered_turns_present,
+    perform_oauth_checkpoint,
+    plant_credential_decoys,
     rejected_credential_names,
     scan_secret_values,
+    scan_image_secret_values,
     select_owned_rollout,
+    snapshot_store,
+    verify_credential_decoys,
     version_in_validated_range,
 )
 from bivharness.precheck import profile_root_failures
@@ -34,9 +46,7 @@ def test_ordered_turns_require_all_sentinels_and_probe_in_order():
 
 def test_owned_rollout_rejects_foreign_and_ambiguous_candidates(tmp_path):
     owned = tmp_path / "rollout-2026-07-11-owned-id.jsonl"
-    foreign = tmp_path / "rollout-2026-07-11-foreign-id.jsonl"
     owned.write_text('{"run_token":"mine"}\n', encoding="utf-8")
-    foreign.write_text('{"run_token":"other"}\n', encoding="utf-8")
 
     assert select_owned_rollout(tmp_path, "owned-id", "mine") == owned
 
@@ -45,6 +55,260 @@ def test_owned_rollout_rejects_foreign_and_ambiguous_candidates(tmp_path):
     duplicate.write_text('{"run_token":"mine"}\n', encoding="utf-8")
     with pytest.raises(ValueError, match="exactly one"):
         select_owned_rollout(tmp_path, "owned-id", "mine")
+
+
+def _checkpoint_agents():
+    return [
+        {
+            "id": "claude-code",
+            "host2_profile": "claude",
+            "env": {"CLAUDE_CONFIG_DIR": "{profile}"},
+            "auth_status": ["claude", "auth", "status"],
+            "version_command": ["claude", "--version"],
+            "validated_version_prefix": "2.1.",
+        },
+        {
+            "id": "codex",
+            "host2_profile": "codex",
+            "env": {"CODEX_HOME": "{profile}"},
+            "auth_status": ["codex", "login", "status"],
+            "version_command": ["codex", "--version"],
+            "validated_version_prefix": "0.142.",
+        },
+    ]
+
+
+def test_oauth_checkpoint_constructs_profiles_and_prints_real_login_commands(tmp_path):
+    host2 = tmp_path / "host two"
+    profile_root = host2 / "profiles"
+    calls = []
+    pauses = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        version = "2.1.202" if command[0] == "claude" else "0.142.5"
+        return SimpleNamespace(returncode=0, stdout=version, stderr="")
+
+    def pause(prompt):
+        pauses.append(prompt)
+        assert (host2 / "home").is_dir()
+        assert (profile_root / "claude").is_dir()
+        assert (profile_root / "codex").is_dir()
+        assert f"CLAUDE_CONFIG_DIR='{profile_root / 'claude'}' claude auth login" in prompt
+        assert f"CODEX_HOME='{profile_root / 'codex'}' codex login" in prompt
+        return ""
+
+    envs = perform_oauth_checkpoint(
+        {"agents": _checkpoint_agents()}, host2, profile_root, pause, fake_spawn
+    )
+
+    assert len(pauses) == 1
+    assert set(envs) == {"claude-code", "codex"}
+    assert calls[-1][0:2] == ["claude", "-p"]
+
+
+@pytest.mark.parametrize("failed", [{"claude-code", "codex"}, {"claude-code"}, {"codex"}])
+def test_oauth_checkpoint_rejects_neither_or_one_authenticated_agent(tmp_path, failed):
+    auth_seen = []
+
+    def fake_spawn(command, cwd, env):
+        agent = "claude-code" if command[0] == "claude" else "codex"
+        if command[-1] == "status":
+            auth_seen.append(agent)
+            return SimpleNamespace(returncode=1 if agent in failed else 0, stdout="", stderr="")
+        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+
+    with pytest.raises(ValueError, match="host2 authentication missing"):
+        perform_oauth_checkpoint(
+            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
+            lambda prompt: "", fake_spawn,
+        )
+    assert auth_seen == ["claude-code", "codex"]
+
+
+def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
+    def fake_spawn(command, cwd, env):
+        if command[0:2] == ["claude", "-p"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="offline")
+        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+
+    with pytest.raises(ValueError, match="liveness"):
+        perform_oauth_checkpoint(
+            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
+            lambda prompt: "", fake_spawn,
+        )
+
+
+def test_oauth_checkpoint_rejects_multi_token_claude_liveness(tmp_path):
+    def fake_spawn(command, cwd, env):
+        output = "too many tokens" if command[0:2] == ["claude", "-p"] else "2.1.202 0.142.5"
+        return SimpleNamespace(returncode=0, stdout=output, stderr="")
+
+    with pytest.raises(ValueError, match="one token"):
+        perform_oauth_checkpoint(
+            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
+            lambda prompt: "", fake_spawn,
+        )
+
+
+@pytest.mark.parametrize("pattern", ["*.jsonl", "rollout-*.jsonl"])
+@pytest.mark.parametrize("case", ["clean", "foreign-new", "foreign-modified", "duplicate-owned"])
+def test_capture_window_requires_one_owned_and_zero_foreign_candidates(tmp_path, pattern, case):
+    root = tmp_path / "store"
+    root.mkdir()
+    foreign = root / ("rollout-foreign.jsonl" if pattern.startswith("rollout") else "foreign.jsonl")
+    if case == "foreign-modified":
+        foreign.write_text("old", encoding="utf-8")
+    before = capture_inventory(root, pattern)
+    owned = root / ("rollout-owned.jsonl" if pattern.startswith("rollout") else "owned.jsonl")
+    owned.write_text("TOKEN", encoding="utf-8")
+    if case == "foreign-new":
+        foreign.write_text("foreign", encoding="utf-8")
+    elif case == "foreign-modified":
+        foreign.write_text("changed", encoding="utf-8")
+    elif case == "duplicate-owned":
+        duplicate = root / "nested" / owned.name
+        duplicate.parent.mkdir()
+        duplicate.write_text("TOKEN", encoding="utf-8")
+    after = capture_inventory(root, pattern)
+
+    if case == "clean":
+        selected, candidates = classify_capture(before, after, "TOKEN")
+        assert selected == owned
+        assert candidates == [owned]
+    else:
+        with pytest.raises(ValueError, match="capture ambiguity"):
+            classify_capture(before, after, "TOKEN")
+
+
+def test_cleanup_report_discloses_foreign_but_never_suggests_it_for_cleanup(tmp_path):
+    owned = tmp_path / "owned.jsonl"
+    foreign = tmp_path / "foreign.jsonl"
+    report = format_cleanup_report([owned, foreign], [owned])
+    disclosure, cleanup = report.split("Ownership-proven cleanup candidates (not deleted):\n")
+    assert str(foreign) in disclosure
+    assert str(foreign) not in cleanup
+    assert str(owned) in cleanup
+
+
+def test_failed_seed_leg_still_classifies_every_changed_candidate(tmp_path):
+    root = tmp_path / "store"
+    root.mkdir()
+    owned = root / "owned.jsonl"
+    foreign = root / "foreign.jsonl"
+
+    def failed_command():
+        owned.write_text("TOKEN", encoding="utf-8")
+        foreign.write_text("other", encoding="utf-8")
+        return SimpleNamespace(returncode=1, stdout="", stderr="failed")
+
+    with pytest.raises(e3.CaptureAmbiguity) as caught:
+        e3._capture_seed_leg(root, "*.jsonl", "TOKEN", failed_command)
+    assert caught.value.candidates == [foreign, owned]
+
+
+@pytest.mark.parametrize("foreign_write", [False, True])
+def test_exceptional_seed_leg_still_classifies_every_changed_candidate(tmp_path, foreign_write):
+    root = tmp_path / "store"
+    root.mkdir()
+    owned = root / "owned.jsonl"
+    foreign = root / "foreign.jsonl"
+
+    def timed_out_command():
+        owned.write_text("TOKEN", encoding="utf-8")
+        if foreign_write:
+            foreign.write_text("other", encoding="utf-8")
+        raise e3.subprocess.TimeoutExpired(["agent", "seed"], 120)
+
+    expected = e3.CaptureAmbiguity if foreign_write else e3.CaptureCommandError
+    with pytest.raises(expected) as caught:
+        e3._capture_seed_leg(root, "*.jsonl", "TOKEN", timed_out_command)
+    assert caught.value.candidates == ([foreign, owned] if foreign_write else [owned])
+
+
+def test_credential_decoy_is_planted_in_recognized_formats_and_absent_from_image(tmp_path):
+    sentinel = "synthetic-secret-value"
+    paths = plant_credential_decoys(tmp_path, [sentinel])
+    assert {path.name for path in paths} == {".credentials.json", "auth.json", ".env"}
+    verify_credential_decoys(paths, [sentinel], b"clean image")
+    with pytest.raises(ValueError, match="not planted"):
+        verify_credential_decoys([], [sentinel], b"clean image")
+    with pytest.raises(ValueError, match="credential sentinel found"):
+        verify_credential_decoys(paths, [sentinel], b"image synthetic-secret-value")
+
+
+def test_secret_scan_reads_decompressed_archive_members(tmp_path):
+    sentinel = "compressed-secret-value"
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode="w") as archive:
+        content = f"OPENAI_API_KEY={sentinel}\n".encode()
+        member = tarfile.TarInfo("payload/leak.env")
+        member.size = len(content)
+        archive.addfile(member, io.BytesIO(content))
+    image = tmp_path / "leak.bvpk"
+    image.write_bytes(zstandard.ZstdCompressor().compress(raw.getvalue()))
+
+    assert scan_secret_values(image.read_bytes(), [sentinel]) == []
+    assert scan_image_secret_values(image, [sentinel]) == ["payload/leak.env:secret[0]"]
+
+
+@pytest.mark.parametrize("agent_id", ["claude-code", "codex"])
+def test_exact_install_delta_rejects_extra_or_mutated_files(tmp_path, agent_id):
+    profile = tmp_path / agent_id
+    profile.mkdir()
+    baseline = profile / "config"
+    baseline.write_text("before", encoding="utf-8")
+    before = snapshot_store(profile)
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    restored = tmp_path / "restored"
+    if agent_id == "claude-code":
+        project_key = "".join(ch if ch.isascii() and ch.isalnum() else "-" for ch in restored.as_posix())
+        installed = profile / "projects" / project_key / f"{session_id}.jsonl"
+    else:
+        installed = profile / "sessions" / f"rollout-now-{session_id}.jsonl"
+    installed.parent.mkdir(parents=True)
+    installed.write_text(f'{{"sessionId":"{session_id}","turn":"seed-one seed-two"}}', encoding="utf-8")
+    rows = [{"image_session_id": "old-id", "installed_session_id": session_id}]
+    after = snapshot_store(profile)
+    paths = assert_exact_install_delta(
+        agent_id, profile, restored, rows, before, after, ["seed-one", "seed-two"]
+    )
+    assert paths == [installed]
+
+    extra = profile / "stray-auth.json"
+    extra.write_text("unexpected", encoding="utf-8")
+    with pytest.raises(ValueError, match="exact install delta"):
+        assert_exact_install_delta(
+            agent_id, profile, restored, rows, before, snapshot_store(profile), ["seed-one", "seed-two"]
+        )
+    extra.unlink()
+    baseline.write_text("mutated", encoding="utf-8")
+    with pytest.raises(ValueError, match="exact install delta"):
+        assert_exact_install_delta(
+            agent_id, profile, restored, rows, before, snapshot_store(profile), ["seed-one", "seed-two"]
+        )
+
+
+@pytest.mark.parametrize("agent_id", ["claude-code", "codex"])
+def test_exact_install_delta_rejects_transcript_without_seeded_history(tmp_path, agent_id):
+    profile = tmp_path / agent_id
+    profile.mkdir()
+    before = snapshot_store(profile)
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    restored = tmp_path / "restored"
+    if agent_id == "claude-code":
+        installed = profile / "projects" / e3._project_key(restored) / f"{session_id}.jsonl"
+    else:
+        installed = profile / "sessions" / f"rollout-now-{session_id}.jsonl"
+    installed.parent.mkdir(parents=True)
+    installed.write_text(f'{{"sessionId":"{session_id}"}}', encoding="utf-8")
+    rows = [{"image_session_id": "old-id", "installed_session_id": session_id}]
+
+    with pytest.raises(ValueError, match="seeded history"):
+        assert_exact_install_delta(
+            agent_id, profile, restored, rows, before, snapshot_store(profile),
+            ["seed-one", "seed-two"],
+        )
 
 
 def test_claude_resume_requires_exact_restored_workspace_project_file(tmp_path):
