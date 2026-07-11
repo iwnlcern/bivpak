@@ -1,0 +1,44 @@
+{
+  "id": "e3-dual-resume",
+  "tier": "E3",
+  "classes": ["E3 (real CLI resume in isolated profile)"],
+  "checkpoint_count": 1,
+  "checkpoint_prompt": "Authenticate both CLIs in the isolated host2 profiles, then press Enter: ",
+  "workspace_name": "biv-e3-dual-resume",
+  "host2_profile_root": "host2/profiles",
+  "live_store_roots": ["~/.claude", "~/.codex"],
+  "seed_turns": [
+    "BIV_E3_SEED_TURN_ONE_20260711",
+    "BIV_E3_SEED_TURN_TWO_20260711"
+  ],
+  "resume_probe": "BIV_E3_RESUME_PROBE_20260711",
+  "credential_scan_sentinel": "BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR",
+  "agents": [
+    {
+      "id": "claude-code",
+      "live_profile": "~/.claude",
+      "host2_profile": "claude",
+      "env": {"CLAUDE_CONFIG_DIR": "{profile}"},
+      "auth_status": ["claude", "auth", "status"],
+      "seed_start_command": ["claude", "-p", "BIV_E3_SEED_TURN_ONE_20260711 BIV_E3_CLAUDE_RUN_TOKEN_20260711"],
+      "seed_continue_command": ["claude", "-p", "--resume", "{id}", "BIV_E3_SEED_TURN_TWO_20260711"],
+      "ownership_glob": "*.jsonl",
+      "run_token": "BIV_E3_CLAUDE_RUN_TOKEN_20260711",
+      "resume_command": ["claude", "-p", "--resume", "{id}", "{probe}"],
+      "resume_mutation": "appends-same-file"
+    },
+    {
+      "id": "codex",
+      "live_profile": "~/.codex",
+      "host2_profile": "codex",
+      "env": {"CODEX_HOME": "{profile}"},
+      "auth_status": ["codex", "login", "status"],
+      "seed_start_command": ["codex", "exec", "--skip-git-repo-check", "BIV_E3_SEED_TURN_ONE_20260711 BIV_E3_CODEX_RUN_TOKEN_20260711"],
+      "seed_continue_command": ["codex", "exec", "--skip-git-repo-check", "resume", "{id}", "BIV_E3_SEED_TURN_TWO_20260711"],
+      "ownership_glob": "rollout-*.jsonl",
+      "run_token": "BIV_E3_CODEX_RUN_TOKEN_20260711",
+      "resume_command": ["codex", "exec", "--skip-git-repo-check", "resume", "{id}", "{probe}"],
+      "resume_shape": "appends-same-rollout"
+    }
+  ]
+}
