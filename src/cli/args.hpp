@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <span>
 
+#include "core/open/consent.hpp"
 #include "core/open/open.hpp"
 #include "core/support/error.hpp"
 
@@ -15,6 +16,7 @@ struct Command {
   bool json{false};
   std::filesystem::path pack_dir;
   biv::open::OpenOptions open_options;
+  core_sessions::ConsentSpec consent;
 };
 
 bool contains_json(std::span<char* const> args);

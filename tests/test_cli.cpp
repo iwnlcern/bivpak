@@ -108,3 +108,28 @@ TEST_CASE("CLI reports warning and refusal exit classes") {
   CHECK(missing.out.find("\"kind\": \"ImageUnreadable\"") != std::string::npos);
   std::filesystem::remove_all(root);
 }
+
+TEST_CASE("CLI parses open consent specifications") {
+  const auto root = make_tmp("consent-valid");
+  for (const std::string value : {"yes", "no", "claude-code=yes,codex=no"}) {
+    auto result = run_cmd("open missing.bvpk --consent " + value + " --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("\"kind\": \"ImageUnreadable\"") != std::string::npos);
+  }
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("CLI rejects invalid consent specifications") {
+  const auto root = make_tmp("consent-invalid");
+  const auto check_detail = [&](std::string_view args, std::string_view detail) {
+    auto result = run_cmd(std::string{args} + " --json", root);
+    CHECK(result.code == 5);
+    CHECK(result.out.find("\"kind\": \"UsageError\"") != std::string::npos);
+    CHECK(result.out.find(std::string{detail}) != std::string::npos);
+  };
+  check_detail("open image.bvpk --consent bogus", "consent-value-invalid");
+  check_detail("open image.bvpk --consent claude=yes,claude=no", "consent-duplicate-agent");
+  check_detail("open image.bvpk --consent BadAgent=yes", "consent-agent-grammar");
+  check_detail("pack workspace --consent yes", "unknown-flag");
+  std::filesystem::remove_all(root);
+}
