@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.27)
 project(bivpak CXX)
 
+find_package(SQLite3 REQUIRED)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -55,8 +57,21 @@ target_include_directories(bivcore PUBLIC src)
 target_link_libraries(bivcore PUBLIC simdjson libzstd_static)
 target_compile_options(bivcore PRIVATE -Wall -Wextra -Werror)
 
+# ADAPTER TARGETS
+add_library(biv_adapters STATIC
+  src/adapters/secure_io.cpp
+  src/adapters/rewrite_common.cpp
+  src/adapters/registry.cpp
+  src/adapters/claude_code/claude_code.cpp
+  src/adapters/claude_code/install.cpp
+  src/adapters/codex/codex.cpp
+  src/adapters/codex/install.cpp)
+target_include_directories(biv_adapters PUBLIC src)
+target_link_libraries(biv_adapters PUBLIC simdjson SQLite3::SQLite3)
+target_compile_options(biv_adapters PRIVATE -Wall -Wextra -Werror)
+
 add_executable(biv src/cli/main.cpp src/cli/args.cpp)
-target_link_libraries(biv PRIVATE bivcore)
+target_link_libraries(biv PRIVATE bivcore biv_adapters)
 target_compile_options(biv PRIVATE -Wall -Wextra -Werror)
 
 enable_testing()
@@ -74,12 +89,23 @@ target_sources(biv_tests PRIVATE tests/test_pack.cpp)
 target_sources(biv_tests PRIVATE tests/test_open.cpp)
 target_sources(biv_tests PRIVATE tests/test_envelope.cpp)
 target_sources(biv_tests PRIVATE tests/test_cli.cpp)
-target_link_libraries(biv_tests PRIVATE bivcore Catch2::Catch2WithMain)
+target_sources(biv_tests PRIVATE tests/test_adapters_registry.cpp)
+target_sources(biv_tests PRIVATE tests/test_adapter_claude_collect.cpp)
+target_sources(biv_tests PRIVATE tests/test_adapter_claude_install.cpp)
+target_sources(biv_tests PRIVATE tests/test_adapter_codex_collect.cpp)
+target_sources(biv_tests PRIVATE tests/test_adapter_codex_install.cpp)
+target_link_libraries(biv_tests PRIVATE bivcore biv_adapters Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_tests PRIVATE
   BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
   BIV_BINARY_PATH="$<TARGET_FILE:biv>")
 add_test(NAME biv_tests COMMAND biv_tests)
+add_test(NAME open_no_rewrite_gate
+  COMMAND ${CMAKE_SOURCE_DIR}/tests/check_open_no_rewrite.sh
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+add_test(NAME core_adapter_purity_selftest
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/harness/ci/check_core_adapter_purity.py
+          --self-test)
 
 if(BIV_ENABLE_FUZZ)
   execute_process(

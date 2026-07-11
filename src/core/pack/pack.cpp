@@ -1,24 +1,31 @@
 #include "core/pack/pack.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <cstddef>
 #include <ctime>
 #include <exception>
 #include <fstream>
+#include <optional>
 #include <random>
+#include <set>
 #include <span>
 #include <sstream>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 #include <fcntl.h>
 #include <sys/random.h>
 #include <unistd.h>
 
+#include "adapters/registry.hpp"
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
+#include "core/manifest/agent_member.hpp"
 #include "core/scan/scan.hpp"
 #include "core/support/version.hpp"
 
@@ -171,6 +178,35 @@ expected<std::string> write_payload_member(container::TarWriter& writer,
   return *extent;
 }
 
+expected<std::string> write_file_member(container::TarWriter& writer,
+                                        const adapters::SessionRecord::ArtifactSource& source,
+                                        const std::string_view archive_path,
+                                        const int64_t mtime_s) {
+  const container::MemberMeta meta{
+      .path = std::string{archive_path},
+      .kind = scan::NodeKind::file,
+      .mode = 0644,
+      .mtime_s = mtime_s,
+      .mtime_ns = 0,
+      .size = source.size,
+      .symlink_target = {},
+  };
+  if (auto ok = writer.begin_member(meta); !ok) {
+    return std::unexpected(ok.error());
+  }
+  auto copied = source.stream([&](std::span<const std::byte> chunk) -> expected<void> {
+    return writer.write_data(chunk);
+  });
+  if (!copied) {
+    return std::unexpected(copied.error());
+  }
+  auto extent = writer.end_member();
+  if (!extent) {
+    return std::unexpected(extent.error());
+  }
+  return *extent;
+}
+
 expected<void> write_string_member(container::TarWriter& writer,
                                    std::string_view path,
                                    std::string_view bytes,
@@ -195,6 +231,195 @@ expected<void> write_string_member(container::TarWriter& writer,
     return std::unexpected(extent.error());
   }
   return {};
+}
+
+adapters::Env process_env() {
+  return adapters::Env{
+      .getenv = [](const std::string_view name) -> std::optional<std::string> {
+        const std::string key{name};
+        if (const char* value = std::getenv(key.c_str()); value != nullptr) {
+          return std::string{value};
+        }
+        return std::nullopt;
+      },
+      .home = [] {
+        if (const char* value = std::getenv("HOME"); value != nullptr) {
+          return std::filesystem::path{value};
+        }
+        return std::filesystem::path{};
+      }()};
+}
+
+std::vector<std::string> path_segments(std::string text,
+                                       const manifest::PathFlavor flavor) {
+  if (flavor == manifest::PathFlavor::windows) {
+    if (text.starts_with("\\\\?\\") || text.starts_with("//?/")) {
+      text.erase(0, 4);
+    }
+    std::ranges::replace(text, '\\', '/');
+  } else if (flavor == manifest::PathFlavor::wsl && text.size() >= 7U &&
+             text.starts_with("/mnt/") && text.at(6) == '/') {
+    text = text.substr(5, 1) + ":/" + text.substr(7);
+  }
+  std::vector<std::string> segments;
+  size_t start = 0;
+  while (start <= text.size()) {
+    const auto slash = text.find('/', start);
+    const auto end = slash == std::string::npos ? text.size() : slash;
+    auto segment = text.substr(start, end - start);
+    if (!segment.empty() && segment != ".") {
+      if (flavor != manifest::PathFlavor::posix) {
+        std::ranges::transform(segment, segment.begin(), [](const char value) {
+          return value >= 'A' && value <= 'Z'
+                     ? static_cast<char>(value - 'A' + 'a')
+                     : value;
+        });
+      }
+      if (segment == "..") {
+        if (!segments.empty()) {
+          segments.pop_back();
+        }
+      } else {
+        segments.push_back(std::move(segment));
+      }
+    }
+    if (slash == std::string::npos) {
+      break;
+    }
+    start = slash + 1U;
+  }
+  return segments;
+}
+
+std::string relpath_key_for(const std::filesystem::path& source,
+                            const adapters::SessionRecord& session) {
+  const auto source_flavor = path_flavor(source);
+  const auto source_segments = path_segments(source.generic_string(), source_flavor);
+  const auto original_segments =
+      path_segments(session.original_path, session.path_flavor);
+  if (original_segments.size() < source_segments.size() ||
+      !std::equal(source_segments.begin(), source_segments.end(),
+                  original_segments.begin())) {
+    return ".";
+  }
+  if (original_segments.size() == source_segments.size()) {
+    return ".";
+  }
+  std::string relative;
+  for (size_t i = source_segments.size(); i < original_segments.size(); ++i) {
+    if (!relative.empty()) {
+      relative.push_back('/');
+    }
+    relative += original_segments.at(i);
+  }
+  return relative;
+}
+
+bool agent_id_ok(const std::string_view value) {
+  if (value.empty() || !((value.front() >= 'a' && value.front() <= 'z') ||
+                         (value.front() >= '0' && value.front() <= '9'))) {
+    return false;
+  }
+  return std::ranges::all_of(value.substr(1), [](const char character) {
+    return (character >= 'a' && character <= 'z') ||
+           (character >= '0' && character <= '9') || character == '.' ||
+           character == '_' || character == '-';
+  });
+}
+
+bool session_id_ok(const std::string_view value) {
+  return manifest::grammar::session_id_ok(value);
+}
+
+Warning adapter_warning(const std::string_view encoded) {
+  const auto colon = encoded.find(':');
+  if (colon == std::string_view::npos) {
+    return Warning{.kind = std::string{encoded}, .path = {}};
+  }
+  return Warning{.kind = std::string{encoded.substr(0, colon)},
+                 .path = std::string{encoded.substr(colon + 1U)}};
+}
+
+struct ChildArtifactMatcher {
+  std::string_view child_id;
+
+  bool matches(std::string_view artifact) const {
+    const std::string child_jsonl = std::string{child_id} + ".jsonl";
+    size_t start = 0;
+    while (start <= artifact.size()) {
+      const size_t slash = artifact.find('/', start);
+      const size_t end =
+          slash == std::string_view::npos ? artifact.size() : slash;
+      const std::string_view segment = artifact.substr(start, end - start);
+      if (segment == child_id || segment == child_jsonl ||
+          (segment.starts_with(child_id) && segment.size() > child_id.size() &&
+           segment.at(child_id.size()) == '.')) {
+        return true;
+      }
+      if (slash == std::string_view::npos) {
+        break;
+      }
+      start = slash + 1U;
+    }
+    return false;
+  }
+};
+
+manifest::AgentSessionEntry manifest_entry_for(const adapters::SessionRecord& session,
+                                               const std::filesystem::path& source,
+                                               const std::string& imported_at) {
+  std::vector<manifest::SessionChild> children;
+  std::vector<std::string> parent_artifacts;
+  for (const auto& child_id : session.child_ids) {
+    const ChildArtifactMatcher child_matcher{.child_id = child_id};
+    std::vector<std::string> child_artifacts;
+    for (const auto& artifact : session.artifacts) {
+      if (child_matcher.matches(artifact)) {
+        child_artifacts.push_back(artifact);
+      }
+    }
+    children.push_back(manifest::SessionChild{.original_id = child_id, .artifacts = std::move(child_artifacts)});
+  }
+  for (const auto& artifact : session.artifacts) {
+    const bool belongs_to_child = std::ranges::any_of(session.child_ids, [&](const std::string& child_id) {
+      return ChildArtifactMatcher{.child_id = child_id}.matches(artifact);
+    });
+    if (!belongs_to_child) {
+      parent_artifacts.push_back(artifact);
+    }
+  }
+
+  return manifest::AgentSessionEntry{
+      .agent = session.agent,
+      .agent_version_at_pack = session.agent_version_at_pack,
+      .relpath_key = relpath_key_for(source, session),
+      .original_path = session.original_path,
+      .normalized_path_key = session.normalized_path_key,
+      .normalization_scheme = session.normalization_scheme,
+      .path_flavor = session.path_flavor,
+      .provenance = session.provenance,
+      .original_session_ids = {.primary = session.original_session_id,
+                               .parent = session.parent_id,
+                               .parent_in_image =
+                                   session.parent_id.has_value()
+                                       ? std::optional<bool>{false}
+                                       : std::nullopt},
+      .children = std::move(children),
+      .artifacts = std::move(parent_artifacts),
+      .live_at_pack = session.live_at_pack,
+      .imported_at = imported_at,
+      .entry_schema = 1};
+}
+
+void add_summary(PackReport& report, std::string_view agent) {
+  auto found = std::ranges::find_if(report.agent_sessions_summary, [&](const AgentSessionsSummary& summary) {
+    return summary.agent == agent;
+  });
+  if (found == report.agent_sessions_summary.end()) {
+    report.agent_sessions_summary.push_back(AgentSessionsSummary{.agent = std::string{agent}, .session_count = 1});
+  } else {
+    ++found->session_count;
+  }
 }
 
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink) {
@@ -280,14 +505,103 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         Advisory{.kind = "nested-bivignore-ignored", .entries = {}, .paths = scan_result->nested_bivignore});
   }
 
+  const auto created = now_stamp();
+  std::vector<adapters::SessionRecord> collected_sessions;
+  std::set<std::pair<std::string, std::string>> emitted_agent_sessions;
+  std::set<std::string> emitted_members{"manifest.json", "checksums.json"};
+  for (const auto& node : scan_result->payload) {
+    emitted_members.insert("payload/" + node.relpath);
+  }
+  const auto env = process_env();
+  for (const auto* adapter : adapters::all_adapters()) {
+    if (!agent_id_ok(adapter->id())) {
+      return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                    "adapter-id-grammar"});
+    }
+    auto stores = adapter->discover(env);
+    if (!stores) {
+      return cleanup_error(stores.error());
+    }
+    if (stores->empty()) {
+      continue;
+    }
+    auto collected = adapter->collect(source, *stores);
+    if (!collected) {
+      return cleanup_error(collected.error());
+    }
+    for (const auto& path : collected->no_cwd_record) {
+      report.warnings.push_back(
+          Warning{.kind = "SessionNoCwdRecord", .path = path});
+    }
+    for (const auto& warning : collected->warnings) {
+      report.warnings.push_back(adapter_warning(warning));
+    }
+    for (auto& session : collected->sessions) {
+      if (session.agent != adapter->id() || !agent_id_ok(session.agent) ||
+          !session_id_ok(session.original_session_id) ||
+          session.artifacts.empty() ||
+          session.artifacts.size() != session.artifact_sources.size() ||
+          !emitted_agent_sessions
+               .insert({session.agent, session.original_session_id})
+               .second) {
+        return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                      "adapter-session-invalid"});
+      }
+      for (const auto& child_id : session.child_ids) {
+        if (!session_id_ok(child_id)) {
+          return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                        "adapter-session-id"});
+        }
+      }
+      if (session.parent_id.has_value() && !session_id_ok(*session.parent_id)) {
+        return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                      "adapter-parent-session-id"});
+      }
+      for (const auto& artifact : session.artifacts) {
+        if (!manifest::grammar::agent_member_ok(
+                manifest::grammar::AgentId{session.agent},
+                manifest::grammar::MemberPath{artifact}) ||
+            !emitted_members.insert(artifact).second) {
+          return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, artifact,
+                                        "adapter-member-invalid"});
+        }
+      }
+      if (session.live_at_pack) {
+        report.warnings.push_back(Warning{.kind = "SessionLiveAtPack",
+                                          .path = session.original_session_id});
+      }
+      auto entry = manifest_entry_for(session, source, created.rfc3339);
+      if (entry.artifacts.empty()) {
+        return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
+                                      "adapter-parent-artifacts-empty"});
+      }
+      report.agent_sessions.push_back(std::move(entry));
+      add_summary(report, session.agent);
+      collected_sessions.push_back(std::move(session));
+    }
+  }
+
+  std::set<std::pair<std::string, std::string>> image_session_ids;
+  for (const auto& entry : report.agent_sessions) {
+    image_session_ids.insert({entry.agent, entry.original_session_ids.primary});
+  }
+  for (auto& entry : report.agent_sessions) {
+    if (entry.original_session_ids.parent.has_value() &&
+        image_session_ids.contains(
+            {entry.agent, *entry.original_session_ids.parent})) {
+      entry.original_session_ids.parent_in_image = std::nullopt;
+    }
+  }
+
   {
     std::ofstream spool{spool_path, std::ios::binary};
     if (!spool) {
       return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, spool_path.generic_string()});
     }
-    container::TarWriter spool_writer{[&](std::span<const std::byte> chunk) -> expected<void> {
-      return write_bytes(spool, chunk, spool_path);
-    }};
+    container::TarWriter spool_writer{
+        [&](std::span<const std::byte> chunk) -> expected<void> {
+          return write_bytes(spool, chunk, spool_path);
+        }};
     for (const auto& node : scan_result->payload) {
       auto extent = write_payload_member(spool_writer, source, node);
       if (!extent) {
@@ -300,12 +614,22 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         report.payload_bytes += node.size;
       }
     }
+    for (const auto& session : collected_sessions) {
+      for (size_t i = 0; i < session.artifacts.size(); ++i) {
+        auto extent = write_file_member(spool_writer, session.artifact_sources.at(i), session.artifacts.at(i),
+                                        created.seconds);
+        if (!extent) {
+          return cleanup_error(extent.error());
+        }
+        checksums.entries[session.artifacts.at(i)] = std::move(*extent);
+        ++report.member_count;
+      }
+    }
     if (auto ok = spool_writer.finish(); !ok) {
       return cleanup_error(ok.error());
     }
   }
 
-  const auto created = now_stamp();
   const manifest::Manifest manifest_model{
       .format_version = manifest::kFormatVersion,
       .required_capabilities = {},
@@ -314,6 +638,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .created_at = created.rfc3339,
       .source_path = source.generic_string(),
       .source_path_flavor = report.flavor,
+      .agent_sessions = report.agent_sessions,
       .bivignore = scan_result->bivignore,
   };
   const std::string manifest_json = manifest::serialize(manifest_model);

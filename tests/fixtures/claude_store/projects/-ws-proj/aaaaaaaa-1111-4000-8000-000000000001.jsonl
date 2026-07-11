@@ -1,0 +1,7 @@
+{"type":"last-prompt","leafUuid":"leaf-1","sessionId":"aaaaaaaa-1111-4000-8000-000000000001"}
+{"type":"mode","mode":"default","sessionId":"aaaaaaaa-1111-4000-8000-000000000001"}
+{"type":"permission-mode","permissionMode":"default","sessionId":"aaaaaaaa-1111-4000-8000-000000000001"}
+{"type":"bridge-session","sessionId":"aaaaaaaa-1111-4000-8000-000000000001","bridgeSessionId":"bbbb-1111-4000-8000-000000000001","lastSequenceNum":3}
+{"type":"attachment","cwd":"/ws/proj","sessionId":"aaaaaaaa-1111-4000-8000-000000000001","version":"2.1.202"}
+{"type":"user","cwd":"/ws/proj","uuid":"u1","parentUuid":null,"sessionId":"aaaaaaaa-1111-4000-8000-000000000001","message":"hello"}
+{"type":"assistant","cwd":"/ws/proj","uuid":"a1","parentUuid":"u1","sessionId":"aaaaaaaa-1111-4000-8000-000000000001","message":"ok"}

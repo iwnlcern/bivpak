@@ -57,13 +57,6 @@ void write_advisories(json::Writer& writer, const std::vector<pack::Advisory>& a
     writer.value_string(advisory.kind);
     if (advisory.kind == "prune-summary") {
       write_prune_entries(writer, advisory.entries);
-    } else if (advisory.kind == "credential-floor") {
-      writer.key("count");
-      writer.value_int(static_cast<int64_t>(advisory.paths.size()));
-      writer.key("rules");
-      writer.begin_object();
-      writer.end_object();
-      write_paths(writer, advisory.paths);
     } else {
       write_paths(writer, advisory.paths);
     }
@@ -72,7 +65,9 @@ void write_advisories(json::Writer& writer, const std::vector<pack::Advisory>& a
   writer.end_array();
 }
 
-void write_empty_manifest_summary(json::Writer& writer, int format_version) {
+void write_manifest_summary(json::Writer& writer,
+                            int format_version,
+                            const std::vector<pack::AgentSessionsSummary>& agent_sessions) {
   writer.key("manifest");
   writer.begin_object();
   writer.key("format_version");
@@ -82,8 +77,20 @@ void write_empty_manifest_summary(json::Writer& writer, int format_version) {
   writer.end_array();
   writer.key("agent_sessions");
   writer.begin_array();
+  for (const auto& summary : agent_sessions) {
+    writer.begin_object();
+    writer.key("agent");
+    writer.value_string(summary.agent);
+    writer.key("session_count");
+    writer.value_int(static_cast<int64_t>(summary.session_count));
+    writer.end_object();
+  }
   writer.end_array();
   writer.end_object();
+}
+
+void write_empty_manifest_summary(json::Writer& writer, int format_version) {
+  write_manifest_summary(writer, format_version, {});
 }
 
 void write_pack_result(json::Writer& writer, const pack::PackReport& report) {
@@ -99,7 +106,7 @@ void write_pack_result(json::Writer& writer, const pack::PackReport& report) {
   writer.value_int(static_cast<int64_t>(report.member_count));
   writer.key("payload_bytes");
   writer.value_int(static_cast<int64_t>(report.payload_bytes));
-  write_empty_manifest_summary(writer, manifest::kFormatVersion);
+  write_manifest_summary(writer, manifest::kFormatVersion, report.agent_sessions_summary);
 }
 
 void write_open_result(json::Writer& writer, const open::OpenReport& report) {

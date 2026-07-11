@@ -32,6 +32,89 @@
       }
     },
     "repos": {"type": "array"},
-    "agent_sessions": {"type": "array"}
-  }
+    "agent_sessions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "agent",
+          "entry_schema"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {"entry_schema": {"const": 1}},
+              "required": ["entry_schema"]
+            },
+            "then": {
+              "required": [
+          "agent",
+          "agent_version_at_pack",
+          "relpath_key",
+          "original_path",
+          "normalized_path_key",
+          "normalization_scheme",
+          "path_flavor",
+          "provenance",
+          "original_session_ids",
+          "children",
+          "artifacts",
+          "live_at_pack",
+          "imported_at",
+          "entry_schema"
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "agent": {"type": "string"},
+          "agent_version_at_pack": {"type": "string"},
+          "relpath_key": {"type": "string"},
+          "original_path": {"type": "string"},
+          "normalized_path_key": {"type": "string"},
+          "normalization_scheme": {"type": "string"},
+          "path_flavor": {"enum": ["posix", "windows", "wsl"]},
+          "provenance": {
+            "type": "object",
+            "required": ["store_root", "locator", "discovery_tier", "archived"],
+            "properties": {
+              "store_root": {"type": "string"},
+              "locator": {"type": "string"},
+              "discovery_tier": {"type": "string"},
+              "archived": {"type": "boolean"}
+            },
+            "additionalProperties": true
+          },
+          "original_session_ids": {
+            "type": "object",
+            "required": ["primary"],
+            "properties": {
+              "primary": {"type": "string", "minLength": 1},
+              "parent": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+              "parent_in_image": {"type": "boolean"}
+            },
+            "additionalProperties": true
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["original_id", "artifacts"],
+              "properties": {
+                "original_id": {"type": "string", "minLength": 1},
+                "artifacts": {"type": "array", "items": {"type": "string", "pattern": "^(?!.*[\\x00-\\x1F\\x7F\\\\])agents/[a-z0-9][a-z0-9._-]*/(?!\\.{1,2}(?:/|$))(?![^/]*:)[^/]+(?:/(?!\\.{1,2}(?:/|$))[^/]+)*$"}}
+              },
+              "additionalProperties": true
+            }
+          },
+          "artifacts": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^(?!.*[\\x00-\\x1F\\x7F\\\\])agents/[a-z0-9][a-z0-9._-]*/(?!\\.{1,2}(?:/|$))(?![^/]*:)[^/]+(?:/(?!\\.{1,2}(?:/|$))[^/]+)*$"}},
+          "live_at_pack": {"type": "boolean"},
+          "imported_at": {"type": "string"},
+          "entry_schema": {"type": "integer", "minimum": 1}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
 }

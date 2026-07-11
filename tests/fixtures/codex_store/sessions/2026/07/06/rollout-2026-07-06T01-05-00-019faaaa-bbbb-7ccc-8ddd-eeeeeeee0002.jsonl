@@ -1,0 +1,2 @@
+{"timestamp":"2026-07-06T01:05:00Z","type":"session_meta","payload":{"id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee0002","session_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee0002","cwd":"/ws/proj/sub","cli_version":"0.142.5","thread_source":"subagent","parent_thread_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001","source":{"subagent":{"thread_spawn":{"parent_thread_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001"}}}}}
+{"timestamp":"2026-07-06T01:06:00Z","type":"turn_context","payload":{"cwd":"/ws/proj/sub","workspace_roots":["/ws/proj"]}}

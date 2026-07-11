@@ -49,16 +49,6 @@
           },
           {
             "type": "object",
-            "required": ["kind", "count", "rules", "paths"],
-            "properties": {
-              "kind": {"const": "credential-floor"},
-              "count": {"type": "integer"},
-              "rules": {"type": "object", "additionalProperties": {"type": "integer"}},
-              "paths": {"type": "array", "items": {"type": "string"}}
-            }
-          },
-          {
-            "type": "object",
             "required": ["kind", "paths"],
             "properties": {
               "kind": {"const": "nested-bivignore-ignored"},
@@ -90,7 +80,17 @@
               "properties": {
                 "format_version": {"type": "integer"},
                 "repos": {"type": "array"},
-                "agent_sessions": {"type": "array"}
+                "agent_sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["agent", "session_count"],
+                    "properties": {
+                      "agent": {"type": "string"},
+                      "session_count": {"type": "integer"}
+                    }
+                  }
+                }
               }
             }
           }

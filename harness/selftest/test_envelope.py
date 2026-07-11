@@ -10,9 +10,9 @@ from test_specs import SCENARIOS, STUB
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RELEASED_R_S2_1_SCHEMA_BLOBS = {
-    "schemas/biv-json-envelope.v1.schema.json": "5d7fa6ef1ac740b3b8c2f1677b03a8c4cff30f62",
-    "schemas/biv-exit-map.v1.json": "6ac32d7072ee4c2415ce176e34e6561922b3cca4",
+CURRENT_LOCKED_SCHEMA_BLOBS = {
+    "schemas/biv-json-envelope.v1.schema.json": "e2e15e881c0305ff1269d1794c2d6a7789913894",
+    "schemas/biv-exit-map.v1.json": "278cbfe55a520f6ee80a969dfc5a4a02c42ae1c9",
 }
 
 
@@ -20,13 +20,13 @@ def _git_blob_id(data: bytes) -> str:
     return hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\0" + data).hexdigest()
 
 
-def test_vendored_schema_artifacts_match_released_r_s2_1_bytes():
+def test_vendored_schema_artifacts_match_current_locked_bytes():
     actual = {
         path: _git_blob_id((REPO_ROOT / path).read_bytes())
-        for path in RELEASED_R_S2_1_SCHEMA_BLOBS
+        for path in CURRENT_LOCKED_SCHEMA_BLOBS
     }
 
-    assert actual == RELEASED_R_S2_1_SCHEMA_BLOBS
+    assert actual == CURRENT_LOCKED_SCHEMA_BLOBS
 
 
 def test_fv99_spec_asserts_reconciled_exit_and_error_kind(monkeypatch, tmp_path):

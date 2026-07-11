@@ -1,0 +1,2 @@
+{"timestamp":"2026-07-06T04:00:00Z","type":"session_meta","payload":{"id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee0003","session_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee0003","cwd":"/ws/proj","cli_version":"0.142.7","thread_source":"cli"}}
+{"timestamp":"2026-07-06T04:01:00Z","type":"turn_context","payload":{"cwd":"/ws/proj","workspace_roots":["/ws/proj"]}}

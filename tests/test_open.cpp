@@ -73,6 +73,7 @@ biv::manifest::Manifest manifest_model(int format_version = 1) {
       .created_at = "2026-07-05T00:00:00Z",
       .source_path = "/tmp/source",
       .source_path_flavor = biv::manifest::PathFlavor::posix,
+      .agent_sessions = {},
       .bivignore = {.source = "builtin", .builtin_id = "builtin-v1", .sha256_hex = "abc123"}};
 }
 

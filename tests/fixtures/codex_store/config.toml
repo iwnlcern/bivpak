@@ -1,0 +1,2 @@
+model = "gpt-5"
+sqlite_home = "/tmp/codex-sqlite-decoy"
