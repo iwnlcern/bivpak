@@ -36,6 +36,16 @@ const char* to_string(const ErrKind kind) noexcept {
       return "IntegrityFailureMidApply";
     case ErrKind::RestoreWriteFailed:
       return "RestoreWriteFailed";
+    case ErrKind::ContainmentRefused:
+      return "ContainmentRefused";
+    case ErrKind::SessionInstallFailed:
+      return "SessionInstallFailed";
+    case ErrKind::UnknownAgentSkipped:
+      return "UnknownAgentSkipped";
+    case ErrKind::SessionsConsentSkipped:
+      return "SessionsConsentSkipped";
+    case ErrKind::AgentNotValidatedFailed:
+      return "AgentNotValidatedFailed";
     case ErrKind::InternalError:
       return "InternalError";
     case ErrKind::UsageError:

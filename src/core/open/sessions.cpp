@@ -115,7 +115,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .reason = "unknown-agent",
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
-                                                .activation_suppressed = false});
+                                                .activation_suppressed = false,
+                                                .live_at_pack = entry.live_at_pack});
       } else if (entry.entry_schema > 1) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
@@ -123,7 +124,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .reason = "entry-schema",
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
-                                                .activation_suppressed = false});
+                                                .activation_suppressed = false,
+                                                .live_at_pack = entry.live_at_pack});
       } else {
         eligible.push_back(entry);
       }
@@ -139,7 +141,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .reason = "consent-denied",
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
-                                                .activation_suppressed = false});
+                                                .activation_suppressed = false,
+                                                .live_at_pack = entry.live_at_pack});
       }
       continue;
     }
@@ -154,7 +157,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .reason = absent ? "store-absent" : "not-validated",
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
-                                                .activation_suppressed = true});
+                                                .activation_suppressed = true,
+                                                .live_at_pack = entry.live_at_pack});
       }
       continue;
     }
@@ -172,7 +176,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .reason = failure_reason(installed.error()),
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
-                                                .activation_suppressed = true});
+                                                .activation_suppressed = true,
+                                                .live_at_pack = entry.live_at_pack});
       }
       continue;
     }
@@ -186,7 +191,14 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                               .reason = row.reason,
                               .installed_session_id = installed_id(installed->id_map, row.image_session_id),
                               .host_version_unverified = row.host_version_unverified,
-                              .activation_suppressed = verify_hits};
+                              .activation_suppressed = verify_hits,
+                              .live_at_pack = false};
+      const auto source = std::ranges::find_if(manifest.agent_sessions, [&](const auto& entry) {
+        return entry.agent == agent.agent && entry.original_session_ids.primary == row.image_session_id;
+      });
+      if (source != manifest.agent_sessions.end()) {
+        report.live_at_pack = source->live_at_pack;
+      }
       if (verify_hits) {
         report.reason = "verify-hits";
       } else if (row.outcome == adapters::InstallSessionOutcome::Outcome::installed) {

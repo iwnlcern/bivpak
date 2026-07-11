@@ -2,6 +2,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -130,6 +131,11 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
       {"OpenPartialPresent", "refusal", biv::report::exit_for_error(biv::ErrKind::OpenPartialPresent)},
       {"IntegrityFailureMidApply", "mid-fail", biv::report::exit_for_error(biv::ErrKind::IntegrityFailureMidApply)},
       {"RestoreWriteFailed", "mid-fail", biv::report::exit_for_error(biv::ErrKind::RestoreWriteFailed)},
+      {"ContainmentRefused", "divergence", biv::report::exit_for_error(biv::ErrKind::ContainmentRefused)},
+      {"SessionInstallFailed", "divergence", biv::report::exit_for_error(biv::ErrKind::SessionInstallFailed)},
+      {"UnknownAgentSkipped", "divergence", biv::report::exit_for_error(biv::ErrKind::UnknownAgentSkipped)},
+      {"SessionsConsentSkipped", "advisory", biv::report::exit_for_error(biv::ErrKind::SessionsConsentSkipped)},
+      {"AgentNotValidatedFailed", "divergence", biv::report::exit_for_error(biv::ErrKind::AgentNotValidatedFailed)},
       {"InternalError", "mid-fail", biv::report::exit_for_error(biv::ErrKind::InternalError)},
       {"UsageError", "usage", biv::report::exit_for_error(biv::ErrKind::UsageError)}};
   for (const auto& row : rows) {
@@ -154,4 +160,61 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
   CHECK(envelope_text.find("\"refused\"") != std::string::npos);
   CHECK(envelope_text.find("exit_code") != std::string::npos);
   CHECK(envelope_text.find("partial_dir") != std::string::npos);
+}
+
+TEST_CASE("session exit composition uses typed skip reasons") {
+  biv::core_sessions::SessionsOutcome consent;
+  consent.rows.push_back({.agent = "future-tool",
+                          .image_session_id = "a",
+                          .row = biv::core_sessions::SessionRowReport::Row::skipped,
+                          .reason = "consent-denied",
+                          .installed_session_id = std::nullopt,
+                          .host_version_unverified = false,
+                          .activation_suppressed = false,
+                          .live_at_pack = false});
+  CHECK(biv::report::exit_for_sessions(consent) == 0);
+
+  auto unknown = consent;
+  unknown.rows.front().reason = "unknown-agent";
+  CHECK(biv::report::exit_for_sessions(unknown) == 2);
+
+  unknown.rows.push_back(consent.rows.front());
+  CHECK(biv::report::exit_for_sessions(unknown) == 2);
+
+  auto failed = consent;
+  failed.rows.front().row = biv::core_sessions::SessionRowReport::Row::failed;
+  failed.rows.front().reason = "store-absent";
+  CHECK(biv::report::exit_for_sessions(failed) == 2);
+  CHECK(biv::report::exit_for_sessions({}) == 0);
+}
+
+TEST_CASE("open envelope includes typed sessions report") {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  sessions.warning_shown = true;
+  sessions.consent.source = biv::core_sessions::ConsentSource::flag;
+  sessions.consent.per_agent = {{"future-tool", true}};
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  preview.parent_count = 1;
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back({.agent = "future-tool",
+                                   .image_session_id = "old",
+                                   .row = biv::core_sessions::SessionRowReport::Row::installed,
+                                   .reason = std::nullopt,
+                                   .installed_session_id = "new",
+                                   .host_version_unverified = false,
+                                   .activation_suppressed = false,
+                                   .live_at_pack = false});
+
+  const auto json = biv::report::envelope("open", std::nullopt, opened, std::nullopt, 0, sessions);
+  CHECK(json.find("\"sessions\"") != std::string::npos);
+  CHECK(json.find("\"warning_shown\": true") != std::string::npos);
+  CHECK(json.find("\"installed_session_id\": \"new\"") != std::string::npos);
+  CHECK(json.find("\"session_count\": 1") != std::string::npos);
 }

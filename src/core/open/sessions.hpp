@@ -44,6 +44,7 @@ struct SessionRowReport {
   std::optional<std::string> installed_session_id;
   bool host_version_unverified{false};
   bool activation_suppressed{false};
+  bool live_at_pack{false};
 };
 
 struct SessionsOutcome {
