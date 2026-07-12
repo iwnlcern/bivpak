@@ -300,7 +300,7 @@ def test_first_leg_owned_path_survives_every_continuation_failure(tmp_path, fail
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     session_id = "aaaaaaaa-1111-4111-8111-111111111111"
-    transcript = root / f"{session_id}.jsonl"
+    transcript = _scoped_claude_transcript(root, workspace, session_id)
     foreign = root / "foreign.jsonl"
     calls = 0
 
@@ -354,6 +354,155 @@ def _retry_seed_agent():
     }
 
 
+def _scoped_claude_transcript(root, workspace, session_id):
+    project = root / "projects" / e3._project_key(workspace)
+    project.mkdir(parents=True, exist_ok=True)
+    return project / f"{session_id}.jsonl"
+
+
+def test_runtime_tokens_are_distinct_between_invocations():
+    spec = {
+        "agents": [
+            {"id": "claude-code", "run_token_prefix": "BIV_E3_CLAUDE_RUN_TOKEN"},
+            {"id": "codex", "run_token_prefix": "BIV_E3_CODEX_RUN_TOKEN"},
+        ]
+    }
+
+    first = e3.materialize_run_tokens(spec)
+    second = e3.materialize_run_tokens(spec)
+
+    assert [agent["run_token"] for agent in first["agents"]] != [
+        agent["run_token"] for agent in second["agents"]
+    ]
+    assert all("run_token" not in agent for agent in spec["agents"])
+
+
+@pytest.mark.parametrize(
+    "foreign_token",
+    [
+        "BIV_E3_CLAUDE_RUN_TOKEN",
+        "THIS_INVOCATION_TOKEN"[:-1],
+        "THIS_INVOCATION_TOKEN_SUFFIX",
+        "OTHER_INVOCATION_TOKEN",
+    ],
+)
+def test_failed_empty_start_never_adopts_non_exact_invocation_token(tmp_path, foreign_token):
+    root = tmp_path / "store"
+    root.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    transcript = _scoped_claude_transcript(root, workspace, session_id)
+    commands = []
+
+    def fake_spawn(command, cwd, env):
+        commands.append(command)
+        transcript.write_text(f"{foreign_token}\nseed-one\n", encoding="utf-8")
+        return SimpleNamespace(returncode=1, stdout="", stderr="transient")
+
+    agent = {
+        **_retry_seed_agent(),
+        "run_token_prefix": "BIV_E3_CLAUDE_RUN_TOKEN",
+        "run_token": "THIS_INVOCATION_TOKEN",
+    }
+    candidates = []
+    owned = []
+    with pytest.raises(ValueError, match="capture ambiguity"):
+        e3._seed_agent(
+            agent, root, workspace, {"seed_turns": ["seed-one", "seed-two"]},
+            {}, fake_spawn, candidates, owned,
+        )
+
+    assert len(commands) == 1
+    assert candidates == [transcript]
+    assert owned == []
+
+
+def test_failed_start_resumes_candidate_with_this_invocations_exact_token(tmp_path):
+    root = tmp_path / "store"
+    root.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    transcript = _scoped_claude_transcript(root, workspace, session_id)
+    commands = []
+
+    def fake_spawn(command, cwd, env):
+        commands.append(command)
+        if len(commands) == 1:
+            transcript.write_text("THIS_INVOCATION_TOKEN\nseed-one\n", encoding="utf-8")
+            return SimpleNamespace(returncode=1, stdout="", stderr="transient")
+        if len(commands) == 2:
+            transcript.write_text("THIS_INVOCATION_TOKEN\nseed-one\nretry-reply\n", encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="reply", stderr="")
+        transcript.write_text("THIS_INVOCATION_TOKEN\nseed-one\nseed-two\n", encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout="reply", stderr="")
+
+    agent = {
+        **_retry_seed_agent(),
+        "run_token_prefix": "BIV_E3_CLAUDE_RUN_TOKEN",
+        "run_token": "THIS_INVOCATION_TOKEN",
+        "seed_start_command": ["agent", "start", "{run_token}"],
+        "seed_retry_resume_command": ["agent", "retry-resume", "{id}", "{run_token}"],
+        "seed_continue_command": ["agent", "continue", "{id}", "{run_token}"],
+    }
+    selected = e3._seed_agent(
+        agent, root, workspace,
+        {"id": "scenario-id", "seed_turns": ["seed-one", "seed-two"]},
+        {}, fake_spawn, [], [],
+    )
+
+    assert selected == transcript
+    assert commands[1] == ["agent", "retry-resume", session_id, "THIS_INVOCATION_TOKEN"]
+    assert commands[2] == ["agent", "continue", session_id, "THIS_INVOCATION_TOKEN"]
+
+
+def test_claude_token_outside_seed_workspace_project_is_foreign(tmp_path):
+    root = tmp_path / "store"
+    root.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    foreign_project = root / "projects" / "foreign-workspace"
+    foreign_project.mkdir(parents=True)
+    transcript = foreign_project / "aaaaaaaa-1111-4111-8111-111111111111.jsonl"
+    calls = 0
+
+    def fake_spawn(command, cwd, env):
+        nonlocal calls
+        calls += 1
+        transcript.write_text("THIS_INVOCATION_TOKEN\nseed-one\n", encoding="utf-8")
+        return SimpleNamespace(returncode=1, stdout="", stderr="transient")
+
+    agent = {
+        **_retry_seed_agent(),
+        "run_token": "THIS_INVOCATION_TOKEN",
+    }
+    candidates = []
+    owned = []
+    with pytest.raises(ValueError, match="capture ambiguity"):
+        e3._seed_agent(
+            agent, root, workspace, {"seed_turns": ["seed-one", "seed-two"]},
+            {}, fake_spawn, candidates, owned,
+        )
+
+    assert calls == 1
+    assert candidates == [transcript]
+    assert owned == []
+
+
+@pytest.mark.parametrize("agent_id", ["claude-code", "codex"])
+def test_capture_path_proof_rejects_malformed_session_uuid(tmp_path, agent_id):
+    root = tmp_path / "store"
+    workspace = tmp_path / "workspace"
+    malformed = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    if agent_id == "claude-code":
+        path = root / "projects" / e3._project_key(workspace) / f"{malformed}.jsonl"
+    else:
+        path = root / "sessions" / f"rollout-2026-07-11-{malformed}.jsonl"
+
+    assert not e3._capture_path_proof(agent_id, path, root, workspace)
+
+
 @pytest.mark.parametrize("first_shape", ["wrote-owned", "wrote-nothing"])
 def test_first_seed_retry_resumes_owned_or_restarts_empty_window(tmp_path, first_shape):
     root = tmp_path / "store"
@@ -361,7 +510,7 @@ def test_first_seed_retry_resumes_owned_or_restarts_empty_window(tmp_path, first
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     session_id = "aaaaaaaa-1111-4111-8111-111111111111"
-    transcript = root / f"{session_id}.jsonl"
+    transcript = _scoped_claude_transcript(root, workspace, session_id)
     commands = []
 
     def fake_spawn(command, cwd, env):
@@ -395,8 +544,8 @@ def test_first_seed_retry_rejects_ambiguous_or_foreign_window(tmp_path, first_sh
     root.mkdir()
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    first = root / "aaaaaaaa-1111-4111-8111-111111111111.jsonl"
-    second = root / "bbbbbbbb-1111-4111-8111-111111111111.jsonl"
+    first = _scoped_claude_transcript(root, workspace, "aaaaaaaa-1111-4111-8111-111111111111")
+    second = first.parent / "bbbbbbbb-1111-4111-8111-111111111111.jsonl"
     foreign = root / "foreign.jsonl"
     calls = 0
 
@@ -427,7 +576,7 @@ def test_first_seed_retry_rejects_resume_after_midfail_rejection(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     session_id = "aaaaaaaa-1111-4111-8111-111111111111"
-    transcript = root / f"{session_id}.jsonl"
+    transcript = _scoped_claude_transcript(root, workspace, session_id)
     commands = []
 
     def fake_spawn(command, cwd, env):
@@ -452,7 +601,7 @@ def test_second_seed_turn_retries_same_resume_command_once(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     session_id = "aaaaaaaa-1111-4111-8111-111111111111"
-    transcript = root / f"{session_id}.jsonl"
+    transcript = _scoped_claude_transcript(root, workspace, session_id)
     commands = []
 
     def fake_spawn(command, cwd, env):
@@ -486,6 +635,17 @@ def test_e3_scenario_pins_cheapest_model_on_every_model_call_leg():
             command = agent[field]
             index = command.index("--model")
             assert command[index + 1] == model
+
+
+def test_e3_scenario_keeps_only_token_prefix_and_injects_runtime_token_into_seed_commands():
+    scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    spec = json.loads(scenario.read_text(encoding="utf-8"))
+
+    for agent in spec["agents"]:
+        assert agent["run_token_prefix"]
+        assert "run_token" not in agent
+        for field in ("seed_start_command", "seed_retry_resume_command", "seed_continue_command"):
+            assert any("{run_token}" in part for part in agent[field])
 
 
 def test_workspace_credential_decoys_are_exact_and_format_valid(tmp_path):
@@ -863,11 +1023,11 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
                 "version_command": [command, "version"],
                 "validated_version_prefix": "1.0.",
                 "cheapest_model": "cheap",
-                "seed_start_command": [command, "seed", "--model", "cheap"],
-                "seed_retry_resume_command": [command, "retry", "--model", "cheap"],
-                "seed_continue_command": [command, "continue", "--model", "cheap"],
+                "seed_start_command": [command, "seed", "{run_token}", "--model", "cheap"],
+                "seed_retry_resume_command": [command, "retry", "{run_token}", "--model", "cheap"],
+                "seed_continue_command": [command, "continue", "{run_token}", "--model", "cheap"],
                 "ownership_glob": "*.jsonl",
-                "run_token": "token",
+                "run_token_prefix": "token",
                 "resume_command": [command, "resume", "--model", "cheap"],
             })
     spec = {

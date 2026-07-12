@@ -2,9 +2,11 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import shlex
 import shutil
 import subprocess
+import uuid
 from pathlib import Path
 from typing import Any, Callable
 
@@ -147,13 +149,23 @@ def _inventory_changes(before: StoreSnapshot, after: StoreSnapshot) -> list[Path
     return sorted(path for path in before.keys() | after.keys() if before.get(path) != after.get(path))
 
 
+def _contains_exact_token(content: bytes, run_token: str) -> bool:
+    token = re.escape(run_token.encode())
+    return re.search(rb"(?<![A-Za-z0-9_-])" + token + rb"(?![A-Za-z0-9_-])", content) is not None
+
+
 def classify_capture(
     before: StoreSnapshot,
     after: StoreSnapshot,
     run_token: str,
+    path_proof: Callable[[Path], bool] | None = None,
 ) -> tuple[Path, list[Path]]:
     candidates = _inventory_changes(before, after)
-    owned = [path for path in candidates if run_token.encode() in after.get(path, b"")]
+    proof = path_proof or (lambda path: True)
+    owned = [
+        path for path in candidates
+        if proof(path) and _contains_exact_token(after.get(path, b""), run_token)
+    ]
     if len(candidates) != 1 or len(owned) != 1:
         raise CaptureAmbiguity(candidates)
     return owned[0], candidates
@@ -164,6 +176,7 @@ def _capture_seed_leg(
     pattern: str,
     run_token: str,
     command: Callable[[], Any],
+    path_proof: Callable[[Path], bool] | None = None,
 ) -> tuple[Any, Path, list[Path]]:
     before = capture_inventory(root, pattern)
     try:
@@ -171,12 +184,12 @@ def _capture_seed_leg(
     except (OSError, subprocess.TimeoutExpired) as exc:
         after = capture_inventory(root, pattern)
         try:
-            _, candidates = classify_capture(before, after, run_token)
+            _, candidates = classify_capture(before, after, run_token, path_proof)
         except CaptureAmbiguity as ambiguity:
             raise ambiguity from exc
         raise CaptureCommandError(candidates, exc) from exc
     after = capture_inventory(root, pattern)
-    owned, candidates = classify_capture(before, after, run_token)
+    owned, candidates = classify_capture(before, after, run_token, path_proof)
     return result, owned, candidates
 
 
@@ -185,6 +198,7 @@ def _capture_attempt(
     pattern: str,
     run_token: str,
     command: Callable[[], Any],
+    path_proof: Callable[[Path], bool] | None = None,
 ) -> tuple[Any | None, Exception | None, list[Path], list[Path]]:
     before = capture_inventory(root, pattern)
     result: Any | None = None
@@ -195,7 +209,11 @@ def _capture_attempt(
         error = exc
     after = capture_inventory(root, pattern)
     candidates = _inventory_changes(before, after)
-    owned = [path for path in candidates if run_token.encode() in after.get(path, b"")]
+    proof = path_proof or (lambda path: True)
+    owned = [
+        path for path in candidates
+        if proof(path) and _contains_exact_token(after.get(path, b""), run_token)
+    ]
     return result, error, candidates, owned
 
 
@@ -214,13 +232,18 @@ def _seed_agent(
     capture_candidates: list[Path],
     owned_paths: list[Path],
 ) -> Path:
+    path_proof = lambda path: _capture_path_proof(
+        agent["id"], path, live_profile, seed_workspace
+    )
+    format_values = {**spec, "workspace": str(seed_workspace), "run_token": agent["run_token"]}
     start_command = [
-        part.format(workspace=str(seed_workspace), **spec)
+        part.format(**format_values)
         for part in agent["seed_start_command"]
     ]
     seeded, start_error, candidates, owned = _capture_attempt(
         live_profile, agent["ownership_glob"], agent["run_token"],
         lambda: spawn(start_command, seed_workspace, env),
+        path_proof,
     )
     capture_candidates.extend(candidates)
     start_failed = start_error is not None or seeded is None or seeded.returncode != 0
@@ -235,7 +258,7 @@ def _seed_agent(
             owned_paths.append(first)
             retry_id = _session_id_from_path(agent["id"], first)
             retry_command = [
-                part.format(workspace=str(seed_workspace), id=retry_id, **spec)
+                part.format(**{**format_values, "id": retry_id})
                 for part in agent["seed_retry_resume_command"]
             ]
         else:
@@ -244,6 +267,7 @@ def _seed_agent(
             retried, retry_owned, retry_candidates = _capture_seed_leg(
                 live_profile, agent["ownership_glob"], agent["run_token"],
                 lambda: spawn(retry_command, seed_workspace, env),
+                path_proof,
             )
             capture_candidates.extend(retry_candidates)
         except (CaptureAmbiguity, CaptureCommandError) as exc:
@@ -259,12 +283,13 @@ def _seed_agent(
         owned_paths.append(first)
     seed_id = _session_id_from_path(agent["id"], first)
     continue_command = [
-        part.format(workspace=str(seed_workspace), id=seed_id, **spec)
+        part.format(**{**format_values, "id": seed_id})
         for part in agent["seed_continue_command"]
     ]
     continued, continue_error, candidates, continued_owned = _capture_attempt(
         live_profile, agent["ownership_glob"], agent["run_token"],
         lambda: spawn(continue_command, seed_workspace, env),
+        path_proof,
     )
     capture_candidates.extend(candidates)
     continue_failed = continue_error is not None or continued is None or continued.returncode != 0
@@ -276,6 +301,7 @@ def _seed_agent(
             continued, retry_owned, retry_candidates = _capture_seed_leg(
                 live_profile, agent["ownership_glob"], agent["run_token"],
                 lambda: spawn(continue_command, seed_workspace, env),
+                path_proof,
             )
             capture_candidates.extend(retry_candidates)
         except (CaptureAmbiguity, CaptureCommandError) as exc:
@@ -562,9 +588,42 @@ def _session_id_from_path(agent_id: str, path: Path) -> str:
         candidate = path.stem[-36:]
     else:
         candidate = path.stem
-    if len(candidate) != 36 or candidate.count("-") != 4:
+    try:
+        canonical = str(uuid.UUID(candidate))
+    except ValueError as exc:
+        raise ValueError("owned transcript filename did not contain a session UUID") from exc
+    if canonical != candidate:
         raise ValueError("owned transcript filename did not contain a session UUID")
     return candidate
+
+
+def _capture_path_proof(
+    agent_id: str,
+    path: Path,
+    live_profile: Path,
+    seed_workspace: Path,
+) -> bool:
+    try:
+        _session_id_from_path(agent_id, path)
+    except ValueError:
+        return False
+    if agent_id == "claude-code":
+        expected = live_profile / "projects" / _project_key(seed_workspace)
+        return path.parent == expected
+    if agent_id == "codex":
+        return path.name.startswith("rollout-")
+    return False
+
+
+def materialize_run_tokens(spec: dict[str, Any]) -> dict[str, Any]:
+    agents = [
+        {
+            **agent,
+            "run_token": f"{agent['run_token_prefix']}_{secrets.token_hex(32)}",
+        }
+        for agent in spec["agents"]
+    ]
+    return {**spec, "agents": agents}
 
 
 def _result(spec: dict[str, Any], status: Status, detail: str) -> ScenarioResult:
@@ -590,13 +649,18 @@ def _validate_spec(spec: dict[str, Any]) -> list[str]:
         required_agent_fields = (
             "id", "live_profile", "auth_status", "version_command",
             "validated_version_prefix", "seed_start_command", "seed_continue_command",
-            "seed_retry_resume_command", "ownership_glob", "run_token", "resume_command",
+            "seed_retry_resume_command", "ownership_glob", "run_token_prefix", "resume_command",
             "cheapest_model",
         )
         for agent in agents:
             for field in required_agent_fields:
                 if not agent.get(field):
                     failures.append(f"agent missing {field}")
+            if "run_token" in agent:
+                failures.append("scenario must not contain a static run_token")
+            for field in ("seed_start_command", "seed_retry_resume_command", "seed_continue_command"):
+                if not any("{run_token}" in part for part in agent.get(field, [])):
+                    failures.append(f"{agent.get('id')} {field} missing runtime run-token placeholder")
             if agent.get("id") == "claude-code" and agent.get("resume_mutation") != CLAUDE_RESUME_MUTATION:
                 failures.append("Claude resume mutation must match the pinned shape")
             if agent.get("id") == "codex" and agent.get("resume_shape") != CODEX_RESUME_SHAPE:
@@ -659,6 +723,8 @@ def run_e3(
     pin_env()
     if dry_run:
         return _result(spec, Status.PASS, "dry-run: structural, isolation, and credential guards passed")
+
+    spec = materialize_run_tokens(spec)
 
     # Live execution is intentionally explicit: this path owns real API calls and one
     # operator OAuth checkpoint. The scenario supplies commands so CLI surface changes
