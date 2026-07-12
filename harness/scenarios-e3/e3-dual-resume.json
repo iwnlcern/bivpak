@@ -13,6 +13,7 @@
   ],
   "resume_probe": "BIV_E3_RESUME_PROBE_20260711",
   "credential_scan_sentinels": ["BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR"],
+  "model_call_baseline": {"claude-code": 4, "codex": 3},
   "forbidden_bivpak_state": ["host2/.biv", "host2/work/.biv/agents"],
   "agents": [
     {
@@ -23,11 +24,14 @@
       "auth_status": ["claude", "auth", "status"],
       "version_command": ["claude", "--version"],
       "validated_version_prefix": "2.1.",
-      "seed_start_command": ["claude", "-p", "BIV_E3_SEED_TURN_ONE_20260711 BIV_E3_CLAUDE_RUN_TOKEN_20260711"],
-      "seed_continue_command": ["claude", "-p", "--resume", "{id}", "BIV_E3_SEED_TURN_TWO_20260711"],
+      "cheapest_model": "haiku",
+      "liveness_command": ["claude", "--model", "haiku", "-p", "Reply with one token: OK"],
+      "seed_start_command": ["claude", "--model", "haiku", "-p", "BIV_E3_SEED_TURN_ONE_20260711 BIV_E3_CLAUDE_RUN_TOKEN_20260711"],
+      "seed_retry_resume_command": ["claude", "--model", "haiku", "-p", "--resume", "{id}", "BIV_E3_SEED_TURN_ONE_20260711 BIV_E3_CLAUDE_RUN_TOKEN_20260711"],
+      "seed_continue_command": ["claude", "--model", "haiku", "-p", "--resume", "{id}", "BIV_E3_SEED_TURN_TWO_20260711"],
       "ownership_glob": "*.jsonl",
       "run_token": "BIV_E3_CLAUDE_RUN_TOKEN_20260711",
-      "resume_command": ["claude", "-p", "--resume", "{id}", "{probe}"],
+      "resume_command": ["claude", "--model", "haiku", "-p", "--resume", "{id}", "{probe}"],
       "resume_mutation": "appends-same-file"
     },
     {
@@ -38,11 +42,13 @@
       "auth_status": ["codex", "login", "status"],
       "version_command": ["codex", "--version"],
       "validated_version_prefix": "0.142.",
-      "seed_start_command": ["codex", "exec", "--skip-git-repo-check", "BIV_E3_SEED_TURN_ONE_20260711 BIV_E3_CODEX_RUN_TOKEN_20260711"],
-      "seed_continue_command": ["codex", "exec", "--skip-git-repo-check", "resume", "{id}", "BIV_E3_SEED_TURN_TWO_20260711"],
+      "cheapest_model": "gpt-5.4-mini",
+      "seed_start_command": ["codex", "exec", "--model", "gpt-5.4-mini", "--skip-git-repo-check", "BIV_E3_SEED_TURN_ONE_20260711 BIV_E3_CODEX_RUN_TOKEN_20260711"],
+      "seed_retry_resume_command": ["codex", "exec", "--model", "gpt-5.4-mini", "--skip-git-repo-check", "resume", "{id}", "BIV_E3_SEED_TURN_ONE_20260711 BIV_E3_CODEX_RUN_TOKEN_20260711"],
+      "seed_continue_command": ["codex", "exec", "--model", "gpt-5.4-mini", "--skip-git-repo-check", "resume", "{id}", "BIV_E3_SEED_TURN_TWO_20260711"],
       "ownership_glob": "rollout-*.jsonl",
       "run_token": "BIV_E3_CODEX_RUN_TOKEN_20260711",
-      "resume_command": ["codex", "exec", "--skip-git-repo-check", "resume", "{id}", "{probe}"],
+      "resume_command": ["codex", "exec", "--model", "gpt-5.4-mini", "--skip-git-repo-check", "resume", "{id}", "{probe}"],
       "resume_shape": "appends-same-rollout"
     }
   ]

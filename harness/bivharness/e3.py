@@ -18,6 +18,9 @@ CREDENTIAL_ENV_NAMES = (
     "OPENAI_API_KEY",
     "CODEX_ACCESS_TOKEN",
 )
+CREDENTIAL_DECOY_NAMES = (".credentials.json", "auth.json", ".env")
+CREDENTIAL_DECOY_ROOT = ".biv-e3-credential-decoys"
+DOTENV_SAFE_SENTINEL = re.compile(r"[A-Za-z0-9_.:@/+\-=]+")
 CLAUDE_RESUME_MUTATION = "appends-same-file"
 CODEX_RESUME_SHAPE = "appends-same-rollout"
 E3_CLASS = "E3 (real CLI resume in isolated profile)"
@@ -177,6 +180,119 @@ def _capture_seed_leg(
     return result, owned, candidates
 
 
+def _capture_attempt(
+    root: Path,
+    pattern: str,
+    run_token: str,
+    command: Callable[[], Any],
+) -> tuple[Any | None, Exception | None, list[Path], list[Path]]:
+    before = capture_inventory(root, pattern)
+    result: Any | None = None
+    error: Exception | None = None
+    try:
+        result = command()
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        error = exc
+    after = capture_inventory(root, pattern)
+    candidates = _inventory_changes(before, after)
+    owned = [path for path in candidates if run_token.encode() in after.get(path, b"")]
+    return result, error, candidates, owned
+
+
+def _require_retryable_capture(candidates: list[Path], owned: list[Path]) -> None:
+    if len(owned) > 1 or len(candidates) != len(owned):
+        raise CaptureAmbiguity(candidates)
+
+
+def _seed_agent(
+    agent: dict[str, Any],
+    live_profile: Path,
+    seed_workspace: Path,
+    spec: dict[str, Any],
+    env: dict[str, str],
+    spawn: Callable[[list[str], Path, dict[str, str]], Any],
+    capture_candidates: list[Path],
+    owned_paths: list[Path],
+) -> Path:
+    start_command = [
+        part.format(workspace=str(seed_workspace), **spec)
+        for part in agent["seed_start_command"]
+    ]
+    seeded, start_error, candidates, owned = _capture_attempt(
+        live_profile, agent["ownership_glob"], agent["run_token"],
+        lambda: spawn(start_command, seed_workspace, env),
+    )
+    capture_candidates.extend(candidates)
+    start_failed = start_error is not None or seeded is None or seeded.returncode != 0
+    if not start_failed:
+        if len(candidates) != 1 or len(owned) != 1:
+            raise CaptureAmbiguity(candidates)
+        first = owned[0]
+    else:
+        _require_retryable_capture(candidates, owned)
+        first = owned[0] if owned else None
+        if first is not None:
+            owned_paths.append(first)
+            retry_id = _session_id_from_path(agent["id"], first)
+            retry_command = [
+                part.format(workspace=str(seed_workspace), id=retry_id, **spec)
+                for part in agent["seed_retry_resume_command"]
+            ]
+        else:
+            retry_command = start_command
+        try:
+            retried, retry_owned, retry_candidates = _capture_seed_leg(
+                live_profile, agent["ownership_glob"], agent["run_token"],
+                lambda: spawn(retry_command, seed_workspace, env),
+            )
+            capture_candidates.extend(retry_candidates)
+        except (CaptureAmbiguity, CaptureCommandError) as exc:
+            capture_candidates.extend(exc.candidates)
+            raise
+        if retried.returncode != 0:
+            raise ValueError(f"{agent['id']} first-seed retry failed: {retried.stderr.strip()}")
+        if first is not None and retry_owned != first:
+            raise CaptureAmbiguity([first, retry_owned])
+        first = retry_owned
+
+    if first not in owned_paths:
+        owned_paths.append(first)
+    seed_id = _session_id_from_path(agent["id"], first)
+    continue_command = [
+        part.format(workspace=str(seed_workspace), id=seed_id, **spec)
+        for part in agent["seed_continue_command"]
+    ]
+    continued, continue_error, candidates, continued_owned = _capture_attempt(
+        live_profile, agent["ownership_glob"], agent["run_token"],
+        lambda: spawn(continue_command, seed_workspace, env),
+    )
+    capture_candidates.extend(candidates)
+    continue_failed = continue_error is not None or continued is None or continued.returncode != 0
+    if continue_failed:
+        _require_retryable_capture(candidates, continued_owned)
+        if continued_owned and continued_owned != [first]:
+            raise CaptureAmbiguity(candidates)
+        try:
+            continued, retry_owned, retry_candidates = _capture_seed_leg(
+                live_profile, agent["ownership_glob"], agent["run_token"],
+                lambda: spawn(continue_command, seed_workspace, env),
+            )
+            capture_candidates.extend(retry_candidates)
+        except (CaptureAmbiguity, CaptureCommandError) as exc:
+            capture_candidates.extend(exc.candidates)
+            raise
+        if continued.returncode != 0:
+            raise ValueError(f"{agent['id']} continuation retry failed: {continued.stderr.strip()}")
+        continued_owned = [retry_owned]
+    elif len(candidates) != 1 or continued_owned != [first]:
+        raise CaptureAmbiguity(candidates)
+    if continued_owned != [first] or not ordered_turns_present(
+        first.read_text(encoding="utf-8"), spec["seed_turns"]
+    ):
+        raise ValueError(f"{agent['id']} seed turns were not in one transcript")
+    return first
+
+
 def format_cleanup_report(candidates: list[Path], owned: list[Path]) -> str:
     disclosure = "\n".join(str(path) for path in sorted(set(candidates)))
     cleanup = "\n".join(str(path) for path in sorted(set(owned)))
@@ -242,27 +358,67 @@ def assert_exact_install_delta(
 def plant_credential_decoys(workspace: Path, sentinels: list[str]) -> list[Path]:
     if not sentinels:
         return []
-    decoy_root = workspace / ".biv-e3-credential-decoys"
-    decoy_root.mkdir(parents=True, exist_ok=True)
-    sentinel = "\n".join(sentinels)
-    paths = [decoy_root / ".credentials.json", decoy_root / "auth.json", decoy_root / ".env"]
-    paths[0].write_text(json.dumps({"apiKey": sentinel}), encoding="utf-8")
-    paths[1].write_text(json.dumps({"tokens": {"access_token": sentinel}}), encoding="utf-8")
-    paths[2].write_text(f"ANTHROPIC_API_KEY={sentinel}\n", encoding="utf-8")
+    if workspace.is_symlink() or not workspace.is_dir():
+        raise ValueError("controlled credential-shaped workspace must be a regular directory")
     ignore = workspace / ".bivignore"
+    if ignore.is_symlink() or (ignore.exists() and not ignore.is_file()):
+        raise ValueError("controlled .bivignore must be a regular file inside workspace")
+    decoy_root = workspace / CREDENTIAL_DECOY_ROOT
+    if decoy_root.is_symlink() or (decoy_root.exists() and not decoy_root.is_dir()):
+        raise ValueError("controlled credential-shaped decoy root must be a regular directory inside workspace")
+    decoy_root.mkdir(parents=True, exist_ok=True)
+    if decoy_root.resolve().parent != workspace.resolve():
+        raise ValueError("controlled credential-shaped decoy root must be a regular directory inside workspace")
+    if any(decoy_root.iterdir()):
+        raise ValueError("exact controlled credential-shaped decoy set not planted")
+    value = ",".join(sentinels)
+    paths = [decoy_root / name for name in CREDENTIAL_DECOY_NAMES]
+    paths[0].write_text(json.dumps({"apiKey": value}), encoding="utf-8")
+    paths[1].write_text(json.dumps({"tokens": {"access_token": value}}), encoding="utf-8")
+    paths[2].write_text(f"ANTHROPIC_API_KEY={value}\n", encoding="utf-8")
     existing = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
-    if ".biv-e3-credential-decoys/" not in existing.splitlines():
-        ignore.write_text(existing + ".biv-e3-credential-decoys/\n", encoding="utf-8")
+    ignore_entry = f"{CREDENTIAL_DECOY_ROOT}/"
+    if ignore_entry not in existing.splitlines():
+        ignore.write_text(existing + ignore_entry + "\n", encoding="utf-8")
     return paths
 
 
-def verify_credential_decoys(paths: list[Path], sentinels: list[str], image: bytes) -> None:
-    planted = b"".join(path.read_bytes() for path in paths if path.is_file())
-    if not paths or any(sentinel.encode() not in planted for sentinel in sentinels):
-        raise ValueError("credential decoy not planted")
-    hits = scan_secret_values(image, sentinels)
-    if hits:
-        raise ValueError("credential sentinel found in image: " + ", ".join(hits))
+def verify_credential_decoys(workspace: Path, paths: list[Path], sentinels: list[str]) -> None:
+    expected_names = set(CREDENTIAL_DECOY_NAMES)
+    if (
+        len(paths) != len(expected_names)
+        or {path.name for path in paths} != expected_names
+        or len({path.parent for path in paths}) != 1
+    ):
+        raise ValueError("exact controlled credential-shaped decoy set not planted")
+    root = paths[0].parent
+    if (
+        root != workspace / CREDENTIAL_DECOY_ROOT
+        or root.is_symlink()
+        or not root.is_dir()
+        or root.resolve().parent != workspace.resolve()
+    ):
+        raise ValueError("controlled credential-shaped decoy root must be a regular directory inside workspace")
+    if set(root.iterdir()) != set(paths):
+        raise ValueError("exact controlled credential-shaped decoy set not planted")
+    for path in paths:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"controlled credential-shaped decoy is not a regular file: {path.name}")
+
+    value = ",".join(sentinels)
+    try:
+        credentials = json.loads((root / ".credentials.json").read_text(encoding="utf-8"))
+        auth = json.loads((root / "auth.json").read_text(encoding="utf-8"))
+        dotenv = (root / ".env").read_text(encoding="utf-8")
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("controlled credential-shaped decoy format invalid") from exc
+    if (
+        credentials != {"apiKey": value}
+        or auth != {"tokens": {"access_token": value}}
+        or dotenv != f"ANTHROPIC_API_KEY={value}\n"
+        or any(sentinel not in value for sentinel in sentinels)
+    ):
+        raise ValueError("controlled credential-shaped decoy format invalid")
 
 
 def assert_one_checkpoint(checkpoints: list[str]) -> None:
@@ -299,11 +455,34 @@ def _spawn(command: list[str], cwd: Path, env: dict[str, str]) -> subprocess.Com
     )
 
 
-def _spawn_retry(command: list[str], cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    first = _spawn(command, cwd, env)
-    if first.returncode == 0:
-        return first
-    return _spawn(command, cwd, env)
+def _spawn_retry(
+    command: list[str],
+    cwd: Path,
+    env: dict[str, str],
+    is_success: Callable[[Any], bool] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    return _spawn_retry_with(command, cwd, env, _spawn, is_success)
+
+
+def _spawn_retry_with(
+    command: list[str],
+    cwd: Path,
+    env: dict[str, str],
+    spawn: Callable[[list[str], Path, dict[str, str]], Any],
+    is_success: Callable[[Any], bool] | None = None,
+) -> Any:
+    predicate = is_success or (lambda result: result.returncode == 0)
+    result: Any | None = None
+    for attempt in range(2):
+        try:
+            result = spawn(command, cwd, env)
+        except (OSError, subprocess.TimeoutExpired):
+            if attempt == 0:
+                continue
+            raise
+        if predicate(result) or attempt == 1:
+            return result
+    raise ValueError("model-call retry produced no result")
 
 
 def _agent_profile(agent: dict[str, Any], profile_root: Path, *, live: bool) -> Path:
@@ -369,7 +548,10 @@ def perform_oauth_checkpoint(
     claude = next((item for item in contexts if item[0]["id"] == "claude-code"), None)
     if claude is None:
         raise ValueError("Claude liveness ping requires a claude-code agent")
-    liveness = spawn(["claude", "-p", "Reply with one token: OK"], host2, claude[2])
+    liveness = _spawn_retry_with(
+        claude[0]["liveness_command"], host2, claude[2], spawn,
+        lambda result: result.returncode == 0 and len(result.stdout.split()) == 1,
+    )
     if liveness.returncode != 0 or len(liveness.stdout.split()) != 1:
         raise ValueError("Claude liveness ping did not return exactly one token")
     return {agent["id"]: env for agent, _, env in contexts}
@@ -408,7 +590,8 @@ def _validate_spec(spec: dict[str, Any]) -> list[str]:
         required_agent_fields = (
             "id", "live_profile", "auth_status", "version_command",
             "validated_version_prefix", "seed_start_command", "seed_continue_command",
-            "ownership_glob", "run_token", "resume_command",
+            "seed_retry_resume_command", "ownership_glob", "run_token", "resume_command",
+            "cheapest_model",
         )
         for agent in agents:
             for field in required_agent_fields:
@@ -418,9 +601,31 @@ def _validate_spec(spec: dict[str, Any]) -> list[str]:
                 failures.append("Claude resume mutation must match the pinned shape")
             if agent.get("id") == "codex" and agent.get("resume_shape") != CODEX_RESUME_SHAPE:
                 failures.append("Codex resume shape must match the pinned shape")
+            model_fields = [
+                "seed_start_command", "seed_retry_resume_command",
+                "seed_continue_command", "resume_command",
+            ]
+            if agent.get("id") == "claude-code":
+                model_fields.append("liveness_command")
+            model = agent.get("cheapest_model")
+            for field in model_fields:
+                command = agent.get(field, [])
+                if "--model" not in command:
+                    failures.append(f"{agent.get('id')} {field} missing cheapest-model flag")
+                    continue
+                index = command.index("--model")
+                if index + 1 >= len(command) or command[index + 1] != model:
+                    failures.append(f"{agent.get('id')} {field} cheapest-model mismatch")
     for key in ("seed_turns", "resume_probe"):
         if not spec.get(key):
             failures.append(f"scenario missing {key}")
+    sentinels = spec.get("credential_scan_sentinels")
+    if not isinstance(sentinels, list) or not sentinels or any(
+        not isinstance(value, str) or not value for value in sentinels
+    ):
+        failures.append("scenario missing non-empty credential_scan_sentinels")
+    elif any(DOTENV_SAFE_SENTINEL.fullmatch(value) is None for value in sentinels):
+        failures.append("credential_scan_sentinels values must be dotenv-safe")
     return failures
 
 
@@ -437,6 +642,8 @@ def run_e3(
     except (OSError, json.JSONDecodeError) as exc:
         return _result({}, Status.INVALID, f"scenario unreadable: {exc}")
 
+    if scratch.is_symlink():
+        return _result(spec, Status.INVALID, "scratch must not be a symlink")
     failures = _validate_spec(spec)
     failures.extend(probe(scratch))
     failures.extend(f"credential-env:{name}" for name in rejected_credential_names(os.environ))
@@ -456,18 +663,28 @@ def run_e3(
     # Live execution is intentionally explicit: this path owns real API calls and one
     # operator OAuth checkpoint. The scenario supplies commands so CLI surface changes
     # cannot silently alter the safety predicates in this runner.
-    scratch.mkdir(parents=True, exist_ok=True)
+    seed_parent = scratch / "seed-ws"
     seed_ws = scratch / "seed-ws" / spec.get("workspace_name", "resume-e3")
     host2 = scratch / "host2"
-    seed_ws.mkdir(parents=True, exist_ok=True)
-    host2.mkdir(parents=True, exist_ok=True)
     owned_paths: list[Path] = []
     capture_candidates: list[Path] = []
     host2_env: dict[str, str] = {}
     host2_agent_envs: dict[str, dict[str, str]] = {}
     credential_sentinels = spec.get("credential_scan_sentinels", [])
-    credential_decoys = plant_credential_decoys(seed_ws, credential_sentinels)
+    seed_parent_created = False
+    host2_created = False
     try:
+        if seed_parent.is_symlink() or seed_parent.exists() or seed_ws.is_symlink() or seed_ws.exists():
+            raise ValueError("seed workspace must be fresh and contained by scratch")
+        if host2.is_symlink() or host2.exists():
+            raise ValueError("host2 workspace must be fresh and contained by scratch")
+        scratch.mkdir(parents=True, exist_ok=True)
+        seed_parent.mkdir()
+        seed_parent_created = True
+        seed_ws.mkdir()
+        host2.mkdir()
+        host2_created = True
+        credential_decoys = plant_credential_decoys(seed_ws, credential_sentinels)
         live_contexts: list[tuple[dict[str, Any], Path, dict[str, str]]] = []
         for agent in spec["agents"]:
             live_profile = _agent_profile(agent, profile_root, live=True)
@@ -484,46 +701,12 @@ def run_e3(
             live_contexts.append((agent, live_profile, env))
 
         for agent, live_profile, env in live_contexts:
-            try:
-                seeded, first, candidates = _capture_seed_leg(
-                    live_profile, agent["ownership_glob"], agent["run_token"],
-                    lambda: _spawn(
-                        [part.format(workspace=str(seed_ws), **spec)
-                         for part in agent["seed_start_command"]],
-                        seed_ws,
-                        env,
-                    ),
-                )
-                capture_candidates.extend(candidates)
-            except (CaptureAmbiguity, CaptureCommandError) as exc:
-                capture_candidates.extend(exc.candidates)
-                raise
-            if seeded.returncode != 0:
-                return _result(spec, Status.INVALID, f"{agent['id']} seed failed: {seeded.stderr.strip()}")
-            seed_id = _session_id_from_path(agent["id"], first)
-            try:
-                seeded, owned, candidates = _capture_seed_leg(
-                    live_profile, agent["ownership_glob"], agent["run_token"],
-                    lambda: _spawn(
-                        [part.format(workspace=str(seed_ws), id=seed_id, **spec)
-                         for part in agent["seed_continue_command"]],
-                        seed_ws,
-                        env,
-                    ),
-                )
-                capture_candidates.extend(candidates)
-            except (CaptureAmbiguity, CaptureCommandError) as exc:
-                capture_candidates.extend(exc.candidates)
-                raise
-            if seeded.returncode != 0:
-                return _result(spec, Status.INVALID, f"{agent['id']} seed failed: {seeded.stderr.strip()}")
-            if owned != first or not ordered_turns_present(
-                owned.read_text(encoding="utf-8"), spec["seed_turns"]
-            ):
-                return _result(spec, Status.INVALID, f"{agent['id']} seed turns were not in one transcript")
-            owned_paths.append(owned)
+            _seed_agent(
+                agent, live_profile, seed_ws, spec, env, _spawn,
+                capture_candidates, owned_paths,
+            )
 
-        verify_credential_decoys(credential_decoys, credential_sentinels, b"")
+        verify_credential_decoys(seed_ws, credential_decoys, credential_sentinels)
         before = {path: _hash(path) for path in owned_paths}
         packed = _spawn([str(biv), "pack", str(seed_ws), "--json"], scratch, {})
         if packed.returncode != 0:
@@ -593,7 +776,10 @@ def run_e3(
                        for part in agent["resume_command"]]
             profile = _agent_profile(agent, profile_root, live=False)
             env = host2_agent_envs[agent["id"]]
-            resumed = _spawn_retry(command, restored_workspace, env)
+            resumed = _spawn_retry(
+                command, restored_workspace, env,
+                lambda result: result.returncode == 0 and bool(result.stdout.strip()),
+            )
             if resumed.returncode != 0 or not resumed.stdout.strip():
                 return _result(spec, Status.INVALID, f"{agent['id']} resume did not return a reply")
             turns = [*spec["seed_turns"], spec["resume_probe"]]
@@ -607,5 +793,7 @@ def run_e3(
         return _result(spec, Status.INVALID, str(exc))
     finally:
         print(format_cleanup_report(capture_candidates, owned_paths))
-        shutil.rmtree(seed_ws.parent, ignore_errors=True)
-        shutil.rmtree(host2, ignore_errors=True)
+        if seed_parent_created:
+            shutil.rmtree(seed_parent, ignore_errors=True)
+        if host2_created:
+            shutil.rmtree(host2, ignore_errors=True)

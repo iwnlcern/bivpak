@@ -66,6 +66,7 @@ def _checkpoint_agents():
             "auth_status": ["claude", "auth", "status"],
             "version_command": ["claude", "--version"],
             "validated_version_prefix": "2.1.",
+            "liveness_command": ["claude", "--model", "haiku", "-p", "Reply with one token: OK"],
         },
         {
             "id": "codex",
@@ -104,7 +105,8 @@ def test_oauth_checkpoint_constructs_profiles_and_prints_real_login_commands(tmp
 
     assert len(pauses) == 1
     assert set(envs) == {"claude-code", "codex"}
-    assert calls[-1][0:2] == ["claude", "-p"]
+    assert calls[-1][0] == "claude"
+    assert "-p" in calls[-1]
 
 
 @pytest.mark.parametrize("failed", [{"claude-code", "codex"}, {"claude-code"}, {"codex"}])
@@ -128,7 +130,7 @@ def test_oauth_checkpoint_rejects_neither_or_one_authenticated_agent(tmp_path, f
 
 def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
-        if command[0:2] == ["claude", "-p"]:
+        if command[0] == "claude" and "-p" in command:
             return SimpleNamespace(returncode=1, stdout="", stderr="offline")
         return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
 
@@ -141,7 +143,7 @@ def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
 
 def test_oauth_checkpoint_rejects_multi_token_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
-        output = "too many tokens" if command[0:2] == ["claude", "-p"] else "2.1.202 0.142.5"
+        output = "too many tokens" if command[0] == "claude" and "-p" in command else "2.1.202 0.142.5"
         return SimpleNamespace(returncode=0, stdout=output, stderr="")
 
     with pytest.raises(ValueError, match="one token"):
@@ -149,6 +151,71 @@ def test_oauth_checkpoint_rejects_multi_token_claude_liveness(tmp_path):
             {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
             lambda prompt: "", fake_spawn,
         )
+
+
+def test_oauth_checkpoint_retries_claude_liveness_once(tmp_path):
+    liveness_calls = 0
+
+    def fake_spawn(command, cwd, env):
+        nonlocal liveness_calls
+        if command[0] == "claude" and "-p" in command:
+            liveness_calls += 1
+            return SimpleNamespace(
+                returncode=1 if liveness_calls == 1 else 0,
+                stdout="" if liveness_calls == 1 else "OK",
+                stderr="transient" if liveness_calls == 1 else "",
+            )
+        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+
+    perform_oauth_checkpoint(
+        {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
+        lambda prompt: "", fake_spawn,
+    )
+    assert liveness_calls == 2
+
+
+@pytest.mark.parametrize("first_failure", ["multi-token", "timeout", "oserror"])
+def test_oauth_checkpoint_retries_invalid_or_exceptional_liveness_once(tmp_path, first_failure):
+    liveness_calls = 0
+
+    def fake_spawn(command, cwd, env):
+        nonlocal liveness_calls
+        if command[0] == "claude" and "-p" in command:
+            liveness_calls += 1
+            if liveness_calls == 1 and first_failure == "timeout":
+                raise e3.subprocess.TimeoutExpired(command, 120)
+            if liveness_calls == 1 and first_failure == "oserror":
+                raise OSError("spawn failed")
+            output = "too many tokens" if liveness_calls == 1 else "OK"
+            return SimpleNamespace(returncode=0, stdout=output, stderr="")
+        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+
+    perform_oauth_checkpoint(
+        {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
+        lambda prompt: "", fake_spawn,
+    )
+    assert liveness_calls == 2
+
+
+@pytest.mark.parametrize("first_failure", ["empty", "timeout", "oserror"])
+def test_model_reply_retry_covers_semantic_and_exceptional_failure(tmp_path, first_failure):
+    calls = 0
+
+    def fake_spawn(command, cwd, env):
+        nonlocal calls
+        calls += 1
+        if calls == 1 and first_failure == "timeout":
+            raise e3.subprocess.TimeoutExpired(command, 120)
+        if calls == 1 and first_failure == "oserror":
+            raise OSError("spawn failed")
+        return SimpleNamespace(returncode=0, stdout="" if calls == 1 else "reply", stderr="")
+
+    result = e3._spawn_retry_with(
+        ["agent", "resume"], tmp_path, {}, fake_spawn,
+        lambda value: value.returncode == 0 and bool(value.stdout.strip()),
+    )
+    assert result.stdout == "reply"
+    assert calls == 2
 
 
 @pytest.mark.parametrize("pattern", ["*.jsonl", "rollout-*.jsonl"])
@@ -226,15 +293,410 @@ def test_exceptional_seed_leg_still_classifies_every_changed_candidate(tmp_path,
     assert caught.value.candidates == ([foreign, owned] if foreign_write else [owned])
 
 
-def test_credential_decoy_is_planted_in_recognized_formats_and_absent_from_image(tmp_path):
-    sentinel = "synthetic-secret-value"
-    paths = plant_credential_decoys(tmp_path, [sentinel])
+@pytest.mark.parametrize("failure", ["nonzero", "timeout", "oserror", "foreign"])
+def test_first_leg_owned_path_survives_every_continuation_failure(tmp_path, failure):
+    root = tmp_path / "store"
+    root.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    transcript = root / f"{session_id}.jsonl"
+    foreign = root / "foreign.jsonl"
+    calls = 0
+
+    def fake_spawn(command, cwd, env):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            transcript.write_text("TOKEN\nseed-one\n", encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        transcript.write_text("TOKEN\nseed-one\nseed-two\n", encoding="utf-8")
+        if failure == "nonzero":
+            return SimpleNamespace(returncode=1, stdout="", stderr="failed")
+        if failure == "timeout":
+            raise e3.subprocess.TimeoutExpired(command, 120)
+        if failure == "oserror":
+            raise OSError("spawn failed")
+        foreign.write_text("other", encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    agent = {
+        "id": "claude-code",
+        "ownership_glob": "*.jsonl",
+        "run_token": "TOKEN",
+        "seed_start_command": ["agent", "start"],
+        "seed_retry_resume_command": ["agent", "retry-resume", "{id}"],
+        "seed_continue_command": ["agent", "continue", "{id}"],
+    }
+    spec = {"seed_turns": ["seed-one", "seed-two"]}
+    candidates = []
+    owned = []
+
+    with pytest.raises(ValueError):
+        e3._seed_agent(agent, root, workspace, spec, {}, fake_spawn, candidates, owned)
+
+    report = format_cleanup_report(candidates, owned)
+    disclosure, cleanup = report.split("Ownership-proven cleanup candidates (not deleted):\n")
+    assert str(transcript) in cleanup
+    if failure == "foreign":
+        assert str(foreign) in disclosure
+        assert str(foreign) not in cleanup
+
+
+def _retry_seed_agent():
+    return {
+        "id": "claude-code",
+        "ownership_glob": "*.jsonl",
+        "run_token": "TOKEN",
+        "seed_start_command": ["agent", "start"],
+        "seed_retry_resume_command": ["agent", "retry-resume", "{id}"],
+        "seed_continue_command": ["agent", "continue", "{id}"],
+    }
+
+
+@pytest.mark.parametrize("first_shape", ["wrote-owned", "wrote-nothing"])
+def test_first_seed_retry_resumes_owned_or_restarts_empty_window(tmp_path, first_shape):
+    root = tmp_path / "store"
+    root.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    transcript = root / f"{session_id}.jsonl"
+    commands = []
+
+    def fake_spawn(command, cwd, env):
+        commands.append(command)
+        if len(commands) == 1:
+            if first_shape == "wrote-owned":
+                transcript.write_text("TOKEN\nseed-one\n", encoding="utf-8")
+            return SimpleNamespace(returncode=1, stdout="", stderr="transient")
+        if len(commands) == 2:
+            transcript.write_text("TOKEN\nseed-one\nretry-reply\n", encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="reply", stderr="")
+        transcript.write_text("TOKEN\nseed-one\nseed-two\n", encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout="reply", stderr="")
+
+    candidates = []
+    owned = []
+    selected = e3._seed_agent(
+        _retry_seed_agent(), root, workspace, {"seed_turns": ["seed-one", "seed-two"]},
+        {}, fake_spawn, candidates, owned,
+    )
+
+    assert selected == transcript
+    assert owned == [transcript]
+    expected_retry = ["agent", "retry-resume", session_id] if first_shape == "wrote-owned" else ["agent", "start"]
+    assert commands[1] == expected_retry
+
+
+@pytest.mark.parametrize("first_shape", ["two-owned", "foreign"])
+def test_first_seed_retry_rejects_ambiguous_or_foreign_window(tmp_path, first_shape):
+    root = tmp_path / "store"
+    root.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    first = root / "aaaaaaaa-1111-4111-8111-111111111111.jsonl"
+    second = root / "bbbbbbbb-1111-4111-8111-111111111111.jsonl"
+    foreign = root / "foreign.jsonl"
+    calls = 0
+
+    def fake_spawn(command, cwd, env):
+        nonlocal calls
+        calls += 1
+        first.write_text("TOKEN\nseed-one\n", encoding="utf-8")
+        if first_shape == "two-owned":
+            second.write_text("TOKEN\nseed-one\n", encoding="utf-8")
+        else:
+            foreign.write_text("other", encoding="utf-8")
+        return SimpleNamespace(returncode=1, stdout="", stderr="transient")
+
+    candidates = []
+    owned = []
+    with pytest.raises(ValueError, match="capture ambiguity"):
+        e3._seed_agent(
+            _retry_seed_agent(), root, workspace, {"seed_turns": ["seed-one", "seed-two"]},
+            {}, fake_spawn, candidates, owned,
+        )
+    assert calls == 1
+    assert owned == []
+
+
+def test_first_seed_retry_rejects_resume_after_midfail_rejection(tmp_path):
+    root = tmp_path / "store"
+    root.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    transcript = root / f"{session_id}.jsonl"
+    commands = []
+
+    def fake_spawn(command, cwd, env):
+        commands.append(command)
+        transcript.write_text(f"TOKEN\nseed-one\nattempt-{len(commands)}\n", encoding="utf-8")
+        return SimpleNamespace(returncode=1, stdout="", stderr="resume rejected")
+
+    candidates = []
+    owned = []
+    with pytest.raises(ValueError, match="retry failed"):
+        e3._seed_agent(
+            _retry_seed_agent(), root, workspace, {"seed_turns": ["seed-one", "seed-two"]},
+            {}, fake_spawn, candidates, owned,
+        )
+    assert commands == [["agent", "start"], ["agent", "retry-resume", session_id]]
+    assert owned == [transcript]
+
+
+def test_second_seed_turn_retries_same_resume_command_once(tmp_path):
+    root = tmp_path / "store"
+    root.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    transcript = root / f"{session_id}.jsonl"
+    commands = []
+
+    def fake_spawn(command, cwd, env):
+        commands.append(command)
+        if len(commands) == 1:
+            transcript.write_text("TOKEN\nseed-one\n", encoding="utf-8")
+            return SimpleNamespace(returncode=0, stdout="reply", stderr="")
+        transcript.write_text(f"TOKEN\nseed-one\nseed-two\nattempt-{len(commands)}\n", encoding="utf-8")
+        return SimpleNamespace(returncode=1 if len(commands) == 2 else 0, stdout="reply", stderr="")
+
+    e3._seed_agent(
+        _retry_seed_agent(), root, workspace, {"seed_turns": ["seed-one", "seed-two"]},
+        {}, fake_spawn, [], [],
+    )
+    assert commands[1] == commands[2] == ["agent", "continue", session_id]
+
+
+def test_e3_scenario_pins_cheapest_model_on_every_model_call_leg():
+    scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    spec = json.loads(scenario.read_text(encoding="utf-8"))
+    expected = {"claude-code": "haiku", "codex": "gpt-5.4-mini"}
+    assert spec["model_call_baseline"] == {"claude-code": 4, "codex": 3}
+
+    for agent in spec["agents"]:
+        model = expected[agent["id"]]
+        assert agent["cheapest_model"] == model
+        fields = ["seed_start_command", "seed_retry_resume_command", "seed_continue_command", "resume_command"]
+        if agent["id"] == "claude-code":
+            fields.append("liveness_command")
+        for field in fields:
+            command = agent[field]
+            index = command.index("--model")
+            assert command[index + 1] == model
+
+
+def test_workspace_credential_decoys_are_exact_and_format_valid(tmp_path):
+    sentinels = ["synthetic-secret-one", "synthetic-secret-two"]
+    paths = plant_credential_decoys(tmp_path, sentinels)
     assert {path.name for path in paths} == {".credentials.json", "auth.json", ".env"}
-    verify_credential_decoys(paths, [sentinel], b"clean image")
-    with pytest.raises(ValueError, match="not planted"):
-        verify_credential_decoys([], [sentinel], b"clean image")
-    with pytest.raises(ValueError, match="credential sentinel found"):
-        verify_credential_decoys(paths, [sentinel], b"image synthetic-secret-value")
+    verify_credential_decoys(tmp_path, paths, sentinels)
+
+
+@pytest.mark.parametrize("removed_count", [1, 2])
+def test_workspace_credential_decoys_reject_missing_required_paths(tmp_path, removed_count):
+    sentinels = ["synthetic-secret"]
+    paths = plant_credential_decoys(tmp_path, sentinels)
+    for path in paths[-removed_count:]:
+        path.unlink()
+    with pytest.raises(ValueError, match="exact controlled credential-shaped decoy set"):
+        verify_credential_decoys(tmp_path, paths, sentinels)
+
+
+@pytest.mark.parametrize(
+    ("name", "content"),
+    [
+        (".credentials.json", "synthetic-secret"),
+        ("auth.json", '{"apiKey":"synthetic-secret"}'),
+        (".env", "OPENAI_API_KEY=synthetic-secret\n"),
+    ],
+)
+def test_workspace_credential_decoys_reject_wrong_format_or_content(tmp_path, name, content):
+    sentinels = ["synthetic-secret"]
+    paths = plant_credential_decoys(tmp_path, sentinels)
+    next(path for path in paths if path.name == name).write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError, match="format invalid"):
+        verify_credential_decoys(tmp_path, paths, sentinels)
+
+
+@pytest.mark.parametrize("kind", ["directory", "symlink"])
+def test_workspace_credential_decoys_require_regular_files(tmp_path, kind):
+    sentinels = ["synthetic-secret"]
+    paths = plant_credential_decoys(tmp_path, sentinels)
+    target = paths[0]
+    target.unlink()
+    if kind == "directory":
+        target.mkdir()
+    else:
+        target.symlink_to(paths[1])
+    with pytest.raises(ValueError, match="regular file"):
+        verify_credential_decoys(tmp_path, paths, sentinels)
+
+
+def test_workspace_credential_decoys_reject_extra_path(tmp_path):
+    sentinels = ["synthetic-secret"]
+    paths = plant_credential_decoys(tmp_path, sentinels)
+    extra = paths[0].parent / "extra.env"
+    extra.write_text("ANTHROPIC_API_KEY=synthetic-secret\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="exact controlled credential-shaped decoy set"):
+        verify_credential_decoys(tmp_path, [*paths, extra], sentinels)
+
+
+def test_workspace_credential_decoys_reject_unreported_physical_extra(tmp_path):
+    sentinels = ["synthetic-secret"]
+    paths = plant_credential_decoys(tmp_path, sentinels)
+    (paths[0].parent / "unreported.env").write_text(
+        "ANTHROPIC_API_KEY=synthetic-secret\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="exact controlled credential-shaped decoy set"):
+        verify_credential_decoys(tmp_path, paths, sentinels)
+
+
+def test_workspace_credential_decoy_plant_rejects_symlinked_root(tmp_path):
+    workspace = tmp_path / "workspace"
+    outside = tmp_path / "outside"
+    workspace.mkdir()
+    outside.mkdir()
+    (workspace / ".biv-e3-credential-decoys").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="regular directory inside workspace"):
+        plant_credential_decoys(workspace, ["synthetic-secret"])
+    assert list(outside.iterdir()) == []
+
+
+def test_workspace_credential_decoy_plant_rejects_symlinked_leaf_before_write(tmp_path):
+    workspace = tmp_path / "workspace"
+    outside = tmp_path / "outside.json"
+    root = workspace / ".biv-e3-credential-decoys"
+    workspace.mkdir()
+    root.mkdir()
+    outside.write_text("do-not-overwrite", encoding="utf-8")
+    (root / ".credentials.json").symlink_to(outside)
+
+    with pytest.raises(ValueError, match="exact controlled credential-shaped decoy set"):
+        plant_credential_decoys(workspace, ["synthetic-secret"])
+    assert outside.read_text(encoding="utf-8") == "do-not-overwrite"
+    assert {path.name for path in root.iterdir()} == {".credentials.json"}
+
+
+def test_workspace_credential_decoy_plant_rejects_symlinked_ignore_before_write(tmp_path):
+    workspace = tmp_path / "workspace"
+    outside = tmp_path / "outside.ignore"
+    workspace.mkdir()
+    outside.write_text("do-not-overwrite", encoding="utf-8")
+    (workspace / ".bivignore").symlink_to(outside)
+
+    with pytest.raises(ValueError, match="regular file inside workspace"):
+        plant_credential_decoys(workspace, ["synthetic-secret"])
+    assert outside.read_text(encoding="utf-8") == "do-not-overwrite"
+    assert not (workspace / ".biv-e3-credential-decoys").exists()
+
+
+def test_workspace_credential_decoy_plant_rejects_symlinked_workspace(tmp_path):
+    outside = tmp_path / "outside"
+    workspace = tmp_path / "workspace"
+    outside.mkdir()
+    workspace.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="workspace must be a regular directory"):
+        plant_credential_decoys(workspace, ["synthetic-secret"])
+    assert list(outside.iterdir()) == []
+
+
+def test_workspace_credential_decoy_verify_rejects_root_outside_workspace(tmp_path):
+    workspace = tmp_path / "workspace"
+    outside = tmp_path / "outside"
+    workspace.mkdir()
+    outside.mkdir()
+    paths = plant_credential_decoys(outside, ["synthetic-secret"])
+
+    with pytest.raises(ValueError, match="regular directory inside workspace"):
+        verify_credential_decoys(workspace, paths, ["synthetic-secret"])
+
+
+def test_e3_spec_rejects_control_characters_in_credential_sentinels():
+    scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    spec = json.loads(scenario.read_text(encoding="utf-8"))
+    spec["credential_scan_sentinels"] = ["one\nOPENAI_API_KEY=two"]
+
+    assert "credential_scan_sentinels values must be dotenv-safe" in e3._validate_spec(spec)
+
+
+def test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up(monkeypatch):
+    scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    scratch = Path.home() / ".cache" / f"biv-e3-decoy-plant-failure-{os.getpid()}"
+    shutil.rmtree(scratch, ignore_errors=True)
+
+    def reject_plant(workspace, sentinels):
+        raise ValueError("decoy root rejected")
+
+    monkeypatch.setattr(e3, "plant_credential_decoys", reject_plant)
+    try:
+        result = e3.run_e3(scenario, Path("biv"), scratch)
+        assert result.status is Status.INVALID
+        assert result.detail == "decoy root rejected"
+        assert not (scratch / "seed-ws").exists()
+        assert not (scratch / "host2").exists()
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def test_e3_rejects_symlinked_scratch_before_probe_writes(tmp_path):
+    scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    outside = tmp_path / "outside"
+    scratch = tmp_path / "scratch-link"
+    outside.mkdir()
+    scratch.symlink_to(outside, target_is_directory=True)
+
+    result = e3.run_e3(scenario, Path("biv"), scratch, dry_run=True)
+    assert result.status is Status.INVALID
+    assert "scratch must not be a symlink" in result.detail
+    assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize("stale_target", ["seed-parent", "seed-workspace", "host2"])
+def test_e3_rejects_preexisting_run_trees_without_deleting_them(monkeypatch, stale_target):
+    scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    scratch = Path.home() / ".cache" / f"biv-e3-stale-{stale_target}-{os.getpid()}"
+    targets = {
+        "seed-parent": scratch / "seed-ws",
+        "seed-workspace": scratch / "seed-ws" / "biv-e3-dual-resume",
+        "host2": scratch / "host2",
+    }
+    stale = targets[stale_target]
+    shutil.rmtree(scratch, ignore_errors=True)
+    stale.mkdir(parents=True)
+    marker = stale / "stale"
+    marker.write_text("stale", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(e3, "_spawn", lambda *args: calls.append(args))
+    try:
+        result = e3.run_e3(scenario, Path("biv"), scratch)
+        assert result.status is Status.INVALID
+        assert "must be fresh" in result.detail
+        assert calls == []
+        assert marker.read_text(encoding="utf-8") == "stale"
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def test_e3_dry_run_rejects_missing_credential_sentinel_inventory(tmp_path):
+    scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    spec = json.loads(scenario.read_text(encoding="utf-8"))
+    spec.pop("credential_scan_sentinels")
+    spec_path = tmp_path / "missing-sentinels.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    scratch = Path.home() / ".cache" / f"biv-e3-missing-sentinels-{os.getpid()}"
+    shutil.rmtree(scratch, ignore_errors=True)
+    try:
+        result = e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+    assert result.status is Status.INVALID
+    assert "credential_scan_sentinels" in result.detail
 
 
 def test_secret_scan_reads_decompressed_archive_members(tmp_path):
@@ -400,11 +862,13 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
             "auth_status": [command, "auth"],
                 "version_command": [command, "version"],
                 "validated_version_prefix": "1.0.",
-                "seed_start_command": [command, "seed"],
-                "seed_continue_command": [command, "continue"],
+                "cheapest_model": "cheap",
+                "seed_start_command": [command, "seed", "--model", "cheap"],
+                "seed_retry_resume_command": [command, "retry", "--model", "cheap"],
+                "seed_continue_command": [command, "continue", "--model", "cheap"],
                 "ownership_glob": "*.jsonl",
                 "run_token": "token",
-                "resume_command": [command, "resume"],
+                "resume_command": [command, "resume", "--model", "cheap"],
             })
     spec = {
         "id": "auth-order",
@@ -412,6 +876,7 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
         "checkpoint_count": 1,
         "seed_turns": ["one", "two"],
         "resume_probe": "probe",
+        "credential_scan_sentinels": ["synthetic-secret"],
         "agents": agents,
     }
     spec_path = tmp_path / "e3.json"
