@@ -1,0 +1,19 @@
+{
+  "id": "open-collision-rename-projectkey",
+  "tier": "E2",
+  "classes": ["A", "B", "C", "E", "G", "K"],
+  "agents": ["claude-code"],
+  "fixture": {"entries": [{"type": "file", "path": "work.txt", "text": "workspace\n"}]},
+  "steps": [
+    {"op": "pack"},
+    {"op": "open", "args": ["--rename", "--consent", "yes"], "precreate_default": true}
+  ],
+  "expect": {
+    "tree": true,
+    "manifest_variant": "builtin",
+    "session_rows": [{"agent": "claude-code", "outcome": "installed"}],
+    "target_delta": {"claude-code": "changed"},
+    "claude_project_key_from_output": true
+  },
+  "held": []
+}

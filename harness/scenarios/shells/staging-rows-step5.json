@@ -1,0 +1,9 @@
+{
+  "id": "staging-rows-step5",
+  "tier": "pending",
+  "status": "xfail-pending",
+  "classes": ["G", "K"],
+  "steps": [],
+  "dor_pointers": ["Step 5 staging machinery is outside E-2 narrow"],
+  "held": ["consent-no staging rows"]
+}

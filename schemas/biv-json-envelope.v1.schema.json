@@ -74,6 +74,68 @@
             "collision_action": {"enum": ["none", "renamed", "refused"]},
             "restored_member_count": {"type": "integer"},
             "checksums_verified": {"type": "boolean"},
+            "sessions": {
+              "type": "object",
+              "required": ["prompt_shown", "warning_shown", "consent", "agents"],
+              "properties": {
+                "prompt_shown": {"type": "boolean"},
+                "warning_shown": {"type": "boolean"},
+                "consent": {
+                  "type": "object",
+                  "required": ["source", "values"],
+                  "properties": {
+                    "source": {"enum": ["flag", "prompt", "deny-default"]},
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["agent", "value"],
+                        "properties": {
+                          "agent": {"type": "string"},
+                          "value": {"enum": ["yes", "no"]}
+                        }
+                      }
+                    }
+                  }
+                },
+                "agents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["agent", "capabilities_verdict", "store_root", "sessions", "activation", "caveats"],
+                    "properties": {
+                      "agent": {"type": "string"},
+                      "capabilities_verdict": {"enum": ["validated", "unvalidated-host", "unvalidated", "absent"]},
+                      "store_root": {"type": "string"},
+                      "sessions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["image_session_id", "outcome", "host_version_unverified", "activation_suppressed"],
+                          "properties": {
+                            "image_session_id": {"type": "string"},
+                            "installed_session_id": {"type": "string"},
+                            "outcome": {"enum": ["installed", "skipped", "failed"]},
+                            "kind": {"enum": ["ContainmentRefused", "SessionInstallFailed", "UnknownAgentSkipped", "SessionsConsentSkipped", "AgentNotValidatedFailed"]},
+                            "reason": {"type": "string"},
+                            "host_version_unverified": {"type": "boolean"},
+                            "activation_suppressed": {"type": "boolean"}
+                          },
+                          "allOf": [
+                            {
+                              "if": {"properties": {"outcome": {"enum": ["skipped", "failed"]}}},
+                              "then": {"required": ["kind"]}
+                            }
+                          ]
+                        }
+                      },
+                      "activation": {"type": "array", "items": {"type": "string"}},
+                      "caveats": {"type": "array", "items": {"type": "string"}}
+                    }
+                  }
+                }
+              }
+            },
             "manifest": {
               "type": "object",
               "required": ["format_version", "repos", "agent_sessions"],

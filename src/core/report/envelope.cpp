@@ -1,5 +1,7 @@
 #include "core/report/envelope.hpp"
 
+#include <algorithm>
+
 #include "core/json/writer.hpp"
 #include "core/manifest/manifest.hpp"
 #include "core/report/exit_map.hpp"
@@ -93,6 +95,30 @@ void write_empty_manifest_summary(json::Writer& writer, int format_version) {
   write_manifest_summary(writer, format_version, {});
 }
 
+void write_open_manifest_summary(json::Writer& writer,
+                                 const int format_version,
+                                 const core_sessions::SessionPreview& preview) {
+  writer.key("manifest");
+  writer.begin_object();
+  writer.key("format_version");
+  writer.value_int(format_version);
+  writer.key("repos");
+  writer.begin_array();
+  writer.end_array();
+  writer.key("agent_sessions");
+  writer.begin_array();
+  for (const auto& agent : preview.agents) {
+    writer.begin_object();
+    writer.key("agent");
+    writer.value_string(agent.agent);
+    writer.key("session_count");
+    writer.value_int(static_cast<int64_t>(agent.parent_count + agent.child_count));
+    writer.end_object();
+  }
+  writer.end_array();
+  writer.end_object();
+}
+
 void write_pack_result(json::Writer& writer, const pack::PackReport& report) {
   writer.key("image_path");
   writer.value_string(report.image_path);
@@ -109,7 +135,138 @@ void write_pack_result(json::Writer& writer, const pack::PackReport& report) {
   write_manifest_summary(writer, manifest::kFormatVersion, report.agent_sessions_summary);
 }
 
-void write_open_result(json::Writer& writer, const open::OpenReport& report) {
+std::string_view capability_name(const adapters::Capabilities::Verdict verdict) {
+  switch (verdict) {
+    case adapters::Capabilities::Verdict::validated:
+      return "validated";
+    case adapters::Capabilities::Verdict::unvalidated_host:
+      return "unvalidated-host";
+    case adapters::Capabilities::Verdict::unvalidated:
+      return "unvalidated";
+    case adapters::Capabilities::Verdict::absent:
+      return "absent";
+  }
+  return "absent";
+}
+
+std::string_view row_name(const core_sessions::SessionRowReport::Row row) {
+  switch (row) {
+    case core_sessions::SessionRowReport::Row::installed:
+      return "installed";
+    case core_sessions::SessionRowReport::Row::skipped:
+    case core_sessions::SessionRowReport::Row::unknown_agent_skipped:
+    case core_sessions::SessionRowReport::Row::sessions_consent_skipped:
+      return "skipped";
+    case core_sessions::SessionRowReport::Row::failed:
+    case core_sessions::SessionRowReport::Row::containment_refused:
+    case core_sessions::SessionRowReport::Row::session_install_failed:
+    case core_sessions::SessionRowReport::Row::agent_not_validated_failed:
+      return "failed";
+  }
+  return "failed";
+}
+
+std::string_view consent_source(const core_sessions::ConsentSource source) {
+  switch (source) {
+    case core_sessions::ConsentSource::flag:
+      return "flag";
+    case core_sessions::ConsentSource::prompt:
+      return "prompt";
+    case core_sessions::ConsentSource::deny_default:
+      return "deny-default";
+  }
+  return "deny-default";
+}
+
+void write_sessions(json::Writer& writer, const OpenSessionsReport& report) {
+  writer.key("sessions");
+  writer.begin_object();
+  writer.key("prompt_shown");
+  writer.value_bool(report.prompt_shown);
+  writer.key("warning_shown");
+  writer.value_bool(report.warning_shown);
+  writer.key("consent");
+  writer.begin_object();
+  writer.key("source");
+  writer.value_string(consent_source(report.consent.source));
+  writer.key("values");
+  writer.begin_array();
+  for (const auto& [agent, allowed] : report.consent.per_agent) {
+    writer.begin_object();
+    writer.key("agent");
+    writer.value_string(agent);
+    writer.key("value");
+    writer.value_string(allowed ? "yes" : "no");
+    writer.end_object();
+  }
+  writer.end_array();
+  writer.end_object();
+  writer.key("agents");
+  writer.begin_array();
+  for (const auto& agent : report.preview.agents) {
+    writer.begin_object();
+    writer.key("agent");
+    writer.value_string(agent.agent);
+    writer.key("capabilities_verdict");
+    writer.value_string(agent.caps.has_value() ? capability_name(agent.caps->verdict) : "absent");
+    writer.key("store_root");
+    writer.value_string(agent.store.has_value() ? agent.store->root.generic_string() : "");
+    writer.key("sessions");
+    writer.begin_array();
+    for (const auto& row : report.outcome.rows) {
+      if (row.agent != agent.agent) {
+        continue;
+      }
+      writer.begin_object();
+      writer.key("image_session_id");
+      writer.value_string(row.image_session_id);
+      if (row.installed_session_id.has_value()) {
+        writer.key("installed_session_id");
+        writer.value_string(*row.installed_session_id);
+      }
+      writer.key("outcome");
+      writer.value_string(row_name(row.row));
+      const auto kind = core_sessions::kind_for_row(row.row, row.reason.value_or(""));
+      if (kind.has_value()) {
+        writer.key("kind");
+        writer.value_string(to_string(*kind));
+      }
+      if (row.reason.has_value()) {
+        writer.key("reason");
+        writer.value_string(*row.reason);
+      }
+      writer.key("host_version_unverified");
+      writer.value_bool(row.host_version_unverified);
+      writer.key("activation_suppressed");
+      writer.value_bool(row.activation_suppressed);
+      writer.end_object();
+    }
+    writer.end_array();
+    writer.key("activation");
+    writer.begin_array();
+    for (const auto& activation : report.outcome.activation) {
+      if (activation.agent == agent.agent) {
+        writer.value_string(activation.command);
+      }
+    }
+    writer.end_array();
+    writer.key("caveats");
+    writer.begin_array();
+    for (const auto& caveat : report.outcome.caveats) {
+      if (caveat.agent == agent.agent) {
+        writer.value_string(caveat.kind + ": " + caveat.note);
+      }
+    }
+    writer.end_array();
+    writer.end_object();
+  }
+  writer.end_array();
+  writer.end_object();
+}
+
+void write_open_result(json::Writer& writer,
+                       const open::OpenReport& report,
+                       const std::optional<OpenSessionsReport>& sessions) {
   writer.key("image_path");
   writer.value_string(report.image_path);
   writer.key("output_dir");
@@ -120,7 +277,12 @@ void write_open_result(json::Writer& writer, const open::OpenReport& report) {
   writer.value_int(static_cast<int64_t>(report.restored_member_count));
   writer.key("checksums_verified");
   writer.value_bool(report.checksums_verified);
-  write_empty_manifest_summary(writer, report.manifest_format_version);
+  if (sessions.has_value()) {
+    write_open_manifest_summary(writer, report.manifest_format_version, sessions->preview);
+    write_sessions(writer, *sessions);
+  } else {
+    write_empty_manifest_summary(writer, report.manifest_format_version);
+  }
 }
 
 void write_error(json::Writer& writer, const BivError& error) {
@@ -155,6 +317,13 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::InternalError:
     case ErrKind::ParseError:
       return 4;
+    case ErrKind::ContainmentRefused:
+    case ErrKind::SessionInstallFailed:
+    case ErrKind::UnknownAgentSkipped:
+    case ErrKind::AgentNotValidatedFailed:
+      return 2;
+    case ErrKind::SessionsConsentSkipped:
+      return 0;
     case ErrKind::SourceUnreadableRoot:
     case ErrKind::RepoDiscoveredUnsupported:
     case ErrKind::OutputInsideSource:
@@ -177,11 +346,23 @@ int exit_for_warnings(const bool any_divergence_warning) noexcept {
   return any_divergence_warning ? 2 : 0;
 }
 
+int exit_for_sessions(const core_sessions::SessionsOutcome& outcome) noexcept {
+  int exit_code = 0;
+  for (const auto& row : outcome.rows) {
+    const auto kind = core_sessions::kind_for_row(row.row, row.reason.value_or(""));
+    if (kind.has_value()) {
+      exit_code = std::max(exit_code, exit_for_error(*kind));
+    }
+  }
+  return exit_code;
+}
+
 std::string envelope(std::string_view verb,
                      std::optional<pack::PackReport> pack_report,
                      std::optional<open::OpenReport> open_report,
                      std::optional<BivError> error,
-                     int exit_code) {
+                     int exit_code,
+                     std::optional<OpenSessionsReport> sessions) {
   json::Writer writer;
   writer.begin_object();
   writer.key("envelope_version");
@@ -214,7 +395,7 @@ std::string envelope(std::string_view verb,
       write_pack_result(writer, *pack_report);
     }
     if (open_report.has_value()) {
-      write_open_result(writer, *open_report);
+      write_open_result(writer, *open_report, sessions);
     }
     writer.end_object();
   }

@@ -1,0 +1,9 @@
+{
+  "id": "d-b4-bridge-cleared",
+  "tier": "pending",
+  "status": "xfail-pending",
+  "classes": ["K"],
+  "steps": [],
+  "dor_pointers": ["[pending-e1-seal] D-B4 bridge_cleared producer"],
+  "held": ["bridge_cleared consumer assertion"]
+}

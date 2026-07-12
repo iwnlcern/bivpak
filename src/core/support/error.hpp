@@ -23,6 +23,11 @@ enum class ErrKind {
   OpenPartialPresent,
   IntegrityFailureMidApply,
   RestoreWriteFailed,
+  ContainmentRefused,
+  SessionInstallFailed,
+  UnknownAgentSkipped,
+  SessionsConsentSkipped,
+  AgentNotValidatedFailed,
   InternalError,
   UsageError,
   ParseError

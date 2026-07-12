@@ -26,11 +26,6 @@
 
 namespace biv::open {
 
-namespace {
-
-constexpr uint64_t kManifestMemberCap = manifest::kManifestByteCap;
-constexpr uint64_t kChecksumsMemberCap = manifest::kChecksumsByteCap;
-
 struct PlannedMember {
   container::MemberMeta meta;
   std::string extent;
@@ -40,7 +35,21 @@ struct ArchivePlan {
   manifest::Manifest manifest;
   manifest::Checksums checksums;
   std::vector<PlannedMember> payload;
+  AgentMemberTable agents;
 };
+
+struct OpenPlanHandle::Impl {
+  std::filesystem::path image;
+  std::filesystem::path dest;
+  bool verify{false};
+  ArchivePlan archive;
+};
+
+namespace {
+
+constexpr uint64_t kManifestMemberCap = manifest::kManifestByteCap;
+constexpr uint64_t kChecksumsMemberCap = manifest::kChecksumsByteCap;
+constexpr uint64_t kAgentMemberByteCap = 64ULL << 20;
 
 bool has_zstd_magic(std::span<const std::byte> bytes) {
   if (bytes.size() < container::kZstdMagic.size()) {
@@ -118,6 +127,9 @@ BivError preapply_error(BivError error, const std::filesystem::path& image) {
   if (error.kind == ErrKind::IntegrityFailurePreApply) {
     return error;
   }
+  if (error.kind == ErrKind::ParseError && error.detail == "unsupported-typeflag") {
+    return BivError{ErrKind::MemberPathUnsafe, error.path, "agent-member-kind"};
+  }
   return BivError{ErrKind::IntegrityFailurePreApply, image.generic_string(), error.detail, error.err_no, error.facts};
 }
 
@@ -134,12 +146,42 @@ expected<std::vector<std::byte>> read_member_data(container::TarReader& reader,
     if (*n == 0U) {
       break;
     }
-    if (data.size() > cap - *n) {
+    if (*n > cap || data.size() > cap - *n) {
       return std::unexpected(BivError{ErrKind::ParseError, meta.path, "member-size"});
     }
     data.insert(data.end(), buffer.begin(), std::next(buffer.begin(), static_cast<std::ptrdiff_t>(*n)));
   }
   return data;
+}
+
+unsigned char hex_nibble(const char value) {
+  if (value >= '0' && value <= '9') {
+    return static_cast<unsigned char>(value - '0');
+  }
+  if (value >= 'a' && value <= 'f') {
+    return static_cast<unsigned char>(10 + value - 'a');
+  }
+  return static_cast<unsigned char>(10 + value - 'A');
+}
+
+std::array<std::byte, 32> digest_bytes(const std::string_view value) {
+  std::array<std::byte, 32> out{};
+  for (size_t i = 0; i < out.size(); ++i) {
+    out.at(i) = static_cast<std::byte>((hex_nibble(value.at(i * 2U)) << 4U) |
+                                       hex_nibble(value.at(i * 2U + 1U)));
+  }
+  return out;
+}
+
+std::set<std::string> required_agent_members(const manifest::Manifest& model) {
+  std::set<std::string> required;
+  for (const auto& entry : model.agent_sessions) {
+    required.insert(entry.artifacts.begin(), entry.artifacts.end());
+    for (const auto& child : entry.children) {
+      required.insert(child.artifacts.begin(), child.artifacts.end());
+    }
+  }
+  return required;
 }
 
 expected<void> drain_member(container::TarReader& reader) {
@@ -212,7 +254,11 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
                                       checksums.error().detail});
     }
 
-    ArchivePlan plan{.manifest = std::move(*manifest_model), .checksums = std::move(*checksums), .payload = {}};
+    ArchivePlan plan{.manifest = std::move(*manifest_model),
+                     .checksums = std::move(*checksums),
+                     .payload = {},
+                     .agents = {}};
+    const auto required_agents = required_agent_members(plan.manifest);
     std::set<std::string> seen;
     while (true) {
       auto next = reader.next();
@@ -223,8 +269,22 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
         break;
       }
       auto member = **next;
-      if (!member.meta.path.starts_with("payload/") || !plan.checksums.entries.contains(member.meta.path)) {
+      if (!plan.checksums.entries.contains(member.meta.path)) {
         return std::unexpected(BivError{ErrKind::UnmanifestedMember, member.meta.path});
+      }
+      const bool payload = member.meta.path.starts_with("payload/");
+      const bool agent = member.meta.path.starts_with("agents/");
+      if (!payload && !agent) {
+        return std::unexpected(BivError{ErrKind::UnmanifestedMember, member.meta.path});
+      }
+      if (agent && !required_agents.contains(member.meta.path)) {
+        return std::unexpected(BivError{ErrKind::UnmanifestedMember, member.meta.path});
+      }
+      if (agent && member.meta.kind != scan::NodeKind::file) {
+        return std::unexpected(BivError{ErrKind::MemberPathUnsafe, member.meta.path, "agent-member-kind"});
+      }
+      if (agent && member.meta.size > kAgentMemberByteCap) {
+        return std::unexpected(BivError{ErrKind::MemberPathUnsafe, member.meta.path, "agent-member-size"});
       }
       if (auto ok = drain_member(reader); !ok) {
         return std::unexpected(ok.error());
@@ -234,7 +294,13 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
         return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, member.meta.path, "checksum"});
       }
       seen.insert(member.meta.path);
-      plan.payload.push_back(PlannedMember{.meta = std::move(member.meta), .extent = extent});
+      if (payload) {
+        plan.payload.push_back(PlannedMember{.meta = std::move(member.meta), .extent = extent});
+      } else {
+        plan.agents.members.push_back(PlannedAgentMember{.name = member.meta.path,
+                                                         .size = member.meta.size,
+                                                         .sha256 = digest_bytes(plan.checksums.entries.at(member.meta.path))});
+      }
     }
     for (const auto& [path, digest] : plan.checksums.entries) {
       (void)digest;
@@ -242,6 +308,12 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
         return std::unexpected(BivError{ErrKind::UnmanifestedMember, path});
       }
     }
+    for (const auto& required : required_agents) {
+      if (!seen.contains(required)) {
+        return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, required, "missing-agent-member"});
+      }
+    }
+    std::ranges::sort(plan.agents.members, {}, &PlannedAgentMember::name);
     return plan;
   });
 }
@@ -480,6 +552,7 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
 
     uint64_t restored = 0;
     size_t index = 0;
+    size_t agent_count = 0;
     std::map<std::string, scan::NodeKind> created;
     while (true) {
       auto next = reader.next();
@@ -490,39 +563,52 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
       if (!*next) {
         break;
       }
-      if (index >= plan.payload.size() || next->value().meta.path != plan.payload.at(index).meta.path ||
-          next->value().meta.kind != plan.payload.at(index).meta.kind) {
-        return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, next->value().meta.path, "member-mismatch"});
+      const auto& meta = next->value().meta;
+      if (meta.path.starts_with("agents/")) {
+        const auto* planned = plan.agents.find(meta.path);
+        if (planned == nullptr || meta.kind != scan::NodeKind::file || meta.size != planned->size) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "member-mismatch"});
+        }
+        if (auto ok = drain_member_midapply(reader, meta.path); !ok) {
+          return std::unexpected(ok.error());
+        }
+        if (verify && digest_bytes(reader.extent_sha256_hex()) != planned->sha256) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "checksum"});
+        }
+        ++agent_count;
+      } else {
+        if (index >= plan.payload.size() || meta.path != plan.payload.at(index).meta.path ||
+            meta.kind != plan.payload.at(index).meta.kind) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "member-mismatch"});
+        }
+        auto ok = apply_member(reader, meta, partial_dir, dirs, created);
+        if (!ok) {
+          return std::unexpected(ok.error());
+        }
+        const auto extent = reader.extent_sha256_hex();
+        if (verify && plan.checksums.entries.at(meta.path) != extent) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "checksum"});
+        }
+        ++restored;
+        ++index;
       }
-      auto ok = apply_member(reader, next->value().meta, partial_dir, dirs, created);
-      if (!ok) {
-        return std::unexpected(ok.error());
-      }
-      const auto extent = reader.extent_sha256_hex();
-      if (verify && plan.checksums.entries.at(next->value().meta.path) != extent) {
-        return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, next->value().meta.path, "checksum"});
-      }
-      ++restored;
-      ++index;
     }
-    if (index != plan.payload.size()) {
+    if (index != plan.payload.size() || agent_count != plan.agents.members.size()) {
       return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, image.generic_string(), "member-count"});
     }
     return restored;
   });
 }
 
-expected<OpenReport> open_impl(const OpenOptions& options) {
-  auto plan = read_archive_plan(options.image, options.verify);
-  if (!plan) {
-    return std::unexpected(preapply_error(plan.error(), options.image));
-  }
-
-  std::filesystem::path dest = options.dest.value_or(default_dest_for(options.image)).lexically_normal();
+expected<OpenReport> execute_archive(const std::filesystem::path& image,
+                                     std::filesystem::path dest,
+                                     const bool verify,
+                                     ArchivePlan plan,
+                                     const Collision collision) {
   std::string collision_action = "none";
   std::error_code ec;
   if (std::filesystem::exists(dest, ec)) {
-    if (options.collision == Collision::rename) {
+    if (collision == Collision::rename) {
       dest = choose_rename_dest(dest);
       collision_action = "renamed";
       if (dest.empty()) {
@@ -530,7 +616,7 @@ expected<OpenReport> open_impl(const OpenOptions& options) {
       }
     } else {
       return std::unexpected(BivError{ErrKind::CollisionRefused, dest.generic_string(),
-                                      options.collision == Collision::abort_preset ? "abort-on-collision" : ""});
+                                      collision == Collision::abort_preset ? "abort-on-collision" : ""});
     }
   }
 
@@ -548,7 +634,7 @@ expected<OpenReport> open_impl(const OpenOptions& options) {
   }
 
   std::vector<container::MemberMeta> dirs;
-  auto restored = apply_archive(options.image, *plan, partial_dir, dirs, options.verify);
+  auto restored = apply_archive(image, plan, partial_dir, dirs, verify);
   if (!restored) {
     return std::unexpected(with_partial_dir(restored.error(), partial_dir));
   }
@@ -578,25 +664,113 @@ expected<OpenReport> open_impl(const OpenOptions& options) {
   }
 
   return OpenReport{
-      .image_path = options.image.generic_string(),
+      .image_path = image.generic_string(),
       .output_dir = dest.generic_string(),
       .collision_action = collision_action,
       .restored_member_count = *restored,
-      .checksums_verified = options.verify,
-      .manifest_format_version = plan->manifest.format_version,
+      .checksums_verified = verify,
+      .manifest_format_version = plan.manifest.format_version,
   };
 }
 
 }  // namespace
 
-expected<OpenReport> open(const OpenOptions& options) {
+const PlannedAgentMember* AgentMemberTable::find(const std::string_view name) const {
+  const auto found = std::ranges::lower_bound(members, name, {}, &PlannedAgentMember::name);
+  return found != members.end() && found->name == name ? &*found : nullptr;
+}
+
+adapters::MemberRead make_member_read(std::filesystem::path image, AgentMemberTable table) {
+  // Each request deliberately replays the archive so no session bytes persist in
+  // Bivpak state. At v1's bounded member sizes this favors containment over speed;
+  // a future single-pass prefetch can replace it if profiles make replay material.
+  return [image = std::move(image), table = std::move(table)](const std::string_view name)
+             -> expected<std::vector<std::byte>> {
+    const auto* planned = table.find(name);
+    if (planned == nullptr) {
+      return std::unexpected(BivError{ErrKind::UnmanifestedMember, std::string{name}});
+    }
+    return with_tar_reader(image, [&](container::TarReader& reader) -> expected<std::vector<std::byte>> {
+      while (true) {
+        auto next = reader.next();
+        if (!next) {
+          return std::unexpected(next.error());
+        }
+        if (!*next) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, std::string{name}, "missing-agent-member"});
+        }
+        const auto& meta = next->value().meta;
+        if (meta.path != name) {
+          if (auto ok = drain_member(reader); !ok) {
+            return std::unexpected(ok.error());
+          }
+          continue;
+        }
+        if (meta.kind != scan::NodeKind::file || meta.size != planned->size) {
+          return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path, "agent-member-kind"});
+        }
+        auto data = read_member_data(reader, meta, planned->size);
+        if (!data) {
+          return std::unexpected(data.error());
+        }
+        if (data->size() != planned->size || digest_bytes(reader.extent_sha256_hex()) != planned->sha256) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, meta.path, "checksum"});
+        }
+        return data;
+      }
+    });
+  };
+}
+
+OpenPlanHandle::OpenPlanHandle(std::unique_ptr<Impl> impl) : impl_{std::move(impl)} {}
+OpenPlanHandle::~OpenPlanHandle() = default;
+OpenPlanHandle::OpenPlanHandle(OpenPlanHandle&&) noexcept = default;
+OpenPlanHandle& OpenPlanHandle::operator=(OpenPlanHandle&&) noexcept = default;
+
+const manifest::Manifest& OpenPlanHandle::manifest() const { return impl_->archive.manifest; }
+const std::filesystem::path& OpenPlanHandle::dest() const { return impl_->dest; }
+const AgentMemberTable& OpenPlanHandle::agent_members() const { return impl_->archive.agents; }
+adapters::MemberRead OpenPlanHandle::make_reader() const {
+  return make_member_read(impl_->image, impl_->archive.agents);
+}
+
+expected<OpenPlanHandle> plan_open(const OpenOptions& options) {
   try {
-    return open_impl(options);
+    auto archive = read_archive_plan(options.image, options.verify);
+    if (!archive) {
+      return std::unexpected(preapply_error(archive.error(), options.image));
+    }
+    auto impl = std::make_unique<OpenPlanHandle::Impl>();
+    impl->image = options.image;
+    impl->dest = options.dest.value_or(default_dest_for(options.image)).lexically_normal();
+    impl->verify = options.verify;
+    impl->archive = std::move(*archive);
+    return OpenPlanHandle{std::move(impl)};
   } catch (const std::exception& error) {
     return std::unexpected(BivError{ErrKind::InternalError, options.image.generic_string(), error.what()});
   } catch (...) {
-    return std::unexpected(BivError{ErrKind::InternalError, options.image.generic_string(), "open"});
+    return std::unexpected(BivError{ErrKind::InternalError, options.image.generic_string(), "plan-open"});
   }
+}
+
+expected<OpenReport> execute_open(OpenPlanHandle&& handle, const OpenDecisions& decisions) {
+  try {
+    OpenPlanHandle owned = std::move(handle);
+    auto impl = std::move(owned.impl_);
+    return execute_archive(impl->image, impl->dest, impl->verify, std::move(impl->archive), decisions.collision);
+  } catch (const std::exception& error) {
+    return std::unexpected(BivError{ErrKind::InternalError, {}, error.what()});
+  } catch (...) {
+    return std::unexpected(BivError{ErrKind::InternalError, {}, "execute-open"});
+  }
+}
+
+expected<OpenReport> open(const OpenOptions& options) {
+  auto plan = plan_open(options);
+  if (!plan) {
+    return std::unexpected(plan.error());
+  }
+  return execute_open(std::move(*plan), OpenDecisions{.collision = options.collision});
 }
 
 }  // namespace biv::open

@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <exception>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <optional>
@@ -8,6 +10,8 @@
 
 #include "cli/args.hpp"
 #include "core/pack/pack.hpp"
+#include "core/open/render.hpp"
+#include "core/open/sessions.hpp"
 #include "core/report/envelope.hpp"
 #include "core/report/exit_map.hpp"
 #include "core/support/version.hpp"
@@ -68,6 +72,21 @@ void maybe_prompt_collision(biv::open::OpenOptions& options, bool json) {
   }
 }
 
+biv::adapters::Env current_env() {
+  const char* home = std::getenv("HOME");
+  return biv::adapters::Env{
+      .getenv = [](const std::string_view name) -> std::optional<std::string> {
+        const std::string key{name};
+        const char* value = std::getenv(key.c_str());
+        return value == nullptr ? std::nullopt : std::optional<std::string>{value};
+      },
+      .home = home == nullptr ? std::filesystem::path{} : std::filesystem::path{home}};
+}
+
+bool consent_specified(const biv::core_sessions::ConsentSpec& consent) {
+  return consent.global != biv::core_sessions::ConsentValue::unset || !consent.per_agent.empty();
+}
+
 int emit_internal_fallback(bool json) noexcept {
   if (json) {
     std::cout << "{\"envelope_version\":1,\"app_version\":\"" << biv::app_version()
@@ -107,15 +126,64 @@ int main(int argc, char** argv) {
         return exit_code;
       }
       case biv::cli::Verb::open: {
+        auto plan = biv::open::plan_open(parsed->open_options);
+        if (!plan) {
+          return emit_error("open", plan.error(), parsed->json);
+        }
+        auto preview = biv::core_sessions::build_preview(plan->manifest(), current_env());
+        if (!preview) {
+          return emit_error("open", preview.error(), parsed->json);
+        }
+        auto reader = plan->make_reader();
+        auto manifest = plan->manifest();
         maybe_prompt_collision(parsed->open_options, parsed->json);
-        auto report = biv::open::open(parsed->open_options);
+        bool prompt_shown = false;
+        std::optional<bool> prompt_answer;
+        if (preview->any_sessions() && !consent_specified(parsed->consent) && !parsed->json &&
+            ::isatty(STDIN_FILENO) != 0 && ::isatty(STDERR_FILENO) != 0) {
+          prompt_shown = true;
+          std::cerr << biv::open_render::render_prompt_b(*preview, manifest) << std::flush;
+          char choice = '\0';
+          if (!(std::cin >> choice)) {
+            return 130;
+          }
+          prompt_answer = choice == 'y' || choice == 'Y';
+        }
+        const bool warning_shown = preview->any_sessions();
+        if (warning_shown && !prompt_shown) {
+          std::cerr << biv::open_render::kTrustWarning << '\n';
+        }
+        auto consent = biv::core_sessions::resolve_consent(parsed->consent, *preview, prompt_answer);
+        auto report = biv::open::execute_open(std::move(*plan),
+                                              biv::open::OpenDecisions{.collision = parsed->open_options.collision});
         if (!report) {
           return emit_error("open", report.error(), parsed->json);
         }
-        if (parsed->json) {
-          std::cout << biv::report::envelope("open", std::nullopt, *report, std::nullopt, 0);
+        auto sessions = biv::core_sessions::run_session_leg(*preview, consent, manifest,
+                                                             std::filesystem::path{report->output_dir}, reader);
+        if (!sessions) {
+          return emit_error("open", sessions.error(), parsed->json);
         }
-        return 0;
+        const int exit_code = biv::report::exit_for_sessions(*sessions);
+        biv::report::OpenSessionsReport sessions_report{.prompt_shown = prompt_shown,
+                                                         .warning_shown = warning_shown,
+                                                         .consent = consent,
+                                                         .preview = *preview,
+                                                         .outcome = *sessions};
+        if (parsed->json) {
+          if (preview->any_sessions()) {
+            std::cout << biv::report::envelope("open", std::nullopt, *report, std::nullopt,
+                                               exit_code, sessions_report);
+          } else {
+            std::cout << biv::report::envelope("open", std::nullopt, *report, std::nullopt, exit_code);
+          }
+        } else if (preview->any_sessions()) {
+          const bool all_denied = std::ranges::all_of(consent.per_agent, [](const auto& decision) {
+            return !decision.second;
+          });
+          std::cout << biv::open_render::render_summary(*sessions, all_denied);
+        }
+        return exit_code;
       }
       case biv::cli::Verb::list:
       case biv::cli::Verb::info:
