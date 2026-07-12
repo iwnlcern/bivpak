@@ -754,6 +754,7 @@ def run_e3(
     seed_parent = scratch / "seed-ws"
     seed_ws = scratch / "seed-ws" / spec.get("workspace_name", "resume-e3")
     host2 = scratch / "host2"
+    restored_dest = host2 / "workspace"
     owned_paths: list[Path] = []
     capture_candidates: list[Path] = []
     host2_env: dict[str, str] = {}
@@ -818,7 +819,7 @@ def run_e3(
 
         # The remaining open/resume commands are deliberately data-driven and still
         # pass through _spawn, preserving the no-credential and isolated-profile gates.
-        opened = _spawn([str(biv), "open", str(image), "--dest", str(host2),
+        opened = _spawn([str(biv), "open", str(image), "--dest", str(restored_dest),
                          "--consent", "yes", "--json"], host2, host2_env)
         if opened.returncode != 0:
             return _result(spec, Status.FAIL, f"open failed: {opened.stderr.strip()}")
