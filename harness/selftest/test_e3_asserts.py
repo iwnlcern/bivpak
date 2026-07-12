@@ -961,6 +961,131 @@ def test_claude_resume_requires_exact_restored_workspace_project_file(tmp_path):
     )
 
 
+def _assert_claude_resume(profile, restored, session_id, installed, before):
+    return assert_resume_containment(
+        "claude-code", profile, restored, session_id,
+        ["seed-one", "seed-two", "resume-probe"], "resume-probe",
+        CLAUDE_RESUME_MUTATION,
+        expected_transcript=installed,
+        pre_resume_content=before,
+    )
+
+
+def _claude_installed(profile, restored, session_id):
+    return profile / "projects" / e3._project_key(restored) / f"{session_id}.jsonl"
+
+
+def test_claude_resume_accepts_exact_installed_transcript_append(tmp_path):
+    profile = tmp_path / "claude"
+    restored = tmp_path / "restored"
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    installed = _claude_installed(profile, restored, session_id)
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
+
+    assert _assert_claude_resume(
+        profile, restored, session_id, installed, before,
+    ) == installed
+
+
+@pytest.mark.parametrize("installed_appended", [False, True])
+def test_claude_resume_rejects_same_id_probe_fork(tmp_path, installed_appended):
+    profile = tmp_path / "claude"
+    restored = tmp_path / "restored"
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    installed = _claude_installed(profile, restored, session_id)
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + (b"resume-probe\n" if installed_appended else b""))
+    fork = profile / "projects" / "sibling" / f"fork-alternate-{session_id}.jsonl"
+    fork.parent.mkdir(parents=True)
+    fork.write_bytes(before + b"resume-probe\n")
+
+    with pytest.raises(ValueError, match="exact installed transcript"):
+        _assert_claude_resume(profile, restored, session_id, installed, before)
+
+
+def test_claude_resume_rejects_nested_same_id_probe_fork_with_invalid_utf8(tmp_path):
+    profile = tmp_path / "claude"
+    restored = tmp_path / "restored"
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    installed = _claude_installed(profile, restored, session_id)
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
+    fork = profile / "projects" / "nested" / "deeper" / f"alternate-{session_id}.jsonl"
+    fork.parent.mkdir(parents=True)
+    fork.write_bytes(before + b"resume-probe\n\xff")
+
+    with pytest.raises(ValueError, match="invalid UTF-8 Claude transcript"):
+        _assert_claude_resume(profile, restored, session_id, installed, before)
+
+
+def test_claude_resume_rejects_same_id_invalid_utf8_candidate_without_probe(tmp_path):
+    profile = tmp_path / "claude"
+    restored = tmp_path / "restored"
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    installed = _claude_installed(profile, restored, session_id)
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
+    fork = profile / "projects" / "nested" / f"alternate-{session_id}.jsonl"
+    fork.parent.mkdir(parents=True)
+    fork.write_bytes(before + b"fork-without-probe\n\xff")
+
+    with pytest.raises(ValueError, match="invalid UTF-8 Claude transcript"):
+        _assert_claude_resume(profile, restored, session_id, installed, before)
+
+
+def test_claude_resume_rejects_unreadable_same_id_candidate(tmp_path):
+    profile = tmp_path / "claude"
+    restored = tmp_path / "restored"
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    installed = _claude_installed(profile, restored, session_id)
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
+    fork = profile / "projects" / "nested" / f"alternate-{session_id}.jsonl"
+    fork.parent.mkdir(parents=True)
+    fork.write_bytes(before + b"resume-probe\n")
+    fork.chmod(0)
+    try:
+        with pytest.raises(ValueError, match="inspect Claude transcript"):
+            _assert_claude_resume(profile, restored, session_id, installed, before)
+    finally:
+        fork.chmod(0o600)
+
+
+def test_claude_resume_rejects_non_prefix_replacement_at_installed_path(tmp_path):
+    profile = tmp_path / "claude"
+    restored = tmp_path / "restored"
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    installed = _claude_installed(profile, restored, session_id)
+    installed.parent.mkdir(parents=True)
+    before = b"header-original\nseed-one\nseed-two\n"
+    installed.write_bytes(b"header-rewritten\nseed-one\nseed-two\nresume-probe\n")
+
+    with pytest.raises(ValueError, match="append"):
+        _assert_claude_resume(profile, restored, session_id, installed, before)
+
+
+def test_claude_resume_rejects_unreadable_exact_installed_file(tmp_path):
+    profile = tmp_path / "claude"
+    restored = tmp_path / "restored"
+    session_id = "aaaaaaaa-1111-4111-8111-111111111111"
+    installed = _claude_installed(profile, restored, session_id)
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
+    installed.chmod(0)
+    try:
+        with pytest.raises(ValueError):
+            _assert_claude_resume(profile, restored, session_id, installed, before)
+    finally:
+        installed.chmod(0o600)
+
+
 def _assert_codex_resume(profile, restored, session_id, installed, before):
     return assert_resume_containment(
         "codex", profile, restored, session_id,

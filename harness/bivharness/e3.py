@@ -92,10 +92,15 @@ def assert_resume_containment(
         probe_hits = []
         for candidate in profile.rglob("*.jsonl"):
             try:
-                if probe in candidate.read_text(encoding="utf-8"):
-                    probe_hits.append(candidate)
-            except (OSError, UnicodeError):
-                continue
+                content = candidate.read_bytes()
+            except OSError as exc:
+                raise ValueError("unable to inspect Claude transcript") from exc
+            try:
+                content.decode("utf-8")
+            except UnicodeError as exc:
+                raise ValueError("invalid UTF-8 Claude transcript") from exc
+            if probe.encode() in content:
+                probe_hits.append(candidate)
         if probe_hits != [transcript]:
             raise ValueError("Claude resume containment requires the exact installed transcript")
     elif agent_id == "codex":
