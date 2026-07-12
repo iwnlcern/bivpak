@@ -961,26 +961,123 @@ def test_claude_resume_requires_exact_restored_workspace_project_file(tmp_path):
     )
 
 
-def test_codex_resume_requires_one_same_id_rollout(tmp_path):
-    profile = tmp_path / "codex"
-    session_id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001"
-    first = profile / f"rollout-a-{session_id}.jsonl"
-    first.parent.mkdir(parents=True)
-    first.write_text("seed-one\nseed-two\nresume-probe\n", encoding="utf-8")
-
-    assert_resume_containment(
-        "codex", profile, tmp_path / "restored", session_id,
+def _assert_codex_resume(profile, restored, session_id, installed, before):
+    return assert_resume_containment(
+        "codex", profile, restored, session_id,
         ["seed-one", "seed-two", "resume-probe"], "resume-probe", CODEX_RESUME_SHAPE,
+        expected_transcript=installed,
+        pre_resume_content=before,
     )
 
+
+def test_codex_resume_accepts_exact_installed_rollout_append(tmp_path):
+    profile = tmp_path / "codex"
+    session_id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001"
+    installed = profile / "sessions" / f"rollout-original-{session_id}.jsonl"
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
+
+    assert _assert_codex_resume(
+        profile, tmp_path / "restored", session_id, installed, before,
+    ) == installed
+
+
+@pytest.mark.parametrize("installed_appended", [False, True])
+@pytest.mark.parametrize(
+    "fork_parent_name",
+    [
+        ("sibling", "rollout-fork"),
+        ("sessions/nested/deeper", "rollout-copy"),
+        ("archive", "rollout-alternate-name-shape"),
+    ],
+)
+def test_codex_resume_rejects_same_id_probe_fork(
+    tmp_path, installed_appended, fork_parent_name,
+):
+    profile = tmp_path / "codex"
+    session_id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001"
+    installed = profile / "sessions" / f"rollout-original-{session_id}.jsonl"
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + (b"resume-probe\n" if installed_appended else b""))
+    parent, name = fork_parent_name
+    fork = profile / parent / f"{name}-{session_id}.jsonl"
+    fork.parent.mkdir(parents=True)
+    fork.write_bytes(before + b"resume-probe\n")
+
+    with pytest.raises(ValueError, match="exact installed transcript"):
+        _assert_codex_resume(
+            profile, tmp_path / "restored", session_id, installed, before,
+        )
+
+
+def test_codex_resume_rejects_delete_and_recreate_at_installed_path(tmp_path):
+    profile = tmp_path / "codex"
+    session_id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001"
+    installed = profile / "sessions" / f"rollout-original-{session_id}.jsonl"
+    installed.parent.mkdir(parents=True)
+    before = b"header-original\nseed-one\nseed-two\n"
+    installed.write_bytes(b"header-rewritten\nseed-one\nseed-two\nresume-probe\n")
+
+    with pytest.raises(ValueError, match="append"):
+        _assert_codex_resume(
+            profile, tmp_path / "restored", session_id, installed, before,
+        )
+
+
+def test_codex_resume_rejects_two_probe_bearing_same_id_rollouts(tmp_path):
+    profile = tmp_path / "codex"
+    session_id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001"
+    installed = profile / "sessions" / f"rollout-original-{session_id}.jsonl"
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
     second = profile / "nested" / f"rollout-b-{session_id}.jsonl"
     second.parent.mkdir()
     second.write_text("resume-probe\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="exactly one"):
-        assert_resume_containment(
-            "codex", profile, tmp_path / "restored", session_id,
-            ["seed-one", "seed-two", "resume-probe"], "resume-probe", CODEX_RESUME_SHAPE,
+
+    with pytest.raises(ValueError, match="exact installed transcript"):
+        _assert_codex_resume(
+            profile, tmp_path / "restored", session_id, installed, before,
         )
+
+
+def test_codex_resume_rejects_same_id_probe_fork_with_invalid_utf8(tmp_path):
+    profile = tmp_path / "codex"
+    session_id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001"
+    installed = profile / "sessions" / f"rollout-original-{session_id}.jsonl"
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
+    fork = profile / "nested" / f"rollout-invalid-{session_id}.jsonl"
+    fork.parent.mkdir()
+    fork.write_bytes(before + b"resume-probe\n\xff")
+
+    with pytest.raises(ValueError, match="exact installed transcript"):
+        _assert_codex_resume(
+            profile, tmp_path / "restored", session_id, installed, before,
+        )
+
+
+def test_codex_resume_rejects_unreadable_same_id_fork(tmp_path):
+    profile = tmp_path / "codex"
+    session_id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001"
+    installed = profile / "sessions" / f"rollout-original-{session_id}.jsonl"
+    installed.parent.mkdir(parents=True)
+    before = b"seed-one\nseed-two\n"
+    installed.write_bytes(before + b"resume-probe\n")
+    fork = profile / "nested" / f"rollout-unreadable-{session_id}.jsonl"
+    fork.parent.mkdir()
+    fork.write_bytes(before + b"resume-probe\n")
+    fork.chmod(0)
+    try:
+        with pytest.raises(ValueError, match="inspect same-session rollout"):
+            _assert_codex_resume(
+                profile, tmp_path / "restored", session_id, installed, before,
+            )
+    finally:
+        fork.chmod(0o600)
 
 
 def test_value_aware_secret_scan_has_red_and_green_controls():

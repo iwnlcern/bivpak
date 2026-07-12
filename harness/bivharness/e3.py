@@ -81,6 +81,9 @@ def assert_resume_containment(
     turns: list[str],
     probe: str,
     pinned_shape: str,
+    *,
+    expected_transcript: Path | None = None,
+    pre_resume_content: bytes | None = None,
 ) -> Path:
     if agent_id == "claude-code":
         if pinned_shape != CLAUDE_RESUME_MUTATION:
@@ -98,25 +101,39 @@ def assert_resume_containment(
     elif agent_id == "codex":
         if pinned_shape != CODEX_RESUME_SHAPE:
             raise ValueError("Codex resume shape does not match pinned shape")
-        transcript = select_owned_rollout(profile, session_id, probe)
+        if expected_transcript is None:
+            raise ValueError("Codex resume containment requires the exact installed transcript")
+        transcript = select_owned_rollout(
+            profile, session_id, probe, expected_transcript=expected_transcript
+        )
     else:
         raise ValueError(f"unsupported E3 agent: {agent_id}")
+    if pre_resume_content is not None and not transcript.read_bytes().startswith(pre_resume_content):
+        raise ValueError(f"{agent_id} resume did not append to the installed transcript")
     if not transcript.is_file() or not ordered_turns_present(transcript.read_text(encoding="utf-8"), turns):
         raise ValueError(f"{agent_id} transcript containment failed")
     return transcript
 
 
-def select_owned_rollout(root: Path, session_id: str, run_token: str) -> Path:
+def select_owned_rollout(
+    root: Path,
+    session_id: str,
+    run_token: str,
+    *,
+    expected_transcript: Path | None = None,
+) -> Path:
     matches: list[Path] = []
     for path in root.rglob("rollout-*.jsonl"):
         if session_id not in path.name:
             continue
         try:
-            content = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            continue
-        if run_token in content:
+            content = path.read_bytes()
+        except OSError as exc:
+            raise ValueError("unable to inspect same-session rollout") from exc
+        if run_token.encode() in content:
             matches.append(path)
+    if expected_transcript is not None and matches != [expected_transcript]:
+        raise ValueError("Codex resume containment requires the exact installed transcript")
     if len(matches) != 1:
         raise ValueError(f"expected exactly one owned rollout, got {len(matches)}")
     return matches[0]
@@ -829,6 +846,9 @@ def run_e3(
                 pre_open_stores[agent["id"]], snapshot_store(profile), spec["seed_turns"],
             )
             installed_paths[agent["id"]] = paths[0]
+        installed_contents = {
+            agent_id: path.read_bytes() for agent_id, path in installed_paths.items()
+        }
         installed_hashes = {agent_id: _hash(path) for agent_id, path in installed_paths.items()}
 
         for agent in spec["agents"]:
@@ -853,6 +873,8 @@ def run_e3(
             assert_resume_containment(
                 agent["id"], profile, restored_workspace, session_id,
                 turns, spec["resume_probe"], shape,
+                expected_transcript=installed_paths[agent["id"]],
+                pre_resume_content=installed_contents[agent["id"]],
             )
         return _result(spec, Status.PASS, "dual-agent resume and store containment passed")
     except (KeyError, OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
