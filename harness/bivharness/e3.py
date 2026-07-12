@@ -754,7 +754,7 @@ def run_e3(
     seed_parent = scratch / "seed-ws"
     seed_ws = scratch / "seed-ws" / spec.get("workspace_name", "resume-e3")
     host2 = scratch / "host2"
-    restored_dest = host2 / "workspace"
+    restored_dest = host2 / "work"
     owned_paths: list[Path] = []
     capture_candidates: list[Path] = []
     host2_env: dict[str, str] = {}
