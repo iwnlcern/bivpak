@@ -37,7 +37,7 @@ fs::path make_tmp(std::string_view name) {
               ("biv-claude-install-" + std::string{name} + "-" + std::to_string(::getpid()));
   fs::remove_all(base);
   fs::create_directories(base);
-  return base;
+  return fs::canonical(base);
 }
 
 std::vector<std::byte> bytes(std::string_view text) {
