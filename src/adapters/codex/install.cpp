@@ -11,7 +11,6 @@
 #include <limits>
 #include <map>
 #include <optional>
-#include <random>
 #include <set>
 #include <span>
 #include <string>
@@ -27,11 +26,11 @@
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
-#include <sys/random.h>
 #include <unistd.h>
 
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
+#include "core/support/portability.hpp"
 
 namespace biv::adapters {
 
@@ -115,12 +114,7 @@ std::string hex_uuid(const std::array<unsigned char, 16>& bytes) {
 
 std::string uuidv7_from_ms(const uint64_t ms) {
   std::array<unsigned char, 16> bytes {};
-  if (::getrandom(bytes.data(), bytes.size(), 0) != static_cast<ssize_t>(bytes.size())) {
-    std::random_device rd;
-    for (auto& byte : bytes) {
-      byte = static_cast<unsigned char>(rd());
-    }
-  }
+  support::secure_random_bytes(bytes.data(), bytes.size());
   bytes.at(0) = static_cast<unsigned char>((ms >> 40U) & 0xffU);
   bytes.at(1) = static_cast<unsigned char>((ms >> 32U) & 0xffU);
   bytes.at(2) = static_cast<unsigned char>((ms >> 24U) & 0xffU);
