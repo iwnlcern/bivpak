@@ -606,7 +606,7 @@ def perform_oauth_checkpoint(
     for agent, _, env in contexts:
         version = spawn(agent["version_command"], host2, env)
         if version.returncode != 0 or not version_in_validated_range(
-            version.stdout + version.stderr, agent["validated_version_prefix"]
+            version.stdout + version.stderr, agent["validated_version_prefixes"]
         ):
             raise ValueError(f"{agent['id']} host2 version is outside the validated range")
 
@@ -806,7 +806,7 @@ def run_e3(
                 return _result(spec, Status.INVALID, f"{agent['id']} is not authenticated; run: {instruction}")
             version = _spawn(agent["version_command"], seed_ws, env)
             if version.returncode != 0 or not version_in_validated_range(
-                version.stdout + version.stderr, agent["validated_version_prefix"]
+                version.stdout + version.stderr, agent["validated_version_prefixes"]
             ):
                 return _result(spec, Status.INVALID, f"{agent['id']} version is outside the validated range")
             live_contexts.append((agent, live_profile, env))

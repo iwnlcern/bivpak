@@ -113,7 +113,7 @@ def _checkpoint_agents():
             "env": {"CLAUDE_CONFIG_DIR": "{profile}"},
             "auth_status": ["claude", "auth", "status"],
             "version_command": ["claude", "--version"],
-            "validated_version_prefix": "2.1.",
+            "validated_version_prefixes": ["2.1."],
             "liveness_command": ["claude", "--model", "haiku", "-p", "Reply with one token: OK"],
         },
         {
@@ -122,7 +122,7 @@ def _checkpoint_agents():
             "env": {"CODEX_HOME": "{profile}"},
             "auth_status": ["codex", "login", "status"],
             "version_command": ["codex", "--version"],
-            "validated_version_prefix": "0.142.",
+            "validated_version_prefixes": ["0.142.", "0.144."],
         },
     ]
 
@@ -1328,12 +1328,13 @@ def test_class_j_workspace_memoryless_and_version_predicates(tmp_path):
     app_state = tmp_path / "biv-owned"
     app_state.mkdir()
     assert "bivpak-state-present" in class_j_failures(seed, restored, [app_state])
-    assert version_in_validated_range("claude 2.1.202", "2.1.")
-    assert not version_in_validated_range("claude 2.2.0", "2.1.")
-    assert not version_in_validated_range("claude 12.1.202", "2.1.")
+    assert version_in_validated_range("claude 2.1.202", ["2.1."])
+    assert not version_in_validated_range("claude 2.2.0", ["2.1."])
+    assert not version_in_validated_range("claude 12.1.202", ["2.1."])
 
 
 CX = ["0.142.", "0.144."]
+STALE_VERSION_PREFIX_KEY = "validated_version_" + "prefix"
 
 
 @pytest.mark.parametrize("version,accepted", [
@@ -1374,7 +1375,7 @@ def test_validate_spec_rejects_a_stale_scalar_only_scenario():
     spec = _valid_two_agent_spec()
     agent = spec["agents"][0]
     del agent["validated_version_prefixes"]
-    agent["validated_version_prefix"] = "0.142."
+    agent[STALE_VERSION_PREFIX_KEY] = "0.142."
     failures = e3._validate_spec(spec)
     assert any("validated_version_prefixes" in failure for failure in failures)
 
@@ -1390,7 +1391,7 @@ def test_stale_scenario_is_invalid_before_any_spawn(monkeypatch, tmp_path):
     spec = _valid_two_agent_spec()
     agent = spec["agents"][0]
     del agent["validated_version_prefixes"]
-    agent["validated_version_prefix"] = "0.142."
+    agent[STALE_VERSION_PREFIX_KEY] = "0.142."
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
 
@@ -1399,6 +1400,71 @@ def test_stale_scenario_is_invalid_before_any_spawn(monkeypatch, tmp_path):
     assert result.status is Status.INVALID
     assert "validated_version_prefixes" in result.detail
     assert calls == []
+
+
+CX_MATRIX = [
+    ("0.142.5", True),
+    ("0.144.1", True),
+    ("0.143.0", False),
+    ("0.145.0", False),
+    ("0.61.0", False),
+]
+
+
+def _run_prerun_with_codex_version(monkeypatch, tmp_path, version):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        if command == ["codex", "--version"]:
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command == ["claude", "auth", "status"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+    result = e3.run_e3(spec_path, Path("biv"), tmp_path / "scratch")
+    return result, calls
+
+
+@pytest.mark.parametrize("version,accepted", CX_MATRIX)
+def test_prerun_version_gate_enforces_the_enumerated_set(
+    monkeypatch, tmp_path, version, accepted
+):
+    result, calls = _run_prerun_with_codex_version(monkeypatch, tmp_path, version)
+    assert result.status is Status.INVALID
+    assert ["codex", "--version"] in calls
+    if accepted:
+        assert "version is outside the validated range" not in result.detail
+        assert "not authenticated" in result.detail
+    else:
+        assert "version is outside the validated range" in result.detail
+
+
+@pytest.mark.parametrize("version,accepted", CX_MATRIX)
+def test_checkpoint_version_gate_enforces_the_enumerated_set(tmp_path, version, accepted):
+    def fake_spawn(command, cwd, env):
+        if command[0] == "claude":
+            if "-p" in command:
+                return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+            return SimpleNamespace(returncode=0, stdout="2.1.202", stderr="")
+        return SimpleNamespace(returncode=0, stdout=version, stderr="")
+
+    host2 = tmp_path / "host two"
+    args = (
+        {"agents": _checkpoint_agents()},
+        host2,
+        host2 / "profiles",
+        lambda prompt: "",
+        fake_spawn,
+    )
+    if accepted:
+        perform_oauth_checkpoint(*args)
+    else:
+        with pytest.raises(ValueError, match="host2 version is outside the validated range"):
+            perform_oauth_checkpoint(*args)
 
 
 def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_path):
@@ -1418,7 +1484,7 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
             "env": {},
             "auth_status": [command, "auth"],
                 "version_command": [command, "version"],
-                "validated_version_prefix": "1.0.",
+                "validated_version_prefixes": ["1.0."],
                 "cheapest_model": "cheap",
                 "seed_start_command": [command, "seed", "{run_token}", "--model", "cheap"],
                 "seed_retry_resume_command": [command, "retry", "{run_token}", "--model", "cheap"],
@@ -1456,7 +1522,7 @@ def test_e3_spec_validation_rejects_dead_or_wrong_resume_shape():
         "live_profile": "~/.agent",
         "auth_status": ["agent", "auth"],
         "version_command": ["agent", "version"],
-        "validated_version_prefix": "1.0.",
+        "validated_version_prefixes": ["1.0."],
         "seed_start_command": ["agent", "seed"],
         "seed_continue_command": ["agent", "continue"],
         "ownership_glob": "*.jsonl",
