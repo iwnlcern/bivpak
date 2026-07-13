@@ -283,7 +283,7 @@ fs::path codex_root_for_host(const Host& host) {
 }
 
 bool validated_codex_version(std::string_view version) {
-  return version.starts_with("0.142.");
+  return version.starts_with("0.142.") || version.starts_with("0.144.");
 }
 
 std::optional<bool> host_version_unverified_for_install(
@@ -301,7 +301,7 @@ std::optional<bool> host_version_unverified_for_install(
 Capabilities capabilities_for_root(const fs::path& root) {
   Capabilities caps{
       .agent_version = "unknown",
-      .validated_range = "0.142.x",
+      .validated_range = "0.142.x, 0.144.x",
       .verdict = Capabilities::Verdict::absent,
       .long_path_keys_pinned = true,
       .per_verb = {.collect = false, .install = false, .rewrite = false}};

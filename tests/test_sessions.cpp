@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <vector>
@@ -8,6 +9,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "core/open/sessions.hpp"
+#include "core/report/exit_map.hpp"
 
 namespace {
 
@@ -39,6 +41,28 @@ biv::manifest::Manifest model(std::vector<biv::manifest::AgentSessionEntry> entr
 biv::adapters::Env env(const std::filesystem::path& home) {
   return biv::adapters::Env{.getenv = [](std::string_view) { return std::optional<std::string>{}; },
                             .home = home};
+}
+
+std::vector<std::byte> bytes(std::string_view text) {
+  std::vector<std::byte> result;
+  result.reserve(text.size());
+  for (const char value : text) {
+    result.push_back(static_cast<std::byte>(value));
+  }
+  return result;
+}
+
+biv::manifest::AgentSessionEntry codex_entry(std::string_view version) {
+  constexpr std::string_view session_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1440";
+  auto value = entry("codex");
+  value.agent_version_at_pack = version;
+  value.original_path = "/ws/proj";
+  value.normalized_path_key = "/ws/proj";
+  value.normalization_scheme = "codex-cwd/v1";
+  value.original_session_ids.primary = session_id;
+  value.artifacts = {"agents/codex/" + std::string{session_id} + ".jsonl"};
+  return value;
 }
 
 }  // namespace
@@ -153,4 +177,85 @@ TEST_CASE("activation filtering suppresses only the failed session command") {
   const auto safe = biv::core_sessions::filter_activation(installed.activation, rows);
   REQUIRE(safe.size() == 1U);
   CHECK(safe.front().command == "future resume clean-id");
+}
+
+TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
+  struct VersionCase {
+    std::string_view version;
+    bool accepted;
+  };
+  constexpr VersionCase cases[]{{"0.142.5", true},
+                                {"0.144.1", true},
+                                {"0.143.0", false},
+                                {"0.145.0", false},
+                                {"0.61.0", false}};
+  constexpr std::string_view session_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1440";
+
+  for (const auto& version_case : cases) {
+    DYNAMIC_SECTION(version_case.version) {
+      const auto home = std::filesystem::temp_directory_path() /
+                        ("biv-sessions-codex-range-" +
+                         std::string{version_case.version} + "-" +
+                         std::to_string(::getpid()));
+      const auto store = home / ".codex";
+      const auto workspace = home / "workspace";
+      std::filesystem::remove_all(home);
+      std::filesystem::create_directories(store);
+      std::filesystem::create_directories(workspace);
+      {
+        std::ofstream marker{store / "version.json"};
+        marker << "{\"version\":\"" << version_case.version << "\"}\n";
+      }
+      auto manifest = model({codex_entry(version_case.version)});
+      auto preview = biv::core_sessions::build_preview(manifest, env(home));
+      REQUIRE(preview);
+      biv::core_sessions::ConsentSpec consent_spec;
+      consent_spec.global = biv::core_sessions::ConsentValue::yes;
+      const auto consent =
+          biv::core_sessions::resolve_consent(consent_spec, *preview, std::nullopt);
+      const std::string artifact = "agents/codex/" +
+                                   std::string{session_id} + ".jsonl";
+      const auto content = bytes(
+          "{\"timestamp\":\"2026-07-12T00:00:00Z\",\"type\":"
+          "\"session_meta\",\"payload\":{\"id\":\"" +
+          std::string{session_id} + "\",\"session_id\":\"" +
+          std::string{session_id} +
+          "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"" +
+          std::string{version_case.version} + "\"}}\n");
+      const biv::adapters::MemberRead reader =
+          [&](std::string_view path) -> biv::expected<std::vector<std::byte>> {
+        if (path != artifact) {
+          return std::unexpected(
+              biv::BivError{biv::ErrKind::ImageUnreadable, std::string{path}});
+        }
+        return content;
+      };
+
+      const auto outcome = biv::core_sessions::run_session_leg(
+          *preview, consent, manifest, workspace, reader);
+
+      REQUIRE(outcome);
+      REQUIRE(outcome->rows.size() == 1U);
+      const auto& row = outcome->rows.front();
+      if (version_case.accepted) {
+        CHECK(row.row ==
+              biv::core_sessions::SessionRowReport::Row::installed);
+        CHECK(row.installed_session_id.has_value());
+        CHECK_FALSE(row.activation_suppressed);
+        CHECK(biv::report::exit_for_sessions(*outcome) == 0);
+        CHECK(std::filesystem::exists(store / "sessions"));
+      } else {
+        CHECK(row.row == biv::core_sessions::SessionRowReport::Row::
+                             agent_not_validated_failed);
+        CHECK(row.reason == std::optional<std::string>{"not-validated"});
+        CHECK_FALSE(row.installed_session_id.has_value());
+        CHECK(row.activation_suppressed);
+        CHECK(outcome->activation.empty());
+        CHECK(biv::report::exit_for_sessions(*outcome) == 2);
+        CHECK_FALSE(std::filesystem::exists(store / "sessions"));
+      }
+      std::filesystem::remove_all(home);
+    }
+  }
 }

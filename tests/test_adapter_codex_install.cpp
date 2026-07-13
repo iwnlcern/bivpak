@@ -25,6 +25,13 @@ namespace fs = std::filesystem;
 
 constexpr std::string_view kParent = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001";
 constexpr std::string_view kChild = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0002";
+constexpr std::string_view kFxParent = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441";
+constexpr std::string_view kFxChild = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1442";
+
+fs::path fixture_root() {
+  return fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" / "codex_store" /
+         "fx-cx-144";
+}
 
 fs::path make_tmp(std::string_view name) {
   auto base = fs::temp_directory_path() / ("biv-codex-install-" + std::string{name} + "-" + std::to_string(::getpid()));
@@ -299,6 +306,116 @@ TEST_CASE("Codex install rewrites escaped values without changing keys or number
   CHECK(installed.find("\"integral\":1.0") != std::string::npos);
   CHECK(installed.find("\"exponent\":1e+03") != std::string::npos);
   CHECK(installed.find("18446744073709551615") != std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE("FX-CX-144 discover collect install preserves new rollout variants") {
+  const auto& adapter = biv::adapters::codex_adapter();
+  const auto source_store = fixture_root();
+  const biv::adapters::Env source_env{
+      .getenv = [&](std::string_view name) -> std::optional<std::string> {
+        return name == "CODEX_HOME"
+                   ? std::optional<std::string>{source_store.string()}
+                   : std::nullopt;
+      },
+      .home = source_store.parent_path()};
+
+  const auto stores = adapter.discover(source_env);
+  REQUIRE(stores);
+  REQUIRE(stores->size() == 1U);
+  CHECK(stores->front().root == source_store);
+  const auto collected = adapter.collect("/ws/proj", *stores);
+  REQUIRE(collected);
+  REQUIRE(collected->sessions.size() == 1U);
+  const auto& session = collected->sessions.front();
+  CHECK(session.original_session_id == kFxParent);
+  CHECK(session.child_ids == std::vector<std::string>{std::string{kFxChild}});
+  CHECK(session.agent_version_at_pack == "0.144.1");
+  REQUIRE(session.artifacts.size() == 2U);
+  REQUIRE(session.artifact_sources.size() == session.artifacts.size());
+
+  biv::manifest::AgentSessionEntry record;
+  record.agent = session.agent;
+  record.agent_version_at_pack = session.agent_version_at_pack;
+  record.relpath_key = ".";
+  record.original_path = session.original_path;
+  record.normalized_path_key = session.normalized_path_key;
+  record.normalization_scheme = session.normalization_scheme;
+  record.path_flavor = session.path_flavor;
+  record.provenance = session.provenance;
+  record.original_session_ids.primary = session.original_session_id;
+  record.artifacts = {session.artifacts.front()};
+  record.children = {{.original_id = session.child_ids.front(),
+                      .artifacts = {session.artifacts.at(1)}}};
+  record.imported_at = "2026-07-12T12:02:00Z";
+
+  std::map<std::string, std::vector<std::byte>> members;
+  for (size_t i = 0; i < session.artifacts.size(); ++i) {
+    members.emplace(session.artifacts.at(i),
+                    bytes(read_text(session.artifact_sources.at(i).path)));
+  }
+  const auto root = make_tmp("fx-cx-144");
+  const auto workspace = root / "workspace";
+  const auto target_store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(target_store);
+  {
+    std::ofstream marker{target_store / "version.json"};
+    marker << "{\"version\":\"0.144.1\"}\n";
+  }
+  auto target = target_for(workspace, target_store, members);
+
+  const auto installed = adapter.install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{record});
+
+  REQUIRE(installed);
+  REQUIRE(installed->sessions.size() == 1U);
+  CHECK(installed->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(installed->sessions.front().verify.origin_path_hits == 0U);
+  CHECK(installed->sessions.front().verify.origin_id_hits == 0U);
+  CHECK(installed->sessions.front().verify.artifacts_checked == 2U);
+  REQUIRE(installed->id_map.size() == 1U);
+  const auto& id_map = installed->id_map.front();
+  REQUIRE(id_map.children.size() == 1U);
+  const auto& installed_child = id_map.children.front().second;
+  const auto files = relative_files(target_store);
+  REQUIRE(files.size() == 3U);
+  const auto parent_file = std::ranges::find_if(files, [&](const auto& file) {
+    return file.find(id_map.installed_session_id) != std::string::npos;
+  });
+  const auto child_file = std::ranges::find_if(files, [&](const auto& file) {
+    return file.find(installed_child) != std::string::npos;
+  });
+  REQUIRE(parent_file != files.end());
+  REQUIRE(child_file != files.end());
+  const auto parent_text = read_text(target_store / *parent_file);
+  const auto child_text = read_text(target_store / *child_file);
+  const auto all_text = parent_text + child_text;
+
+  CHECK(all_text.find(kFxParent) == std::string::npos);
+  CHECK(all_text.find(kFxChild) == std::string::npos);
+  CHECK(parent_text.find(workspace.generic_string() + "/sub") !=
+        std::string::npos);
+  CHECK(parent_text.find(id_map.installed_session_id) != std::string::npos);
+  CHECK(child_text.find(id_map.installed_session_id) != std::string::npos);
+  CHECK(child_text.find(installed_child) != std::string::npos);
+  CHECK(all_text.find("\"selected_capability_roots\":[\"/opt/codex/capabilities\"]") !=
+        std::string::npos);
+  CHECK(all_text.find("\"history_mode\":\"legacy\"") !=
+        std::string::npos);
+  CHECK(all_text.find("\"context_window\":{") != std::string::npos);
+  CHECK(all_text.find("\"max_tokens\":200000") != std::string::npos);
+  CHECK(parent_text.find(
+            "{\"timestamp\":\"2026-07-12T12:00:02Z\",\"type\":\"inter_agent_communication_metadata\",\"payload\":{\"trigger_turn\":true}}\n") !=
+        std::string::npos);
+  CHECK(parent_text.find(
+            "{\"timestamp\":\"2026-07-12T12:00:03Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"function_call\",\"name\":\"spawn_agent\",\"arguments\":\"candidate-child\",\"call_id\":\"call_fx_cx_144\"}}\n") !=
+        std::string::npos);
+  REQUIRE(installed->activation.size() == 1U);
+  CHECK(installed->activation.front().command ==
+        "codex resume " + id_map.installed_session_id);
   fs::remove_all(root);
 }
 
