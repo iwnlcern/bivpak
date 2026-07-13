@@ -1467,6 +1467,165 @@ def test_checkpoint_version_gate_enforces_the_enumerated_set(tmp_path, version, 
             perform_oauth_checkpoint(*args)
 
 
+def _symlinked_ancestor(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+    shadowed = link / "child"
+    assert not shadowed.is_symlink()
+    return shadowed
+
+
+def _run_dry(tmp_path, spec, scratch):
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    return e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
+
+
+def test_scratch_under_a_symlinked_ancestor_is_refused_without_writing(tmp_path):
+    shadowed = _symlinked_ancestor(tmp_path)
+    real = tmp_path / "real"
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), shadowed)
+
+    assert result.status is Status.INVALID
+    assert "realpath-stable" in result.detail
+    assert "scratch" in result.detail
+    assert not shadowed.exists()
+    assert list(real.iterdir()) == []
+
+
+def test_relative_scratch_is_refused_without_writing(tmp_path, monkeypatch):
+    stable = tmp_path.resolve()
+    monkeypatch.chdir(stable)
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), Path("relative-scratch"))
+
+    assert result.status is Status.INVALID
+    assert "absolute" in result.detail
+    assert not (stable / "relative-scratch").exists()
+
+
+def test_absolute_realpath_unstable_host2_profile_root_is_refused(tmp_path):
+    spec = _valid_two_agent_spec()
+    spec["host2_profile_root"] = str(_symlinked_ancestor(tmp_path) / "profiles")
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert "host2_profile_root" in result.detail
+
+
+def test_realpath_unstable_live_store_root_is_refused(tmp_path):
+    spec = _valid_two_agent_spec()
+    spec["live_store_roots"] = [str(_symlinked_ancestor(tmp_path) / "store")]
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert "live_store_roots" in result.detail
+
+
+def test_realpath_unstable_live_profile_is_refused(tmp_path):
+    spec = _valid_two_agent_spec()
+    spec["agents"][0]["live_profile"] = str(_symlinked_ancestor(tmp_path) / ".codex")
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert "live_profile" in result.detail
+
+
+@pytest.mark.parametrize("field", ["host2_profile", "workspace_name"])
+def test_absolute_value_that_would_escape_its_root_is_refused(tmp_path, field):
+    spec = _valid_two_agent_spec()
+    if field == "workspace_name":
+        spec["workspace_name"] = "/etc"
+    else:
+        spec["agents"][0]["host2_profile"] = "/etc"
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert field in result.detail
+
+
+def test_absolute_forbidden_bivpak_state_entry_is_refused(tmp_path):
+    spec = _valid_two_agent_spec()
+    spec["forbidden_bivpak_state"] = ["/etc"]
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert "forbidden_bivpak_state" in result.detail
+
+
+def test_realpath_stable_paths_are_accepted(tmp_path):
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), tmp_path.resolve() / "scratch")
+    assert result.status is Status.PASS
+
+
+def test_shipped_scenario_has_no_realpath_unstable_or_absolute_paths():
+    spec = json.loads(
+        Path("harness/scenarios-e3/e3-dual-resume.json").read_text(encoding="utf-8")
+    )
+    assert e3._path_field_failures(spec, Path.home()) == []
+
+
+def test_runner_stops_on_an_alias_spelled_seeded_transcript_before_pack(
+    monkeypatch, tmp_path
+):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        if "--version" in command:
+            version = "claude 2.1.202" if command[0] == "claude" else "codex-cli 0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    def fake_seed_agent(
+        agent,
+        live_profile,
+        seed_workspace,
+        spec,
+        env,
+        spawn,
+        capture_candidates,
+        owned_paths,
+    ):
+        spelling = (
+            b"/var/folders/hq/x/T/ws"
+            if agent["id"] == "codex"
+            else b"/Users/jack/biv-e3/ws"
+        )
+        transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
+        transcript.write_bytes(b'{"cwd":"' + spelling + b'"}\n')
+        owned_paths.append(transcript)
+        return transcript
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed_agent)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), tmp_path.resolve() / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "negative-control" in result.detail
+    assert not any(command[:2] == ["biv", "pack"] for command in calls)
+
+
+def test_negative_control_flags_an_alias_spelled_transcript(tmp_path):
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'{"cwd":"/var/folders/hq/x/T/ws"}\n')
+    failures = e3._negative_control_failures([transcript])
+    assert failures and "negative-control" in failures[0]
+
+
+def test_negative_control_flags_the_resolved_spelling_too(tmp_path):
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'{"cwd":"/private/var/folders/hq/x/T/ws"}\n')
+    assert e3._negative_control_failures([transcript])
+
+
+def test_negative_control_is_silent_on_a_realpath_stable_transcript(tmp_path):
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'{"cwd":"/Users/jack/biv-e3/seed-ws"}\n')
+    assert e3._negative_control_failures([transcript]) == []
+
+
 def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_path):
     calls = []
 

@@ -737,6 +737,71 @@ def _validate_spec(spec: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _realpath_unstable(path: Path) -> Path | None:
+    resolved = path.resolve()
+    return resolved if resolved != path else None
+
+
+def _path_field_failures(spec: dict[str, Any], scratch: Path) -> list[str]:
+    """Refuse unstable original spellings and absolute values that escape roots."""
+    failures: list[str] = []
+
+    def check(label: str, raw: str | Path) -> None:
+        path = Path(raw).expanduser()
+        if not path.is_absolute():
+            return
+        diverged = _realpath_unstable(path)
+        if diverged is not None:
+            failures.append(
+                f"{label} must be realpath-stable; {path} resolves to {diverged} "
+                "(a symlinked ancestor such as macOS /var -> /private/var silently changes "
+                "path identity, and un-matching sessions are skipped at collect, not refused). "
+                "Use a realpath-stable directory under $HOME, not $TMPDIR or /tmp."
+            )
+
+    if not scratch.is_absolute():
+        failures.append(
+            f"scratch must be an absolute, realpath-stable path; got relative {scratch}"
+        )
+    else:
+        check("scratch", scratch)
+    if "host2_profile_root" in spec:
+        check("host2_profile_root", spec["host2_profile_root"])
+    for value in spec.get("live_store_roots", []):
+        check("live_store_roots", value)
+    for agent in spec.get("agents", []):
+        check("live_profile", agent.get("live_profile", ""))
+        value = agent.get("host2_profile")
+        if value and Path(value).is_absolute():
+            failures.append(
+                f"host2_profile must be relative to the profile root; got absolute {value}"
+            )
+    value = spec.get("workspace_name")
+    if value and Path(value).is_absolute():
+        failures.append(f"workspace_name must be relative to scratch; got absolute {value}")
+    for value in spec.get("forbidden_bivpak_state", []):
+        if Path(value).is_absolute():
+            failures.append(
+                f"forbidden_bivpak_state must be relative to scratch; got absolute {value}"
+            )
+    return failures
+
+
+def _negative_control_failures(owned_paths: list[Path]) -> list[str]:
+    """Guard evidence: a realpath-stable run cannot render either alias spelling."""
+    failures: list[str] = []
+    for path in owned_paths:
+        blob = path.read_bytes()
+        for spelling in (b"/private/var/", b"/var/"):
+            if spelling in blob:
+                failures.append(
+                    f"negative-control: {path} contains {spelling.decode()} - the run did not "
+                    "execute in a realpath-stable tree; the scratch guard did not hold and this "
+                    "run's evidence is void"
+                )
+    return failures
+
+
 def run_e3(
     spec_path: Path,
     biv: Path,
@@ -753,13 +818,16 @@ def run_e3(
     if scratch.is_symlink():
         return _result(spec, Status.INVALID, "scratch must not be a symlink")
     failures = _validate_spec(spec)
-    failures.extend(probe(scratch))
+    failures.extend(_path_field_failures(spec, scratch))
     failures.extend(f"credential-env:{name}" for name in rejected_credential_names(os.environ))
+    if failures:
+        return _result(spec, Status.INVALID, "\n".join(failures))
 
     profile_root = Path(spec.get("host2_profile_root", scratch / "host2-profile"))
     if not profile_root.is_absolute():
         profile_root = scratch / profile_root
     live_stores = [Path(value).expanduser() for value in spec.get("live_store_roots", [])]
+    failures.extend(probe(scratch))
     failures.extend(profile_root_failures(profile_root, live_stores))
     if failures:
         return _result(spec, Status.INVALID, "\n".join(failures))
@@ -816,6 +884,10 @@ def run_e3(
                 agent, live_profile, seed_ws, spec, env, _spawn,
                 capture_candidates, owned_paths,
             )
+
+        negative_control = _negative_control_failures(owned_paths)
+        if negative_control:
+            return _result(spec, Status.INVALID, "\n".join(negative_control))
 
         verify_credential_decoys(seed_ws, credential_decoys, credential_sentinels)
         before = {path: _hash(path) for path in owned_paths}
