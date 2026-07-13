@@ -1606,9 +1606,9 @@ def test_realpath_stable_paths_are_accepted(tmp_path):
     assert result.status is Status.PASS
 
 
-def test_shipped_scenario_has_no_realpath_unstable_or_absolute_paths():
+def test_shipped_scenario_has_no_realpath_unstable_or_absolute_paths(repo_root):
     spec = json.loads(
-        Path("harness/scenarios-e3/e3-dual-resume.json").read_text(encoding="utf-8")
+        (repo_root / "harness/scenarios-e3/e3-dual-resume.json").read_text(encoding="utf-8")
     )
     assert e3._path_field_failures(spec, Path.home()) == []
 
