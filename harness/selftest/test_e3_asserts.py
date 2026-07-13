@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import re
 import shutil
 import tarfile
 from pathlib import Path
@@ -34,6 +35,55 @@ from bivharness.e3 import (
 )
 from bivharness.precheck import profile_root_failures
 from bivharness.report import Status
+
+
+@pytest.fixture
+def repo_root() -> Path:
+    root = Path(__file__).resolve().parents[2]
+    assert (root / "src/adapters/codex/install.cpp").is_file(), (
+        f"repo_root mis-resolved: {root}"
+    )
+    assert (root / "harness/scenarios-e3/e3-dual-resume.json").is_file(), (
+        f"repo_root mis-resolved: {root}"
+    )
+    return root
+
+
+PRODUCT_PREDICATES = {
+    "codex": ("src/adapters/codex/install.cpp", "validated_codex_version"),
+    "claude-code": (
+        "src/adapters/claude_code/install.cpp",
+        "validated_claude_version",
+    ),
+}
+
+
+def _product_prefixes(repo_root: Path, agent_id: str) -> list[str]:
+    rel, function = PRODUCT_PREDICATES[agent_id]
+    source = (repo_root / rel).read_text(encoding="utf-8")
+    match = re.search(
+        rf"bool\s+{function}\s*\([^)]*\)\s*\{{(.*?)\n\}}",
+        source,
+        re.S,
+    )
+    assert match, f"predicate {function} not found in {rel}"
+    prefixes = re.findall(r'starts_with\("([^"]*)"\)', match.group(1))
+    assert prefixes, f"{function} is no longer a starts_with prefix set"
+    return prefixes
+
+
+def test_scenario_version_sets_mirror_the_product_exactly(repo_root):
+    spec = json.loads(
+        (repo_root / "harness/scenarios-e3/e3-dual-resume.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for agent in spec["agents"]:
+        product = _product_prefixes(repo_root, agent["id"])
+        assert agent["validated_version_prefixes"] == product, (
+            f"{agent['id']}: scenario {agent['validated_version_prefixes']} != product "
+            f"{product}. Mirror the product exactly."
+        )
 
 
 def _valid_two_agent_spec():
