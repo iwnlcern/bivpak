@@ -803,6 +803,65 @@ def test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up(monkeypatch):
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
+    scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    scratch = Path.home() / ".cache" / f"biv-e3-open-dest-{os.getpid()}"
+    shutil.rmtree(scratch, ignore_errors=True)
+    opened = []
+    restored_workspaces = []
+
+    monkeypatch.setattr(e3, "_seed_agent", lambda *args: None)
+    monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
+    real_class_j_failures = e3.class_j_failures
+
+    def capture_class_j(seed_workspace, restored_workspace, app_state_paths):
+        restored_workspaces.append(restored_workspace)
+        return real_class_j_failures(seed_workspace, restored_workspace, app_state_paths)
+
+    monkeypatch.setattr(e3, "class_j_failures", capture_class_j)
+
+    def fake_spawn(command, cwd, env):
+        if command in (["claude", "--version"], ["codex", "--version"]):
+            version = "2.1.207" if command[0] == "claude" else "0.142.5"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command[:2] == ["claude", "--model"]:
+            return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+        if len(command) > 1 and command[1] == "open":
+            dest = Path(command[command.index("--dest") + 1])
+            host2 = scratch / "host2"
+            assert dest == host2 / "work"
+            assert not dest.exists()
+            assert (host2 / "home").is_dir()
+            assert (host2 / "profiles" / "claude").is_dir()
+            assert (host2 / "profiles" / "codex").is_dir()
+            assert dest != scratch / "seed-ws" / "biv-e3-dual-resume"
+            assert cwd == host2
+            assert env["HOME"] == str(host2 / "home")
+            assert env["CLAUDE_CONFIG_DIR"] == str(host2 / "profiles" / "claude")
+            assert env["CODEX_HOME"] == str(host2 / "profiles" / "codex")
+            dest.mkdir()
+            assert dest.is_dir()
+            opened.append(dest)
+            reported_dest = host2 / "reported-workspace"
+            reported_dest.mkdir()
+            envelope = {"result": {"output_dir": str(reported_dest), "sessions": {"agents": []}}}
+            return SimpleNamespace(returncode=0, stdout=json.dumps(envelope), stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    try:
+        result = e3.run_e3(scenario, Path("biv"), scratch, input_callback=lambda prompt: "")
+        expected = scratch / "host2" / "work"
+        assert result.status is Status.FAIL
+        assert result.detail == "open did not install exactly two session rows"
+        assert opened == [expected]
+        assert restored_workspaces == [scratch / "host2" / "reported-workspace"]
+        assert e3._project_key(restored_workspaces[0]) != e3._project_key(scratch / "host2")
+        assert not (scratch / "host2").exists()
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def test_e3_rejects_symlinked_scratch_before_probe_writes(tmp_path):
     scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     outside = tmp_path / "outside"
