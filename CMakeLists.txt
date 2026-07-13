@@ -38,6 +38,10 @@ endforeach()
 
 option(BIV_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 
+add_library(biv_support STATIC src/core/support/portability.cpp)
+target_include_directories(biv_support PUBLIC src)
+target_compile_options(biv_support PRIVATE -Wall -Wextra -Werror)
+
 add_library(bivcore STATIC
   src/core/json/writer.cpp
   src/core/container/tar_writer.cpp
@@ -56,7 +60,7 @@ add_library(bivcore STATIC
   src/core/support/error.cpp
   src/core/support/version.cpp)
 target_include_directories(bivcore PUBLIC src)
-target_link_libraries(bivcore PUBLIC simdjson libzstd_static)
+target_link_libraries(bivcore PUBLIC biv_support simdjson libzstd_static)
 target_compile_options(bivcore PRIVATE -Wall -Wextra -Werror)
 
 # ADAPTER TARGETS
@@ -69,7 +73,7 @@ add_library(biv_adapters STATIC
   src/adapters/codex/codex.cpp
   src/adapters/codex/install.cpp)
 target_include_directories(biv_adapters PUBLIC src)
-target_link_libraries(biv_adapters PUBLIC simdjson SQLite3::SQLite3)
+target_link_libraries(biv_adapters PUBLIC biv_support simdjson SQLite3::SQLite3)
 target_compile_options(biv_adapters PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(bivcore PUBLIC biv_adapters)
 
@@ -85,6 +89,7 @@ add_executable(biv_tests
   tests/test_ignore.cpp
   tests/test_manifest.cpp
   tests/test_scan.cpp
+  tests/test_portability.cpp
   tests/test_support.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_writer.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_reader.cpp)
@@ -99,7 +104,7 @@ target_sources(biv_tests PRIVATE tests/test_adapter_codex_collect.cpp)
 target_sources(biv_tests PRIVATE tests/test_adapter_codex_install.cpp)
 target_sources(biv_tests PRIVATE tests/test_sessions.cpp)
 target_sources(biv_tests PRIVATE tests/test_render.cpp)
-target_link_libraries(biv_tests PRIVATE bivcore biv_adapters Catch2::Catch2WithMain)
+target_link_libraries(biv_tests PRIVATE bivcore biv_adapters biv_support Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_tests PRIVATE
   BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
