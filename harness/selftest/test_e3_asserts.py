@@ -36,6 +36,54 @@ from bivharness.precheck import profile_root_failures
 from bivharness.report import Status
 
 
+def _valid_two_agent_spec():
+    """Return a two-agent E3 spec that passes validation once lists are supported."""
+    codex = {
+        "id": "codex",
+        "live_profile": "~/.codex",
+        "env": {},
+        "auth_status": ["codex", "login", "status"],
+        "version_command": ["codex", "--version"],
+        "validated_version_prefixes": ["0.142.", "0.144."],
+        "cheapest_model": "cheap",
+        "seed_start_command": ["codex", "seed", "{run_token}", "--model", "cheap"],
+        "seed_retry_resume_command": ["codex", "retry", "{run_token}", "--model", "cheap"],
+        "seed_continue_command": ["codex", "continue", "{run_token}", "--model", "cheap"],
+        "ownership_glob": "*.jsonl",
+        "run_token_prefix": "token",
+        "resume_command": ["codex", "resume", "--model", "cheap"],
+        "resume_shape": CODEX_RESUME_SHAPE,
+    }
+    claude = {
+        **codex,
+        "id": "claude-code",
+        "live_profile": "~/.claude",
+        "auth_status": ["claude", "auth", "status"],
+        "version_command": ["claude", "--version"],
+        "validated_version_prefixes": ["2.1."],
+        "seed_start_command": ["claude", "seed", "{run_token}", "--model", "cheap"],
+        "seed_retry_resume_command": ["claude", "retry", "{run_token}", "--model", "cheap"],
+        "seed_continue_command": ["claude", "continue", "{run_token}", "--model", "cheap"],
+        "resume_command": ["claude", "resume", "--model", "cheap"],
+        "liveness_command": ["claude", "--model", "cheap", "-p", "Reply with one token: OK"],
+        "resume_mutation": CLAUDE_RESUME_MUTATION,
+    }
+    claude.pop("resume_shape", None)
+    return {
+        "id": "cx-range",
+        "tier": "E3",
+        "checkpoint_count": 1,
+        "seed_turns": ["one", "two"],
+        "resume_probe": "probe",
+        "credential_scan_sentinels": ["synthetic-secret"],
+        "agents": [codex, claude],
+    }
+
+
+def test_shared_fixture_is_valid_as_authored():
+    assert e3._validate_spec(_valid_two_agent_spec()) == []
+
+
 def test_ordered_turns_require_all_sentinels_and_probe_in_order():
     turns = ["seed-one", "seed-two", "resume-probe"]
 
@@ -1283,6 +1331,74 @@ def test_class_j_workspace_memoryless_and_version_predicates(tmp_path):
     assert version_in_validated_range("claude 2.1.202", "2.1.")
     assert not version_in_validated_range("claude 2.2.0", "2.1.")
     assert not version_in_validated_range("claude 12.1.202", "2.1.")
+
+
+CX = ["0.142.", "0.144."]
+
+
+@pytest.mark.parametrize("version,accepted", [
+    ("codex-cli 0.142.5", True),
+    ("codex-cli 0.144.1", True),
+    ("codex-cli 0.143.0", False),
+    ("codex-cli 0.145.0", False),
+    ("codex-cli 0.61.0", False),
+])
+def test_codex_enumerated_set_is_not_an_inequality(version, accepted):
+    assert version_in_validated_range(version, CX) is accepted
+
+
+@pytest.mark.parametrize("version,accepted", [
+    ("claude 2.1.202", True),
+    ("claude 2.2.0", False),
+    ("claude 12.1.202", False),
+])
+def test_claude_single_element_list(version, accepted):
+    assert version_in_validated_range(version, ["2.1."]) is accepted
+
+
+@pytest.mark.parametrize("bad", ["0.142.", "", [], ["0.142.", ""], [None], ("0.142.",)])
+def test_helper_raises_rather_than_character_iterating(bad):
+    with pytest.raises(TypeError):
+        version_in_validated_range("codex-cli 0.61.0", bad)
+
+
+@pytest.mark.parametrize("bad", ["0.142.", [], ["0.142.", ""], [None]])
+def test_validate_spec_rejects_malformed_prefix_shapes(bad):
+    spec = _valid_two_agent_spec()
+    spec["agents"][0]["validated_version_prefixes"] = bad
+    failures = e3._validate_spec(spec)
+    assert any("validated_version_prefixes" in failure for failure in failures)
+
+
+def test_validate_spec_rejects_a_stale_scalar_only_scenario():
+    spec = _valid_two_agent_spec()
+    agent = spec["agents"][0]
+    del agent["validated_version_prefixes"]
+    agent["validated_version_prefix"] = "0.142."
+    failures = e3._validate_spec(spec)
+    assert any("validated_version_prefixes" in failure for failure in failures)
+
+
+def test_stale_scenario_is_invalid_before_any_spawn(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout="codex-cli 0.61.0", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec = _valid_two_agent_spec()
+    agent = spec["agents"][0]
+    del agent["validated_version_prefixes"]
+    agent["validated_version_prefix"] = "0.142."
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), tmp_path / "scratch", dry_run=True)
+
+    assert result.status is Status.INVALID
+    assert "validated_version_prefixes" in result.detail
+    assert calls == []
 
 
 def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_path):

@@ -59,9 +59,26 @@ def scan_image_secret_values(image: Path, secret_values: list[str]) -> list[str]
     return hits
 
 
-def version_in_validated_range(version_output: str, validated_prefix: str) -> bool:
+def _is_prefix_list(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and all(isinstance(prefix, str) and prefix for prefix in value)
+    )
+
+
+def version_in_validated_range(version_output: str, validated_prefixes: list[str]) -> bool:
+    if not _is_prefix_list(validated_prefixes):
+        raise TypeError(
+            "validated_version_prefixes must be a non-empty list of non-empty strings; "
+            f"got {validated_prefixes!r} (a bare string character-iterates and fails open)"
+        )
     versions = re.findall(r"(?<![0-9])([0-9]+\.[0-9]+\.[0-9]+)(?![0-9])", version_output)
-    return any(version.startswith(validated_prefix) for version in versions)
+    return any(
+        version.startswith(prefix)
+        for version in versions
+        for prefix in validated_prefixes
+    )
 
 
 def class_j_failures(seed_workspace: Path, restored_workspace: Path, app_state_paths: list[Path]) -> list[str]:
@@ -670,7 +687,7 @@ def _validate_spec(spec: dict[str, Any]) -> list[str]:
     else:
         required_agent_fields = (
             "id", "live_profile", "auth_status", "version_command",
-            "validated_version_prefix", "seed_start_command", "seed_continue_command",
+            "validated_version_prefixes", "seed_start_command", "seed_continue_command",
             "seed_retry_resume_command", "ownership_glob", "run_token_prefix", "resume_command",
             "cheapest_model",
         )
@@ -678,6 +695,11 @@ def _validate_spec(spec: dict[str, Any]) -> list[str]:
             for field in required_agent_fields:
                 if not agent.get(field):
                     failures.append(f"agent missing {field}")
+            if not _is_prefix_list(agent.get("validated_version_prefixes")):
+                failures.append(
+                    f"{agent.get('id')} validated_version_prefixes must be "
+                    "a non-empty list of non-empty strings"
+                )
             if "run_token" in agent:
                 failures.append("scenario must not contain a static run_token")
             for field in ("seed_start_command", "seed_retry_resume_command", "seed_continue_command"):
