@@ -9,7 +9,6 @@
 #include <exception>
 #include <fstream>
 #include <optional>
-#include <random>
 #include <set>
 #include <span>
 #include <sstream>
@@ -18,7 +17,6 @@
 #include <vector>
 
 #include <fcntl.h>
-#include <sys/random.h>
 #include <unistd.h>
 
 #include "adapters/registry.hpp"
@@ -27,6 +25,7 @@
 #include "core/manifest/checksums.hpp"
 #include "core/manifest/agent_member.hpp"
 #include "core/scan/scan.hpp"
+#include "core/support/portability.hpp"
 #include "core/support/version.hpp"
 
 namespace biv::pack {
@@ -96,12 +95,7 @@ expected<void> fsync_path(const std::filesystem::path& path, bool directory) {
 
 std::string uuid4() {
   std::array<unsigned char, 16> bytes {};
-  if (::getrandom(bytes.data(), bytes.size(), 0) != static_cast<ssize_t>(bytes.size())) {
-    std::random_device rd;
-    for (auto& byte : bytes) {
-      byte = static_cast<unsigned char>(rd());
-    }
-  }
+  support::secure_random_bytes(bytes.data(), bytes.size());
   bytes.at(6) = static_cast<unsigned char>((bytes.at(6) & 0x0fU) | 0x40U);
   bytes.at(8) = static_cast<unsigned char>((bytes.at(8) & 0x3fU) | 0x80U);
 
