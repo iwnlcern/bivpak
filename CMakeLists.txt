@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.27)
 project(bivpak CXX)
 
 find_package(SQLite3 REQUIRED)
+if(NOT TARGET SQLite3::SQLite3)
+  add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+endif()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
