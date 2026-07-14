@@ -1,0 +1,4 @@
+{"timestamp":"2026-07-12T12:00:00Z","type":"session_meta","payload":{"id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441","session_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441","cwd":"/ws/proj","cli_version":"0.144.1","selected_capability_roots":["/opt/codex/capabilities"],"history_mode":"legacy","context_window":{"window_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441","max_tokens":200000},"source":"cli","thread_source":"user"}}
+{"timestamp":"2026-07-12T12:00:01Z","type":"world_state","payload":{"full":true,"state":{"environments":{"local":{"cwd":"/ws/proj/sub","thread_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441"}},"outside_pair":"/opt/codex/capabilities"}}}
+{"timestamp":"2026-07-12T12:00:02Z","type":"inter_agent_communication_metadata","payload":{"trigger_turn":true}}
+{"timestamp":"2026-07-12T12:00:03Z","type":"response_item","payload":{"type":"function_call","name":"spawn_agent","arguments":"candidate-child","call_id":"call_fx_cx_144"}}
