@@ -1556,6 +1556,37 @@ def _run_dry(tmp_path, spec, scratch):
     return e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
 
 
+def _tree_snapshot(root):
+    snapshot = {}
+    for path in sorted(root.rglob("*")):
+        relative = str(path.relative_to(root))
+        if path.is_symlink():
+            snapshot[relative] = ("symlink", os.readlink(path))
+        elif path.is_file():
+            snapshot[relative] = ("file", path.read_bytes())
+        else:
+            snapshot[relative] = ("directory",)
+    return snapshot
+
+
+def _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch):
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    before = _tree_snapshot(tmp_path)
+    spawn_calls = []
+
+    def refused_spawn(*args):
+        spawn_calls.append(args)
+        raise AssertionError("INVALID scenario must not spawn")
+
+    monkeypatch.setattr(e3, "_spawn", refused_spawn)
+    result = e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
+
+    assert spawn_calls == []
+    assert _tree_snapshot(tmp_path) == before
+    return result
+
+
 def _schema_shape_cases():
     """Malformed values for every JSON shape consumed by the E3 runner."""
     scalar = ("none", None), ("scalar", 42), ("container", []), ("bad-element", [None])
@@ -1597,13 +1628,13 @@ def _schema_shape_cases():
 
 
 @pytest.mark.parametrize(("label", "value", "mutate"), _schema_shape_cases())
-def test_e3_consumed_schema_is_total_over_arbitrary_json(tmp_path, label, value, mutate):
+def test_e3_consumed_schema_is_total_over_arbitrary_json(monkeypatch, tmp_path, label, value, mutate):
     spec = _valid_two_agent_spec()
     mutate(spec, value)
     scratch = tmp_path.resolve() / "scratch"
 
     assert isinstance(e3._path_field_failures(spec, scratch), list)
-    result = _run_dry(tmp_path, spec, scratch)
+    result = _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch)
 
     assert result.status is Status.INVALID, label
     assert result.detail, label
@@ -1618,13 +1649,13 @@ def test_e3_consumed_schema_is_total_over_arbitrary_json(tmp_path, label, value,
     ("workspace_name", lambda spec: spec.__setitem__("workspace_name", "path\0segment")),
     ("forbidden_bivpak_state", lambda spec: spec.__setitem__("forbidden_bivpak_state", ["path\0segment"])),
 ])
-def test_e3_path_fields_reject_nul_without_raising(tmp_path, label, mutate):
+def test_e3_path_fields_reject_nul_without_raising(monkeypatch, tmp_path, label, mutate):
     spec = _valid_two_agent_spec()
     mutate(spec)
     scratch = Path("scratch\0path") if label == "scratch" else tmp_path.resolve() / "scratch"
 
     assert isinstance(e3._path_field_failures(spec, scratch), list)
-    result = _run_dry(tmp_path, spec, scratch)
+    result = _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch)
 
     assert result.status is Status.INVALID, label
 
@@ -1636,24 +1667,24 @@ def test_e3_path_fields_reject_nul_without_raising(tmp_path, label, mutate):
     ("workspace_name", lambda spec: spec.__setitem__("workspace_name", "~nosuchuser/e3")),
     ("forbidden_bivpak_state", lambda spec: spec.__setitem__("forbidden_bivpak_state", ["~nosuchuser/e3"])),
 ])
-def test_e3_path_fields_reject_ambiguous_tilde_spellings(tmp_path, label, mutate):
+def test_e3_path_fields_reject_ambiguous_tilde_spellings(monkeypatch, tmp_path, label, mutate):
     spec = _valid_two_agent_spec()
     mutate(spec)
 
-    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    result = _run_refusal_without_side_effects(
+        monkeypatch, tmp_path, spec, tmp_path.resolve() / "scratch"
+    )
 
     assert result.status is Status.INVALID, label
     assert label in result.detail
 
 
 @pytest.mark.parametrize("spec", [[], "s", 42, None])
-def test_e3_consumed_schema_rejects_non_object_top_levels(tmp_path, spec):
+def test_e3_consumed_schema_rejects_non_object_top_levels(monkeypatch, tmp_path, spec):
     scratch = tmp_path.resolve() / "scratch"
-    spec_path = tmp_path / "e3.json"
-    spec_path.write_text(json.dumps(spec), encoding="utf-8")
 
     assert isinstance(e3._path_field_failures(spec, scratch), list)
-    result = e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
+    result = _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch)
 
     assert result.status is Status.INVALID
     assert result.id == "e3-invalid-spec"
@@ -1698,15 +1729,21 @@ def test_scratch_under_a_symlinked_ancestor_is_refused_without_writing(tmp_path)
     assert list(real.iterdir()) == []
 
 
-def test_relative_scratch_is_refused_without_writing(tmp_path, monkeypatch):
+@pytest.mark.parametrize("spelling", ["relative-scratch", ".", "", "~nosuchuser/e3"])
+def test_scratch_relative_spellings_are_refused_by_realpath_stability(
+    monkeypatch, tmp_path, spelling
+):
     stable = tmp_path.resolve()
     monkeypatch.chdir(stable)
 
-    result = _run_dry(tmp_path, _valid_two_agent_spec(), Path("relative-scratch"))
+    scratch = Path(spelling)
+    assert isinstance(e3._path_field_failures(_valid_two_agent_spec(), scratch), list)
+    result = _run_refusal_without_side_effects(
+        monkeypatch, tmp_path, _valid_two_agent_spec(), scratch
+    )
 
     assert result.status is Status.INVALID
-    assert "absolute" in result.detail
-    assert not (stable / "relative-scratch").exists()
+    assert "scratch must be realpath-stable" in result.detail
 
 
 def test_absolute_realpath_unstable_host2_profile_root_is_refused(tmp_path):

@@ -807,6 +807,7 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
         expand_user: bool = False,
         allow_relative: bool = False,
         require_relative: bool = False,
+        require_absolute: bool = True,
     ) -> None:
         if not isinstance(raw, (str, Path)):
             failures.append(f"{label} must be a path string")
@@ -828,10 +829,11 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
         if not path.is_absolute():
             if allow_relative:
                 return
-            failures.append(
-                f"{label} must be an absolute, realpath-stable path; got relative {path}"
-            )
-            return
+            if require_absolute:
+                failures.append(
+                    f"{label} must be an absolute, realpath-stable path; got relative {path}"
+                )
+                return
         if resolved != path:
             failures.append(
                 f"{label} must be realpath-stable; {path} resolves to {resolved} "
@@ -840,7 +842,7 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
                 "Use a realpath-stable directory under $HOME, not $TMPDIR or /tmp."
             )
 
-    check("scratch", scratch)
+    check("scratch", scratch, require_absolute=False)
     if not isinstance(spec, dict):
         return failures
     if "host2_profile_root" in spec:
