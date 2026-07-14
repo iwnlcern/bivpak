@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 import zstandard
 
-from bivharness import e3
+from bivharness import cli, e3
 from bivharness.e3 import (
     CLAUDE_RESUME_MUTATION,
     CODEX_RESUME_SHAPE,
@@ -1554,6 +1554,135 @@ def _run_dry(tmp_path, spec, scratch):
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
     return e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
+
+
+def _schema_shape_cases():
+    """Malformed values for every JSON shape consumed by the E3 runner."""
+    scalar = ("none", None), ("scalar", 42), ("container", []), ("bad-element", [None])
+    list_of_strings = ("none", None), ("scalar", "value"), ("container", {}), ("bad-element", [None])
+    mapping = ("none", None), ("scalar", "value"), ("container", []), ("bad-element", {"KEY": None})
+    cases = []
+
+    def add(label, values, mutate):
+        cases.extend((f"{label}-{kind}", value, mutate) for kind, value in values)
+
+    add("id", scalar, lambda spec, value: spec.__setitem__("id", value))
+    add("checkpoint_prompt", scalar, lambda spec, value: spec.__setitem__("checkpoint_prompt", value))
+    add("workspace_name", scalar, lambda spec, value: spec.__setitem__("workspace_name", value))
+    add("host2_profile_root", scalar, lambda spec, value: spec.__setitem__("host2_profile_root", value))
+    add("resume_probe", scalar, lambda spec, value: spec.__setitem__("resume_probe", value))
+    add("seed_turns", list_of_strings, lambda spec, value: spec.__setitem__("seed_turns", value))
+    add("live_store_roots", list_of_strings, lambda spec, value: spec.__setitem__("live_store_roots", value))
+    add("forbidden_bivpak_state", list_of_strings, lambda spec, value: spec.__setitem__("forbidden_bivpak_state", value))
+    add("credential_scan_sentinels", list_of_strings, lambda spec, value: spec.__setitem__("credential_scan_sentinels", value))
+    add("agents", list_of_strings, lambda spec, value: spec.__setitem__("agents", value))
+
+    def mutate_agent(field):
+        return lambda spec, value: spec["agents"][0].__setitem__(field, value)
+
+    for field in (
+        "id", "live_profile", "host2_profile", "ownership_glob", "run_token_prefix",
+        "cheapest_model", "resume_shape",
+    ):
+        add(f"agent-{field}", scalar, mutate_agent(field))
+    add("agent-resume_mutation", scalar, lambda spec, value: spec["agents"][1].__setitem__("resume_mutation", value))
+    for field in (
+        "auth_status", "version_command", "seed_start_command", "seed_retry_resume_command",
+        "seed_continue_command", "resume_command", "validated_version_prefixes",
+    ):
+        add(f"agent-{field}", list_of_strings, mutate_agent(field))
+    add("agent-liveness_command", list_of_strings, lambda spec, value: spec["agents"][1].__setitem__("liveness_command", value))
+    add("agent-env", mapping, mutate_agent("env"))
+    return cases
+
+
+@pytest.mark.parametrize(("label", "value", "mutate"), _schema_shape_cases())
+def test_e3_consumed_schema_is_total_over_arbitrary_json(tmp_path, label, value, mutate):
+    spec = _valid_two_agent_spec()
+    mutate(spec, value)
+    scratch = tmp_path.resolve() / "scratch"
+
+    assert isinstance(e3._path_field_failures(spec, scratch), list)
+    result = _run_dry(tmp_path, spec, scratch)
+
+    assert result.status is Status.INVALID, label
+    assert result.detail, label
+
+
+@pytest.mark.parametrize("label, mutate", [
+    ("scratch", lambda spec: None),
+    ("host2_profile_root", lambda spec: spec.__setitem__("host2_profile_root", "path\0segment")),
+    ("live_store_roots", lambda spec: spec.__setitem__("live_store_roots", ["path\0segment"])),
+    ("live_profile", lambda spec: spec["agents"][0].__setitem__("live_profile", "path\0segment")),
+    ("host2_profile", lambda spec: spec["agents"][0].__setitem__("host2_profile", "path\0segment")),
+    ("workspace_name", lambda spec: spec.__setitem__("workspace_name", "path\0segment")),
+    ("forbidden_bivpak_state", lambda spec: spec.__setitem__("forbidden_bivpak_state", ["path\0segment"])),
+])
+def test_e3_path_fields_reject_nul_without_raising(tmp_path, label, mutate):
+    spec = _valid_two_agent_spec()
+    mutate(spec)
+    scratch = Path("scratch\0path") if label == "scratch" else tmp_path.resolve() / "scratch"
+
+    assert isinstance(e3._path_field_failures(spec, scratch), list)
+    result = _run_dry(tmp_path, spec, scratch)
+
+    assert result.status is Status.INVALID, label
+
+
+@pytest.mark.parametrize("label, mutate", [
+    ("live_store_roots", lambda spec: spec.__setitem__("live_store_roots", ["~nosuchuser/e3"])),
+    ("live_profile", lambda spec: spec["agents"][0].__setitem__("live_profile", "~nosuchuser/e3")),
+    ("host2_profile", lambda spec: spec["agents"][0].__setitem__("host2_profile", "~nosuchuser/e3")),
+    ("workspace_name", lambda spec: spec.__setitem__("workspace_name", "~nosuchuser/e3")),
+    ("forbidden_bivpak_state", lambda spec: spec.__setitem__("forbidden_bivpak_state", ["~nosuchuser/e3"])),
+])
+def test_e3_path_fields_reject_ambiguous_tilde_spellings(tmp_path, label, mutate):
+    spec = _valid_two_agent_spec()
+    mutate(spec)
+
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+
+    assert result.status is Status.INVALID, label
+    assert label in result.detail
+
+
+@pytest.mark.parametrize("spec", [[], "s", 42, None])
+def test_e3_consumed_schema_rejects_non_object_top_levels(tmp_path, spec):
+    scratch = tmp_path.resolve() / "scratch"
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+
+    assert isinstance(e3._path_field_failures(spec, scratch), list)
+    result = e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
+
+    assert result.status is Status.INVALID
+    assert result.id == "e3-invalid-spec"
+    assert result.detail
+
+
+def test_cli_persists_invalid_e3_report_for_malformed_json(tmp_path):
+    scenario = tmp_path / "malformed-e3.json"
+    report_path = tmp_path / "report.json"
+    scenario.write_text("[]", encoding="utf-8")
+
+    exit_code = cli.main([
+        "--biv", str(tmp_path / "biv"),
+        "--e3", str(scenario),
+        "--dry-run",
+        "--report", str(report_path),
+    ])
+
+    assert exit_code != 0
+    assert report_path.is_file()
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["invalid"] == ["e3-invalid-spec"]
+    assert len(report["rows"]) == 1
+    row = report["rows"][0]
+    assert row["id"] == "e3-invalid-spec"
+    assert row["tier"] == "E3"
+    assert row["status"] == "invalid"
+    assert row["classes"] == []
+    assert row["detail"]
 
 
 def test_scratch_under_a_symlinked_ancestor_is_refused_without_writing(tmp_path):
