@@ -49,6 +49,27 @@ def repo_root() -> Path:
     return root
 
 
+@pytest.fixture
+def stable_test_root(tmp_path):
+    root = (
+        Path.home()
+        / ".cache"
+        / "bivharness-selftest"
+        / f"{os.getpid()}-{tmp_path.name}"
+    )
+    shutil.rmtree(root, ignore_errors=True)
+    root.mkdir(parents=True)
+    assert root.is_absolute()
+    assert root.resolve() == root
+    for live_store in (Path.home() / ".claude", Path.home() / ".codex"):
+        assert root != live_store
+        assert live_store not in root.parents
+    try:
+        yield root
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 PRODUCT_PREDICATES = {
     "codex": ("src/adapters/codex/install.cpp", "validated_codex_version"),
     "claude-code": (
@@ -1461,7 +1482,7 @@ CX_MATRIX = [
 ]
 
 
-def _run_prerun_with_codex_version(monkeypatch, tmp_path, version):
+def _run_prerun_with_codex_version(monkeypatch, tmp_path, stable_test_root, version):
     calls = []
 
     def fake_spawn(command, cwd, env):
@@ -1475,15 +1496,17 @@ def _run_prerun_with_codex_version(monkeypatch, tmp_path, version):
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
-    result = e3.run_e3(spec_path, Path("biv"), tmp_path / "scratch")
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
     return result, calls
 
 
 @pytest.mark.parametrize("version,accepted", CX_MATRIX)
 def test_prerun_version_gate_enforces_the_enumerated_set(
-    monkeypatch, tmp_path, version, accepted
+    monkeypatch, tmp_path, stable_test_root, version, accepted
 ):
-    result, calls = _run_prerun_with_codex_version(monkeypatch, tmp_path, version)
+    result, calls = _run_prerun_with_codex_version(
+        monkeypatch, tmp_path, stable_test_root, version
+    )
     assert result.status is Status.INVALID
     assert ["codex", "--version"] in calls
     if accepted:
@@ -1601,9 +1624,30 @@ def test_absolute_forbidden_bivpak_state_entry_is_refused(tmp_path):
     assert "forbidden_bivpak_state" in result.detail
 
 
-def test_realpath_stable_paths_are_accepted(tmp_path):
-    result = _run_dry(tmp_path, _valid_two_agent_spec(), tmp_path.resolve() / "scratch")
+def test_realpath_stable_paths_are_accepted(tmp_path, stable_test_root):
+    result = _run_dry(
+        tmp_path, _valid_two_agent_spec(), stable_test_root / "scratch"
+    )
     assert result.status is Status.PASS
+
+
+def test_temp_rooted_host2_profile_is_refused_before_any_spawn(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec = _valid_two_agent_spec()
+    spec["host2_profile_root"] = "/tmp/bivharness-selftest-host2"
+
+    result = _run_dry(tmp_path, spec, stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert calls == []
 
 
 def test_shipped_scenario_has_no_realpath_unstable_or_absolute_paths(repo_root):
@@ -1614,7 +1658,7 @@ def test_shipped_scenario_has_no_realpath_unstable_or_absolute_paths(repo_root):
 
 
 def test_runner_stops_on_an_alias_spelled_seeded_transcript_before_pack(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, stable_test_root
 ):
     calls = []
 
@@ -1650,7 +1694,7 @@ def test_runner_stops_on_an_alias_spelled_seeded_transcript_before_pack(
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
 
-    result = e3.run_e3(spec_path, Path("biv"), tmp_path.resolve() / "scratch")
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
     assert result.status is Status.INVALID
     assert "negative-control" in result.detail
