@@ -20,6 +20,16 @@
       }
     },
     {
+      "name": "ci-macos",
+      "binaryDir": "build/ci-macos",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_CXX_FLAGS": "-fstack-protector-strong",
+        "CMAKE_POSITION_INDEPENDENT_CODE": "ON"
+      }
+    },
+    {
       "name": "sanitize",
       "binaryDir": "build/san",
       "cacheVariables": {
@@ -43,12 +53,14 @@
   "buildPresets": [
     {"name": "dev", "configurePreset": "dev"},
     {"name": "ci", "configurePreset": "ci"},
+    {"name": "ci-macos", "configurePreset": "ci-macos"},
     {"name": "sanitize", "configurePreset": "sanitize"},
     {"name": "fuzz", "configurePreset": "fuzz"}
   ],
   "testPresets": [
     {"name": "dev", "configurePreset": "dev"},
     {"name": "ci", "configurePreset": "ci"},
+    {"name": "ci-macos", "configurePreset": "ci-macos"},
     {"name": "sanitize", "configurePreset": "sanitize"}
   ]
 }
