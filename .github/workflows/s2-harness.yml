@@ -29,3 +29,121 @@ jobs:
       - uses: actions/checkout@v4
       - name: Register safety-fuzz-smoke gate
         run: echo "safety-fuzz-smoke is exercised in the integrated s2-core CMake tree when fuzz targets are present."
+
+  build-macos-arm64:
+    runs-on: macos-15
+    steps:
+      - name: Assert Darwin arm64 runner
+        run: |
+          test "$(uname -s)" = "Darwin" || { echo "not Darwin"; exit 1; }
+          test "$(uname -m)" = "arm64" || { echo "not arm64 - the E3 run host is arm64"; exit 1; }
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install harness dependencies
+        run: |
+          python -m venv .venv-harness
+          .venv-harness/bin/python -m pip install -r harness/requirements.lock
+      - name: Configure macOS product
+        run: cmake --preset ci-macos
+      - name: Build macOS product
+        run: cmake --build --preset ci-macos
+      - name: Run macOS product and harness rows
+        run: ctest --preset ci-macos -R '^(biv_tests|harness-selftest|harness-e2)$' --output-on-failure
+      - name: Enforce macOS Catch2 counts and skip identity
+        run: |
+          ./build/ci-macos/biv_tests -r xml > catch.xml
+          python3 - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("catch.xml").getroot()
+          cases = root.find("OverallResultsCases")
+          got = {
+              key: int(cases.get(key, 0))
+              for key in ("successes", "failures", "expectedFailures", "skips")
+          }
+          want = {
+              "successes": 133,
+              "failures": 0,
+              "expectedFailures": 0,
+              "skips": 2,
+          }
+          expected_skips = {
+              "pack derives relpath from slash-form Windows extended paths",
+              "pack computes foreign-flavor session relpaths without host path parsing",
+          }
+          skipped = {
+              test_case.get("name"): (test_case.find("Skip").text or "").strip()
+              for test_case in root.iter("TestCase")
+              if test_case.find("Skip") is not None
+          }
+
+          print("catch2 cases:", got)
+          print("skipped cases:")
+          for name, reason in sorted(skipped.items()):
+              print(f' - "{name}" ({reason})')
+
+          if got != want:
+              sys.exit(f"COUNT GATE FAILED: expected {want}, got {got}")
+          if set(skipped) != expected_skips:
+              sys.exit(
+                  "SKIP-IDENTITY GATE FAILED: "
+                  f"expected {expected_skips}, got {set(skipped)}"
+              )
+          PY
+      - name: Show macOS portability case execution
+        run: |
+          FILTER='*secure_random_bytes*,*stat_mtime*,*scan*,*pack*,*Claude install*,*Codex install*'
+          for pattern in '*secure_random_bytes*' '*stat_mtime*' '*scan*' '*pack*' '*Claude install*' '*Codex install*'; do
+            count=$(./build/ci-macos/biv_tests "$pattern" --list-tests 2>/dev/null | sed -n 's/^\([0-9]*\) matching test cases*/\1/p')
+            [ "${count:-0}" -gt 0 ] || { echo "EMPTY CATEGORY: $pattern selects 0 cases - false proof"; exit 1; }
+          done
+          ./build/ci-macos/biv_tests "$FILTER" --list-tests
+          ./build/ci-macos/biv_tests "$FILTER" --reporter compact
+
+  build-linux-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install harness dependencies
+        run: |
+          python -m venv .venv-harness
+          .venv-harness/bin/python -m pip install -r harness/requirements.lock
+      - name: Provision writable WSL fixture root
+        run: |
+          sudo mkdir -p /mnt/c/tmp
+          sudo chown -R "$(id -u):$(id -g)" /mnt/c
+          test -w /mnt/c/tmp || { echo "/mnt/c not writable - the cross-flavor cases cannot run"; exit 1; }
+      - name: Configure Linux product
+        run: cmake --preset ci
+      - name: Build Linux product
+        run: cmake --build --preset ci
+      - name: Run full Linux product and harness suite
+        run: ctest --preset ci --output-on-failure
+      - name: Enforce Linux Catch2 counts
+        run: |
+          ./build/ci/biv_tests -r xml > catch.xml
+          python3 - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          cases = ET.parse("catch.xml").getroot().find("OverallResultsCases")
+          got = {
+              key: int(cases.get(key, 0))
+              for key in ("successes", "failures", "expectedFailures", "skips")
+          }
+          want = {
+              "successes": 135,
+              "failures": 0,
+              "expectedFailures": 0,
+              "skips": 0,
+          }
+          print("catch2 cases:", got)
+          if got != want:
+              sys.exit(f"COUNT GATE FAILED: expected {want}, got {got}")
+          PY
