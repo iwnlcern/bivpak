@@ -104,7 +104,7 @@ jobs:
           ./build/ci-macos/biv_tests "$FILTER" --reporter compact
 
   build-linux-x86_64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -120,11 +120,57 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" /mnt/c
           test -w /mnt/c/tmp || { echo "/mnt/c not writable - the cross-flavor cases cannot run"; exit 1; }
       - name: Configure Linux product
-        run: cmake --preset ci
+        run: cmake --preset ci -DBIVHARNESS_REQUIRE_CLANG_TIDY=ON
       - name: Build Linux product
         run: cmake --build --preset ci
       - name: Run full Linux product and harness suite
-        run: ctest --preset ci --output-on-failure
+        run: |
+          ctest_rc=0
+          ctest --preset ci --output-junit ctest.xml --output-on-failure || ctest_rc=$?
+
+          tidy_gate_rc=0
+          python3 - ctest.xml <<'PY' || tidy_gate_rc=$?
+          import sys
+          import xml.etree.ElementTree as ET
+
+          ROW = "safety-tidy-analyzer"
+          cases = [
+              tc
+              for tc in ET.parse(sys.argv[1]).getroot().iter("testcase")
+              if tc.get("name") == ROW
+          ]
+          if len(cases) != 1:
+              sys.exit(
+                  f"TIDY ROW GATE FAILED: expected exactly 1 '{ROW}' record, "
+                  f"found {len(cases)}. ABSENT/NOT-SELECTED is a false green: "
+                  "the row cannot protect what it never ran on."
+              )
+          tc = cases[0]
+          kids = {child.tag for child in tc}
+          status = tc.get("status")
+          if "skipped" in kids or status == "notrun":
+              sys.exit(
+                  f"TIDY ROW GATE FAILED: '{ROW}' was SKIPPED (status={status!r}). "
+                  "ctest exits 0 on the skip arm - this IS the false green "
+                  "Task 0d exists to remove."
+              )
+          if "failure" in kids or "error" in kids:
+              sys.exit(
+                  f"TIDY ROW GATE FAILED: '{ROW}' RAN and FAILED "
+                  f"(status={status!r})."
+              )
+          if status != "run":
+              sys.exit(
+                  f"TIDY ROW GATE FAILED: '{ROW}' status={status!r}, "
+                  "expected 'run'."
+              )
+          print(
+              f"tidy row gate: OK - '{ROW}' EXECUTED and PASSED "
+              f"(status={status!r})."
+          )
+          PY
+
+          if [ "$ctest_rc" -ne 0 ] || [ "$tidy_gate_rc" -ne 0 ]; then exit 1; fi
       - name: Enforce Linux Catch2 counts
         run: |
           ./build/ci/biv_tests -r xml > catch.xml
