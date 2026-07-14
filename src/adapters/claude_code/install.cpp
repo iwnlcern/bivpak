@@ -19,12 +19,12 @@
 #include <vector>
 
 #include <fcntl.h>
-#if defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
 #endif
 #include <simdjson.h>
-#if defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 #include <unistd.h>
