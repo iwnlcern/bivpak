@@ -129,6 +129,8 @@ else()
 #pragma message(\"BIVPAK_TIDY_PAIRING: libstdc++ _GLIBCXX_RELEASE=\" BIV_STR(_GLIBCXX_RELEASE))
 std::expected<int,std::string> p(){return 1;}
 ")
+    message(STATUS "clang-tidy probe cmd: ${BIVHARNESS_CLANG_TIDY} "
+                   "--checks=-*,misc-unused-alias-decls,clang-diagnostic-* --quiet ${_probe} -- -std=c++23")
     execute_process(
       COMMAND "${BIVHARNESS_CLANG_TIDY}"
               "--checks=-*,misc-unused-alias-decls,clang-diagnostic-*" --quiet "${_probe}"
@@ -137,7 +139,7 @@ std::expected<int,std::string> p(){return 1;}
       OUTPUT_VARIABLE _pout
       ERROR_VARIABLE _perr)
     if(NOT _prc EQUAL 0)
-      _tidy_unusable("analyzer cannot parse <expected> under C++23, or resolved a non-libstdc++ / pre-13 stdlib (probe rc=${_prc}): ${_perr}")
+      _tidy_unusable("analyzer cannot parse <expected> under C++23, or resolved a non-libstdc++ / pre-13 stdlib (probe rc=${_prc})\n--- clang-tidy STDOUT (diagnostics + pairing marker) ---\n${_pout}\n--- clang-tidy STDERR (summary) ---\n${_perr}")
     else()
       string(REGEX MATCH "BIVPAK_TIDY_PAIRING: libstdc\\+\\+ _GLIBCXX_RELEASE=([0-9]+)"
              _ "${_pout}${_perr}")
