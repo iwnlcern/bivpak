@@ -37,7 +37,7 @@ fs::path make_tmp(std::string_view name) {
   auto base = fs::temp_directory_path() / ("biv-codex-install-" + std::string{name} + "-" + std::to_string(::getpid()));
   fs::remove_all(base);
   fs::create_directories(base);
-  return base;
+  return fs::canonical(base);
 }
 
 std::vector<std::byte> bytes(std::string_view text) {
@@ -393,9 +393,47 @@ TEST_CASE("FX-CX-144 discover collect install preserves new rollout variants") {
   const auto parent_text = read_text(target_store / *parent_file);
   const auto child_text = read_text(target_store / *child_file);
   const auto all_text = parent_text + child_text;
+  const auto expected_parent_meta =
+      std::string{
+          "{\"timestamp\":\"2026-07-12T12:00:00Z\",\"type\":\"session_meta\","
+          "\"payload\":{\"id\":\""} +
+      id_map.installed_session_id + "\",\"session_id\":\"" +
+      id_map.installed_session_id + "\",\"cwd\":\"" +
+      workspace.generic_string() +
+      "\",\"cli_version\":\"0.144.1\",\"selected_capability_roots\":[\"/opt/"
+      "codex/capabilities\"],\"history_mode\":\"legacy\",\"context_window\":{"
+      "\"window_id\":\"" +
+      id_map.installed_session_id +
+      "\",\"max_tokens\":200000},\"source\":\"cli\",\"thread_source\":\"user\"}}\n";
+  const auto expected_world_state =
+      std::string{
+          "{\"timestamp\":\"2026-07-12T12:00:01Z\",\"type\":\"world_state\","
+          "\"payload\":{\"full\":true,\"state\":{\"environments\":{\"local\":{\"cwd\":\""} +
+      workspace.generic_string() + "/sub\",\"thread_id\":\"" +
+      id_map.installed_session_id +
+      "\"}},\"outside_pair\":\"/opt/codex/capabilities\"}}}\n";
+  const auto expected_child_meta =
+      std::string{
+          "{\"timestamp\":\"2026-07-12T12:01:00Z\",\"type\":\"session_meta\","
+          "\"payload\":{\"id\":\""} +
+      installed_child + "\",\"session_id\":\"" + installed_child +
+      "\",\"cwd\":\"" + workspace.generic_string() +
+      "/sub\",\"cli_version\":\"0.144.1\",\"selected_capability_roots\":[\"/opt/"
+      "codex/capabilities\"],\"history_mode\":\"legacy\",\"context_window\":{"
+      "\"window_id\":\"" +
+      installed_child +
+      "\",\"max_tokens\":200000},\"thread_source\":\"subagent\","
+      "\"parent_thread_id\":\"" +
+      id_map.installed_session_id +
+      "\",\"source\":{\"subagent\":{\"thread_spawn\":{\"parent_thread_id\":\"" +
+      id_map.installed_session_id +
+      "\",\"depth\":1,\"agent_role\":\"worker\"}}}}}\n";
 
   CHECK(all_text.find(kFxParent) == std::string::npos);
   CHECK(all_text.find(kFxChild) == std::string::npos);
+  CHECK(parent_text.find(expected_parent_meta) != std::string::npos);
+  CHECK(parent_text.find(expected_world_state) != std::string::npos);
+  CHECK(child_text.find(expected_child_meta) != std::string::npos);
   CHECK(parent_text.find(workspace.generic_string() + "/sub") !=
         std::string::npos);
   CHECK(parent_text.find(id_map.installed_session_id) != std::string::npos);
