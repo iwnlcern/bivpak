@@ -79,7 +79,7 @@ def main() -> int:
         print("compile_commands.json contains no project sources")
         return 1
 
-    results = _run_parallel(sources[:-1], args.clang_tidy, args.compile_commands)
+    results = _run_parallel(sources, args.clang_tidy, args.compile_commands)
     if len(results) != len(sources):
         print(
             f"COVERAGE FAILURE: {len(results)} results vs {len(sources)} sources"
