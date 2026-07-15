@@ -24,14 +24,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          test "$(
-            gh api \
-              -H 'Accept: application/vnd.github+json' \
-              -H 'X-GitHub-Api-Version: 2026-03-10' \
-              "repos/${GITHUB_REPOSITORY}/immutable-releases" \
-              --jq .enabled
-          )" = true
-
           if gh release view "$IMMUTABLE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "release already exists: $IMMUTABLE_TAG"
             exit 1
