@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import json
 import os
@@ -59,9 +60,27 @@ def scan_image_secret_values(image: Path, secret_values: list[str]) -> list[str]
     return hits
 
 
-def version_in_validated_range(version_output: str, validated_prefix: str) -> bool:
-    versions = re.findall(r"(?<![0-9])([0-9]+\.[0-9]+\.[0-9]+)(?![0-9])", version_output)
-    return any(version.startswith(validated_prefix) for version in versions)
+def _is_prefix_list(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and all(isinstance(prefix, str) and prefix for prefix in value)
+    )
+
+
+def version_in_validated_range(version_output: str, validated_prefixes: list[str]) -> bool:
+    if not _is_prefix_list(validated_prefixes):
+        raise TypeError(
+            "validated_version_prefixes must be a non-empty list of non-empty strings; "
+            f"got {validated_prefixes!r} (a bare string character-iterates and fails open)"
+        )
+    versions = re.findall(
+        r"(?<![0-9])([0-9]+\.[0-9]+\.[0-9]+)(?![0-9])",
+        version_output,
+    )
+    return len(versions) == 1 and any(
+        versions[0].startswith(prefix) for prefix in validated_prefixes
+    )
 
 
 def class_j_failures(seed_workspace: Path, restored_workspace: Path, app_state_paths: list[Path]) -> list[str]:
@@ -589,7 +608,7 @@ def perform_oauth_checkpoint(
     for agent, _, env in contexts:
         version = spawn(agent["version_command"], host2, env)
         if version.returncode != 0 or not version_in_validated_range(
-            version.stdout + version.stderr, agent["validated_version_prefix"]
+            version.stdout + version.stderr, agent["validated_version_prefixes"]
         ):
             raise ValueError(f"{agent['id']} host2 version is outside the validated range")
 
@@ -648,9 +667,15 @@ def materialize_run_tokens(spec: dict[str, Any]) -> dict[str, Any]:
     return {**spec, "agents": agents}
 
 
-def _result(spec: dict[str, Any], status: Status, detail: str) -> ScenarioResult:
+def _bounded_string(value: object, fallback: str) -> str:
+    return value if isinstance(value, str) and value else fallback
+
+
+def _result(spec: object, status: Status, detail: str) -> ScenarioResult:
+    raw_id = spec.get("id") if isinstance(spec, dict) else None
+    spec_id = _bounded_string(raw_id, "e3-invalid-spec")
     return ScenarioResult(
-        id=spec.get("id", "e3-invalid-spec"),
+        id=spec_id,
         tier="E3",
         status=status,
         classes=[E3_CLASS] if status is Status.PASS else [],
@@ -658,33 +683,99 @@ def _result(spec: dict[str, Any], status: Status, detail: str) -> ScenarioResult
     )
 
 
-def _validate_spec(spec: dict[str, Any]) -> list[str]:
+def _is_string_list(value: object, *, non_empty: bool = True) -> bool:
+    return (
+        isinstance(value, list)
+        and (bool(value) or not non_empty)
+        and all(isinstance(item, str) and item for item in value)
+    )
+
+
+def _validate_spec(spec: object) -> list[str]:
     failures: list[str] = []
+    if not isinstance(spec, dict):
+        return ["scenario must be a JSON object"]
+
+    def require_string(mapping: dict[str, Any], field: str, label: str) -> bool:
+        value = mapping.get(field)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{label} must be a non-empty string")
+            return False
+        return True
+
+    def optional_string(mapping: dict[str, Any], field: str, label: str) -> bool:
+        if field not in mapping:
+            return True
+        return require_string(mapping, field, label)
+
+    def optional_string_list(mapping: dict[str, Any], field: str, label: str) -> bool:
+        if field not in mapping:
+            return True
+        value = mapping[field]
+        if not _is_string_list(value):
+            failures.append(f"{label} must be a non-empty list of non-empty strings")
+            return False
+        return True
+
+    require_string(spec, "id", "scenario id")
     if spec.get("tier") != "E3":
         failures.append("scenario tier must be E3")
     if spec.get("checkpoint_count") != 1:
         failures.append("scenario must declare exactly one checkpoint")
+    optional_string(spec, "checkpoint_prompt", "checkpoint_prompt")
+    optional_string(spec, "workspace_name", "workspace_name")
+    optional_string(spec, "host2_profile_root", "host2_profile_root")
+    optional_string_list(spec, "live_store_roots", "live_store_roots")
+    optional_string_list(spec, "forbidden_bivpak_state", "forbidden_bivpak_state")
+    if not _is_string_list(spec.get("seed_turns")):
+        failures.append("seed_turns must be a non-empty list of non-empty strings")
+    require_string(spec, "resume_probe", "resume_probe")
+
     agents = spec.get("agents")
-    if not isinstance(agents, list) or len(agents) != 2:
+    if (
+        not isinstance(agents, list)
+        or len(agents) != 2
+        or not all(isinstance(agent, dict) for agent in agents)
+    ):
         failures.append("scenario must declare two agents")
     else:
         required_agent_fields = (
             "id", "live_profile", "auth_status", "version_command",
-            "validated_version_prefix", "seed_start_command", "seed_continue_command",
+            "validated_version_prefixes", "seed_start_command", "seed_continue_command",
             "seed_retry_resume_command", "ownership_glob", "run_token_prefix", "resume_command",
             "cheapest_model",
         )
         for agent in agents:
+            agent_id = _bounded_string(agent.get("id"), "agent")
             for field in required_agent_fields:
-                if not agent.get(field):
-                    failures.append(f"agent missing {field}")
+                if field in (
+                    "id", "live_profile", "ownership_glob", "run_token_prefix", "cheapest_model",
+                ):
+                    require_string(agent, field, f"agent {field}")
+                elif not _is_string_list(agent.get(field)):
+                    failures.append(f"agent {field} must be a non-empty list of non-empty strings")
+            if not _is_prefix_list(agent.get("validated_version_prefixes")):
+                failures.append(
+                    f"{agent_id} validated_version_prefixes must be "
+                    "a non-empty list of non-empty strings"
+                )
+            optional_string(agent, "host2_profile", "agent host2_profile")
+            if "env" in agent and (
+                not isinstance(agent["env"], dict)
+                or not all(isinstance(key, str) and isinstance(value, str) for key, value in agent["env"].items())
+            ):
+                failures.append("agent env must be a mapping of strings to strings")
             if "run_token" in agent:
                 failures.append("scenario must not contain a static run_token")
             for field in ("seed_start_command", "seed_retry_resume_command", "seed_continue_command"):
-                if not any("{run_token}" in part for part in agent.get(field, [])):
-                    failures.append(f"{agent.get('id')} {field} missing runtime run-token placeholder")
-            if agent.get("id") == "claude-code" and agent.get("resume_mutation") != CLAUDE_RESUME_MUTATION:
-                failures.append("Claude resume mutation must match the pinned shape")
+                command = agent.get(field)
+                if _is_string_list(command) and not any("{run_token}" in part for part in command):
+                    failures.append(f"{agent_id} {field} missing runtime run-token placeholder")
+            if agent.get("id") == "claude-code":
+                if not _is_string_list(agent.get("liveness_command")):
+                    failures.append("agent liveness_command must be a non-empty list of non-empty strings")
+                if agent.get("resume_mutation") != CLAUDE_RESUME_MUTATION:
+                    failures.append("Claude resume mutation must match the pinned shape")
             if agent.get("id") == "codex" and agent.get("resume_shape") != CODEX_RESUME_SHAPE:
                 failures.append("Codex resume shape must match the pinned shape")
             model_fields = [
@@ -695,23 +786,178 @@ def _validate_spec(spec: dict[str, Any]) -> list[str]:
                 model_fields.append("liveness_command")
             model = agent.get("cheapest_model")
             for field in model_fields:
-                command = agent.get(field, [])
+                command = agent.get(field)
+                if not _is_string_list(command):
+                    continue
                 if "--model" not in command:
-                    failures.append(f"{agent.get('id')} {field} missing cheapest-model flag")
+                    failures.append(f"{agent_id} {field} missing cheapest-model flag")
                     continue
                 index = command.index("--model")
                 if index + 1 >= len(command) or command[index + 1] != model:
-                    failures.append(f"{agent.get('id')} {field} cheapest-model mismatch")
-    for key in ("seed_turns", "resume_probe"):
-        if not spec.get(key):
-            failures.append(f"scenario missing {key}")
+                    failures.append(f"{agent_id} {field} cheapest-model mismatch")
     sentinels = spec.get("credential_scan_sentinels")
-    if not isinstance(sentinels, list) or not sentinels or any(
-        not isinstance(value, str) or not value for value in sentinels
-    ):
+    if not _is_string_list(sentinels):
         failures.append("scenario missing non-empty credential_scan_sentinels")
     elif any(DOTENV_SAFE_SENTINEL.fullmatch(value) is None for value in sentinels):
         failures.append("credential_scan_sentinels values must be dotenv-safe")
+    return failures
+
+
+def _stability_failure(label: str, path: Path) -> str | None:
+    for ancestor in [path, *path.parents]:
+        try:
+            os.stat(ancestor)
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                return f"{label}: symlink cycle at {ancestor}"
+            return f"{label}: unstatable ({exc.strerror}) at {ancestor}"
+    resolved = path.resolve()
+    if resolved != path:
+        return f"{label} must be realpath-stable; {path} resolves to {resolved}"
+    return None
+
+
+def _temp_root_failure(label: str, path: Path) -> str | None:
+    resolved = path.resolve()
+    temp_root = Path("/tmp").resolve()
+    try:
+        resolved.relative_to(temp_root)
+    except ValueError:
+        return None
+    return f"{label}: resolved path must not be under {temp_root} ({resolved})"
+
+
+def _root_failure(
+    label: str,
+    value: object,
+) -> str | None:
+    if not isinstance(value, (str, Path)):
+        return f"{label} must be a path string; got {value!r}"
+    try:
+        path = Path(value).expanduser()
+        failure = _stability_failure(label, path)
+        if failure is not None:
+            return failure
+        return _temp_root_failure(label, path)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return f"{label} is not a usable path: {type(exc).__name__}: {exc}"
+
+
+def _child_failure(label: str, root: Path, value: object) -> str | None:
+    """P-CHILD. Containment is proved by requiring resolve(child) == child."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or value in (".", "..")
+        or Path(value).is_absolute()
+    ):
+        return f"{label} must be a non-empty relative name; got {value!r}"
+    if value.startswith("~"):
+        return f"{label}: tilde spellings are refused ({value})"
+    try:
+        child = root / value
+        return _stability_failure(label, child)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return f"{label} is not a usable path: {type(exc).__name__}: {exc}"
+
+
+def _path_field_failures(spec: object, scratch: Path) -> list[str]:
+    """Refuse unstable roots and children before probe or any runner write."""
+    failures: list[str] = []
+    try:
+        failure = _stability_failure("scratch", scratch)
+        if failure is None:
+            failure = _temp_root_failure("scratch", scratch)
+    except (OSError, ValueError, RuntimeError) as exc:
+        failure = f"scratch is not a usable path: {type(exc).__name__}: {exc}"
+    if failure is not None:
+        failures.append(failure)
+    if not isinstance(spec, dict):
+        return failures
+    profile_root = scratch / "host2-profile"
+    if "host2_profile_root" in spec:
+        value = spec["host2_profile_root"]
+        failure = _child_failure("host2_profile_root", scratch, value)
+        if failure is not None:
+            failures.append(failure)
+        elif isinstance(value, str):
+            profile_root = scratch / value
+    values = spec.get("live_store_roots", [])
+    if isinstance(values, list):
+        for value in values:
+            failure = _root_failure("live_store_roots", value)
+            if failure is not None:
+                failures.append(failure)
+    else:
+        failures.append("live_store_roots must be a list")
+    agents = spec.get("agents", [])
+    if isinstance(agents, list):
+        for agent in agents:
+            if not isinstance(agent, dict):
+                failures.append("agents entries must be objects")
+                continue
+            failure = _root_failure(
+                "live_profile",
+                agent.get("live_profile", ""),
+            )
+            if failure is not None:
+                failures.append(failure)
+            if "host2_profile" in agent:
+                failure = _child_failure("host2_profile", profile_root, agent["host2_profile"])
+                if failure is not None:
+                    failures.append(failure)
+    else:
+        failures.append("agents must be a list")
+    if "workspace_name" in spec:
+        failure = _child_failure("workspace_name", scratch / "seed-ws", spec["workspace_name"])
+        if failure is not None:
+            failures.append(failure)
+    values = spec.get("forbidden_bivpak_state", [])
+    if isinstance(values, list):
+        for value in values:
+            failure = _child_failure("forbidden_bivpak_state", scratch, value)
+            if failure is not None:
+                failures.append(failure)
+    else:
+        failures.append("forbidden_bivpak_state must be a list")
+    return failures
+
+
+def _scratch_overlap_failures(spec: dict[str, Any], scratch: Path) -> list[str]:
+    scratch = scratch.resolve()
+    live_roots = [
+        ("live_store_roots", Path(value).expanduser().resolve())
+        for value in spec.get("live_store_roots", [])
+    ]
+    live_roots.extend(
+        ("live_profile", Path(agent["live_profile"]).expanduser().resolve())
+        for agent in spec["agents"]
+    )
+    return [
+        f"scratch overlaps {label}: {scratch} and {live_root}"
+        for label, live_root in live_roots
+        if (
+            scratch == live_root
+            or scratch in live_root.parents
+            or live_root in scratch.parents
+        )
+    ]
+
+
+def _negative_control_failures(owned_paths: list[Path]) -> list[str]:
+    """Guard evidence: a realpath-stable run cannot render either alias spelling."""
+    failures: list[str] = []
+    for path in owned_paths:
+        blob = path.read_bytes()
+        for spelling in (b"/private/var/", b"/var/"):
+            if spelling in blob:
+                failures.append(
+                    f"negative-control: {path} contains {spelling.decode()} - the run did not "
+                    "execute in a realpath-stable tree; the scratch guard did not hold and this "
+                    "run's evidence is void"
+                )
     return failures
 
 
@@ -725,20 +971,41 @@ def run_e3(
 ) -> ScenarioResult:
     try:
         spec = json.loads(spec_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return _result({}, Status.INVALID, f"scenario unreadable: {exc}")
 
-    if scratch.is_symlink():
-        return _result(spec, Status.INVALID, "scratch must not be a symlink")
     failures = _validate_spec(spec)
-    failures.extend(probe(scratch))
+    if failures:
+        return _result(spec, Status.INVALID, "\n".join(failures))
+    try:
+        if not isinstance(scratch, (str, Path)):
+            return _result(spec, Status.INVALID, "scratch must be a str or Path")
+        scratch = Path(scratch)
+        if scratch.is_symlink():
+            return _result(spec, Status.INVALID, "scratch must not be a symlink")
+    except (OSError, ValueError, RuntimeError) as exc:
+        return _result(spec, Status.INVALID, f"scratch is unusable: {exc}")
+    failures = _path_field_failures(spec, scratch)
     failures.extend(f"credential-env:{name}" for name in rejected_credential_names(os.environ))
+    if failures:
+        return _result(spec, Status.INVALID, "\n".join(failures))
 
-    profile_root = Path(spec.get("host2_profile_root", scratch / "host2-profile"))
-    if not profile_root.is_absolute():
-        profile_root = scratch / profile_root
-    live_stores = [Path(value).expanduser() for value in spec.get("live_store_roots", [])]
-    failures.extend(profile_root_failures(profile_root, live_stores))
+    try:
+        failures.extend(_scratch_overlap_failures(spec, scratch))
+        if failures:
+            return _result(spec, Status.INVALID, "\n".join(failures))
+        profile_root = Path(spec.get("host2_profile_root", scratch / "host2-profile"))
+        if not profile_root.is_absolute():
+            profile_root = scratch / profile_root
+        live_stores = [Path(value).expanduser() for value in spec.get("live_store_roots", [])]
+        failures.extend(probe(scratch))
+        failures.extend(profile_root_failures(profile_root, live_stores))
+    except (OSError, ValueError, RuntimeError) as exc:
+        return _result(
+            spec,
+            Status.INVALID,
+            f"pre-run filesystem check failed: {type(exc).__name__}: {exc}",
+        )
     if failures:
         return _result(spec, Status.INVALID, "\n".join(failures))
 
@@ -784,7 +1051,7 @@ def run_e3(
                 return _result(spec, Status.INVALID, f"{agent['id']} is not authenticated; run: {instruction}")
             version = _spawn(agent["version_command"], seed_ws, env)
             if version.returncode != 0 or not version_in_validated_range(
-                version.stdout + version.stderr, agent["validated_version_prefix"]
+                version.stdout + version.stderr, agent["validated_version_prefixes"]
             ):
                 return _result(spec, Status.INVALID, f"{agent['id']} version is outside the validated range")
             live_contexts.append((agent, live_profile, env))
@@ -794,6 +1061,10 @@ def run_e3(
                 agent, live_profile, seed_ws, spec, env, _spawn,
                 capture_candidates, owned_paths,
             )
+
+        negative_control = _negative_control_failures(owned_paths)
+        if negative_control:
+            return _result(spec, Status.INVALID, "\n".join(negative_control))
 
         verify_credential_decoys(seed_ws, credential_decoys, credential_sentinels)
         before = {path: _hash(path) for path in owned_paths}

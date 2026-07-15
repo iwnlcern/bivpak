@@ -1,7 +1,10 @@
+import hashlib
 import io
 import json
 import os
+import re
 import shutil
+import stat
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 import zstandard
 
-from bivharness import e3
+from bivharness import cli, e3
 from bivharness.e3 import (
     CLAUDE_RESUME_MUTATION,
     CODEX_RESUME_SHAPE,
@@ -34,6 +37,144 @@ from bivharness.e3 import (
 )
 from bivharness.precheck import profile_root_failures
 from bivharness.report import Status
+
+
+@pytest.fixture
+def repo_root() -> Path:
+    root = Path(__file__).resolve().parents[2]
+    assert (root / "src/adapters/codex/install.cpp").is_file(), (
+        f"repo_root mis-resolved: {root}"
+    )
+    assert (root / "harness/scenarios-e3/e3-dual-resume.json").is_file(), (
+        f"repo_root mis-resolved: {root}"
+    )
+    return root
+
+
+@pytest.fixture
+def stable_test_root(tmp_path):
+    root = (
+        Path.home()
+        / ".cache"
+        / "bivharness-selftest"
+        / f"{os.getpid()}-{tmp_path.name}"
+    )
+    shutil.rmtree(root, ignore_errors=True)
+    root.mkdir(parents=True)
+    assert root.is_absolute()
+    assert root.resolve() == root
+    for live_store in (Path.home() / ".claude", Path.home() / ".codex"):
+        assert root != live_store
+        assert live_store not in root.parents
+    try:
+        yield root
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+PRODUCT_PREDICATES = {
+    "codex": ("src/adapters/codex/install.cpp", "validated_codex_version"),
+    "claude-code": (
+        "src/adapters/claude_code/install.cpp",
+        "validated_claude_version",
+    ),
+}
+
+
+def _product_prefixes(repo_root: Path, agent_id: str) -> list[str]:
+    rel, function = PRODUCT_PREDICATES[agent_id]
+    source = (repo_root / rel).read_text(encoding="utf-8")
+    match = re.search(
+        rf"bool\s+{function}\s*\([^)]*\)\s*\{{(.*?)\n\}}",
+        source,
+        re.S,
+    )
+    assert match, f"predicate {function} not found in {rel}"
+    prefixes = re.findall(r'starts_with\("([^"]*)"\)', match.group(1))
+    assert prefixes, f"{function} is no longer a starts_with prefix set"
+    return prefixes
+
+
+def _product_accepts_single_version(repo_root: Path, agent_id: str, version: str) -> bool:
+    return any(version.startswith(prefix) for prefix in _product_prefixes(repo_root, agent_id))
+
+
+def test_scenario_version_sets_mirror_the_product_exactly(repo_root):
+    spec = json.loads(
+        (repo_root / "harness/scenarios-e3/e3-dual-resume.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for agent in spec["agents"]:
+        product = _product_prefixes(repo_root, agent["id"])
+        assert agent["validated_version_prefixes"] == product, (
+            f"{agent['id']}: scenario {agent['validated_version_prefixes']} != product "
+            f"{product}. Mirror the product exactly."
+        )
+        in_range = f"{product[0]}0"
+        out_of_range = "999.999.999"
+        for authoritative in (in_range, out_of_range):
+            output = f"{agent['id']} {authoritative}\n"
+            assert version_in_validated_range(output, product) is (
+                _product_accepts_single_version(
+                    repo_root,
+                    agent["id"],
+                    authoritative,
+                )
+            )
+        for output in (
+            f"{agent['id']} {in_range}\nancillary {out_of_range}\n",
+            f"ancillary {in_range}\n{agent['id']} {out_of_range}\n",
+        ):
+            assert not version_in_validated_range(output, product)
+
+
+def _valid_two_agent_spec():
+    """Return a two-agent E3 spec that passes validation once lists are supported."""
+    codex = {
+        "id": "codex",
+        "live_profile": "~/.codex",
+        "env": {},
+        "auth_status": ["codex", "login", "status"],
+        "version_command": ["codex", "--version"],
+        "validated_version_prefixes": ["0.142.", "0.144."],
+        "cheapest_model": "cheap",
+        "seed_start_command": ["codex", "seed", "{run_token}", "--model", "cheap"],
+        "seed_retry_resume_command": ["codex", "retry", "{run_token}", "--model", "cheap"],
+        "seed_continue_command": ["codex", "continue", "{run_token}", "--model", "cheap"],
+        "ownership_glob": "*.jsonl",
+        "run_token_prefix": "token",
+        "resume_command": ["codex", "resume", "--model", "cheap"],
+        "resume_shape": CODEX_RESUME_SHAPE,
+    }
+    claude = {
+        **codex,
+        "id": "claude-code",
+        "live_profile": "~/.claude",
+        "auth_status": ["claude", "auth", "status"],
+        "version_command": ["claude", "--version"],
+        "validated_version_prefixes": ["2.1."],
+        "seed_start_command": ["claude", "seed", "{run_token}", "--model", "cheap"],
+        "seed_retry_resume_command": ["claude", "retry", "{run_token}", "--model", "cheap"],
+        "seed_continue_command": ["claude", "continue", "{run_token}", "--model", "cheap"],
+        "resume_command": ["claude", "resume", "--model", "cheap"],
+        "liveness_command": ["claude", "--model", "cheap", "-p", "Reply with one token: OK"],
+        "resume_mutation": CLAUDE_RESUME_MUTATION,
+    }
+    claude.pop("resume_shape", None)
+    return {
+        "id": "cx-range",
+        "tier": "E3",
+        "checkpoint_count": 1,
+        "seed_turns": ["one", "two"],
+        "resume_probe": "probe",
+        "credential_scan_sentinels": ["synthetic-secret"],
+        "agents": [codex, claude],
+    }
+
+
+def test_shared_fixture_is_valid_as_authored():
+    assert e3._validate_spec(_valid_two_agent_spec()) == []
 
 
 def test_ordered_turns_require_all_sentinels_and_probe_in_order():
@@ -65,7 +206,7 @@ def _checkpoint_agents():
             "env": {"CLAUDE_CONFIG_DIR": "{profile}"},
             "auth_status": ["claude", "auth", "status"],
             "version_command": ["claude", "--version"],
-            "validated_version_prefix": "2.1.",
+            "validated_version_prefixes": ["2.1."],
             "liveness_command": ["claude", "--model", "haiku", "-p", "Reply with one token: OK"],
         },
         {
@@ -74,9 +215,13 @@ def _checkpoint_agents():
             "env": {"CODEX_HOME": "{profile}"},
             "auth_status": ["codex", "login", "status"],
             "version_command": ["codex", "--version"],
-            "validated_version_prefix": "0.142.",
+            "validated_version_prefixes": ["0.142.", "0.144."],
         },
     ]
+
+
+def _checkpoint_version_output(command):
+    return "2.1.202" if command[0] == "claude" else "0.142.5"
 
 
 def test_oauth_checkpoint_constructs_profiles_and_prints_real_login_commands(tmp_path):
@@ -87,8 +232,11 @@ def test_oauth_checkpoint_constructs_profiles_and_prints_real_login_commands(tmp
 
     def fake_spawn(command, cwd, env):
         calls.append(command)
-        version = "2.1.202" if command[0] == "claude" else "0.142.5"
-        return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_checkpoint_version_output(command),
+            stderr="",
+        )
 
     def pause(prompt):
         pauses.append(prompt)
@@ -132,7 +280,11 @@ def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
         if command[0] == "claude" and "-p" in command:
             return SimpleNamespace(returncode=1, stdout="", stderr="offline")
-        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_checkpoint_version_output(command),
+            stderr="",
+        )
 
     with pytest.raises(ValueError, match="liveness"):
         perform_oauth_checkpoint(
@@ -143,7 +295,11 @@ def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
 
 def test_oauth_checkpoint_rejects_multi_token_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
-        output = "too many tokens" if command[0] == "claude" and "-p" in command else "2.1.202 0.142.5"
+        output = (
+            "too many tokens"
+            if command[0] == "claude" and "-p" in command
+            else _checkpoint_version_output(command)
+        )
         return SimpleNamespace(returncode=0, stdout=output, stderr="")
 
     with pytest.raises(ValueError, match="one token"):
@@ -165,7 +321,11 @@ def test_oauth_checkpoint_retries_claude_liveness_once(tmp_path):
                 stdout="" if liveness_calls == 1 else "OK",
                 stderr="transient" if liveness_calls == 1 else "",
             )
-        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_checkpoint_version_output(command),
+            stderr="",
+        )
 
     perform_oauth_checkpoint(
         {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
@@ -188,7 +348,11 @@ def test_oauth_checkpoint_retries_invalid_or_exceptional_liveness_once(tmp_path,
                 raise OSError("spawn failed")
             output = "too many tokens" if liveness_calls == 1 else "OK"
             return SimpleNamespace(returncode=0, stdout=output, stderr="")
-        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_checkpoint_version_output(command),
+            stderr="",
+        )
 
     perform_oauth_checkpoint(
         {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
@@ -1280,9 +1444,1291 @@ def test_class_j_workspace_memoryless_and_version_predicates(tmp_path):
     app_state = tmp_path / "biv-owned"
     app_state.mkdir()
     assert "bivpak-state-present" in class_j_failures(seed, restored, [app_state])
-    assert version_in_validated_range("claude 2.1.202", "2.1.")
-    assert not version_in_validated_range("claude 2.2.0", "2.1.")
-    assert not version_in_validated_range("claude 12.1.202", "2.1.")
+    assert version_in_validated_range("claude 2.1.202", ["2.1."])
+    assert not version_in_validated_range("claude 2.2.0", ["2.1."])
+    assert not version_in_validated_range("claude 12.1.202", ["2.1."])
+
+
+CX = ["0.142.", "0.144."]
+STALE_VERSION_PREFIX_KEY = "validated_version_" + "prefix"
+
+
+@pytest.mark.parametrize("version,accepted", [
+    ("codex-cli 0.142.5", True),
+    ("codex-cli 0.144.1", True),
+    ("codex-cli 0.143.0", False),
+    ("codex-cli 0.145.0", False),
+    ("codex-cli 0.61.0", False),
+])
+def test_codex_enumerated_set_is_not_an_inequality(version, accepted):
+    assert version_in_validated_range(version, CX) is accepted
+
+
+@pytest.mark.parametrize("output", (
+    "codex-cli 0.145.0\nsandbox-runtime 0.142.9\n",
+    "sandbox-runtime 0.142.9\ncodex-cli 0.145.0\n",
+))
+def test_version_gate_rejects_ambiguous_multi_token_output(output):
+    assert not version_in_validated_range(output, CX)
+
+
+@pytest.mark.parametrize("version,accepted", [
+    ("claude 2.1.202", True),
+    ("claude 2.2.0", False),
+    ("claude 12.1.202", False),
+])
+def test_claude_single_element_list(version, accepted):
+    assert version_in_validated_range(version, ["2.1."]) is accepted
+
+
+@pytest.mark.parametrize("bad", ["0.142.", "", [], ["0.142.", ""], [None], ("0.142.",)])
+def test_helper_raises_rather_than_character_iterating(bad):
+    with pytest.raises(TypeError):
+        version_in_validated_range("codex-cli 0.61.0", bad)
+
+
+@pytest.mark.parametrize("bad", ["0.142.", [], ["0.142.", ""], [None]])
+def test_validate_spec_rejects_malformed_prefix_shapes(bad):
+    spec = _valid_two_agent_spec()
+    spec["agents"][0]["validated_version_prefixes"] = bad
+    failures = e3._validate_spec(spec)
+    assert any("validated_version_prefixes" in failure for failure in failures)
+
+
+def test_validate_spec_rejects_a_stale_scalar_only_scenario():
+    spec = _valid_two_agent_spec()
+    agent = spec["agents"][0]
+    del agent["validated_version_prefixes"]
+    agent[STALE_VERSION_PREFIX_KEY] = "0.142."
+    failures = e3._validate_spec(spec)
+    assert any("validated_version_prefixes" in failure for failure in failures)
+
+
+def test_stale_scenario_is_invalid_before_any_spawn(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout="codex-cli 0.61.0", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec = _valid_two_agent_spec()
+    agent = spec["agents"][0]
+    del agent["validated_version_prefixes"]
+    agent[STALE_VERSION_PREFIX_KEY] = "0.142."
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), tmp_path / "scratch", dry_run=True)
+
+    assert result.status is Status.INVALID
+    assert "validated_version_prefixes" in result.detail
+    assert calls == []
+
+
+CX_MATRIX = [
+    ("0.142.5", True),
+    ("0.144.1", True),
+    ("0.143.0", False),
+    ("0.145.0", False),
+    ("0.61.0", False),
+]
+
+
+def _run_prerun_with_codex_version(monkeypatch, tmp_path, stable_test_root, version):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        if command == ["codex", "--version"]:
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command == ["claude", "auth", "status"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+    return result, calls
+
+
+@pytest.mark.parametrize("version,accepted", CX_MATRIX)
+def test_prerun_version_gate_enforces_the_enumerated_set(
+    monkeypatch, tmp_path, stable_test_root, version, accepted
+):
+    result, calls = _run_prerun_with_codex_version(
+        monkeypatch, tmp_path, stable_test_root, version
+    )
+    assert result.status is Status.INVALID
+    assert ["codex", "--version"] in calls
+    if accepted:
+        assert "version is outside the validated range" not in result.detail
+        assert "not authenticated" in result.detail
+    else:
+        assert "version is outside the validated range" in result.detail
+
+
+@pytest.mark.parametrize("version", (
+    "codex-cli 0.145.0\nsandbox-runtime 0.142.9\n",
+    "sandbox-runtime 0.142.9\ncodex-cli 0.145.0\n",
+))
+def test_prerun_version_gate_rejects_ambiguous_multi_token_output(
+    monkeypatch, tmp_path, stable_test_root, version
+):
+    result, calls = _run_prerun_with_codex_version(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        version,
+    )
+
+    assert result.status is Status.INVALID
+    assert "version is outside the validated range" in result.detail
+    assert calls == [["codex", "login", "status"], ["codex", "--version"]]
+
+
+@pytest.mark.parametrize("version,accepted", CX_MATRIX)
+def test_checkpoint_version_gate_enforces_the_enumerated_set(tmp_path, version, accepted):
+    def fake_spawn(command, cwd, env):
+        if command[0] == "claude":
+            if "-p" in command:
+                return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+            return SimpleNamespace(returncode=0, stdout="2.1.202", stderr="")
+        return SimpleNamespace(returncode=0, stdout=version, stderr="")
+
+    host2 = tmp_path / "host two"
+    args = (
+        {"agents": _checkpoint_agents()},
+        host2,
+        host2 / "profiles",
+        lambda prompt: "",
+        fake_spawn,
+    )
+    if accepted:
+        perform_oauth_checkpoint(*args)
+    else:
+        with pytest.raises(ValueError, match="host2 version is outside the validated range"):
+            perform_oauth_checkpoint(*args)
+
+
+def _symlinked_ancestor(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+    shadowed = link / "child"
+    assert not shadowed.is_symlink()
+    return shadowed
+
+
+def _run_dry(tmp_path, spec, scratch):
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    return e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
+
+
+def _tree_snapshot(root):
+    snapshot = {}
+    paths = [root]
+    if root.is_dir():
+        for directory, dirnames, filenames in os.walk(root, followlinks=False):
+            paths.extend(Path(directory) / name for name in dirnames + filenames)
+    for path in sorted(paths):
+        metadata = path.lstat()
+        relative = "." if path == root else str(path.relative_to(root))
+        mode = stat.S_IMODE(metadata.st_mode)
+        if stat.S_ISLNK(metadata.st_mode):
+            kind = "symlink"
+            digest = None
+            link_target = os.readlink(path)
+        elif stat.S_ISREG(metadata.st_mode):
+            kind = "file"
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            link_target = None
+        elif stat.S_ISDIR(metadata.st_mode):
+            kind = "directory"
+            digest = None
+            link_target = None
+        else:
+            kind = "other"
+            digest = None
+            link_target = None
+        snapshot[relative] = (
+            kind,
+            mode,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            digest,
+            link_target,
+        )
+    return snapshot
+
+
+def _run_refusal_without_side_effects(
+    monkeypatch, tmp_path, spec, scratch, *, watched_roots=()
+):
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    roots = [tmp_path, *watched_roots]
+    before = {root: _tree_snapshot(root) for root in roots}
+    spawn_calls = []
+
+    def refused_spawn(*args):
+        spawn_calls.append(args)
+        raise AssertionError("INVALID scenario must not spawn")
+
+    monkeypatch.setattr(e3, "_spawn", refused_spawn)
+    result = e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
+
+    assert spawn_calls == []
+    assert {root: _tree_snapshot(root) for root in roots} == before
+    return result
+
+
+@pytest.mark.parametrize(
+    "failing_check",
+    ("scratch_overlap", "probe", "profile_root_failures"),
+)
+def test_e3_preflight_filesystem_errors_are_invalid(
+    monkeypatch, tmp_path, stable_test_root, failing_check
+):
+    def raise_filesystem_error(*args):
+        raise OSError("injected preflight filesystem error")
+
+    if failing_check == "scratch_overlap":
+        monkeypatch.setattr(e3, "_scratch_overlap_failures", raise_filesystem_error)
+    elif failing_check == "probe":
+        monkeypatch.setattr(e3, "probe", raise_filesystem_error)
+    else:
+        monkeypatch.setattr(e3, "probe", lambda scratch: [])
+        monkeypatch.setattr(e3, "profile_root_failures", raise_filesystem_error)
+    scenario = tmp_path / "e3.json"
+    scenario.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(
+        scenario,
+        tmp_path / "biv",
+        stable_test_root / "scratch",
+        dry_run=True,
+    )
+
+    assert result.status is Status.INVALID
+    assert "pre-run filesystem check failed" in result.detail
+    assert "injected preflight filesystem error" in result.detail
+
+
+def test_e3_poison_mode_probe_directory_is_invalid(
+    tmp_path, stable_test_root
+):
+    scratch = stable_test_root / "scratch"
+    poison = scratch / ".bivharness-mode-probe"
+    poison.mkdir(parents=True)
+    scenario = tmp_path / "e3.json"
+    scenario.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(scenario, tmp_path / "biv", scratch, dry_run=True)
+
+    assert result.status is Status.INVALID
+    assert "pre-run filesystem check failed" in result.detail
+    assert poison.is_dir()
+    assert not (scratch / ".bivharness-link-probe").exists()
+
+
+@pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+@pytest.mark.parametrize("relation", ("same", "scratch-inside-live", "live-inside-scratch"))
+def test_e3_refuses_scratch_overlap_with_live_roots_before_probe(
+    monkeypatch, tmp_path, stable_test_root, field, relation
+):
+    if relation == "same":
+        scratch = stable_test_root / "scratch"
+        live_root = scratch
+    elif relation == "scratch-inside-live":
+        live_root = stable_test_root / "live-root"
+        scratch = live_root / "scratch"
+    else:
+        scratch = stable_test_root / "scratch"
+        live_root = scratch / "live-root"
+    spec = _valid_two_agent_spec()
+    if field == "live_profile":
+        spec["agents"][0][field] = str(live_root)
+    else:
+        spec[field] = [str(live_root)]
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        spec,
+        scratch,
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID
+    assert "scratch overlaps" in result.detail
+    assert field in result.detail
+
+
+ROOT_RELATIVE_FIELDS = (
+    "host2_profile_root",
+    "workspace_name",
+    "host2_profile",
+    "forbidden_bivpak_state",
+)
+
+
+def _set_root_relative_field(spec, field, value):
+    if field == "host2_profile":
+        spec["agents"][0][field] = value
+    elif field == "forbidden_bivpak_state":
+        spec[field] = [value]
+    else:
+        spec[field] = value
+
+
+def _root_relative_root(scratch, field):
+    if field == "workspace_name":
+        return scratch / "seed-ws"
+    if field == "host2_profile":
+        return scratch / "host2-profile"
+    return scratch
+
+
+def _root_relative_case(stable_test_root, root, field, case, tmp_path):
+    root.mkdir(parents=True, exist_ok=True)
+    suffix = f"{field}-{os.getpid()}-{tmp_path.name}"
+    if case == "A-abs-safe":
+        target = stable_test_root / f"absolute-safe-{suffix}"
+        return str(target), (target,), ()
+    if case == "B-absolute-name":
+        target = Path("/tmp").resolve() / f"bivharness-task7-child-{suffix}"
+        return str(target), (target,), ()
+    if case == "C-abs-unstable":
+        physical = stable_test_root / f"physical-{suffix}"
+        physical.mkdir()
+        alias = stable_test_root / f"alias-{suffix}"
+        alias.symlink_to(physical, target_is_directory=True)
+        lexical = alias / "child"
+        return str(lexical), (lexical, physical / "child"), ()
+    if case == "D-cycle":
+        loop_a = root / "loop-a"
+        loop_b = root / "loop-b"
+        loop_a.symlink_to("loop-b", target_is_directory=True)
+        loop_b.symlink_to("loop-a", target_is_directory=True)
+        return "loop-a/child", (), (loop_a, loop_b)
+    if case == "F-dotdot":
+        lexical = root / "../../escaped"
+        return "../../escaped", (lexical, lexical.resolve()), ()
+    if case == "G-contained-symlink":
+        physical = root / "contained-physical"
+        physical.mkdir()
+        link = root / "contained"
+        link.symlink_to(physical, target_is_directory=True)
+        lexical = link / "child"
+        return "contained/child", (lexical, physical / "child"), ()
+    if case == "H-escaping-symlink":
+        physical = stable_test_root / f"outside-{suffix}"
+        physical.mkdir()
+        link = root / "jump"
+        link.symlink_to(physical, target_is_directory=True)
+        lexical = link / "escaped"
+        return "jump/escaped", (lexical, physical / "escaped"), ()
+    if case == "J-dot":
+        return ".", (), ()
+    if case == "J-empty":
+        return "", (), ()
+    raise AssertionError(f"unknown root-relative case: {case}")
+
+
+def _inject_identity_resolve_for(monkeypatch, cycle_path):
+    real_resolve = Path.resolve
+
+    def resolve_with_cycle_identity(self, *args, **kwargs):
+        if self == cycle_path:
+            return self
+        return real_resolve(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", resolve_with_cycle_identity)
+
+
+@pytest.mark.parametrize("field", ROOT_RELATIVE_FIELDS)
+@pytest.mark.parametrize("case", (
+    "A-abs-safe",
+    "B-absolute-name",
+    "C-abs-unstable",
+    "D-cycle",
+    "F-dotdot",
+    "G-contained-symlink",
+    "H-escaping-symlink",
+    "J-dot",
+    "J-empty",
+))
+def test_root_relative_path_matrix_refuses_without_side_effects(
+    monkeypatch, tmp_path, stable_test_root, field, case
+):
+    scratch = stable_test_root / "sandbox" / "scratch"
+    root = _root_relative_root(scratch, field)
+    value, absent_targets, cycle_links = _root_relative_case(
+        stable_test_root, root, field, case, tmp_path
+    )
+    if cycle_links:
+        _inject_identity_resolve_for(monkeypatch, root / value)
+    spec = _valid_two_agent_spec()
+    _set_root_relative_field(spec, field, value)
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        spec,
+        scratch,
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID, (field, case, result.detail)
+    assert field in result.detail
+    for target in absent_targets:
+        assert not target.exists(), (field, case, target)
+    for link in cycle_links:
+        assert link.is_symlink()
+    if cycle_links:
+        assert list(stable_test_root.rglob(".bivharness-mode-probe")) == []
+        assert list(stable_test_root.rglob(".bivharness-link-probe")) == []
+
+
+@pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+def test_external_roots_refuse_relative_spellings_without_side_effects(
+    monkeypatch, tmp_path, stable_test_root, field
+):
+    spec = _valid_two_agent_spec()
+    if field == "live_profile":
+        spec["agents"][0][field] = "relative/live-profile"
+    else:
+        spec[field] = ["relative/live-store"]
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        spec,
+        stable_test_root / "scratch",
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID
+    assert field in result.detail
+    assert "realpath-stable" in result.detail
+
+
+PATH_MATRIX_COLUMNS = (
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M1",
+    "M2",
+)
+PATH_POLICY_MATRIX = {
+    "scratch": (
+        "accept", "refuse", "refuse", "refuse", "refuse", "refuse", "n/a",
+        "n/a", "refuse", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "host2_profile_root": (
+        "refuse", "refuse", "refuse", "refuse", "accept", "refuse", "refuse",
+        "refuse", "n/a", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "workspace_name": (
+        "refuse", "refuse", "refuse", "refuse", "accept", "refuse", "refuse",
+        "refuse", "n/a", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "host2_profile": (
+        "refuse", "refuse", "refuse", "refuse", "accept", "refuse", "refuse",
+        "refuse", "n/a", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "forbidden_bivpak_state": (
+        "refuse", "refuse", "refuse", "refuse", "accept", "refuse", "refuse",
+        "refuse", "n/a", "refuse", "refuse", "refuse", "refuse", "refuse",
+    ),
+    "live_profile": (
+        "accept", "refuse", "refuse", "refuse", "n/a", "refuse", "n/a", "n/a",
+        "refuse", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "live_store_roots": (
+        "accept", "refuse", "refuse", "refuse", "n/a", "refuse", "n/a", "n/a",
+        "refuse", "refuse", "refuse", "refuse", "refuse", "refuse",
+    ),
+}
+PATH_POLICY_COLUMN_B_OWNERS = {
+    "scratch": "temp-root",
+    "host2_profile_root": "absolute-name",
+    "workspace_name": "absolute-name",
+    "host2_profile": "absolute-name",
+    "forbidden_bivpak_state": "absolute-name",
+    "live_profile": "temp-root",
+    "live_store_roots": "temp-root",
+}
+
+
+def _path_matrix_cases():
+    return [
+        (field, column, verdict)
+        for field, verdicts in PATH_POLICY_MATRIX.items()
+        for column, verdict in zip(PATH_MATRIX_COLUMNS, verdicts, strict=True)
+    ]
+
+
+def test_path_policy_matrix_is_seven_by_fourteen():
+    assert len(PATH_POLICY_MATRIX) == 7
+    assert len(PATH_MATRIX_COLUMNS) == 14
+    assert all(len(verdicts) == 14 for verdicts in PATH_POLICY_MATRIX.values())
+    assert len(_path_matrix_cases()) == 98
+
+
+def test_path_policy_column_b_guard_ownership_is_explicit():
+    assert PATH_POLICY_COLUMN_B_OWNERS == {
+        "scratch": "temp-root",
+        "host2_profile_root": "absolute-name",
+        "workspace_name": "absolute-name",
+        "host2_profile": "absolute-name",
+        "forbidden_bivpak_state": "absolute-name",
+        "live_profile": "temp-root",
+        "live_store_roots": "temp-root",
+    }
+
+
+def _set_matrix_path_value(spec, field, value, column):
+    if field in ("live_profile", "live_store_roots") and isinstance(value, Path):
+        value = str(value)
+    if field == "host2_profile":
+        spec["agents"][0][field] = value
+    elif field == "forbidden_bivpak_state":
+        spec[field] = value if column == "K" else [value]
+    elif field == "live_profile":
+        spec["agents"][0][field] = value
+    elif field == "live_store_roots":
+        spec[field] = value if column == "K" else [value]
+    else:
+        spec[field] = value
+
+
+def _matrix_root_case(stable_test_root, tmp_path, field, column):
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "matrix" / "scratch"
+    suffix = f"{field}-{column}-{os.getpid()}-{tmp_path.name}"
+    absent_targets = []
+    cycle_links = []
+    cycle_path = None
+    cleanup_targets = []
+
+    if field in ROOT_RELATIVE_FIELDS:
+        root = _root_relative_root(scratch, field)
+        root.mkdir(parents=True, exist_ok=True)
+        if column == "E":
+            value = f"safe-{suffix}"
+        elif column == "K":
+            value = {}
+        elif column == "L":
+            value = None
+        elif column == "M1":
+            value = "path\0segment"
+        elif column == "M2":
+            value = "~nosuchuser/e3"
+        else:
+            case = {
+                "A": "A-abs-safe",
+                "B": "B-absolute-name",
+                "C": "C-abs-unstable",
+                "D": "D-cycle",
+                "F": "F-dotdot",
+                "G": "G-contained-symlink",
+                "H": "H-escaping-symlink",
+                "J": "J-dot",
+            }[column]
+            value, absent_targets, cycle_links = _root_relative_case(
+                stable_test_root, root, field, case, tmp_path
+            )
+            if column == "B":
+                cleanup_targets.extend(absent_targets)
+            if cycle_links:
+                cycle_path = root / value
+        _set_matrix_path_value(spec, field, value, column)
+        return (
+            spec,
+            scratch,
+            tuple(absent_targets),
+            tuple(cycle_links),
+            cycle_path,
+            tuple(cleanup_targets),
+        )
+
+    if column == "A":
+        value = stable_test_root / f"absolute-safe-{suffix}"
+    elif column == "B":
+        value = Path("/tmp").resolve() / f"bivharness-task9-{suffix}"
+        absent_targets.append(value)
+        cleanup_targets.append(value)
+    elif column == "C":
+        physical = stable_test_root / f"physical-{suffix}"
+        physical.mkdir(parents=True)
+        alias = stable_test_root / f"alias-{suffix}"
+        alias.symlink_to(physical, target_is_directory=True)
+        value = alias / "child"
+        absent_targets.extend((value, physical / "child"))
+    elif column == "D":
+        loop_a = stable_test_root / f"loop-a-{suffix}"
+        loop_b = stable_test_root / f"loop-b-{suffix}"
+        loop_a.symlink_to(loop_b.name, target_is_directory=True)
+        loop_b.symlink_to(loop_a.name, target_is_directory=True)
+        value = loop_a / "child"
+        cycle_links.extend((loop_a, loop_b))
+        cycle_path = value
+    elif column == "E":
+        value = "relative-safe"
+    elif column == "F":
+        value = f"traversal-{suffix}/../escaped-{suffix}"
+        absent_targets.append((stable_test_root / value).resolve())
+    elif column == "I":
+        value = "./cwd-relative"
+        absent_targets.append(stable_test_root / "cwd-relative")
+    elif column == "J":
+        value = "."
+    elif column == "K":
+        value = {}
+    elif column == "L":
+        value = None
+    elif column == "M1":
+        value = (
+            Path("scratch\0path")
+            if field == "scratch"
+            else str(stable_test_root / "path\0segment")
+        )
+    elif column == "M2":
+        value = Path("~nosuchuser/e3") if field == "scratch" else "~nosuchuser/e3"
+    else:
+        raise AssertionError(f"unsupported matrix cell: {field}/{column}")
+
+    if field == "scratch":
+        scratch = value
+    else:
+        _set_matrix_path_value(spec, field, value, column)
+    return (
+        spec,
+        scratch,
+        tuple(absent_targets),
+        tuple(cycle_links),
+        cycle_path,
+        tuple(cleanup_targets),
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "column", "verdict"),
+    _path_matrix_cases(),
+    ids=lambda value: str(value),
+)
+def test_path_policy_matrix_at_runner_boundary(
+    monkeypatch, tmp_path, stable_test_root, field, column, verdict
+):
+    if verdict == "n/a":
+        return
+
+    monkeypatch.chdir(stable_test_root)
+    spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+        _matrix_root_case(stable_test_root, tmp_path, field, column)
+    )
+    for target in absent_targets:
+        assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+            field,
+            column,
+            target,
+        )
+    if cycle_path is not None:
+        _inject_identity_resolve_for(monkeypatch, cycle_path)
+
+    try:
+        if verdict == "accept":
+            result = _run_dry(tmp_path, spec, scratch)
+            assert result.status is Status.PASS, (field, column, result.detail)
+            return
+
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+
+        assert result.status is Status.INVALID, (field, column, result.detail)
+        assert field in result.detail, (field, column, result.detail)
+        for target in absent_targets:
+            assert not target.exists(), (field, column, target)
+        for link in cycle_links:
+            assert link.is_symlink(), (field, column, link)
+        if cycle_links:
+            assert list(stable_test_root.rglob(".bivharness-mode-probe")) == []
+            assert list(stable_test_root.rglob(".bivharness-link-probe")) == []
+    finally:
+        for target in cleanup_targets:
+            shutil.rmtree(target, ignore_errors=True)
+
+
+@pytest.mark.parametrize("field", ROOT_RELATIVE_FIELDS)
+@pytest.mark.parametrize(
+    "case",
+    (
+        "A-abs-safe",
+        "B-absolute-name",
+        "C-abs-unstable",
+        "D-cycle",
+        "E-rel-safe",
+        "F-dotdot",
+        "G-contained-symlink",
+        "H-escaping-symlink",
+    ),
+)
+def test_child_path_policy_subsumes_runtime_containment(
+    monkeypatch, tmp_path, stable_test_root, field, case
+):
+    scratch = stable_test_root / "subsumption" / "scratch"
+    root = _root_relative_root(scratch, field)
+    root.mkdir(parents=True, exist_ok=True)
+    if case == "E-rel-safe":
+        value = "safe-child"
+    else:
+        value, _, cycle_links = _root_relative_case(
+            stable_test_root, root, field, case, tmp_path
+        )
+        if cycle_links:
+            _inject_identity_resolve_for(monkeypatch, root / value)
+
+    child = root / value
+    containment_refuses = not child.resolve().is_relative_to(root.resolve())
+    failure = e3._child_failure(field, root, value)
+
+    if containment_refuses:
+        assert failure is not None, (field, case, child)
+    if case == "E-rel-safe":
+        assert failure is None
+
+
+@pytest.mark.parametrize("field", ("scratch", "live_profile", "live_store_roots"))
+def test_resolved_temp_roots_are_refused_without_side_effects(
+    monkeypatch, tmp_path, stable_test_root, field
+):
+    temp_parent = (
+        Path("/tmp").resolve()
+        / f"bivharness-task7-root-{field}-{os.getpid()}-{tmp_path.name}"
+    )
+    shutil.rmtree(temp_parent, ignore_errors=True)
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "scratch"
+    if field == "scratch":
+        scratch = temp_parent / "scratch"
+        target = scratch
+    elif field == "live_profile":
+        target = temp_parent / "live-profile"
+        spec["agents"][0][field] = str(target)
+    else:
+        target = temp_parent / "live-store"
+        spec[field] = [str(target)]
+
+    try:
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+        assert result.status is Status.INVALID
+        assert field in result.detail
+        assert not target.exists()
+    finally:
+        shutil.rmtree(temp_parent, ignore_errors=True)
+
+
+def test_scratch_rejects_null_without_raising_or_side_effects(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        _valid_two_agent_spec(),
+        None,
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID
+    assert "scratch" in result.detail
+
+
+def test_path_field_failures_does_not_recoerce_normalized_scratch(
+    monkeypatch, stable_test_root
+):
+    coerced_labels = []
+    real_root_failure = e3._root_failure
+
+    def record_root_coercion(label, value, **kwargs):
+        coerced_labels.append(label)
+        return real_root_failure(label, value, **kwargs)
+
+    monkeypatch.setattr(e3, "_root_failure", record_root_coercion)
+
+    failures = e3._path_field_failures(
+        _valid_two_agent_spec(), stable_test_root / "scratch"
+    )
+
+    assert failures == []
+    assert "scratch" not in coerced_labels
+
+
+def _schema_shape_cases():
+    """Malformed values for every JSON shape consumed by the E3 runner."""
+    scalar = ("none", None), ("scalar", 42), ("container", []), ("bad-element", [None])
+    list_of_strings = ("none", None), ("scalar", "value"), ("container", {}), ("bad-element", [None])
+    mapping = ("none", None), ("scalar", "value"), ("container", []), ("bad-element", {"KEY": None})
+    cases = []
+
+    def add(label, values, mutate):
+        cases.extend((f"{label}-{kind}", value, mutate) for kind, value in values)
+
+    add("id", scalar, lambda spec, value: spec.__setitem__("id", value))
+    add("checkpoint_prompt", scalar, lambda spec, value: spec.__setitem__("checkpoint_prompt", value))
+    add("workspace_name", scalar, lambda spec, value: spec.__setitem__("workspace_name", value))
+    add("host2_profile_root", scalar, lambda spec, value: spec.__setitem__("host2_profile_root", value))
+    add("resume_probe", scalar, lambda spec, value: spec.__setitem__("resume_probe", value))
+    add("seed_turns", list_of_strings, lambda spec, value: spec.__setitem__("seed_turns", value))
+    add("live_store_roots", list_of_strings, lambda spec, value: spec.__setitem__("live_store_roots", value))
+    add("forbidden_bivpak_state", list_of_strings, lambda spec, value: spec.__setitem__("forbidden_bivpak_state", value))
+    add("credential_scan_sentinels", list_of_strings, lambda spec, value: spec.__setitem__("credential_scan_sentinels", value))
+    add("agents", list_of_strings, lambda spec, value: spec.__setitem__("agents", value))
+
+    def mutate_agent(field):
+        return lambda spec, value: spec["agents"][0].__setitem__(field, value)
+
+    for field in (
+        "id", "live_profile", "host2_profile", "ownership_glob", "run_token_prefix",
+        "cheapest_model", "resume_shape",
+    ):
+        add(f"agent-{field}", scalar, mutate_agent(field))
+    add("agent-resume_mutation", scalar, lambda spec, value: spec["agents"][1].__setitem__("resume_mutation", value))
+    for field in (
+        "auth_status", "version_command", "seed_start_command", "seed_retry_resume_command",
+        "seed_continue_command", "resume_command", "validated_version_prefixes",
+    ):
+        add(f"agent-{field}", list_of_strings, mutate_agent(field))
+    add("agent-liveness_command", list_of_strings, lambda spec, value: spec["agents"][1].__setitem__("liveness_command", value))
+    add("agent-env", mapping, mutate_agent("env"))
+    return cases
+
+
+@pytest.mark.parametrize(("label", "value", "mutate"), _schema_shape_cases())
+def test_e3_consumed_schema_is_total_over_arbitrary_json(monkeypatch, tmp_path, label, value, mutate):
+    spec = _valid_two_agent_spec()
+    mutate(spec, value)
+    scratch = tmp_path.resolve() / "scratch"
+
+    assert isinstance(e3._path_field_failures(spec, scratch), list)
+    result = _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch)
+
+    assert result.status is Status.INVALID, label
+    assert result.detail, label
+
+
+@pytest.mark.parametrize("label, mutate", [
+    ("scratch", lambda spec, stable_root: None),
+    ("host2_profile_root", lambda spec, stable_root: spec.__setitem__("host2_profile_root", "path\0segment")),
+    ("live_store_roots", lambda spec, stable_root: spec.__setitem__("live_store_roots", [str(stable_root / "path\0segment")])),
+    ("live_profile", lambda spec, stable_root: spec["agents"][0].__setitem__("live_profile", str(stable_root / "path\0segment"))),
+    ("host2_profile", lambda spec, stable_root: spec["agents"][0].__setitem__("host2_profile", "path\0segment")),
+    ("workspace_name", lambda spec, stable_root: spec.__setitem__("workspace_name", "path\0segment")),
+    ("forbidden_bivpak_state", lambda spec, stable_root: spec.__setitem__("forbidden_bivpak_state", ["path\0segment"])),
+])
+def test_e3_path_fields_reject_nul_without_raising(monkeypatch, tmp_path, label, mutate):
+    spec = _valid_two_agent_spec()
+    stable_root = tmp_path.resolve()
+    mutate(spec, stable_root)
+    scratch = Path("scratch\0path") if label == "scratch" else stable_root / "scratch"
+
+    assert isinstance(e3._path_field_failures(spec, scratch), list)
+    result = _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch)
+
+    assert result.status is Status.INVALID, label
+
+
+@pytest.mark.parametrize("label, mutate", [
+    ("live_store_roots", lambda spec: spec.__setitem__("live_store_roots", ["~nosuchuser/e3"])),
+    ("live_profile", lambda spec: spec["agents"][0].__setitem__("live_profile", "~nosuchuser/e3")),
+    ("host2_profile", lambda spec: spec["agents"][0].__setitem__("host2_profile", "~nosuchuser/e3")),
+    ("workspace_name", lambda spec: spec.__setitem__("workspace_name", "~nosuchuser/e3")),
+    ("forbidden_bivpak_state", lambda spec: spec.__setitem__("forbidden_bivpak_state", ["~nosuchuser/e3"])),
+])
+def test_e3_path_fields_reject_ambiguous_tilde_spellings(monkeypatch, tmp_path, label, mutate):
+    spec = _valid_two_agent_spec()
+    mutate(spec)
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch, tmp_path, spec, tmp_path.resolve() / "scratch"
+    )
+
+    assert result.status is Status.INVALID, label
+    assert label in result.detail
+
+
+@pytest.mark.parametrize("spec", [[], "s", 42, None])
+def test_e3_consumed_schema_rejects_non_object_top_levels(monkeypatch, tmp_path, spec):
+    scratch = tmp_path.resolve() / "scratch"
+
+    assert isinstance(e3._path_field_failures(spec, scratch), list)
+    result = _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch)
+
+    assert result.status is Status.INVALID
+    assert result.id == "e3-invalid-spec"
+    assert result.detail
+
+
+def test_cli_persists_invalid_e3_report_for_malformed_json(tmp_path):
+    scenario = tmp_path / "malformed-e3.json"
+    report_path = tmp_path / "report.json"
+    scenario.write_text("[]", encoding="utf-8")
+
+    exit_code = cli.main([
+        "--biv", str(tmp_path / "biv"),
+        "--e3", str(scenario),
+        "--dry-run",
+        "--report", str(report_path),
+    ])
+
+    assert exit_code != 0
+    assert report_path.is_file()
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["invalid"] == ["e3-invalid-spec"]
+    assert len(report["rows"]) == 1
+    row = report["rows"][0]
+    assert row["id"] == "e3-invalid-spec"
+    assert row["tier"] == "E3"
+    assert row["status"] == "invalid"
+    assert row["classes"] == []
+    assert row["detail"]
+
+
+def _deeply_nested_json_container(depth=300):
+    value = {}
+    for _ in range(depth):
+        value = {"nested": value}
+    return value
+
+
+MALFORMED_REPORT_IDS = (
+    ("null", None),
+    ("empty", ""),
+    ("list", []),
+    ("object", {"untrusted": "payload"}),
+    ("deep-container", _deeply_nested_json_container()),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "bad_id"),
+    MALFORMED_REPORT_IDS,
+    ids=[case for case, _ in MALFORMED_REPORT_IDS],
+)
+def test_cli_bounds_rejected_scenario_ids_in_persisted_report(
+    monkeypatch, tmp_path, case, bad_id
+):
+    scenario = tmp_path / f"invalid-id-{case}.json"
+    report_path = tmp_path / "report.json"
+    runner_target = tmp_path / "biv"
+    spec = _valid_two_agent_spec()
+    spec["id"] = bad_id
+    scenario.write_text(json.dumps(spec), encoding="utf-8")
+    spawn_calls = []
+
+    def refused_spawn(*args):
+        spawn_calls.append(args)
+        raise AssertionError("rejected scenario id must not spawn")
+
+    monkeypatch.setattr(e3, "_spawn", refused_spawn)
+    exit_code = cli.main([
+        "--biv", str(runner_target),
+        "--e3", str(scenario),
+        "--dry-run",
+        "--report", str(report_path),
+    ])
+
+    assert exit_code != 0
+    assert report_path.is_file()
+    report_text = report_path.read_text(encoding="utf-8")
+    assert len(report_text.encode()) < 2048
+    report = json.loads(report_text)
+    assert report["invalid"] == ["e3-invalid-spec"]
+    assert all(isinstance(result_id, str) for result_id in report["invalid"])
+    assert len(report["rows"]) == 1
+    assert report["rows"][0]["id"] == "e3-invalid-spec"
+    assert isinstance(report["rows"][0]["id"], str)
+    assert spawn_calls == []
+    assert not runner_target.exists()
+    assert list(tmp_path.glob(".bivharness-scratch-*")) == []
+
+
+@pytest.mark.parametrize(
+    ("case", "bad_id"),
+    MALFORMED_REPORT_IDS,
+    ids=[case for case, _ in MALFORMED_REPORT_IDS],
+)
+def test_cli_bounds_rejected_agent_ids_in_diagnostics(
+    monkeypatch, tmp_path, case, bad_id
+):
+    scenario = tmp_path / f"invalid-agent-id-{case}.json"
+    report_path = tmp_path / "report.json"
+    runner_target = tmp_path / "biv"
+    spec = _valid_two_agent_spec()
+    spec["agents"][0]["id"] = bad_id
+    spec["agents"][0]["validated_version_prefixes"] = []
+    scenario.write_text(json.dumps(spec), encoding="utf-8")
+    spawn_calls = []
+
+    def refused_spawn(*args):
+        spawn_calls.append(args)
+        raise AssertionError("rejected agent id must not spawn")
+
+    monkeypatch.setattr(e3, "_spawn", refused_spawn)
+    exit_code = cli.main([
+        "--biv", str(runner_target),
+        "--e3", str(scenario),
+        "--dry-run",
+        "--report", str(report_path),
+    ])
+
+    assert exit_code != 0
+    assert report_path.is_file()
+    report_text = report_path.read_text(encoding="utf-8")
+    assert len(report_text.encode()) < 2048
+    report = json.loads(report_text)
+    assert report["invalid"] == ["cx-range"]
+    assert report["rows"][0]["id"] == "cx-range"
+    detail = report["rows"][0]["detail"]
+    assert "agent validated_version_prefixes" in detail
+    unsafe_line = (
+        f"{bad_id} validated_version_prefixes must be a non-empty list of "
+        "non-empty strings"
+    )
+    assert unsafe_line not in detail.splitlines()
+    assert spawn_calls == []
+    assert not runner_target.exists()
+    assert list(tmp_path.glob(".bivharness-scratch-*")) == []
+
+
+def test_e3_non_utf8_scenario_is_invalid_instead_of_raising(tmp_path):
+    scenario = tmp_path / "non-utf8-e3.json"
+    scenario.write_bytes(b"\xff\xfe")
+
+    result = e3.run_e3(
+        scenario,
+        tmp_path / "biv",
+        tmp_path.resolve() / "scratch",
+        dry_run=True,
+    )
+
+    assert result.status is Status.INVALID
+    assert result.id == "e3-invalid-spec"
+    assert "scenario unreadable" in result.detail
+
+
+def test_cli_persists_invalid_e3_report_for_non_utf8_scenario(tmp_path):
+    scenario = tmp_path / "non-utf8-e3.json"
+    report_path = tmp_path / "report.json"
+    scenario.write_bytes(b"\xff\xfe")
+
+    exit_code = cli.main([
+        "--biv", str(tmp_path / "biv"),
+        "--e3", str(scenario),
+        "--dry-run",
+        "--report", str(report_path),
+    ])
+
+    assert exit_code != 0
+    assert report_path.is_file()
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["invalid"] == ["e3-invalid-spec"]
+    assert report["rows"][0]["status"] == "invalid"
+    assert "scenario unreadable" in report["rows"][0]["detail"]
+
+
+def test_scratch_under_a_symlinked_ancestor_is_refused_without_writing(tmp_path):
+    shadowed = _symlinked_ancestor(tmp_path)
+    real = tmp_path / "real"
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), shadowed)
+
+    assert result.status is Status.INVALID
+    assert "realpath-stable" in result.detail
+    assert "scratch" in result.detail
+    assert not shadowed.exists()
+    assert list(real.iterdir()) == []
+
+
+@pytest.mark.parametrize("spelling", ["relative-scratch", ".", "", "~nosuchuser/e3"])
+def test_scratch_relative_spellings_are_refused_by_realpath_stability(
+    monkeypatch, tmp_path, spelling
+):
+    stable = tmp_path.resolve()
+    monkeypatch.chdir(stable)
+
+    scratch = Path(spelling)
+    assert isinstance(e3._path_field_failures(_valid_two_agent_spec(), scratch), list)
+    result = _run_refusal_without_side_effects(
+        monkeypatch, tmp_path, _valid_two_agent_spec(), scratch
+    )
+
+    assert result.status is Status.INVALID
+    assert "scratch must be realpath-stable" in result.detail
+
+
+def test_absolute_realpath_unstable_host2_profile_root_is_refused(tmp_path):
+    spec = _valid_two_agent_spec()
+    spec["host2_profile_root"] = str(_symlinked_ancestor(tmp_path) / "profiles")
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert "host2_profile_root" in result.detail
+
+
+def test_realpath_unstable_live_store_root_is_refused(tmp_path):
+    spec = _valid_two_agent_spec()
+    spec["live_store_roots"] = [str(_symlinked_ancestor(tmp_path) / "store")]
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert "live_store_roots" in result.detail
+
+
+def test_realpath_unstable_live_profile_is_refused(tmp_path):
+    spec = _valid_two_agent_spec()
+    spec["agents"][0]["live_profile"] = str(_symlinked_ancestor(tmp_path) / ".codex")
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert "live_profile" in result.detail
+
+
+@pytest.mark.parametrize("field", ["host2_profile", "workspace_name"])
+def test_absolute_value_that_would_escape_its_root_is_refused(tmp_path, field):
+    spec = _valid_two_agent_spec()
+    if field == "workspace_name":
+        spec["workspace_name"] = "/etc"
+    else:
+        spec["agents"][0]["host2_profile"] = "/etc"
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert field in result.detail
+
+
+def test_absolute_forbidden_bivpak_state_entry_is_refused(tmp_path):
+    spec = _valid_two_agent_spec()
+    spec["forbidden_bivpak_state"] = ["/etc"]
+    result = _run_dry(tmp_path, spec, tmp_path.resolve() / "scratch")
+    assert result.status is Status.INVALID
+    assert "forbidden_bivpak_state" in result.detail
+
+
+def test_realpath_stable_paths_are_accepted(tmp_path, stable_test_root):
+    result = _run_dry(
+        tmp_path, _valid_two_agent_spec(), stable_test_root / "scratch"
+    )
+    assert result.status is Status.PASS
+
+
+def test_temp_rooted_host2_profile_is_refused_before_any_spawn(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec = _valid_two_agent_spec()
+    spec["host2_profile_root"] = "/tmp/bivharness-selftest-host2"
+
+    result = _run_dry(tmp_path, spec, stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert calls == []
+
+
+def test_shipped_scenario_has_no_realpath_unstable_or_absolute_paths(repo_root):
+    spec = json.loads(
+        (repo_root / "harness/scenarios-e3/e3-dual-resume.json").read_text(encoding="utf-8")
+    )
+    assert e3._path_field_failures(spec, Path.home()) == []
+
+
+def test_runner_stops_on_an_alias_spelled_seeded_transcript_before_pack(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        if "--version" in command:
+            version = "claude 2.1.202" if command[0] == "claude" else "codex-cli 0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    def fake_seed_agent(
+        agent,
+        live_profile,
+        seed_workspace,
+        spec,
+        env,
+        spawn,
+        capture_candidates,
+        owned_paths,
+    ):
+        spelling = (
+            b"/var/folders/hq/x/T/ws"
+            if agent["id"] == "codex"
+            else b"/Users/jack/biv-e3/ws"
+        )
+        transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
+        transcript.write_bytes(b'{"cwd":"' + spelling + b'"}\n')
+        owned_paths.append(transcript)
+        return transcript
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed_agent)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "negative-control" in result.detail
+    assert not any(command[:2] == ["biv", "pack"] for command in calls)
+
+
+def test_negative_control_flags_an_alias_spelled_transcript(tmp_path):
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'{"cwd":"/var/folders/hq/x/T/ws"}\n')
+    failures = e3._negative_control_failures([transcript])
+    assert failures and "negative-control" in failures[0]
+
+
+def test_negative_control_flags_the_resolved_spelling_too(tmp_path):
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'{"cwd":"/private/var/folders/hq/x/T/ws"}\n')
+    assert e3._negative_control_failures([transcript])
+
+
+def test_negative_control_is_silent_on_a_realpath_stable_transcript(tmp_path):
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'{"cwd":"/Users/jack/biv-e3/seed-ws"}\n')
+    assert e3._negative_control_failures([transcript]) == []
 
 
 def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_path):
@@ -1302,7 +2748,7 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
             "env": {},
             "auth_status": [command, "auth"],
                 "version_command": [command, "version"],
-                "validated_version_prefix": "1.0.",
+                "validated_version_prefixes": ["1.0."],
                 "cheapest_model": "cheap",
                 "seed_start_command": [command, "seed", "{run_token}", "--model", "cheap"],
                 "seed_retry_resume_command": [command, "retry", "{run_token}", "--model", "cheap"],
@@ -1340,7 +2786,7 @@ def test_e3_spec_validation_rejects_dead_or_wrong_resume_shape():
         "live_profile": "~/.agent",
         "auth_status": ["agent", "auth"],
         "version_command": ["agent", "version"],
-        "validated_version_prefix": "1.0.",
+        "validated_version_prefixes": ["1.0."],
         "seed_start_command": ["agent", "seed"],
         "seed_continue_command": ["agent", "continue"],
         "ownership_glob": "*.jsonl",
