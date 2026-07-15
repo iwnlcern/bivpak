@@ -5,6 +5,46 @@ on:
   push:
 
 jobs:
+  publish-toolchain-mirror:
+    if: github.ref == 'refs/heads/s3-pack/portability'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Upload remaining verified clang-tidy-22 mirror assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          readonly RELEASE_TAG="toolchain-mirror-clang-tidy-22"
+          readonly SOURCE_BASE="https://apt.llvm.org/noble/pool/main/l/llvm-toolchain-22"
+          readonly MIRROR_DIR="/tmp/llvm22-mirror"
+          mkdir -p "$MIRROR_DIR"
+
+          cat > "$MIRROR_DIR/SHA256SUMS" <<'EOF'
+          05215c729cd18307e2bbfb710505b034e3ced630f68e146d4c0762877073c085  clang-tools-22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
+          a722846476ee806a76710eea0c8cc63b18082b55eac8e2c6f092b7495a054240  libclang-common-22-dev_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
+          4c558366775f03a236a98a3e26f0f09ffab9d5df32c40050cee94c7aeca1ca44  libclang-cpp22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
+          8488e5d288780d269c3516855247542f269bafafc55699502625f3ebdabce73b  libclang1-22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
+          061b48c5a47589db2ee24bcba17aebb258c973bfa41e5bdc8e46a64ea4244ceb  libllvm22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
+          f397059ac1ab2a8ea2a5707d7eec2dac6724f2f141e4668b75d08da62dd4280a  llvm-22-linker-tools_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
+          EOF
+
+          while read -r _ filename; do
+            curl --fail --silent --show-error --location \
+              --output "$MIRROR_DIR/$filename" "$SOURCE_BASE/$filename"
+          done < "$MIRROR_DIR/SHA256SUMS"
+          (cd "$MIRROR_DIR" && sha256sum --check --strict SHA256SUMS)
+
+          while read -r _ filename; do
+            upload_name=${filename//\~/.}
+            cp "$MIRROR_DIR/$filename" "$MIRROR_DIR/$upload_name"
+            gh release upload "$RELEASE_TAG" "$MIRROR_DIR/$upload_name" \
+              --repo "$GITHUB_REPOSITORY"
+          done < "$MIRROR_DIR/SHA256SUMS"
+
   harness-selftest:
     runs-on: ubuntu-latest
     steps:
