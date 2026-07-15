@@ -86,7 +86,7 @@ else()
 endif()
 
 option(BIVHARNESS_REQUIRE_CLANG_TIDY "Fail configuration if the pinned clang-tidy is unusable" OFF)
-set(BIVHARNESS_CLANG_TIDY_MAJOR 18 CACHE STRING "Required LLVM major version")
+set(BIVHARNESS_CLANG_TIDY_MAJOR 22 CACHE STRING "Required LLVM major version")
 
 function(_tidy_unusable reason)
   if(BIVHARNESS_REQUIRE_CLANG_TIDY)
@@ -130,10 +130,11 @@ else()
 std::expected<int,std::string> p(){return 1;}
 ")
     message(STATUS "clang-tidy probe cmd: ${BIVHARNESS_CLANG_TIDY} "
-                   "--checks=-*,misc-unused-alias-decls,clang-diagnostic-* --quiet ${_probe} -- -std=c++23")
+                   "--checks=-*,misc-unused-alias-decls,clang-diagnostic-* --config={WarningsAsErrors: ''} --quiet ${_probe} -- -std=c++23")
     execute_process(
       COMMAND "${BIVHARNESS_CLANG_TIDY}"
-              "--checks=-*,misc-unused-alias-decls,clang-diagnostic-*" --quiet "${_probe}"
+              "--checks=-*,misc-unused-alias-decls,clang-diagnostic-*"
+              "--config={WarningsAsErrors: ''}" --quiet "${_probe}"
               -- -std=c++23
       RESULT_VARIABLE _prc
       OUTPUT_VARIABLE _pout
