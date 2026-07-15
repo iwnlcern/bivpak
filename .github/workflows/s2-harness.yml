@@ -167,6 +167,13 @@ jobs:
         run: |
           python -m venv .venv-harness
           .venv-harness/bin/python -m pip install -r harness/requirements.lock
+      - name: Prove GCC 14 simdjson compatibility
+        run: |
+          sudo apt-get install -y --no-install-recommends g++-14
+          cmake -S . -B build/gcc14 \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_CXX_COMPILER=g++-14
+          cmake --build build/gcc14 --parallel 2
       - name: Provision writable WSL fixture root
         run: |
           sudo mkdir -p /mnt/c/tmp
