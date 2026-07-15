@@ -2418,6 +2418,113 @@ def test_cli_persists_invalid_e3_report_for_malformed_json(tmp_path):
     assert row["detail"]
 
 
+def _deeply_nested_json_container(depth=300):
+    value = {}
+    for _ in range(depth):
+        value = {"nested": value}
+    return value
+
+
+MALFORMED_REPORT_IDS = (
+    ("null", None),
+    ("empty", ""),
+    ("list", []),
+    ("object", {"untrusted": "payload"}),
+    ("deep-container", _deeply_nested_json_container()),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "bad_id"),
+    MALFORMED_REPORT_IDS,
+    ids=[case for case, _ in MALFORMED_REPORT_IDS],
+)
+def test_cli_bounds_rejected_scenario_ids_in_persisted_report(
+    monkeypatch, tmp_path, case, bad_id
+):
+    scenario = tmp_path / f"invalid-id-{case}.json"
+    report_path = tmp_path / "report.json"
+    runner_target = tmp_path / "biv"
+    spec = _valid_two_agent_spec()
+    spec["id"] = bad_id
+    scenario.write_text(json.dumps(spec), encoding="utf-8")
+    spawn_calls = []
+
+    def refused_spawn(*args):
+        spawn_calls.append(args)
+        raise AssertionError("rejected scenario id must not spawn")
+
+    monkeypatch.setattr(e3, "_spawn", refused_spawn)
+    exit_code = cli.main([
+        "--biv", str(runner_target),
+        "--e3", str(scenario),
+        "--dry-run",
+        "--report", str(report_path),
+    ])
+
+    assert exit_code != 0
+    assert report_path.is_file()
+    report_text = report_path.read_text(encoding="utf-8")
+    assert len(report_text.encode()) < 2048
+    report = json.loads(report_text)
+    assert report["invalid"] == ["e3-invalid-spec"]
+    assert all(isinstance(result_id, str) for result_id in report["invalid"])
+    assert len(report["rows"]) == 1
+    assert report["rows"][0]["id"] == "e3-invalid-spec"
+    assert isinstance(report["rows"][0]["id"], str)
+    assert spawn_calls == []
+    assert not runner_target.exists()
+    assert list(tmp_path.glob(".bivharness-scratch-*")) == []
+
+
+@pytest.mark.parametrize(
+    ("case", "bad_id"),
+    MALFORMED_REPORT_IDS,
+    ids=[case for case, _ in MALFORMED_REPORT_IDS],
+)
+def test_cli_bounds_rejected_agent_ids_in_diagnostics(
+    monkeypatch, tmp_path, case, bad_id
+):
+    scenario = tmp_path / f"invalid-agent-id-{case}.json"
+    report_path = tmp_path / "report.json"
+    runner_target = tmp_path / "biv"
+    spec = _valid_two_agent_spec()
+    spec["agents"][0]["id"] = bad_id
+    spec["agents"][0]["validated_version_prefixes"] = []
+    scenario.write_text(json.dumps(spec), encoding="utf-8")
+    spawn_calls = []
+
+    def refused_spawn(*args):
+        spawn_calls.append(args)
+        raise AssertionError("rejected agent id must not spawn")
+
+    monkeypatch.setattr(e3, "_spawn", refused_spawn)
+    exit_code = cli.main([
+        "--biv", str(runner_target),
+        "--e3", str(scenario),
+        "--dry-run",
+        "--report", str(report_path),
+    ])
+
+    assert exit_code != 0
+    assert report_path.is_file()
+    report_text = report_path.read_text(encoding="utf-8")
+    assert len(report_text.encode()) < 2048
+    report = json.loads(report_text)
+    assert report["invalid"] == ["cx-range"]
+    assert report["rows"][0]["id"] == "cx-range"
+    detail = report["rows"][0]["detail"]
+    assert "agent validated_version_prefixes" in detail
+    unsafe_line = (
+        f"{bad_id} validated_version_prefixes must be a non-empty list of "
+        "non-empty strings"
+    )
+    assert unsafe_line not in detail.splitlines()
+    assert spawn_calls == []
+    assert not runner_target.exists()
+    assert list(tmp_path.glob(".bivharness-scratch-*")) == []
+
+
 def test_e3_non_utf8_scenario_is_invalid_instead_of_raising(tmp_path):
     scenario = tmp_path / "non-utf8-e3.json"
     scenario.write_bytes(b"\xff\xfe")

@@ -667,8 +667,13 @@ def materialize_run_tokens(spec: dict[str, Any]) -> dict[str, Any]:
     return {**spec, "agents": agents}
 
 
+def _bounded_string(value: object, fallback: str) -> str:
+    return value if isinstance(value, str) and value else fallback
+
+
 def _result(spec: object, status: Status, detail: str) -> ScenarioResult:
-    spec_id = spec.get("id", "e3-invalid-spec") if isinstance(spec, dict) else "e3-invalid-spec"
+    raw_id = spec.get("id") if isinstance(spec, dict) else None
+    spec_id = _bounded_string(raw_id, "e3-invalid-spec")
     return ScenarioResult(
         id=spec_id,
         tier="E3",
@@ -741,7 +746,7 @@ def _validate_spec(spec: object) -> list[str]:
             "cheapest_model",
         )
         for agent in agents:
-            agent_id = agent.get("id", "agent")
+            agent_id = _bounded_string(agent.get("id"), "agent")
             for field in required_agent_fields:
                 if field in (
                     "id", "live_profile", "ownership_glob", "run_token_prefix", "cheapest_model",
