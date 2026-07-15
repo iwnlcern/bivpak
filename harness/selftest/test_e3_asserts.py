@@ -1,8 +1,10 @@
+import hashlib
 import io
 import json
 import os
 import re
 import shutil
+import stat
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -1558,21 +1560,48 @@ def _run_dry(tmp_path, spec, scratch):
 
 def _tree_snapshot(root):
     snapshot = {}
-    for path in sorted(root.rglob("*")):
-        relative = str(path.relative_to(root))
-        if path.is_symlink():
-            snapshot[relative] = ("symlink", os.readlink(path))
-        elif path.is_file():
-            snapshot[relative] = ("file", path.read_bytes())
+    paths = [root]
+    if root.is_dir():
+        for directory, dirnames, filenames in os.walk(root, followlinks=False):
+            paths.extend(Path(directory) / name for name in dirnames + filenames)
+    for path in sorted(paths):
+        metadata = path.lstat()
+        relative = "." if path == root else str(path.relative_to(root))
+        mode = stat.S_IMODE(metadata.st_mode)
+        if stat.S_ISLNK(metadata.st_mode):
+            kind = "symlink"
+            digest = None
+            link_target = os.readlink(path)
+        elif stat.S_ISREG(metadata.st_mode):
+            kind = "file"
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            link_target = None
+        elif stat.S_ISDIR(metadata.st_mode):
+            kind = "directory"
+            digest = None
+            link_target = None
         else:
-            snapshot[relative] = ("directory",)
+            kind = "other"
+            digest = None
+            link_target = None
+        snapshot[relative] = (
+            kind,
+            mode,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            digest,
+            link_target,
+        )
     return snapshot
 
 
-def _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch):
+def _run_refusal_without_side_effects(
+    monkeypatch, tmp_path, spec, scratch, *, watched_roots=()
+):
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
-    before = _tree_snapshot(tmp_path)
+    roots = [tmp_path, *watched_roots]
+    before = {root: _tree_snapshot(root) for root in roots}
     spawn_calls = []
 
     def refused_spawn(*args):
@@ -1583,8 +1612,207 @@ def _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch):
     result = e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
 
     assert spawn_calls == []
-    assert _tree_snapshot(tmp_path) == before
+    assert {root: _tree_snapshot(root) for root in roots} == before
     return result
+
+
+ROOT_RELATIVE_FIELDS = (
+    "host2_profile_root",
+    "workspace_name",
+    "host2_profile",
+    "forbidden_bivpak_state",
+)
+
+
+def _set_root_relative_field(spec, field, value):
+    if field == "host2_profile":
+        spec["agents"][0][field] = value
+    elif field == "forbidden_bivpak_state":
+        spec[field] = [value]
+    else:
+        spec[field] = value
+
+
+def _root_relative_root(scratch, field):
+    if field == "workspace_name":
+        return scratch / "seed-ws"
+    if field == "host2_profile":
+        return scratch / "host2-profile"
+    return scratch
+
+
+def _root_relative_case(stable_test_root, root, field, case, tmp_path):
+    root.mkdir(parents=True, exist_ok=True)
+    suffix = f"{field}-{os.getpid()}-{tmp_path.name}"
+    if case == "A-abs-safe":
+        target = stable_test_root / f"absolute-safe-{suffix}"
+        return str(target), (target,), ()
+    if case == "B-abs-temp":
+        target = Path("/tmp").resolve() / f"bivharness-task7-child-{suffix}"
+        return str(target), (target,), ()
+    if case == "C-abs-unstable":
+        physical = stable_test_root / f"physical-{suffix}"
+        physical.mkdir()
+        alias = stable_test_root / f"alias-{suffix}"
+        alias.symlink_to(physical, target_is_directory=True)
+        lexical = alias / "child"
+        return str(lexical), (lexical, physical / "child"), ()
+    if case == "D-cycle":
+        loop_a = root / "loop-a"
+        loop_b = root / "loop-b"
+        loop_a.symlink_to("loop-b", target_is_directory=True)
+        loop_b.symlink_to("loop-a", target_is_directory=True)
+        return "loop-a/child", (), (loop_a, loop_b)
+    if case == "F-dotdot":
+        lexical = root / "../../escaped"
+        return "../../escaped", (lexical, lexical.resolve()), ()
+    if case == "G-contained-symlink":
+        physical = root / "contained-physical"
+        physical.mkdir()
+        link = root / "contained"
+        link.symlink_to(physical, target_is_directory=True)
+        lexical = link / "child"
+        return "contained/child", (lexical, physical / "child"), ()
+    if case == "H-escaping-symlink":
+        physical = stable_test_root / f"outside-{suffix}"
+        physical.mkdir()
+        link = root / "jump"
+        link.symlink_to(physical, target_is_directory=True)
+        lexical = link / "escaped"
+        return "jump/escaped", (lexical, physical / "escaped"), ()
+    if case == "J-dot":
+        return ".", (), ()
+    if case == "J-empty":
+        return "", (), ()
+    raise AssertionError(f"unknown root-relative case: {case}")
+
+
+def _inject_identity_resolve_for(monkeypatch, cycle_path):
+    real_resolve = Path.resolve
+
+    def resolve_with_cycle_identity(self, *args, **kwargs):
+        if self == cycle_path:
+            return self
+        return real_resolve(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", resolve_with_cycle_identity)
+
+
+@pytest.mark.parametrize("field", ROOT_RELATIVE_FIELDS)
+@pytest.mark.parametrize("case", (
+    "A-abs-safe",
+    "B-abs-temp",
+    "C-abs-unstable",
+    "D-cycle",
+    "F-dotdot",
+    "G-contained-symlink",
+    "H-escaping-symlink",
+    "J-dot",
+    "J-empty",
+))
+def test_root_relative_path_matrix_refuses_without_side_effects(
+    monkeypatch, tmp_path, stable_test_root, field, case
+):
+    scratch = stable_test_root / "sandbox" / "scratch"
+    root = _root_relative_root(scratch, field)
+    value, absent_targets, cycle_links = _root_relative_case(
+        stable_test_root, root, field, case, tmp_path
+    )
+    if cycle_links:
+        _inject_identity_resolve_for(monkeypatch, root / value)
+    spec = _valid_two_agent_spec()
+    _set_root_relative_field(spec, field, value)
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        spec,
+        scratch,
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID, (field, case, result.detail)
+    assert field in result.detail
+    for target in absent_targets:
+        assert not target.exists(), (field, case, target)
+    for link in cycle_links:
+        assert link.is_symlink()
+    if cycle_links:
+        assert list(stable_test_root.rglob(".bivharness-mode-probe")) == []
+        assert list(stable_test_root.rglob(".bivharness-link-probe")) == []
+
+
+@pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+def test_external_roots_refuse_relative_spellings_without_side_effects(
+    monkeypatch, tmp_path, stable_test_root, field
+):
+    spec = _valid_two_agent_spec()
+    if field == "live_profile":
+        spec["agents"][0][field] = "relative/live-profile"
+    else:
+        spec[field] = ["relative/live-store"]
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        spec,
+        stable_test_root / "scratch",
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID
+    assert field in result.detail
+
+
+@pytest.mark.parametrize("field", ("scratch", "live_profile", "live_store_roots"))
+def test_resolved_temp_roots_are_refused_without_side_effects(
+    monkeypatch, tmp_path, stable_test_root, field
+):
+    temp_parent = (
+        Path("/tmp").resolve()
+        / f"bivharness-task7-root-{field}-{os.getpid()}-{tmp_path.name}"
+    )
+    shutil.rmtree(temp_parent, ignore_errors=True)
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "scratch"
+    if field == "scratch":
+        scratch = temp_parent / "scratch"
+        target = scratch
+    elif field == "live_profile":
+        target = temp_parent / "live-profile"
+        spec["agents"][0][field] = str(target)
+    else:
+        target = temp_parent / "live-store"
+        spec[field] = [str(target)]
+
+    try:
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+        assert result.status is Status.INVALID
+        assert field in result.detail
+        assert not target.exists()
+    finally:
+        shutil.rmtree(temp_parent, ignore_errors=True)
+
+
+def test_scratch_rejects_null_without_raising_or_side_effects(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        _valid_two_agent_spec(),
+        None,
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID
+    assert "scratch" in result.detail
 
 
 def _schema_shape_cases():
@@ -1641,18 +1869,19 @@ def test_e3_consumed_schema_is_total_over_arbitrary_json(monkeypatch, tmp_path, 
 
 
 @pytest.mark.parametrize("label, mutate", [
-    ("scratch", lambda spec: None),
-    ("host2_profile_root", lambda spec: spec.__setitem__("host2_profile_root", "path\0segment")),
-    ("live_store_roots", lambda spec: spec.__setitem__("live_store_roots", ["path\0segment"])),
-    ("live_profile", lambda spec: spec["agents"][0].__setitem__("live_profile", "path\0segment")),
-    ("host2_profile", lambda spec: spec["agents"][0].__setitem__("host2_profile", "path\0segment")),
-    ("workspace_name", lambda spec: spec.__setitem__("workspace_name", "path\0segment")),
-    ("forbidden_bivpak_state", lambda spec: spec.__setitem__("forbidden_bivpak_state", ["path\0segment"])),
+    ("scratch", lambda spec, stable_root: None),
+    ("host2_profile_root", lambda spec, stable_root: spec.__setitem__("host2_profile_root", "path\0segment")),
+    ("live_store_roots", lambda spec, stable_root: spec.__setitem__("live_store_roots", [str(stable_root / "path\0segment")])),
+    ("live_profile", lambda spec, stable_root: spec["agents"][0].__setitem__("live_profile", str(stable_root / "path\0segment"))),
+    ("host2_profile", lambda spec, stable_root: spec["agents"][0].__setitem__("host2_profile", "path\0segment")),
+    ("workspace_name", lambda spec, stable_root: spec.__setitem__("workspace_name", "path\0segment")),
+    ("forbidden_bivpak_state", lambda spec, stable_root: spec.__setitem__("forbidden_bivpak_state", ["path\0segment"])),
 ])
 def test_e3_path_fields_reject_nul_without_raising(monkeypatch, tmp_path, label, mutate):
     spec = _valid_two_agent_spec()
-    mutate(spec)
-    scratch = Path("scratch\0path") if label == "scratch" else tmp_path.resolve() / "scratch"
+    stable_root = tmp_path.resolve()
+    mutate(spec, stable_root)
+    scratch = Path("scratch\0path") if label == "scratch" else stable_root / "scratch"
 
     assert isinstance(e3._path_field_failures(spec, scratch), list)
     result = _run_refusal_without_side_effects(monkeypatch, tmp_path, spec, scratch)

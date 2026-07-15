@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import json
 import os
@@ -796,61 +797,99 @@ def _validate_spec(spec: object) -> list[str]:
     return failures
 
 
-def _path_field_failures(spec: object, scratch: Path) -> list[str]:
-    """Refuse unstable original spellings and absolute values that escape roots."""
-    failures: list[str] = []
-
-    def check(
-        label: str,
-        raw: object,
-        *,
-        expand_user: bool = False,
-        allow_relative: bool = False,
-        require_relative: bool = False,
-        require_absolute: bool = True,
-    ) -> None:
-        if not isinstance(raw, (str, Path)):
-            failures.append(f"{label} must be a path string")
-            return
+def _stability_failure(label: str, path: Path) -> str | None:
+    for ancestor in [path, *path.parents]:
         try:
-            path = Path(raw)
-            if expand_user:
-                path = path.expanduser()
-            resolved = path.resolve()
-        except (OSError, ValueError, RuntimeError) as exc:
-            failures.append(f"{label} is unusable: {exc}")
-            return
-        if isinstance(raw, str) and raw.startswith("~") and (allow_relative or require_relative):
-            failures.append(f"{label} must not use a tilde spelling")
-        if require_relative:
-            if path.is_absolute():
-                failures.append(f"{label} must be relative to its root; got absolute {path}")
-            return
-        if not path.is_absolute():
-            if allow_relative:
-                return
-            if require_absolute:
-                failures.append(
-                    f"{label} must be an absolute, realpath-stable path; got relative {path}"
-                )
-                return
-        if resolved != path:
-            failures.append(
-                f"{label} must be realpath-stable; {path} resolves to {resolved} "
-                "(a symlinked ancestor such as macOS /var -> /private/var silently changes "
-                "path identity, and un-matching sessions are skipped at collect, not refused). "
-                "Use a realpath-stable directory under $HOME, not $TMPDIR or /tmp."
-            )
+            os.stat(ancestor)
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                return f"{label}: symlink cycle at {ancestor}"
+            return f"{label}: unstatable ({exc.strerror}) at {ancestor}"
+    resolved = path.resolve()
+    if resolved != path:
+        return f"{label} must be realpath-stable; {path} resolves to {resolved}"
+    return None
 
-    check("scratch", scratch, require_absolute=False)
+
+def _temp_root_failure(label: str, path: Path) -> str | None:
+    resolved = path.resolve()
+    temp_root = Path("/tmp").resolve()
+    try:
+        resolved.relative_to(temp_root)
+    except ValueError:
+        return None
+    return f"{label}: resolved path must not be under {temp_root} ({resolved})"
+
+
+def _root_failure(
+    label: str,
+    value: object,
+    *,
+    expand_user: bool,
+    require_absolute: bool,
+) -> str | None:
+    if not isinstance(value, (str, Path)):
+        return f"{label} must be a path string; got {value!r}"
+    try:
+        path = Path(value)
+        if expand_user:
+            path = path.expanduser()
+        if require_absolute and not path.is_absolute():
+            return f"{label} must be an absolute path; got {path}"
+        failure = _stability_failure(label, path)
+        if failure is not None:
+            return failure
+        return _temp_root_failure(label, path)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return f"{label} is not a usable path: {type(exc).__name__}: {exc}"
+
+
+def _child_failure(label: str, root: Path, value: object) -> str | None:
+    """P-CHILD. Containment is proved by requiring resolve(child) == child."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or value in (".", "..")
+        or Path(value).is_absolute()
+    ):
+        return f"{label} must be a non-empty relative name; got {value!r}"
+    if value.startswith("~"):
+        return f"{label}: tilde spellings are refused ({value})"
+    try:
+        child = root / value
+        return _stability_failure(label, child)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return f"{label} is not a usable path: {type(exc).__name__}: {exc}"
+
+
+def _path_field_failures(spec: object, scratch: Path) -> list[str]:
+    """Refuse unstable roots and children before probe or any runner write."""
+    failures: list[str] = []
+    failure = _root_failure(
+        "scratch", scratch, expand_user=False, require_absolute=False
+    )
+    if failure is not None:
+        failures.append(failure)
     if not isinstance(spec, dict):
         return failures
+    profile_root = scratch / "host2-profile"
     if "host2_profile_root" in spec:
-        check("host2_profile_root", spec["host2_profile_root"], allow_relative=True)
+        value = spec["host2_profile_root"]
+        failure = _child_failure("host2_profile_root", scratch, value)
+        if failure is not None:
+            failures.append(failure)
+        elif isinstance(value, str):
+            profile_root = scratch / value
     values = spec.get("live_store_roots", [])
     if isinstance(values, list):
         for value in values:
-            check("live_store_roots", value, expand_user=True)
+            failure = _root_failure(
+                "live_store_roots", value, expand_user=True, require_absolute=True
+            )
+            if failure is not None:
+                failures.append(failure)
     else:
         failures.append("live_store_roots must be a list")
     agents = spec.get("agents", [])
@@ -859,17 +898,30 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
             if not isinstance(agent, dict):
                 failures.append("agents entries must be objects")
                 continue
-            check("live_profile", agent.get("live_profile", ""), expand_user=True)
+            failure = _root_failure(
+                "live_profile",
+                agent.get("live_profile", ""),
+                expand_user=True,
+                require_absolute=True,
+            )
+            if failure is not None:
+                failures.append(failure)
             if "host2_profile" in agent:
-                check("host2_profile", agent["host2_profile"], require_relative=True)
+                failure = _child_failure("host2_profile", profile_root, agent["host2_profile"])
+                if failure is not None:
+                    failures.append(failure)
     else:
         failures.append("agents must be a list")
     if "workspace_name" in spec:
-        check("workspace_name", spec["workspace_name"], require_relative=True)
+        failure = _child_failure("workspace_name", scratch / "seed-ws", spec["workspace_name"])
+        if failure is not None:
+            failures.append(failure)
     values = spec.get("forbidden_bivpak_state", [])
     if isinstance(values, list):
         for value in values:
-            check("forbidden_bivpak_state", value, require_relative=True)
+            failure = _child_failure("forbidden_bivpak_state", scratch, value)
+            if failure is not None:
+                failures.append(failure)
     else:
         failures.append("forbidden_bivpak_state must be a list")
     return failures
@@ -907,6 +959,9 @@ def run_e3(
     if failures:
         return _result(spec, Status.INVALID, "\n".join(failures))
     try:
+        if not isinstance(scratch, (str, Path)):
+            return _result(spec, Status.INVALID, "scratch must be a str or Path")
+        scratch = Path(scratch)
         if scratch.is_symlink():
             return _result(spec, Status.INVALID, "scratch must not be a symlink")
     except (OSError, ValueError, RuntimeError) as exc:
