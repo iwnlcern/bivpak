@@ -1762,6 +1762,286 @@ def test_external_roots_refuse_relative_spellings_without_side_effects(
 
     assert result.status is Status.INVALID
     assert field in result.detail
+    assert "realpath-stable" in result.detail
+
+
+PATH_MATRIX_COLUMNS = (
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M1",
+    "M2",
+)
+PATH_POLICY_MATRIX = {
+    "scratch": (
+        "accept", "refuse", "refuse", "refuse", "refuse", "refuse", "n/a",
+        "n/a", "refuse", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "host2_profile_root": (
+        "refuse", "refuse", "refuse", "refuse", "accept", "refuse", "refuse",
+        "refuse", "n/a", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "workspace_name": (
+        "refuse", "refuse", "refuse", "refuse", "accept", "refuse", "refuse",
+        "refuse", "n/a", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "host2_profile": (
+        "refuse", "refuse", "refuse", "refuse", "accept", "refuse", "refuse",
+        "refuse", "n/a", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "forbidden_bivpak_state": (
+        "refuse", "refuse", "refuse", "refuse", "accept", "refuse", "refuse",
+        "refuse", "n/a", "refuse", "refuse", "refuse", "refuse", "refuse",
+    ),
+    "live_profile": (
+        "accept", "refuse", "refuse", "refuse", "n/a", "refuse", "n/a", "n/a",
+        "refuse", "refuse", "n/a", "refuse", "refuse", "refuse",
+    ),
+    "live_store_roots": (
+        "accept", "refuse", "refuse", "refuse", "n/a", "refuse", "n/a", "n/a",
+        "refuse", "refuse", "refuse", "refuse", "refuse", "refuse",
+    ),
+}
+
+
+def _path_matrix_cases():
+    return [
+        (field, column, verdict)
+        for field, verdicts in PATH_POLICY_MATRIX.items()
+        for column, verdict in zip(PATH_MATRIX_COLUMNS, verdicts, strict=True)
+    ]
+
+
+def test_path_policy_matrix_is_seven_by_fourteen():
+    assert len(PATH_POLICY_MATRIX) == 7
+    assert len(PATH_MATRIX_COLUMNS) == 14
+    assert all(len(verdicts) == 14 for verdicts in PATH_POLICY_MATRIX.values())
+    assert len(_path_matrix_cases()) == 98
+
+
+def _set_matrix_path_value(spec, field, value, column):
+    if field in ("live_profile", "live_store_roots") and isinstance(value, Path):
+        value = str(value)
+    if field == "host2_profile":
+        spec["agents"][0][field] = value
+    elif field == "forbidden_bivpak_state":
+        spec[field] = value if column == "K" else [value]
+    elif field == "live_profile":
+        spec["agents"][0][field] = value
+    elif field == "live_store_roots":
+        spec[field] = value if column == "K" else [value]
+    else:
+        spec[field] = value
+
+
+def _matrix_root_case(stable_test_root, tmp_path, field, column):
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "matrix" / "scratch"
+    suffix = f"{field}-{column}-{os.getpid()}-{tmp_path.name}"
+    absent_targets = []
+    cycle_links = []
+    cycle_path = None
+    cleanup_targets = []
+
+    if field in ROOT_RELATIVE_FIELDS:
+        root = _root_relative_root(scratch, field)
+        root.mkdir(parents=True, exist_ok=True)
+        if column == "E":
+            value = f"safe-{suffix}"
+        elif column == "K":
+            value = {}
+        elif column == "L":
+            value = None
+        elif column == "M1":
+            value = "path\0segment"
+        elif column == "M2":
+            value = "~nosuchuser/e3"
+        else:
+            case = {
+                "A": "A-abs-safe",
+                "B": "B-abs-temp",
+                "C": "C-abs-unstable",
+                "D": "D-cycle",
+                "F": "F-dotdot",
+                "G": "G-contained-symlink",
+                "H": "H-escaping-symlink",
+                "J": "J-dot",
+            }[column]
+            value, absent_targets, cycle_links = _root_relative_case(
+                stable_test_root, root, field, case, tmp_path
+            )
+            if column == "B":
+                cleanup_targets.extend(absent_targets)
+            if cycle_links:
+                cycle_path = root / value
+        _set_matrix_path_value(spec, field, value, column)
+        return (
+            spec,
+            scratch,
+            tuple(absent_targets),
+            tuple(cycle_links),
+            cycle_path,
+            tuple(cleanup_targets),
+        )
+
+    if column == "A":
+        value = stable_test_root / f"absolute-safe-{suffix}"
+    elif column == "B":
+        value = Path("/tmp").resolve() / f"bivharness-task9-{suffix}"
+        absent_targets.append(value)
+        cleanup_targets.append(value)
+    elif column == "C":
+        physical = stable_test_root / f"physical-{suffix}"
+        physical.mkdir(parents=True)
+        alias = stable_test_root / f"alias-{suffix}"
+        alias.symlink_to(physical, target_is_directory=True)
+        value = alias / "child"
+        absent_targets.extend((value, physical / "child"))
+    elif column == "D":
+        loop_a = stable_test_root / f"loop-a-{suffix}"
+        loop_b = stable_test_root / f"loop-b-{suffix}"
+        loop_a.symlink_to(loop_b.name, target_is_directory=True)
+        loop_b.symlink_to(loop_a.name, target_is_directory=True)
+        value = loop_a / "child"
+        cycle_links.extend((loop_a, loop_b))
+        cycle_path = value
+    elif column == "E":
+        value = "relative-safe"
+    elif column == "F":
+        value = f"traversal-{suffix}/../escaped-{suffix}"
+        absent_targets.append((stable_test_root / value).resolve())
+    elif column == "I":
+        value = "./cwd-relative"
+        absent_targets.append(stable_test_root / "cwd-relative")
+    elif column == "J":
+        value = "."
+    elif column == "K":
+        value = {}
+    elif column == "L":
+        value = None
+    elif column == "M1":
+        value = (
+            Path("scratch\0path")
+            if field == "scratch"
+            else str(stable_test_root / "path\0segment")
+        )
+    elif column == "M2":
+        value = Path("~nosuchuser/e3") if field == "scratch" else "~nosuchuser/e3"
+    else:
+        raise AssertionError(f"unsupported matrix cell: {field}/{column}")
+
+    if field == "scratch":
+        scratch = value
+    else:
+        _set_matrix_path_value(spec, field, value, column)
+    return (
+        spec,
+        scratch,
+        tuple(absent_targets),
+        tuple(cycle_links),
+        cycle_path,
+        tuple(cleanup_targets),
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "column", "verdict"),
+    _path_matrix_cases(),
+    ids=lambda value: str(value),
+)
+def test_path_policy_matrix_at_runner_boundary(
+    monkeypatch, tmp_path, stable_test_root, field, column, verdict
+):
+    if verdict == "n/a":
+        return
+
+    monkeypatch.chdir(stable_test_root)
+    spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+        _matrix_root_case(stable_test_root, tmp_path, field, column)
+    )
+    for target in absent_targets:
+        assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+            field,
+            column,
+            target,
+        )
+    if cycle_path is not None:
+        _inject_identity_resolve_for(monkeypatch, cycle_path)
+
+    try:
+        if verdict == "accept":
+            result = _run_dry(tmp_path, spec, scratch)
+            assert result.status is Status.PASS, (field, column, result.detail)
+            return
+
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+
+        assert result.status is Status.INVALID, (field, column, result.detail)
+        assert field in result.detail, (field, column, result.detail)
+        for target in absent_targets:
+            assert not target.exists(), (field, column, target)
+        for link in cycle_links:
+            assert link.is_symlink(), (field, column, link)
+        if cycle_links:
+            assert list(stable_test_root.rglob(".bivharness-mode-probe")) == []
+            assert list(stable_test_root.rglob(".bivharness-link-probe")) == []
+    finally:
+        for target in cleanup_targets:
+            shutil.rmtree(target, ignore_errors=True)
+
+
+@pytest.mark.parametrize("field", ROOT_RELATIVE_FIELDS)
+@pytest.mark.parametrize(
+    "case",
+    (
+        "A-abs-safe",
+        "B-abs-temp",
+        "C-abs-unstable",
+        "D-cycle",
+        "E-rel-safe",
+        "F-dotdot",
+        "G-contained-symlink",
+        "H-escaping-symlink",
+    ),
+)
+def test_child_path_policy_subsumes_runtime_containment(
+    monkeypatch, tmp_path, stable_test_root, field, case
+):
+    scratch = stable_test_root / "subsumption" / "scratch"
+    root = _root_relative_root(scratch, field)
+    root.mkdir(parents=True, exist_ok=True)
+    if case == "E-rel-safe":
+        value = "safe-child"
+    else:
+        value, _, cycle_links = _root_relative_case(
+            stable_test_root, root, field, case, tmp_path
+        )
+        if cycle_links:
+            _inject_identity_resolve_for(monkeypatch, root / value)
+
+    child = root / value
+    containment_refuses = not child.resolve().is_relative_to(root.resolve())
+    failure = e3._child_failure(field, root, value)
+
+    if containment_refuses:
+        assert failure is not None, (field, case, child)
+    if case == "E-rel-safe":
+        assert failure is None
 
 
 @pytest.mark.parametrize("field", ("scratch", "live_profile", "live_store_roots"))

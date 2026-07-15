@@ -826,18 +826,11 @@ def _temp_root_failure(label: str, path: Path) -> str | None:
 def _root_failure(
     label: str,
     value: object,
-    *,
-    expand_user: bool,
-    require_absolute: bool,
 ) -> str | None:
     if not isinstance(value, (str, Path)):
         return f"{label} must be a path string; got {value!r}"
     try:
-        path = Path(value)
-        if expand_user:
-            path = path.expanduser()
-        if require_absolute and not path.is_absolute():
-            return f"{label} must be an absolute path; got {path}"
+        path = Path(value).expanduser()
         failure = _stability_failure(label, path)
         if failure is not None:
             return failure
@@ -888,9 +881,7 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
     values = spec.get("live_store_roots", [])
     if isinstance(values, list):
         for value in values:
-            failure = _root_failure(
-                "live_store_roots", value, expand_user=True, require_absolute=True
-            )
+            failure = _root_failure("live_store_roots", value)
             if failure is not None:
                 failures.append(failure)
     else:
@@ -904,8 +895,6 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
             failure = _root_failure(
                 "live_profile",
                 agent.get("live_profile", ""),
-                expand_user=True,
-                require_absolute=True,
             )
             if failure is not None:
                 failures.append(failure)
