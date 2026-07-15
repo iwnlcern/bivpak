@@ -6,6 +6,8 @@ from pathlib import Path
 
 CHECKS = (
     "cppcoreguidelines-*,bugprone-*,cert-*,clang-analyzer-*,"
+    # Policy ruling 175152: excluded for v1 Step 3; R-6.5 owes an audited sys::open wrapper and re-enablement.
+    "-cppcoreguidelines-pro-type-vararg,"
     "-cppcoreguidelines-avoid-magic-numbers,"
     "-cppcoreguidelines-pro-bounds-array-to-pointer-decay"
 )

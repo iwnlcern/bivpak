@@ -1,6 +1,7 @@
 #include "core/support/portability.hpp"
 
 #include <random>
+#include <span>
 
 #include <sys/random.h>
 
@@ -9,8 +10,9 @@ namespace biv::support {
 void secure_random_bytes(unsigned char* buf, const size_t len) {
   if (::getentropy(buf, len) != 0) {
     std::random_device rd;
+    const std::span<unsigned char> bytes{buf, len};
     for (size_t i = 0; i < len; ++i) {
-      buf[i] = static_cast<unsigned char>(rd());
+      bytes[i] = static_cast<unsigned char>(rd());
     }
   }
 }

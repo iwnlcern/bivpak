@@ -178,11 +178,12 @@ jobs:
         run: cmake --build --preset ci
       - name: Run full Linux product and harness suite
         run: |
+          JUNIT="$GITHUB_WORKSPACE/ctest.xml"
           ctest_rc=0
-          ctest --preset ci --output-junit ctest.xml --output-on-failure || ctest_rc=$?
+          ctest --preset ci --output-junit "$JUNIT" --output-on-failure || ctest_rc=$?
 
           tidy_gate_rc=0
-          python3 - ctest.xml <<'PY' || tidy_gate_rc=$?
+          python3 - "$JUNIT" <<'PY' || tidy_gate_rc=$?
           import sys
           import xml.etree.ElementTree as ET
 
