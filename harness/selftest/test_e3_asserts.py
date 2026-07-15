@@ -243,6 +243,7 @@ def test_live_claude_auth_probe_runs_ambient_no_store_override(
 
     assert result.status is Status.INVALID
     assert "not authenticated" in result.detail
+    assert "CODEX_HOME" not in seen[("codex", "--version")]
     assert "CLAUDE_CONFIG_DIR" not in seen[("claude", "auth", "status")]
     assert "CLAUDE_CONFIG_DIR=" not in result.detail
     assert "claude auth login" in result.detail
@@ -334,6 +335,7 @@ def test_live_seed_boundary_receives_ambient_env_for_both_agents(
     monkeypatch, tmp_path, stable_test_root
 ):
     seen = {}
+    version_envs = {}
 
     def fake_seed(agent, live_profile, seed_ws, spec, env, spawn, candidates, owned):
         seen[agent["id"]] = dict(env)
@@ -343,6 +345,7 @@ def test_live_seed_boundary_receives_ambient_env_for_both_agents(
 
     def fake_spawn(command, cwd, env):
         if command[-1] == "--version":
+            version_envs[command[0]] = dict(env)
             version = "2.1.210" if command[0] == "claude" else "0.144.1"
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -357,6 +360,7 @@ def test_live_seed_boundary_receives_ambient_env_for_both_agents(
     assert result.status is Status.INVALID
     assert result.detail == "stop-after-seed-loop"
     assert set(seen) == {"codex", "claude-code"}
+    assert version_envs == {"codex": {}, "claude": {}}
     for env in seen.values():
         assert "CLAUDE_CONFIG_DIR" not in env
         assert "CODEX_HOME" not in env
