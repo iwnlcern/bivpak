@@ -95,6 +95,10 @@ def _product_prefixes(repo_root: Path, agent_id: str) -> list[str]:
     return prefixes
 
 
+def _product_accepts_single_version(repo_root: Path, agent_id: str, version: str) -> bool:
+    return any(version.startswith(prefix) for prefix in _product_prefixes(repo_root, agent_id))
+
+
 def test_scenario_version_sets_mirror_the_product_exactly(repo_root):
     spec = json.loads(
         (repo_root / "harness/scenarios-e3/e3-dual-resume.json").read_text(
@@ -107,6 +111,22 @@ def test_scenario_version_sets_mirror_the_product_exactly(repo_root):
             f"{agent['id']}: scenario {agent['validated_version_prefixes']} != product "
             f"{product}. Mirror the product exactly."
         )
+        in_range = f"{product[0]}0"
+        out_of_range = "999.999.999"
+        for authoritative in (in_range, out_of_range):
+            output = f"{agent['id']} {authoritative}\n"
+            assert version_in_validated_range(output, product) is (
+                _product_accepts_single_version(
+                    repo_root,
+                    agent["id"],
+                    authoritative,
+                )
+            )
+        for output in (
+            f"{agent['id']} {in_range}\nancillary {out_of_range}\n",
+            f"ancillary {in_range}\n{agent['id']} {out_of_range}\n",
+        ):
+            assert not version_in_validated_range(output, product)
 
 
 def _valid_two_agent_spec():
@@ -200,6 +220,10 @@ def _checkpoint_agents():
     ]
 
 
+def _checkpoint_version_output(command):
+    return "2.1.202" if command[0] == "claude" else "0.142.5"
+
+
 def test_oauth_checkpoint_constructs_profiles_and_prints_real_login_commands(tmp_path):
     host2 = tmp_path / "host two"
     profile_root = host2 / "profiles"
@@ -208,8 +232,11 @@ def test_oauth_checkpoint_constructs_profiles_and_prints_real_login_commands(tmp
 
     def fake_spawn(command, cwd, env):
         calls.append(command)
-        version = "2.1.202" if command[0] == "claude" else "0.142.5"
-        return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_checkpoint_version_output(command),
+            stderr="",
+        )
 
     def pause(prompt):
         pauses.append(prompt)
@@ -253,7 +280,11 @@ def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
         if command[0] == "claude" and "-p" in command:
             return SimpleNamespace(returncode=1, stdout="", stderr="offline")
-        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_checkpoint_version_output(command),
+            stderr="",
+        )
 
     with pytest.raises(ValueError, match="liveness"):
         perform_oauth_checkpoint(
@@ -264,7 +295,11 @@ def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
 
 def test_oauth_checkpoint_rejects_multi_token_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
-        output = "too many tokens" if command[0] == "claude" and "-p" in command else "2.1.202 0.142.5"
+        output = (
+            "too many tokens"
+            if command[0] == "claude" and "-p" in command
+            else _checkpoint_version_output(command)
+        )
         return SimpleNamespace(returncode=0, stdout=output, stderr="")
 
     with pytest.raises(ValueError, match="one token"):
@@ -286,7 +321,11 @@ def test_oauth_checkpoint_retries_claude_liveness_once(tmp_path):
                 stdout="" if liveness_calls == 1 else "OK",
                 stderr="transient" if liveness_calls == 1 else "",
             )
-        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_checkpoint_version_output(command),
+            stderr="",
+        )
 
     perform_oauth_checkpoint(
         {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
@@ -309,7 +348,11 @@ def test_oauth_checkpoint_retries_invalid_or_exceptional_liveness_once(tmp_path,
                 raise OSError("spawn failed")
             output = "too many tokens" if liveness_calls == 1 else "OK"
             return SimpleNamespace(returncode=0, stdout=output, stderr="")
-        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_checkpoint_version_output(command),
+            stderr="",
+        )
 
     perform_oauth_checkpoint(
         {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
@@ -1421,6 +1464,14 @@ def test_codex_enumerated_set_is_not_an_inequality(version, accepted):
     assert version_in_validated_range(version, CX) is accepted
 
 
+@pytest.mark.parametrize("output", (
+    "codex-cli 0.145.0\nsandbox-runtime 0.142.9\n",
+    "sandbox-runtime 0.142.9\ncodex-cli 0.145.0\n",
+))
+def test_version_gate_rejects_ambiguous_multi_token_output(output):
+    assert not version_in_validated_range(output, CX)
+
+
 @pytest.mark.parametrize("version,accepted", [
     ("claude 2.1.202", True),
     ("claude 2.2.0", False),
@@ -1516,6 +1567,25 @@ def test_prerun_version_gate_enforces_the_enumerated_set(
         assert "not authenticated" in result.detail
     else:
         assert "version is outside the validated range" in result.detail
+
+
+@pytest.mark.parametrize("version", (
+    "codex-cli 0.145.0\nsandbox-runtime 0.142.9\n",
+    "sandbox-runtime 0.142.9\ncodex-cli 0.145.0\n",
+))
+def test_prerun_version_gate_rejects_ambiguous_multi_token_output(
+    monkeypatch, tmp_path, stable_test_root, version
+):
+    result, calls = _run_prerun_with_codex_version(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        version,
+    )
+
+    assert result.status is Status.INVALID
+    assert "version is outside the validated range" in result.detail
+    assert calls == [["codex", "login", "status"], ["codex", "--version"]]
 
 
 @pytest.mark.parametrize("version,accepted", CX_MATRIX)
@@ -1616,6 +1686,88 @@ def _run_refusal_without_side_effects(
     return result
 
 
+@pytest.mark.parametrize(
+    "failing_check",
+    ("scratch_overlap", "probe", "profile_root_failures"),
+)
+def test_e3_preflight_filesystem_errors_are_invalid(
+    monkeypatch, tmp_path, stable_test_root, failing_check
+):
+    def raise_filesystem_error(*args):
+        raise OSError("injected preflight filesystem error")
+
+    if failing_check == "scratch_overlap":
+        monkeypatch.setattr(e3, "_scratch_overlap_failures", raise_filesystem_error)
+    elif failing_check == "probe":
+        monkeypatch.setattr(e3, "probe", raise_filesystem_error)
+    else:
+        monkeypatch.setattr(e3, "probe", lambda scratch: [])
+        monkeypatch.setattr(e3, "profile_root_failures", raise_filesystem_error)
+    scenario = tmp_path / "e3.json"
+    scenario.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(
+        scenario,
+        tmp_path / "biv",
+        stable_test_root / "scratch",
+        dry_run=True,
+    )
+
+    assert result.status is Status.INVALID
+    assert "pre-run filesystem check failed" in result.detail
+    assert "injected preflight filesystem error" in result.detail
+
+
+def test_e3_poison_mode_probe_directory_is_invalid(
+    tmp_path, stable_test_root
+):
+    scratch = stable_test_root / "scratch"
+    poison = scratch / ".bivharness-mode-probe"
+    poison.mkdir(parents=True)
+    scenario = tmp_path / "e3.json"
+    scenario.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(scenario, tmp_path / "biv", scratch, dry_run=True)
+
+    assert result.status is Status.INVALID
+    assert "pre-run filesystem check failed" in result.detail
+    assert poison.is_dir()
+    assert not (scratch / ".bivharness-link-probe").exists()
+
+
+@pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+@pytest.mark.parametrize("relation", ("same", "scratch-inside-live", "live-inside-scratch"))
+def test_e3_refuses_scratch_overlap_with_live_roots_before_probe(
+    monkeypatch, tmp_path, stable_test_root, field, relation
+):
+    if relation == "same":
+        scratch = stable_test_root / "scratch"
+        live_root = scratch
+    elif relation == "scratch-inside-live":
+        live_root = stable_test_root / "live-root"
+        scratch = live_root / "scratch"
+    else:
+        scratch = stable_test_root / "scratch"
+        live_root = scratch / "live-root"
+    spec = _valid_two_agent_spec()
+    if field == "live_profile":
+        spec["agents"][0][field] = str(live_root)
+    else:
+        spec[field] = [str(live_root)]
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        spec,
+        scratch,
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID
+    assert "scratch overlaps" in result.detail
+    assert field in result.detail
+
+
 ROOT_RELATIVE_FIELDS = (
     "host2_profile_root",
     "workspace_name",
@@ -1647,7 +1799,7 @@ def _root_relative_case(stable_test_root, root, field, case, tmp_path):
     if case == "A-abs-safe":
         target = stable_test_root / f"absolute-safe-{suffix}"
         return str(target), (target,), ()
-    if case == "B-abs-temp":
+    if case == "B-absolute-name":
         target = Path("/tmp").resolve() / f"bivharness-task7-child-{suffix}"
         return str(target), (target,), ()
     if case == "C-abs-unstable":
@@ -1701,7 +1853,7 @@ def _inject_identity_resolve_for(monkeypatch, cycle_path):
 @pytest.mark.parametrize("field", ROOT_RELATIVE_FIELDS)
 @pytest.mark.parametrize("case", (
     "A-abs-safe",
-    "B-abs-temp",
+    "B-absolute-name",
     "C-abs-unstable",
     "D-cycle",
     "F-dotdot",
@@ -1811,6 +1963,15 @@ PATH_POLICY_MATRIX = {
         "refuse", "refuse", "refuse", "refuse", "refuse", "refuse",
     ),
 }
+PATH_POLICY_COLUMN_B_OWNERS = {
+    "scratch": "temp-root",
+    "host2_profile_root": "absolute-name",
+    "workspace_name": "absolute-name",
+    "host2_profile": "absolute-name",
+    "forbidden_bivpak_state": "absolute-name",
+    "live_profile": "temp-root",
+    "live_store_roots": "temp-root",
+}
 
 
 def _path_matrix_cases():
@@ -1826,6 +1987,18 @@ def test_path_policy_matrix_is_seven_by_fourteen():
     assert len(PATH_MATRIX_COLUMNS) == 14
     assert all(len(verdicts) == 14 for verdicts in PATH_POLICY_MATRIX.values())
     assert len(_path_matrix_cases()) == 98
+
+
+def test_path_policy_column_b_guard_ownership_is_explicit():
+    assert PATH_POLICY_COLUMN_B_OWNERS == {
+        "scratch": "temp-root",
+        "host2_profile_root": "absolute-name",
+        "workspace_name": "absolute-name",
+        "host2_profile": "absolute-name",
+        "forbidden_bivpak_state": "absolute-name",
+        "live_profile": "temp-root",
+        "live_store_roots": "temp-root",
+    }
 
 
 def _set_matrix_path_value(spec, field, value, column):
@@ -1868,7 +2041,7 @@ def _matrix_root_case(stable_test_root, tmp_path, field, column):
         else:
             case = {
                 "A": "A-abs-safe",
-                "B": "B-abs-temp",
+                "B": "B-absolute-name",
                 "C": "C-abs-unstable",
                 "D": "D-cycle",
                 "F": "F-dotdot",
@@ -2010,7 +2183,7 @@ def test_path_policy_matrix_at_runner_boundary(
     "case",
     (
         "A-abs-safe",
-        "B-abs-temp",
+        "B-absolute-name",
         "C-abs-unstable",
         "D-cycle",
         "E-rel-safe",
@@ -2243,6 +2416,42 @@ def test_cli_persists_invalid_e3_report_for_malformed_json(tmp_path):
     assert row["status"] == "invalid"
     assert row["classes"] == []
     assert row["detail"]
+
+
+def test_e3_non_utf8_scenario_is_invalid_instead_of_raising(tmp_path):
+    scenario = tmp_path / "non-utf8-e3.json"
+    scenario.write_bytes(b"\xff\xfe")
+
+    result = e3.run_e3(
+        scenario,
+        tmp_path / "biv",
+        tmp_path.resolve() / "scratch",
+        dry_run=True,
+    )
+
+    assert result.status is Status.INVALID
+    assert result.id == "e3-invalid-spec"
+    assert "scenario unreadable" in result.detail
+
+
+def test_cli_persists_invalid_e3_report_for_non_utf8_scenario(tmp_path):
+    scenario = tmp_path / "non-utf8-e3.json"
+    report_path = tmp_path / "report.json"
+    scenario.write_bytes(b"\xff\xfe")
+
+    exit_code = cli.main([
+        "--biv", str(tmp_path / "biv"),
+        "--e3", str(scenario),
+        "--dry-run",
+        "--report", str(report_path),
+    ])
+
+    assert exit_code != 0
+    assert report_path.is_file()
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["invalid"] == ["e3-invalid-spec"]
+    assert report["rows"][0]["status"] == "invalid"
+    assert "scenario unreadable" in report["rows"][0]["detail"]
 
 
 def test_scratch_under_a_symlinked_ancestor_is_refused_without_writing(tmp_path):

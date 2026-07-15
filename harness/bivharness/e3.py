@@ -74,11 +74,12 @@ def version_in_validated_range(version_output: str, validated_prefixes: list[str
             "validated_version_prefixes must be a non-empty list of non-empty strings; "
             f"got {validated_prefixes!r} (a bare string character-iterates and fails open)"
         )
-    versions = re.findall(r"(?<![0-9])([0-9]+\.[0-9]+\.[0-9]+)(?![0-9])", version_output)
-    return any(
-        version.startswith(prefix)
-        for version in versions
-        for prefix in validated_prefixes
+    versions = re.findall(
+        r"(?<![0-9])([0-9]+\.[0-9]+\.[0-9]+)(?![0-9])",
+        version_output,
+    )
+    return len(versions) == 1 and any(
+        versions[0].startswith(prefix) for prefix in validated_prefixes
     )
 
 
@@ -919,6 +920,27 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
     return failures
 
 
+def _scratch_overlap_failures(spec: dict[str, Any], scratch: Path) -> list[str]:
+    scratch = scratch.resolve()
+    live_roots = [
+        ("live_store_roots", Path(value).expanduser().resolve())
+        for value in spec.get("live_store_roots", [])
+    ]
+    live_roots.extend(
+        ("live_profile", Path(agent["live_profile"]).expanduser().resolve())
+        for agent in spec["agents"]
+    )
+    return [
+        f"scratch overlaps {label}: {scratch} and {live_root}"
+        for label, live_root in live_roots
+        if (
+            scratch == live_root
+            or scratch in live_root.parents
+            or live_root in scratch.parents
+        )
+    ]
+
+
 def _negative_control_failures(owned_paths: list[Path]) -> list[str]:
     """Guard evidence: a realpath-stable run cannot render either alias spelling."""
     failures: list[str] = []
@@ -944,7 +966,7 @@ def run_e3(
 ) -> ScenarioResult:
     try:
         spec = json.loads(spec_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return _result({}, Status.INVALID, f"scenario unreadable: {exc}")
 
     failures = _validate_spec(spec)
@@ -963,12 +985,22 @@ def run_e3(
     if failures:
         return _result(spec, Status.INVALID, "\n".join(failures))
 
-    profile_root = Path(spec.get("host2_profile_root", scratch / "host2-profile"))
-    if not profile_root.is_absolute():
-        profile_root = scratch / profile_root
-    live_stores = [Path(value).expanduser() for value in spec.get("live_store_roots", [])]
-    failures.extend(probe(scratch))
-    failures.extend(profile_root_failures(profile_root, live_stores))
+    try:
+        failures.extend(_scratch_overlap_failures(spec, scratch))
+        if failures:
+            return _result(spec, Status.INVALID, "\n".join(failures))
+        profile_root = Path(spec.get("host2_profile_root", scratch / "host2-profile"))
+        if not profile_root.is_absolute():
+            profile_root = scratch / profile_root
+        live_stores = [Path(value).expanduser() for value in spec.get("live_store_roots", [])]
+        failures.extend(probe(scratch))
+        failures.extend(profile_root_failures(profile_root, live_stores))
+    except (OSError, ValueError, RuntimeError) as exc:
+        return _result(
+            spec,
+            Status.INVALID,
+            f"pre-run filesystem check failed: {type(exc).__name__}: {exc}",
+        )
     if failures:
         return _result(spec, Status.INVALID, "\n".join(failures))
 
