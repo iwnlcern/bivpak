@@ -117,7 +117,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          readonly LLVM_MIRROR_TAG="toolchain-mirror-clang-tidy-22"
+          readonly LLVM_MIRROR_TAG="toolchain-mirror-clang-tidy-22-immutable-v1"
           readonly LLVM_MIRROR_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${LLVM_MIRROR_TAG}"
           readonly LLVM_MIRROR_DIR="/tmp/llvm22-mirror"
           readonly LLVM_TIDY_VERSION="1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78"
