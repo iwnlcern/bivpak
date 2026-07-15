@@ -24,11 +24,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          if gh release view "$IMMUTABLE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "release already exists: $IMMUTABLE_TAG"
-            exit 1
-          fi
-
           mkdir assets
           gh release download "$SOURCE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
@@ -49,23 +44,28 @@ jobs:
           test "$(find assets -maxdepth 1 -name '*.deb' | wc -l)" -eq 8
           (cd assets && sha256sum --check --strict SHA256SUMS)
 
-          gh release create "$IMMUTABLE_TAG" \
+          if ! gh release view "$IMMUTABLE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$IMMUTABLE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft \
+              --target "$TARGET_SHA" \
+              --title 'Internal immutable toolchain mirror: clang-tidy 22' \
+              --notes 'Pinned LLVM 22.1.8 package closure for the S3 portability harness. Asset identity is enforced by the workflow SHA-256 manifest.'
+
+            gh release upload "$IMMUTABLE_TAG" assets/*.deb \
+              --repo "$GITHUB_REPOSITORY"
+          fi
+
+          draft_json=$(gh release view "$IMMUTABLE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --draft \
-            --target "$TARGET_SHA" \
-            --title 'Internal immutable toolchain mirror: clang-tidy 22' \
-            --notes 'Pinned LLVM 22.1.8 package closure for the S3 portability harness. Asset identity is enforced by the workflow SHA-256 manifest.'
-
-          gh release upload "$IMMUTABLE_TAG" assets/*.deb \
-            --repo "$GITHUB_REPOSITORY"
-
-          test "$(
-            gh api \
-              -H 'Accept: application/vnd.github+json' \
-              -H 'X-GitHub-Api-Version: 2026-03-10' \
-              "repos/${GITHUB_REPOSITORY}/releases/tags/${IMMUTABLE_TAG}" \
-              --jq '.assets | length'
-          )" -eq 8
+            --json isDraft,targetCommitish,assets)
+          test "$(jq -r .isDraft <<<"$draft_json")" = true
+          test "$(jq -r .targetCommitish <<<"$draft_json")" = "$TARGET_SHA"
+          test "$(jq '.assets | length' <<<"$draft_json")" -eq 8
+          jq -r '.assets[] | "\(.digest | sub("^sha256:"; ""))  \(.name)"' \
+            <<<"$draft_json" | sort > assets/REMOTE_SHA256SUMS
+          sort assets/SHA256SUMS > assets/EXPECTED_SHA256SUMS
+          diff -u assets/EXPECTED_SHA256SUMS assets/REMOTE_SHA256SUMS
 
           gh release edit "$IMMUTABLE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
