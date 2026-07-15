@@ -17,8 +17,6 @@ void secure_random_bytes(unsigned char* buf, const size_t len) {
   }
 }
 
-double tidy_negative_control(int n) { return n / 2; }
-
 int64_t stat_mtime_sec(const struct stat& st) {
 #if defined(__APPLE__)
   return static_cast<int64_t>(st.st_mtimespec.tv_sec);
