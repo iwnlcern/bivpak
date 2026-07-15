@@ -296,6 +296,125 @@ def _checkpoint_agents():
     ]
 
 
+def _by_id(agents):
+    return {agent["id"]: agent for agent in agents}
+
+
+def test_live_leg_env_construction_has_no_store_override():
+    for agent in _checkpoint_agents():
+        assert e3._agent_env(agent, Path("/anything"), live=True) == {}
+
+
+def test_host2_leg_env_construction_keeps_store_override():
+    agents = _by_id(_checkpoint_agents())
+    root = Path("/tmp/e3-host2-profiles")
+
+    assert e3._agent_env(agents["claude-code"], root / "claude", live=False) == {
+        "CLAUDE_CONFIG_DIR": str(root / "claude")
+    }
+    assert e3._agent_env(agents["codex"], root / "codex", live=False) == {
+        "CODEX_HOME": str(root / "codex")
+    }
+
+
+def test_live_login_instruction_is_ambient():
+    agents = _by_id(_checkpoint_agents())
+
+    assert (
+        e3._login_instruction(agents["claude-code"], Path("/x"), live=True)
+        == "claude auth login"
+    )
+    assert (
+        e3._login_instruction(agents["codex"], Path("/x"), live=True)
+        == "codex login"
+    )
+
+
+def test_live_seed_boundary_receives_ambient_env_for_both_agents(
+    monkeypatch, tmp_path, stable_test_root
+):
+    seen = {}
+
+    def fake_seed(agent, live_profile, seed_ws, spec, env, spawn, candidates, owned):
+        seen[agent["id"]] = dict(env)
+        if len(seen) == 2:
+            raise ValueError("stop-after-seed-loop")
+        return tmp_path / "dummy.jsonl"
+
+    def fake_spawn(command, cwd, env):
+        if command[-1] == "--version":
+            version = "2.1.210" if command[0] == "claude" else "0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed)
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_live_override_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert result.detail == "stop-after-seed-loop"
+    assert set(seen) == {"codex", "claude-code"}
+    for env in seen.values():
+        assert "CLAUDE_CONFIG_DIR" not in env
+        assert "CODEX_HOME" not in env
+
+
+@pytest.mark.parametrize(
+    "start_ok,expected_verbs",
+    [
+        (True, ["seed", "continue"]),
+        (False, ["seed", "retry", "continue", "continue"]),
+    ],
+)
+def test_seed_agent_forwards_received_env_to_every_model_spawn(
+    monkeypatch, tmp_path, start_ok, expected_verbs
+):
+    spec = e3.materialize_run_tokens(_live_override_spec())
+    agent = _by_id(spec["agents"])["claude-code"]
+    transcript = tmp_path / "s.jsonl"
+    transcript.write_text("\n".join(spec["seed_turns"]) + "\n", encoding="utf-8")
+    recorded = []
+
+    def rec_spawn(command, cwd, env):
+        recorded.append((list(command), dict(env)))
+        return SimpleNamespace(returncode=0 if start_ok else 1, stdout="", stderr="")
+
+    def fake_capture_attempt(root, pattern, run_token, command, path_proof=None):
+        command()
+        result = SimpleNamespace(returncode=0 if start_ok else 1)
+        return result, None, [transcript], [transcript]
+
+    def fake_capture_seed_leg(root, pattern, run_token, command, path_proof=None):
+        command()
+        return SimpleNamespace(returncode=0), transcript, []
+
+    monkeypatch.setattr(e3, "_capture_attempt", fake_capture_attempt)
+    monkeypatch.setattr(e3, "_capture_seed_leg", fake_capture_seed_leg)
+    monkeypatch.setattr(
+        e3, "_session_id_from_path", lambda agent_id, path: "fixed-id"
+    )
+    sentinel = {"AMBIENT_MARKER": "1"}
+
+    result = e3._seed_agent(
+        agent,
+        tmp_path / "profile",
+        tmp_path / "ws",
+        spec,
+        sentinel,
+        rec_spawn,
+        [],
+        [],
+    )
+
+    assert result == transcript
+    assert [command[1] for command, _ in recorded] == expected_verbs
+    for _, env in recorded:
+        assert env == sentinel
+
+
 def _checkpoint_version_output(command):
     return "2.1.202" if command[0] == "claude" else "0.142.5"
 
