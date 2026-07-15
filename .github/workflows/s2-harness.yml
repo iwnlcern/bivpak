@@ -110,6 +110,59 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Provision pinned clang-tidy-22 capability probe
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          readonly LLVM_APT_SUITE="llvm-toolchain-noble-22"
+          readonly LLVM_TIDY_VERSION="1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78"
+          readonly LLVM_TIDY_DEB="clang-tidy-22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb"
+          readonly LLVM_TIDY_SHA256="1e5917c1cd027548aff5cd35ee4f781a867d5daf03d9eb92611fc838ae9fa3dc"
+          readonly LLVM_APT_KEY_FINGERPRINT="6084F3CF814B57C1CF12EFD515CF4D18AF4F7421"
+          readonly LLVM_TIDY_URL="https://apt.llvm.org/noble/pool/main/l/llvm-toolchain-22/${LLVM_TIDY_DEB}"
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg
+
+          curl --fail --silent --show-error --location \
+            --output /tmp/llvm-snapshot.gpg.key \
+            https://apt.llvm.org/llvm-snapshot.gpg.key
+          observed_fingerprint=$(gpg --batch --show-keys --with-colons /tmp/llvm-snapshot.gpg.key \
+            | awk -F: '$1 == "fpr" { print $10; exit }')
+          test "$observed_fingerprint" = "$LLVM_APT_KEY_FINGERPRINT" || {
+            echo "apt.llvm.org signing-key mismatch: expected $LLVM_APT_KEY_FINGERPRINT, got $observed_fingerprint"
+            exit 1
+          }
+          gpg --batch --yes --dearmor \
+            --output /tmp/llvm-archive-keyring.gpg /tmp/llvm-snapshot.gpg.key
+          sudo install -m 0644 /tmp/llvm-archive-keyring.gpg /usr/share/keyrings/llvm-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/noble/ ${LLVM_APT_SUITE} main" \
+            | sudo tee /etc/apt/sources.list.d/llvm22.list >/dev/null
+          sudo apt-get update
+
+          curl --fail --silent --show-error --location \
+            --output "/tmp/${LLVM_TIDY_DEB}" "$LLVM_TIDY_URL"
+          echo "${LLVM_TIDY_SHA256}  /tmp/${LLVM_TIDY_DEB}" | sha256sum --check --strict
+          packaged_version=$(dpkg-deb --field "/tmp/${LLVM_TIDY_DEB}" Version)
+          test "$packaged_version" = "$LLVM_TIDY_VERSION" || {
+            echo "clang-tidy-22 package mismatch: expected $LLVM_TIDY_VERSION, got $packaged_version"
+            exit 1
+          }
+
+          sudo apt-get install -y --no-install-recommends "/tmp/${LLVM_TIDY_DEB}"
+          installed_version=$(dpkg-query --show --showformat='${Version}' clang-tidy-22)
+          test "$installed_version" = "$LLVM_TIDY_VERSION" || {
+            echo "clang-tidy-22 install mismatch: expected $LLVM_TIDY_VERSION, got $installed_version"
+            exit 1
+          }
+          version_output=$(clang-tidy-22 --version)
+          printf '%s\n' "$version_output"
+          observed_major=$(sed -nE 's/.*LLVM version ([0-9]+).*/\1/p' <<<"$version_output" | head -n 1)
+          test "$observed_major" = "22" || {
+            echo "clang-tidy-22 major mismatch: expected 22, got ${observed_major:-<empty>}"
+            exit 1
+          }
       - name: Install harness dependencies
         run: |
           python -m venv .venv-harness
