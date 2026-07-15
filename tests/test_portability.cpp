@@ -18,7 +18,7 @@ int fill_test_entropy(const std::span<unsigned char> bytes) {
   return 0;
 }
 
-} // namespace
+}  // namespace
 
 TEST_CASE("secure_random_bytes honors bounds, chunking, and fallback") {
   SECTION("fills the requested region within bounds") {
@@ -80,7 +80,7 @@ TEST_CASE("secure_random_bytes honors bounds, chunking, and fallback") {
 }
 
 TEST_CASE("stat_mtime accessors return the struct's mtime fields") {
-  struct stat st{};
+  struct stat st {};
 #if defined(__APPLE__)
   st.st_mtimespec.tv_sec = 123456;
   st.st_mtimespec.tv_nsec = 789;
