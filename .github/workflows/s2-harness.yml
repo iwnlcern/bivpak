@@ -5,46 +5,6 @@ on:
   push:
 
 jobs:
-  publish-toolchain-mirror:
-    if: github.ref == 'refs/heads/s3-pack/portability'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - name: Upload remaining verified clang-tidy-22 mirror assets
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          readonly RELEASE_TAG="toolchain-mirror-clang-tidy-22"
-          readonly SOURCE_BASE="https://apt.llvm.org/noble/pool/main/l/llvm-toolchain-22"
-          readonly MIRROR_DIR="/tmp/llvm22-mirror"
-          mkdir -p "$MIRROR_DIR"
-
-          cat > "$MIRROR_DIR/SHA256SUMS" <<'EOF'
-          05215c729cd18307e2bbfb710505b034e3ced630f68e146d4c0762877073c085  clang-tools-22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
-          a722846476ee806a76710eea0c8cc63b18082b55eac8e2c6f092b7495a054240  libclang-common-22-dev_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
-          4c558366775f03a236a98a3e26f0f09ffab9d5df32c40050cee94c7aeca1ca44  libclang-cpp22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
-          8488e5d288780d269c3516855247542f269bafafc55699502625f3ebdabce73b  libclang1-22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
-          061b48c5a47589db2ee24bcba17aebb258c973bfa41e5bdc8e46a64ea4244ceb  libllvm22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
-          f397059ac1ab2a8ea2a5707d7eec2dac6724f2f141e4668b75d08da62dd4280a  llvm-22-linker-tools_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb
-          EOF
-
-          while read -r _ filename; do
-            curl --fail --silent --show-error --location \
-              --output "$MIRROR_DIR/$filename" "$SOURCE_BASE/$filename"
-          done < "$MIRROR_DIR/SHA256SUMS"
-          (cd "$MIRROR_DIR" && sha256sum --check --strict SHA256SUMS)
-
-          while read -r _ filename; do
-            upload_name=${filename//\~/.}
-            cp "$MIRROR_DIR/$filename" "$MIRROR_DIR/$upload_name"
-            gh release upload "$RELEASE_TAG" "$MIRROR_DIR/$upload_name" \
-              --repo "$GITHUB_REPOSITORY"
-          done < "$MIRROR_DIR/SHA256SUMS"
-
   harness-selftest:
     runs-on: ubuntu-latest
     steps:
@@ -152,45 +112,72 @@ jobs:
           python-version: "3.12"
       - name: Provision pinned clang-tidy-22 capability probe
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          readonly LLVM_APT_SUITE="llvm-toolchain-noble-22"
+          readonly LLVM_MIRROR_TAG="toolchain-mirror-clang-tidy-22"
+          readonly LLVM_MIRROR_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${LLVM_MIRROR_TAG}"
+          readonly LLVM_MIRROR_DIR="/tmp/llvm22-mirror"
           readonly LLVM_TIDY_VERSION="1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78"
-          readonly LLVM_TIDY_DEB="clang-tidy-22_22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78_amd64.deb"
-          readonly LLVM_TIDY_SHA256="1e5917c1cd027548aff5cd35ee4f781a867d5daf03d9eb92611fc838ae9fa3dc"
-          readonly LLVM_APT_KEY_FINGERPRINT="6084F3CF814B57C1CF12EFD515CF4D18AF4F7421"
-          readonly LLVM_TIDY_URL="https://apt.llvm.org/noble/pool/main/l/llvm-toolchain-22/${LLVM_TIDY_DEB}"
+          mkdir -p "$LLVM_MIRROR_DIR"
 
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg
+          sudo apt-get install -y --no-install-recommends ca-certificates
 
-          curl --fail --silent --show-error --location \
-            --output /tmp/llvm-snapshot.gpg.key \
-            https://apt.llvm.org/llvm-snapshot.gpg.key
-          observed_fingerprint=$(gpg --batch --show-keys --with-colons /tmp/llvm-snapshot.gpg.key \
-            | awk -F: '$1 == "fpr" { print $10; exit }')
-          test "$observed_fingerprint" = "$LLVM_APT_KEY_FINGERPRINT" || {
-            echo "apt.llvm.org signing-key mismatch: expected $LLVM_APT_KEY_FINGERPRINT, got $observed_fingerprint"
-            exit 1
-          }
-          gpg --batch --yes --dearmor \
-            --output /tmp/llvm-archive-keyring.gpg /tmp/llvm-snapshot.gpg.key
-          sudo install -m 0644 /tmp/llvm-archive-keyring.gpg /usr/share/keyrings/llvm-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/noble/ ${LLVM_APT_SUITE} main" \
-            | sudo tee /etc/apt/sources.list.d/llvm22.list >/dev/null
-          sudo apt-get update
+          cat > "$LLVM_MIRROR_DIR/MANIFEST" <<'EOF'
+          c35ae50ecf7704b3dd0278837c4c223e72318e15de6869e3c73b58fbc64b547d clang-22 clang-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          1e5917c1cd027548aff5cd35ee4f781a867d5daf03d9eb92611fc838ae9fa3dc clang-tidy-22 clang-tidy-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          05215c729cd18307e2bbfb710505b034e3ced630f68e146d4c0762877073c085 clang-tools-22 clang-tools-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          a722846476ee806a76710eea0c8cc63b18082b55eac8e2c6f092b7495a054240 libclang-common-22-dev libclang-common-22-dev_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          4c558366775f03a236a98a3e26f0f09ffab9d5df32c40050cee94c7aeca1ca44 libclang-cpp22 libclang-cpp22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          8488e5d288780d269c3516855247542f269bafafc55699502625f3ebdabce73b libclang1-22 libclang1-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          061b48c5a47589db2ee24bcba17aebb258c973bfa41e5bdc8e46a64ea4244ceb libllvm22 libllvm22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          f397059ac1ab2a8ea2a5707d7eec2dac6724f2f141e4668b75d08da62dd4280a llvm-22-linker-tools llvm-22-linker-tools_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          EOF
 
-          curl --fail --silent --show-error --location \
-            --output "/tmp/${LLVM_TIDY_DEB}" "$LLVM_TIDY_URL"
-          echo "${LLVM_TIDY_SHA256}  /tmp/${LLVM_TIDY_DEB}" | sha256sum --check --strict
-          packaged_version=$(dpkg-deb --field "/tmp/${LLVM_TIDY_DEB}" Version)
-          test "$packaged_version" = "$LLVM_TIDY_VERSION" || {
-            echo "clang-tidy-22 package mismatch: expected $LLVM_TIDY_VERSION, got $packaged_version"
-            exit 1
-          }
+          while read -r _ package asset; do
+            echo "mirror asset: package=$package url=$LLVM_MIRROR_URL/$asset"
+            gh release download "$LLVM_MIRROR_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "$asset" \
+              --dir "$LLVM_MIRROR_DIR"
+          done < "$LLVM_MIRROR_DIR/MANIFEST"
 
-          sudo apt-get install -y --no-install-recommends "/tmp/${LLVM_TIDY_DEB}"
+          awk '{ print $1 "  " $3 }' "$LLVM_MIRROR_DIR/MANIFEST" \
+            > "$LLVM_MIRROR_DIR/SHA256SUMS"
+          (cd "$LLVM_MIRROR_DIR" && sha256sum --check --strict SHA256SUMS)
+
+          while read -r _ expected_package asset; do
+            packaged_name=$(dpkg-deb --field "$LLVM_MIRROR_DIR/$asset" Package)
+            packaged_version=$(dpkg-deb --field "$LLVM_MIRROR_DIR/$asset" Version)
+            packaged_arch=$(dpkg-deb --field "$LLVM_MIRROR_DIR/$asset" Architecture)
+            test "$packaged_name" = "$expected_package" || {
+              echo "package mismatch: expected $expected_package, got $packaged_name"
+              exit 1
+            }
+            test "$packaged_version" = "$LLVM_TIDY_VERSION" || {
+              echo "$expected_package version mismatch: expected $LLVM_TIDY_VERSION, got $packaged_version"
+              exit 1
+            }
+            test "$packaged_arch" = "amd64" || {
+              echo "$expected_package architecture mismatch: expected amd64, got $packaged_arch"
+              exit 1
+            }
+            echo "verified package: $packaged_name $packaged_version $packaged_arch"
+          done < "$LLVM_MIRROR_DIR/MANIFEST"
+
+          test "$(find "$LLVM_MIRROR_DIR" -maxdepth 1 -name '*.deb' | wc -l)" -eq 8
+          sudo apt-get install -y --no-install-recommends "$LLVM_MIRROR_DIR"/*.deb
+          while read -r _ package _; do
+            installed_package_version=$(dpkg-query --show --showformat='${Version}' "$package")
+            test "$installed_package_version" = "$LLVM_TIDY_VERSION" || {
+              echo "$package install mismatch: expected $LLVM_TIDY_VERSION, got $installed_package_version"
+              exit 1
+            }
+          done < "$LLVM_MIRROR_DIR/MANIFEST"
+
           installed_version=$(dpkg-query --show --showformat='${Version}' clang-tidy-22)
           test "$installed_version" = "$LLVM_TIDY_VERSION" || {
             echo "clang-tidy-22 install mismatch: expected $LLVM_TIDY_VERSION, got $installed_version"
