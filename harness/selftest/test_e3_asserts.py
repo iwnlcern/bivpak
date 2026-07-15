@@ -1815,6 +1815,26 @@ def test_scratch_rejects_null_without_raising_or_side_effects(
     assert "scratch" in result.detail
 
 
+def test_path_field_failures_does_not_recoerce_normalized_scratch(
+    monkeypatch, stable_test_root
+):
+    coerced_labels = []
+    real_root_failure = e3._root_failure
+
+    def record_root_coercion(label, value, **kwargs):
+        coerced_labels.append(label)
+        return real_root_failure(label, value, **kwargs)
+
+    monkeypatch.setattr(e3, "_root_failure", record_root_coercion)
+
+    failures = e3._path_field_failures(
+        _valid_two_agent_spec(), stable_test_root / "scratch"
+    )
+
+    assert failures == []
+    assert "scratch" not in coerced_labels
+
+
 def _schema_shape_cases():
     """Malformed values for every JSON shape consumed by the E3 runner."""
     scalar = ("none", None), ("scalar", 42), ("container", []), ("bad-element", [None])

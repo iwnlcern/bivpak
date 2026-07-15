@@ -867,9 +867,12 @@ def _child_failure(label: str, root: Path, value: object) -> str | None:
 def _path_field_failures(spec: object, scratch: Path) -> list[str]:
     """Refuse unstable roots and children before probe or any runner write."""
     failures: list[str] = []
-    failure = _root_failure(
-        "scratch", scratch, expand_user=False, require_absolute=False
-    )
+    try:
+        failure = _stability_failure("scratch", scratch)
+        if failure is None:
+            failure = _temp_root_failure("scratch", scratch)
+    except (OSError, ValueError, RuntimeError) as exc:
+        failure = f"scratch is not a usable path: {type(exc).__name__}: {exc}"
     if failure is not None:
         failures.append(failure)
     if not isinstance(spec, dict):
