@@ -5,12 +5,12 @@
 #include <set>
 #include <string_view>
 
-#if defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
 #endif
 #include <simdjson.h>
-#if defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 

@@ -13,6 +13,17 @@
 
 namespace {
 
+namespace fs = std::filesystem;
+
+fs::path make_tmp(std::string_view name) {
+  auto base = fs::temp_directory_path() /
+              ("biv-sessions-" + std::string{name} + "-" +
+               std::to_string(::getpid()));
+  fs::remove_all(base);
+  fs::create_directories(base);
+  return fs::canonical(base);
+}
+
 biv::manifest::AgentSessionEntry entry(std::string agent, int schema = 1) {
   biv::manifest::AgentSessionEntry value;
   value.agent = std::move(agent);
@@ -68,10 +79,7 @@ biv::manifest::AgentSessionEntry codex_entry(std::string_view version) {
 }  // namespace
 
 TEST_CASE("session preview groups manifest agents and flags unsupported rows") {
-  const auto home = std::filesystem::temp_directory_path() /
-                    ("biv-sessions-preview-" + std::to_string(::getpid()));
-  std::filesystem::remove_all(home);
-  std::filesystem::create_directories(home);
+  const auto home = make_tmp("preview");
   auto manifest = model({entry("future-tool"), entry("codex", 99)});
 
   auto preview = biv::core_sessions::build_preview(manifest, env(home));
@@ -114,10 +122,7 @@ TEST_CASE("consent resolution covers global per-agent prompt and deny default") 
 }
 
 TEST_CASE("session leg skips denied and unknown rows without reading members") {
-  const auto home = std::filesystem::temp_directory_path() /
-                    ("biv-sessions-skip-" + std::to_string(::getpid()));
-  std::filesystem::remove_all(home);
-  std::filesystem::create_directories(home);
+  const auto home = make_tmp("skip");
   auto manifest = model({entry("future-tool")});
   auto preview = biv::core_sessions::build_preview(manifest, env(home));
   REQUIRE(preview);
@@ -194,13 +199,10 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
 
   for (const auto& version_case : cases) {
     DYNAMIC_SECTION(version_case.version) {
-      const auto home = std::filesystem::temp_directory_path() /
-                        ("biv-sessions-codex-range-" +
-                         std::string{version_case.version} + "-" +
-                         std::to_string(::getpid()));
+      const auto home =
+          make_tmp("codex-range-" + std::string{version_case.version});
       const auto store = home / ".codex";
       const auto workspace = home / "workspace";
-      std::filesystem::remove_all(home);
       std::filesystem::create_directories(store);
       std::filesystem::create_directories(workspace);
       {

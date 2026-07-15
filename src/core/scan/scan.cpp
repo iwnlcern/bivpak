@@ -12,6 +12,7 @@
 
 #include "core/ignore/builtin.hpp"
 #include "core/ignore/matcher.hpp"
+#include "core/support/portability.hpp"
 #include "core/support/sha256.hpp"
 
 namespace biv::scan {
@@ -155,8 +156,8 @@ expected<void> walk(const std::filesystem::path& dir,
     entry.kind = kind_from_status(status);
     entry.size = entry.kind == NodeKind::file ? static_cast<uint64_t>(statbuf->st_size) : 0U;
     entry.mode = static_cast<uint32_t>(statbuf->st_mode);
-    entry.mtime_s = static_cast<int64_t>(statbuf->st_mtim.tv_sec);
-    entry.mtime_ns = static_cast<uint32_t>(statbuf->st_mtim.tv_nsec);
+    entry.mtime_s = support::stat_mtime_sec(*statbuf);
+    entry.mtime_ns = support::stat_mtime_nsec(*statbuf);
     if (entry.kind == NodeKind::symlink) {
       auto target = symlink_target(child.path());
       if (!target) {

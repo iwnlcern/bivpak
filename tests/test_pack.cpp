@@ -34,7 +34,7 @@ std::filesystem::path make_tmp(std::string_view name) {
               ("biv-pack-" + std::string{name} + "-" + std::to_string(::getpid()));
   std::filesystem::remove_all(base);
   std::filesystem::create_directories(base);
-  return base;
+  return std::filesystem::canonical(base);
 }
 
 void write_file(const std::filesystem::path& path, std::string_view content) {
@@ -483,6 +483,9 @@ TEST_CASE("pack excludes symlinked Claude agent artifacts") {
 }
 
 TEST_CASE("pack derives relpath from slash-form Windows extended paths") {
+  if (!std::filesystem::exists("/mnt/c") || ::access("/mnt/c", W_OK) != 0) {
+    SKIP("requires a writable /mnt/c WSL fixture root");
+  }
   const auto token = "biv-pack-extended-" + std::to_string(::getpid());
   const auto source = std::filesystem::path{"/mnt/c/tmp"} / token / "proj";
   const auto root = make_tmp("extended-relpath");
@@ -509,6 +512,9 @@ TEST_CASE("pack derives relpath from slash-form Windows extended paths") {
 }
 
 TEST_CASE("pack computes foreign-flavor session relpaths without host path parsing") {
+  if (!std::filesystem::exists("/mnt/c") || ::access("/mnt/c", W_OK) != 0) {
+    SKIP("requires a writable /mnt/c WSL fixture root");
+  }
   const auto root = std::filesystem::path{"/mnt/c/tmp"} /
                     ("biv-pack-foreign-relpath-" +
                      std::to_string(static_cast<long long>(::getpid())));

@@ -29,3 +29,248 @@ jobs:
       - uses: actions/checkout@v4
       - name: Register safety-fuzz-smoke gate
         run: echo "safety-fuzz-smoke is exercised in the integrated s2-core CMake tree when fuzz targets are present."
+
+  build-macos-arm64:
+    runs-on: macos-15
+    steps:
+      - name: Assert Darwin arm64 runner
+        run: |
+          test "$(uname -s)" = "Darwin" || { echo "not Darwin"; exit 1; }
+          test "$(uname -m)" = "arm64" || { echo "not arm64 - the E3 run host is arm64"; exit 1; }
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install harness dependencies
+        run: |
+          python -m venv .venv-harness
+          .venv-harness/bin/python -m pip install -r harness/requirements.lock
+      - name: Configure macOS product
+        run: cmake --preset ci-macos
+      - name: Build macOS product
+        run: cmake --build --preset ci-macos
+      - name: Run macOS product and harness rows
+        run: ctest --preset ci-macos -R '^(biv_tests|harness-selftest|harness-e2)$' --output-on-failure
+      - name: Enforce macOS Catch2 counts and skip identity
+        run: |
+          ./build/ci-macos/biv_tests -r xml > catch.xml
+          python3 - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("catch.xml").getroot()
+          cases = root.find("OverallResultsCases")
+          got = {
+              key: int(cases.get(key, 0))
+              for key in ("successes", "failures", "expectedFailures", "skips")
+          }
+          want = {
+              "successes": 135,
+              "failures": 0,
+              "expectedFailures": 0,
+              "skips": 2,
+          }
+          expected_skips = {
+              "pack derives relpath from slash-form Windows extended paths",
+              "pack computes foreign-flavor session relpaths without host path parsing",
+          }
+          skipped = {
+              test_case.get("name"): (test_case.find("Skip").text or "").strip()
+              for test_case in root.iter("TestCase")
+              if test_case.find("Skip") is not None
+          }
+
+          print("catch2 cases:", got)
+          print("skipped cases:")
+          for name, reason in sorted(skipped.items()):
+              print(f' - "{name}" ({reason})')
+
+          if got != want:
+              sys.exit(f"COUNT GATE FAILED: expected {want}, got {got}")
+          if set(skipped) != expected_skips:
+              sys.exit(
+                  "SKIP-IDENTITY GATE FAILED: "
+                  f"expected {expected_skips}, got {set(skipped)}"
+              )
+          PY
+      - name: Show macOS portability case execution
+        run: |
+          FILTER='*secure_random_bytes*,*stat_mtime*,*scan*,*pack*,*Claude install*,*Codex install*'
+          for pattern in '*secure_random_bytes*' '*stat_mtime*' '*scan*' '*pack*' '*Claude install*' '*Codex install*'; do
+            count=$(./build/ci-macos/biv_tests "$pattern" --list-tests 2>/dev/null | sed -n 's/^\([0-9]*\) matching test cases*/\1/p')
+            [ "${count:-0}" -gt 0 ] || { echo "EMPTY CATEGORY: $pattern selects 0 cases - false proof"; exit 1; }
+          done
+          ./build/ci-macos/biv_tests "$FILTER" --list-tests
+          ./build/ci-macos/biv_tests "$FILTER" --reporter compact
+
+  build-linux-x86_64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Provision pinned clang-tidy-22 capability probe
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          readonly LLVM_MIRROR_TAG="toolchain-mirror-clang-tidy-22-immutable-v1"
+          readonly LLVM_MIRROR_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${LLVM_MIRROR_TAG}"
+          readonly LLVM_MIRROR_DIR="/tmp/llvm22-mirror"
+          readonly LLVM_TIDY_VERSION="1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78"
+          mkdir -p "$LLVM_MIRROR_DIR"
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates
+
+          cat > "$LLVM_MIRROR_DIR/MANIFEST" <<'EOF'
+          c35ae50ecf7704b3dd0278837c4c223e72318e15de6869e3c73b58fbc64b547d clang-22 clang-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          1e5917c1cd027548aff5cd35ee4f781a867d5daf03d9eb92611fc838ae9fa3dc clang-tidy-22 clang-tidy-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          05215c729cd18307e2bbfb710505b034e3ced630f68e146d4c0762877073c085 clang-tools-22 clang-tools-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          a722846476ee806a76710eea0c8cc63b18082b55eac8e2c6f092b7495a054240 libclang-common-22-dev libclang-common-22-dev_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          4c558366775f03a236a98a3e26f0f09ffab9d5df32c40050cee94c7aeca1ca44 libclang-cpp22 libclang-cpp22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          8488e5d288780d269c3516855247542f269bafafc55699502625f3ebdabce73b libclang1-22 libclang1-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          061b48c5a47589db2ee24bcba17aebb258c973bfa41e5bdc8e46a64ea4244ceb libllvm22 libllvm22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          f397059ac1ab2a8ea2a5707d7eec2dac6724f2f141e4668b75d08da62dd4280a llvm-22-linker-tools llvm-22-linker-tools_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb
+          EOF
+
+          while read -r _ package asset; do
+            echo "mirror asset: package=$package url=$LLVM_MIRROR_URL/$asset"
+            gh release download "$LLVM_MIRROR_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "$asset" \
+              --dir "$LLVM_MIRROR_DIR"
+          done < "$LLVM_MIRROR_DIR/MANIFEST"
+
+          awk '{ print $1 "  " $3 }' "$LLVM_MIRROR_DIR/MANIFEST" \
+            > "$LLVM_MIRROR_DIR/SHA256SUMS"
+          (cd "$LLVM_MIRROR_DIR" && sha256sum --check --strict SHA256SUMS)
+
+          while read -r _ expected_package asset; do
+            packaged_name=$(dpkg-deb --field "$LLVM_MIRROR_DIR/$asset" Package)
+            packaged_version=$(dpkg-deb --field "$LLVM_MIRROR_DIR/$asset" Version)
+            packaged_arch=$(dpkg-deb --field "$LLVM_MIRROR_DIR/$asset" Architecture)
+            test "$packaged_name" = "$expected_package" || {
+              echo "package mismatch: expected $expected_package, got $packaged_name"
+              exit 1
+            }
+            test "$packaged_version" = "$LLVM_TIDY_VERSION" || {
+              echo "$expected_package version mismatch: expected $LLVM_TIDY_VERSION, got $packaged_version"
+              exit 1
+            }
+            test "$packaged_arch" = "amd64" || {
+              echo "$expected_package architecture mismatch: expected amd64, got $packaged_arch"
+              exit 1
+            }
+            echo "verified package: $packaged_name $packaged_version $packaged_arch"
+          done < "$LLVM_MIRROR_DIR/MANIFEST"
+
+          test "$(find "$LLVM_MIRROR_DIR" -maxdepth 1 -name '*.deb' | wc -l)" -eq 8
+          sudo apt-get install -y --no-install-recommends "$LLVM_MIRROR_DIR"/*.deb
+          while read -r _ package _; do
+            installed_package_version=$(dpkg-query --show --showformat='${Version}' "$package")
+            test "$installed_package_version" = "$LLVM_TIDY_VERSION" || {
+              echo "$package install mismatch: expected $LLVM_TIDY_VERSION, got $installed_package_version"
+              exit 1
+            }
+          done < "$LLVM_MIRROR_DIR/MANIFEST"
+
+          installed_version=$(dpkg-query --show --showformat='${Version}' clang-tidy-22)
+          test "$installed_version" = "$LLVM_TIDY_VERSION" || {
+            echo "clang-tidy-22 install mismatch: expected $LLVM_TIDY_VERSION, got $installed_version"
+            exit 1
+          }
+          version_output=$(clang-tidy-22 --version)
+          printf '%s\n' "$version_output"
+          observed_major=$(sed -nE 's/.*LLVM version ([0-9]+).*/\1/p' <<<"$version_output" | head -n 1)
+          test "$observed_major" = "22" || {
+            echo "clang-tidy-22 major mismatch: expected 22, got ${observed_major:-<empty>}"
+            exit 1
+          }
+      - name: Install harness dependencies
+        run: |
+          python -m venv .venv-harness
+          .venv-harness/bin/python -m pip install -r harness/requirements.lock
+      - name: Provision writable WSL fixture root
+        run: |
+          sudo mkdir -p /mnt/c/tmp
+          sudo chown -R "$(id -u):$(id -g)" /mnt/c
+          test -w /mnt/c/tmp || { echo "/mnt/c not writable - the cross-flavor cases cannot run"; exit 1; }
+      - name: Configure Linux product
+        run: cmake --preset ci -DBIVHARNESS_REQUIRE_CLANG_TIDY=ON
+      - name: Build Linux product
+        run: cmake --build --preset ci
+      - name: Run full Linux product and harness suite
+        run: |
+          JUNIT="$GITHUB_WORKSPACE/ctest.xml"
+          ctest_rc=0
+          ctest --preset ci --output-junit "$JUNIT" --output-on-failure || ctest_rc=$?
+
+          tidy_gate_rc=0
+          python3 - "$JUNIT" <<'PY' || tidy_gate_rc=$?
+          import sys
+          import xml.etree.ElementTree as ET
+
+          ROW = "safety-tidy-analyzer"
+          cases = [
+              tc
+              for tc in ET.parse(sys.argv[1]).getroot().iter("testcase")
+              if tc.get("name") == ROW
+          ]
+          if len(cases) != 1:
+              sys.exit(
+                  f"TIDY ROW GATE FAILED: expected exactly 1 '{ROW}' record, "
+                  f"found {len(cases)}. ABSENT/NOT-SELECTED is a false green: "
+                  "the row cannot protect what it never ran on."
+              )
+          tc = cases[0]
+          kids = {child.tag for child in tc}
+          status = tc.get("status")
+          if "skipped" in kids or status == "notrun":
+              sys.exit(
+                  f"TIDY ROW GATE FAILED: '{ROW}' was SKIPPED (status={status!r}). "
+                  "ctest exits 0 on the skip arm - this IS the false green "
+                  "Task 0d exists to remove."
+              )
+          if "failure" in kids or "error" in kids:
+              sys.exit(
+                  f"TIDY ROW GATE FAILED: '{ROW}' RAN and FAILED "
+                  f"(status={status!r})."
+              )
+          if status != "run":
+              sys.exit(
+                  f"TIDY ROW GATE FAILED: '{ROW}' status={status!r}, "
+                  "expected 'run'."
+              )
+          print(
+              f"tidy row gate: OK - '{ROW}' EXECUTED and PASSED "
+              f"(status={status!r})."
+          )
+          PY
+
+          if [ "$ctest_rc" -ne 0 ] || [ "$tidy_gate_rc" -ne 0 ]; then exit 1; fi
+      - name: Enforce Linux Catch2 counts
+        run: |
+          ./build/ci/biv_tests -r xml > catch.xml
+          python3 - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          cases = ET.parse("catch.xml").getroot().find("OverallResultsCases")
+          got = {
+              key: int(cases.get(key, 0))
+              for key in ("successes", "failures", "expectedFailures", "skips")
+          }
+          want = {
+              "successes": 137,
+              "failures": 0,
+              "expectedFailures": 0,
+              "skips": 0,
+          }
+          print("catch2 cases:", got)
+          if got != want:
+              sys.exit(f"COUNT GATE FAILED: expected {want}, got {got}")
+          PY

@@ -11,7 +11,6 @@
 #include <fstream>
 #include <limits>
 #include <optional>
-#include <random>
 #include <set>
 #include <span>
 #include <string>
@@ -20,19 +19,19 @@
 #include <vector>
 
 #include <fcntl.h>
-#if defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
 #endif
 #include <simdjson.h>
-#if defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
-#include <sys/random.h>
 #include <unistd.h>
 
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
+#include "core/support/portability.hpp"
 
 namespace biv::adapters {
 
@@ -100,12 +99,7 @@ manifest::PathFlavor path_flavor_for(const fs::path& path) {
 
 std::string uuid4() {
   std::array<unsigned char, 16> bytes {};
-  if (::getrandom(bytes.data(), bytes.size(), 0) != static_cast<ssize_t>(bytes.size())) {
-    std::random_device rd;
-    for (auto& byte : bytes) {
-      byte = static_cast<unsigned char>(rd());
-    }
-  }
+  support::secure_random_bytes(bytes.data(), bytes.size());
   bytes.at(6) = static_cast<unsigned char>((bytes.at(6) & 0x0fU) | 0x40U);
   bytes.at(8) = static_cast<unsigned char>((bytes.at(8) & 0x3fU) | 0x80U);
 

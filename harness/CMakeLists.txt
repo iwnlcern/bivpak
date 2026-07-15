@@ -85,8 +85,76 @@ else()
   bivharness_skip_test(safety-asan-ubsan "no biv_tests target")
 endif()
 
-find_program(BIVHARNESS_CLANG_TIDY clang-tidy)
-if(BIVHARNESS_CLANG_TIDY AND EXISTS "${CMAKE_SOURCE_DIR}/src")
+option(BIVHARNESS_REQUIRE_CLANG_TIDY "Fail configuration if the pinned clang-tidy is unusable" OFF)
+set(BIVHARNESS_CLANG_TIDY_MAJOR 22 CACHE STRING "Required LLVM major version")
+
+function(_tidy_unusable reason)
+  if(BIVHARNESS_REQUIRE_CLANG_TIDY)
+    message(FATAL_ERROR "safety-tidy-analyzer REQUIRED but unusable: ${reason}")
+  endif()
+  bivharness_skip_test(safety-tidy-analyzer "${reason}")
+  set(_TIDY_OK FALSE PARENT_SCOPE)
+endfunction()
+
+set(_TIDY_OK TRUE)
+find_program(BIVHARNESS_CLANG_TIDY NAMES "clang-tidy-${BIVHARNESS_CLANG_TIDY_MAJOR}")
+
+if(NOT BIVHARNESS_CLANG_TIDY)
+  _tidy_unusable("pinned clang-tidy-${BIVHARNESS_CLANG_TIDY_MAJOR} not found")
+elseif(NOT EXISTS "${CMAKE_SOURCE_DIR}/src")
+  _tidy_unusable("no project src tree in this build")
+else()
+  execute_process(
+    COMMAND "${BIVHARNESS_CLANG_TIDY}" --version
+    OUTPUT_VARIABLE _v
+    ERROR_QUIET)
+  string(REGEX MATCH "LLVM version ([0-9]+)" _ "${_v}")
+  set(_major "${CMAKE_MATCH_1}")
+  message(STATUS "clang-tidy: ${BIVHARNESS_CLANG_TIDY} (LLVM major ${_major})")
+  if(NOT _major STREQUAL "${BIVHARNESS_CLANG_TIDY_MAJOR}")
+    _tidy_unusable("LLVM major ${_major}, required ${BIVHARNESS_CLANG_TIDY_MAJOR}")
+  else()
+    set(_probe "${CMAKE_CURRENT_BINARY_DIR}/tidy_probe.cpp")
+    file(WRITE "${_probe}"
+"#include <expected>
+#include <string>
+#if !defined(_GLIBCXX_RELEASE)
+#  error \"BIVPAK: analyzer did NOT resolve libstdc++ (no _GLIBCXX_RELEASE)\"
+#endif
+#if _GLIBCXX_RELEASE < 13
+#  error \"BIVPAK: libstdc++ release < 13 - no <expected>\"
+#endif
+#define BIV_STR2(x) #x
+#define BIV_STR(x) BIV_STR2(x)
+#pragma message(\"BIVPAK_TIDY_PAIRING: libstdc++ _GLIBCXX_RELEASE=\" BIV_STR(_GLIBCXX_RELEASE))
+std::expected<int,std::string> p(){return 1;}
+")
+    message(STATUS "clang-tidy probe cmd: ${BIVHARNESS_CLANG_TIDY} "
+                   "--checks=-*,misc-unused-alias-decls,clang-diagnostic-* --config={WarningsAsErrors: ''} --quiet ${_probe} -- -std=c++23")
+    execute_process(
+      COMMAND "${BIVHARNESS_CLANG_TIDY}"
+              "--checks=-*,misc-unused-alias-decls,clang-diagnostic-*"
+              "--config={WarningsAsErrors: ''}" --quiet "${_probe}"
+              -- -std=c++23
+      RESULT_VARIABLE _prc
+      OUTPUT_VARIABLE _pout
+      ERROR_VARIABLE _perr)
+    if(NOT _prc EQUAL 0)
+      _tidy_unusable("analyzer cannot parse <expected> under C++23, or resolved a non-libstdc++ / pre-13 stdlib (probe rc=${_prc})\n--- clang-tidy STDOUT (diagnostics + pairing marker) ---\n${_pout}\n--- clang-tidy STDERR (summary) ---\n${_perr}")
+    else()
+      string(REGEX MATCH "BIVPAK_TIDY_PAIRING: libstdc\\+\\+ _GLIBCXX_RELEASE=([0-9]+)"
+             _ "${_pout}${_perr}")
+      set(BIVHARNESS_TIDY_GLIBCXX "${CMAKE_MATCH_1}")
+      if(NOT BIVHARNESS_TIDY_GLIBCXX)
+        _tidy_unusable("probe passed but did not REPORT a libstdc++ release - pairing unobservable")
+      else()
+        message(STATUS "clang-tidy resolved libstdc++ _GLIBCXX_RELEASE=${BIVHARNESS_TIDY_GLIBCXX}")
+      endif()
+    endif()
+  endif()
+endif()
+
+if(_TIDY_OK)
   add_test(
     NAME safety-tidy-analyzer
     COMMAND "${BIVHARNESS_PYTHON}" "${BIVHARNESS_SOURCE_DIR}/ci/run_clang_tidy.py"
@@ -94,10 +162,8 @@ if(BIVHARNESS_CLANG_TIDY AND EXISTS "${CMAKE_SOURCE_DIR}/src")
             --compile-commands "${CMAKE_BINARY_DIR}/compile_commands.json"
             --source-root "${CMAKE_SOURCE_DIR}")
   set_tests_properties(safety-tidy-analyzer PROPERTIES
-    TIMEOUT 240
+    TIMEOUT 600
     LABELS "safety;tidy")
-else()
-  bivharness_skip_test(safety-tidy-analyzer "clang-tidy unavailable or no project src tree in this build")
 endif()
 
 if(TARGET biv)

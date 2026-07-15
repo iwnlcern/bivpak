@@ -67,7 +67,7 @@ fs::path make_tmp(std::string_view name) {
                                    "-" + std::to_string(::getpid()));
   fs::remove_all(base);
   fs::create_directories(base);
-  return base;
+  return fs::canonical(base);
 }
 
 void copy_fixture_tree(const fs::path& from, const fs::path& to) {
