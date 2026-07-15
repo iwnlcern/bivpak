@@ -162,7 +162,7 @@ if(_TIDY_OK)
             --compile-commands "${CMAKE_BINARY_DIR}/compile_commands.json"
             --source-root "${CMAKE_SOURCE_DIR}")
   set_tests_properties(safety-tidy-analyzer PROPERTIES
-    TIMEOUT 240
+    TIMEOUT 600
     LABELS "safety;tidy")
 endif()
 

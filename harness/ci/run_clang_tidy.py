@@ -1,6 +1,9 @@
 import argparse
 import json
+import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from pathlib import Path
 
 
@@ -27,6 +30,39 @@ def _project_sources(compile_commands: Path, source_root: Path) -> list[Path]:
     return sorted(set(sources))
 
 
+def _analyze(
+    source: Path, clang_tidy: str, compile_commands: Path
+) -> tuple[Path, int, str, str]:
+    try:
+        run = subprocess.run(
+            [
+                clang_tidy,
+                "--quiet",
+                f"-checks={CHECKS}",
+                "--warnings-as-errors=*",
+                "-p",
+                str(compile_commands.parent),
+                str(source),
+            ],
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        return source, run.returncode, run.stdout, run.stderr
+    except Exception as error:
+        return source, 97, "", f"analyzer failed to run on {source}: {error}"
+
+
+def _run_parallel(
+    sources: list[Path], clang_tidy: str, compile_commands: Path
+) -> list[tuple[Path, int, str, str]]:
+    analyze = partial(
+        _analyze, clang_tidy=clang_tidy, compile_commands=compile_commands
+    )
+    with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as executor:
+        return list(executor.map(analyze, sources))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--clang-tidy", required=True)
@@ -43,24 +79,19 @@ def main() -> int:
         print("compile_commands.json contains no project sources")
         return 1
 
-    failures = []
-    for source in sources:
-        run = subprocess.run(
-            [
-                args.clang_tidy,
-                "--quiet",
-                f"-checks={CHECKS}",
-                "--warnings-as-errors=*",
-                "-p",
-                str(args.compile_commands.parent),
-                str(source),
-            ],
-            check=False,
-            text=True,
-            capture_output=True,
+    results = _run_parallel(sources, args.clang_tidy, args.compile_commands)
+    if len(results) != len(sources):
+        print(
+            f"COVERAGE FAILURE: {len(results)} results vs {len(sources)} sources"
+            " - a TU was DROPPED"
         )
-        if run.returncode != 0:
-            failures.append(f"{source} exited {run.returncode}\n{run.stdout}\n{run.stderr}")
+        return 1
+
+    print(f"clang-tidy coverage: {len(results)} results == {len(sources)} sources")
+    failures = []
+    for source, returncode, stdout, stderr in sorted(results):
+        if returncode != 0:
+            failures.append(f"{source} exited {returncode}\n{stdout}\n{stderr}")
 
     if failures:
         print("\n".join(failures))

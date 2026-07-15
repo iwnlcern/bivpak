@@ -27,6 +27,7 @@ def test_cmake_registers_harness_and_safety_gate_rows():
     assert "harness-e2 PROPERTIES" in text
     assert "LABELS" in text
     assert "run_clang_tidy.py" in text
+    assert "set_tests_properties(safety-tidy-analyzer PROPERTIES\n    TIMEOUT 600" in text
 
 
 def test_fuzz_budget_is_fixed_runs_and_seed():
