@@ -559,16 +559,19 @@ def _agent_profile(agent: dict[str, Any], profile_root: Path, *, live: bool) -> 
     return (profile_root / suffix).resolve(strict=False)
 
 
-def _agent_env(agent: dict[str, Any], profile: Path) -> dict[str, str]:
+def _agent_env(agent: dict[str, Any], profile: Path, *, live: bool) -> dict[str, str]:
+    if live:
+        return {}
     return {key: str(value).format(profile=str(profile)) for key, value in agent.get("env", {}).items()}
 
 
-def _login_instruction(agent: dict[str, Any], profile: Path) -> str:
+def _login_instruction(agent: dict[str, Any], profile: Path, *, live: bool) -> str:
     command = [agent["auth_status"][0], "auth", "login"]
     if agent["id"] == "codex":
         command = [agent["auth_status"][0], "login"]
     assignments = " ".join(
-        f"{key}={shlex.quote(value)}" for key, value in _agent_env(agent, profile).items()
+        f"{key}={shlex.quote(value)}"
+        for key, value in _agent_env(agent, profile, live=live).items()
     )
     return " ".join(part for part in (assignments, shlex.join(command)) if part)
 
@@ -587,10 +590,10 @@ def perform_oauth_checkpoint(
     for agent in spec["agents"]:
         profile = _agent_profile(agent, profile_root, live=False)
         profile.mkdir(parents=True, exist_ok=True)
-        env = _agent_env(agent, profile)
+        env = _agent_env(agent, profile, live=False)
         env["HOME"] = str(home)
         contexts.append((agent, profile, env))
-        instructions.append(_login_instruction(agent, profile))
+        instructions.append(_login_instruction(agent, profile, live=False))
 
     checkpoints = ["host2-oauth"]
     assert_one_checkpoint(checkpoints)
@@ -1044,10 +1047,10 @@ def run_e3(
         live_contexts: list[tuple[dict[str, Any], Path, dict[str, str]]] = []
         for agent in spec["agents"]:
             live_profile = _agent_profile(agent, profile_root, live=True)
-            env = _agent_env(agent, live_profile)
+            env = _agent_env(agent, live_profile, live=True)
             auth = _spawn(agent["auth_status"], seed_ws, env)
             if auth.returncode != 0:
-                instruction = _login_instruction(agent, live_profile)
+                instruction = _login_instruction(agent, live_profile, live=True)
                 return _result(spec, Status.INVALID, f"{agent['id']} is not authenticated; run: {instruction}")
             version = _spawn(agent["version_command"], seed_ws, env)
             if version.returncode != 0 or not version_in_validated_range(

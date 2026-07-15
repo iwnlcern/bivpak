@@ -173,8 +173,84 @@ def _valid_two_agent_spec():
     }
 
 
+def _live_override_spec():
+    """Return a valid spec whose agents carry the shipped store overrides."""
+    spec = _valid_two_agent_spec()
+    overrides = {
+        "claude-code": {"CLAUDE_CONFIG_DIR": "{profile}"},
+        "codex": {"CODEX_HOME": "{profile}"},
+    }
+    for agent in spec["agents"]:
+        agent["env"] = overrides[agent["id"]]
+    return spec
+
+
 def test_shared_fixture_is_valid_as_authored():
     assert e3._validate_spec(_valid_two_agent_spec()) == []
+
+
+def test_live_override_spec_is_valid():
+    assert e3._validate_spec(_live_override_spec()) == []
+
+
+def test_live_codex_auth_probe_runs_ambient_no_store_override(
+    monkeypatch, tmp_path, stable_test_root
+):
+    seen = {}
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        seen[tuple(command)] = dict(env)
+        if command == ["codex", "login", "status"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_live_override_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "not authenticated" in result.detail
+    assert "CODEX_HOME" not in seen[("codex", "login", "status")]
+    assert "CODEX_HOME=" not in result.detail
+    assert "codex login" in result.detail
+    assert calls == [["codex", "login", "status"]]
+
+
+def test_live_claude_auth_probe_runs_ambient_no_store_override(
+    monkeypatch, tmp_path, stable_test_root
+):
+    seen = {}
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        seen[tuple(command)] = dict(env)
+        if command == ["codex", "--version"]:
+            return SimpleNamespace(returncode=0, stdout="0.144.1", stderr="")
+        if command == ["claude", "auth", "status"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_live_override_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "not authenticated" in result.detail
+    assert "CLAUDE_CONFIG_DIR" not in seen[("claude", "auth", "status")]
+    assert "CLAUDE_CONFIG_DIR=" not in result.detail
+    assert "claude auth login" in result.detail
+    assert calls == [
+        ["codex", "login", "status"],
+        ["codex", "--version"],
+        ["claude", "auth", "status"],
+    ]
 
 
 def test_ordered_turns_require_all_sentinels_and_probe_in_order():
