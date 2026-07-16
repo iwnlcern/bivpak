@@ -28,6 +28,10 @@ CLAUDE_RESUME_MUTATION = "appends-same-file"
 CODEX_RESUME_SHAPE = "appends-same-rollout"
 E3_CLASS = "E3 (real CLI resume in isolated profile)"
 COMMAND_TIMEOUT_S = 120
+LIVE_STORE_SELECTORS: dict[str, tuple[str, ...]] = {
+    "claude-code": ("CLAUDE_CONFIG_DIR",),
+    "codex": ("CODEX_HOME",),
+}
 
 
 def rejected_credential_names(env: dict[str, str]) -> list[str]:
@@ -964,6 +968,26 @@ def _negative_control_failures(owned_paths: list[Path]) -> list[str]:
     return failures
 
 
+def ambient_store_selector_failures(spec: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    for agent in spec.get("agents", []):
+        agent_id = agent.get("id")
+        selectors = LIVE_STORE_SELECTORS.get(agent_id)
+        if selectors is None:
+            failures.append(
+                f"no live store-selector policy for agent {agent_id!r}; "
+                "the E3 live leg cannot certify its effective store"
+            )
+            continue
+        for key in selectors:
+            if os.environ.get(key):
+                failures.append(
+                    f"ambient store selector {key} is set for {agent_id}; the E3 live leg "
+                    f"must run under the sealed default store - unset {key} before the run"
+                )
+    return failures
+
+
 def run_e3(
     spec_path: Path,
     biv: Path,
@@ -990,6 +1014,7 @@ def run_e3(
         return _result(spec, Status.INVALID, f"scratch is unusable: {exc}")
     failures = _path_field_failures(spec, scratch)
     failures.extend(f"credential-env:{name}" for name in rejected_credential_names(os.environ))
+    failures.extend(ambient_store_selector_failures(spec))
     if failures:
         return _result(spec, Status.INVALID, "\n".join(failures))
 

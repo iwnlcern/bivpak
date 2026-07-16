@@ -185,12 +185,72 @@ def _live_override_spec():
     return spec
 
 
+def _selector_spec(env_mode):
+    spec = _valid_two_agent_spec()
+    if env_mode == "absent":
+        for agent in spec["agents"]:
+            agent.pop("env", None)
+    return spec
+
+
 def test_shared_fixture_is_valid_as_authored():
     assert e3._validate_spec(_valid_two_agent_spec()) == []
 
 
 def test_live_override_spec_is_valid():
     assert e3._validate_spec(_live_override_spec()) == []
+
+
+@pytest.mark.parametrize("env_mode", ("empty", "absent"))
+def test_e3_rejects_divergent_ambient_store_selector_pre_spend(
+    monkeypatch, tmp_path, stable_test_root, env_mode
+):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "ambient-claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "ambient-codex"))
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_selector_spec(env_mode)), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert calls == []
+    assert result.status is Status.INVALID
+    assert "CLAUDE_CONFIG_DIR" in result.detail
+    assert "CODEX_HOME" in result.detail
+
+
+def test_e3_dry_run_rejects_divergent_ambient_store_selector(
+    monkeypatch, tmp_path, stable_test_root
+):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "ambient-claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "ambient-codex"))
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(
+        spec_path,
+        Path("biv"),
+        stable_test_root / "scratch",
+        dry_run=True,
+    )
+
+    assert calls == []
+    assert result.status is Status.INVALID
+    assert "CLAUDE_CONFIG_DIR" in result.detail
+    assert "CODEX_HOME" in result.detail
 
 
 def test_live_codex_auth_probe_runs_ambient_no_store_override(
@@ -2939,32 +2999,12 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
             return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
         return SimpleNamespace(returncode=0, stdout="tool 1.0.0", stderr="")
 
-    agents = []
-    for agent_id, command in (("first", "first"), ("second", "second")):
-        agents.append({
-            "id": agent_id,
-            "live_profile": str(Path.home() / f".{agent_id}"),
-            "env": {},
-            "auth_status": [command, "auth"],
-                "version_command": [command, "version"],
-                "validated_version_prefixes": ["1.0."],
-                "cheapest_model": "cheap",
-                "seed_start_command": [command, "seed", "{run_token}", "--model", "cheap"],
-                "seed_retry_resume_command": [command, "retry", "{run_token}", "--model", "cheap"],
-                "seed_continue_command": [command, "continue", "{run_token}", "--model", "cheap"],
-                "ownership_glob": "*.jsonl",
-                "run_token_prefix": "token",
-                "resume_command": [command, "resume", "--model", "cheap"],
-            })
-    spec = {
-        "id": "auth-order",
-        "tier": "E3",
-        "checkpoint_count": 1,
-        "seed_turns": ["one", "two"],
-        "resume_probe": "probe",
-        "credential_scan_sentinels": ["synthetic-secret"],
-        "agents": agents,
-    }
+    spec = _valid_two_agent_spec()
+    spec["id"] = "auth-order"
+    for agent, command in zip(spec["agents"], ("first", "second")):
+        agent["auth_status"] = [command, "auth"]
+        agent["version_command"] = [command, "version"]
+        agent["validated_version_prefixes"] = ["1.0."]
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
     scratch = Path.home() / ".cache" / f"biv-e3-auth-order-{os.getpid()}"
