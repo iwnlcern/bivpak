@@ -173,8 +173,145 @@ def _valid_two_agent_spec():
     }
 
 
+def _live_override_spec():
+    """Return a valid spec whose agents carry the shipped store overrides."""
+    spec = _valid_two_agent_spec()
+    overrides = {
+        "claude-code": {"CLAUDE_CONFIG_DIR": "{profile}"},
+        "codex": {"CODEX_HOME": "{profile}"},
+    }
+    for agent in spec["agents"]:
+        agent["env"] = overrides[agent["id"]]
+    return spec
+
+
+def _selector_spec(env_mode):
+    spec = _valid_two_agent_spec()
+    if env_mode == "absent":
+        for agent in spec["agents"]:
+            agent.pop("env", None)
+    return spec
+
+
 def test_shared_fixture_is_valid_as_authored():
     assert e3._validate_spec(_valid_two_agent_spec()) == []
+
+
+def test_live_override_spec_is_valid():
+    assert e3._validate_spec(_live_override_spec()) == []
+
+
+@pytest.mark.parametrize("env_mode", ("empty", "absent"))
+def test_e3_rejects_divergent_ambient_store_selector_pre_spend(
+    monkeypatch, tmp_path, stable_test_root, env_mode
+):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "ambient-claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "ambient-codex"))
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_selector_spec(env_mode)), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert calls == []
+    assert result.status is Status.INVALID
+    assert "CLAUDE_CONFIG_DIR" in result.detail
+    assert "CODEX_HOME" in result.detail
+
+
+def test_e3_dry_run_rejects_divergent_ambient_store_selector(
+    monkeypatch, tmp_path, stable_test_root
+):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "ambient-claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "ambient-codex"))
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(
+        spec_path,
+        Path("biv"),
+        stable_test_root / "scratch",
+        dry_run=True,
+    )
+
+    assert calls == []
+    assert result.status is Status.INVALID
+    assert "CLAUDE_CONFIG_DIR" in result.detail
+    assert "CODEX_HOME" in result.detail
+
+
+def test_live_codex_auth_probe_runs_ambient_no_store_override(
+    monkeypatch, tmp_path, stable_test_root
+):
+    seen = {}
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        seen[tuple(command)] = dict(env)
+        if command == ["codex", "login", "status"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_live_override_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "not authenticated" in result.detail
+    assert "CODEX_HOME" not in seen[("codex", "login", "status")]
+    assert "CODEX_HOME=" not in result.detail
+    assert "codex login" in result.detail
+    assert calls == [["codex", "login", "status"]]
+
+
+def test_live_claude_auth_probe_runs_ambient_no_store_override(
+    monkeypatch, tmp_path, stable_test_root
+):
+    seen = {}
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        seen[tuple(command)] = dict(env)
+        if command == ["codex", "--version"]:
+            return SimpleNamespace(returncode=0, stdout="0.144.1", stderr="")
+        if command == ["claude", "auth", "status"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_live_override_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "not authenticated" in result.detail
+    assert "CODEX_HOME" not in seen[("codex", "--version")]
+    assert "CLAUDE_CONFIG_DIR" not in seen[("claude", "auth", "status")]
+    assert "CLAUDE_CONFIG_DIR=" not in result.detail
+    assert "claude auth login" in result.detail
+    assert calls == [
+        ["codex", "login", "status"],
+        ["codex", "--version"],
+        ["claude", "auth", "status"],
+    ]
 
 
 def test_ordered_turns_require_all_sentinels_and_probe_in_order():
@@ -218,6 +355,128 @@ def _checkpoint_agents():
             "validated_version_prefixes": ["0.142.", "0.144."],
         },
     ]
+
+
+def _by_id(agents):
+    return {agent["id"]: agent for agent in agents}
+
+
+def test_live_leg_env_construction_has_no_store_override():
+    for agent in _checkpoint_agents():
+        assert e3._agent_env(agent, Path("/anything"), live=True) == {}
+
+
+def test_host2_leg_env_construction_keeps_store_override():
+    agents = _by_id(_checkpoint_agents())
+    root = Path("/tmp/e3-host2-profiles")
+
+    assert e3._agent_env(agents["claude-code"], root / "claude", live=False) == {
+        "CLAUDE_CONFIG_DIR": str(root / "claude")
+    }
+    assert e3._agent_env(agents["codex"], root / "codex", live=False) == {
+        "CODEX_HOME": str(root / "codex")
+    }
+
+
+def test_live_login_instruction_is_ambient():
+    agents = _by_id(_checkpoint_agents())
+
+    assert (
+        e3._login_instruction(agents["claude-code"], Path("/x"), live=True)
+        == "claude auth login"
+    )
+    assert (
+        e3._login_instruction(agents["codex"], Path("/x"), live=True)
+        == "codex login"
+    )
+
+
+def test_live_seed_boundary_receives_ambient_env_for_both_agents(
+    monkeypatch, tmp_path, stable_test_root
+):
+    seen = {}
+    version_envs = {}
+
+    def fake_seed(agent, live_profile, seed_ws, spec, env, spawn, candidates, owned):
+        seen[agent["id"]] = dict(env)
+        if len(seen) == 2:
+            raise ValueError("stop-after-seed-loop")
+        return tmp_path / "dummy.jsonl"
+
+    def fake_spawn(command, cwd, env):
+        if command[-1] == "--version":
+            version_envs[command[0]] = dict(env)
+            version = "2.1.210" if command[0] == "claude" else "0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed)
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_live_override_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert result.detail == "stop-after-seed-loop"
+    assert set(seen) == {"codex", "claude-code"}
+    assert version_envs == {"codex": {}, "claude": {}}
+    for env in seen.values():
+        assert "CLAUDE_CONFIG_DIR" not in env
+        assert "CODEX_HOME" not in env
+
+
+@pytest.mark.parametrize(
+    "start_ok,expected_verbs",
+    [
+        (True, ["seed", "continue"]),
+        (False, ["seed", "retry", "continue", "continue"]),
+    ],
+)
+def test_seed_agent_forwards_received_env_to_every_model_spawn(
+    monkeypatch, tmp_path, start_ok, expected_verbs
+):
+    spec = e3.materialize_run_tokens(_live_override_spec())
+    agent = _by_id(spec["agents"])["claude-code"]
+    transcript = tmp_path / "s.jsonl"
+    transcript.write_text("\n".join(spec["seed_turns"]) + "\n", encoding="utf-8")
+    recorded = []
+
+    def rec_spawn(command, cwd, env):
+        recorded.append((list(command), dict(env)))
+        return SimpleNamespace(returncode=0 if start_ok else 1, stdout="", stderr="")
+
+    def fake_capture_attempt(root, pattern, run_token, command, path_proof=None):
+        command()
+        result = SimpleNamespace(returncode=0 if start_ok else 1)
+        return result, None, [transcript], [transcript]
+
+    def fake_capture_seed_leg(root, pattern, run_token, command, path_proof=None):
+        command()
+        return SimpleNamespace(returncode=0), transcript, []
+
+    monkeypatch.setattr(e3, "_capture_attempt", fake_capture_attempt)
+    monkeypatch.setattr(e3, "_capture_seed_leg", fake_capture_seed_leg)
+    monkeypatch.setattr(
+        e3, "_session_id_from_path", lambda agent_id, path: "fixed-id"
+    )
+    sentinel = {"AMBIENT_MARKER": "1"}
+
+    result = e3._seed_agent(
+        agent,
+        tmp_path / "profile",
+        tmp_path / "ws",
+        spec,
+        sentinel,
+        rec_spawn,
+        [],
+        [],
+    )
+
+    assert result == transcript
+    assert [command[1] for command, _ in recorded] == expected_verbs
+    for _, env in recorded:
+        assert env == sentinel
 
 
 def _checkpoint_version_output(command):
@@ -2740,32 +2999,12 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
             return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
         return SimpleNamespace(returncode=0, stdout="tool 1.0.0", stderr="")
 
-    agents = []
-    for agent_id, command in (("first", "first"), ("second", "second")):
-        agents.append({
-            "id": agent_id,
-            "live_profile": str(Path.home() / f".{agent_id}"),
-            "env": {},
-            "auth_status": [command, "auth"],
-                "version_command": [command, "version"],
-                "validated_version_prefixes": ["1.0."],
-                "cheapest_model": "cheap",
-                "seed_start_command": [command, "seed", "{run_token}", "--model", "cheap"],
-                "seed_retry_resume_command": [command, "retry", "{run_token}", "--model", "cheap"],
-                "seed_continue_command": [command, "continue", "{run_token}", "--model", "cheap"],
-                "ownership_glob": "*.jsonl",
-                "run_token_prefix": "token",
-                "resume_command": [command, "resume", "--model", "cheap"],
-            })
-    spec = {
-        "id": "auth-order",
-        "tier": "E3",
-        "checkpoint_count": 1,
-        "seed_turns": ["one", "two"],
-        "resume_probe": "probe",
-        "credential_scan_sentinels": ["synthetic-secret"],
-        "agents": agents,
-    }
+    spec = _valid_two_agent_spec()
+    spec["id"] = "auth-order"
+    for agent, command in zip(spec["agents"], ("first", "second")):
+        agent["auth_status"] = [command, "auth"]
+        agent["version_command"] = [command, "version"]
+        agent["validated_version_prefixes"] = ["1.0."]
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
     scratch = Path.home() / ".cache" / f"biv-e3-auth-order-{os.getpid()}"
