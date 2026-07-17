@@ -953,45 +953,64 @@ def _scratch_overlap_failures(spec: dict[str, Any], scratch: Path) -> list[str]:
     ]
 
 
+def _scratch_temp_root_overlap_failures(scratch: Path) -> list[str]:
+    scratch = scratch.resolve()
+    temp_roots = {
+        Path(os.environ.get("TMPDIR", "/tmp")).resolve(),
+        Path("/private/var/tmp").resolve(),
+    }
+    return [
+        f"scratch overlaps temporary root: {scratch} contains {temp_root}"
+        for temp_root in sorted(temp_roots, key=str)
+        if scratch == temp_root or scratch in temp_root.parents
+    ]
+
+
 _ALIAS_PREFIX_PAIRS = (
     ("/private/var/", "/var/"),
     ("/private/tmp/", "/tmp/"),
     ("/private/etc/", "/etc/"),
+    ("/System/Volumes/Data/", "/"),
 )
 
 
-def _alias_spellings(root: Path) -> list[bytes]:
-    """Return alternate spellings of a run root under Darwin's /private aliases."""
+def _alias_spellings(root: Path) -> list[str]:
+    """Return alternate spellings of a run root under Darwin aliases."""
     text = str(root)
-    spellings: list[bytes] = []
+    spellings: list[str] = []
     for real, alias in _ALIAS_PREFIX_PAIRS:
-        if text.startswith(real):
-            spellings.append((alias + text[len(real):]).encode())
+        real_root = real.rstrip("/")
+        alias_root = alias.rstrip("/") or "/"
+        if text == real_root:
+            spellings.append(alias_root)
+        elif text.startswith(real):
+            spellings.append(alias + text[len(real):])
+        elif text == alias_root:
+            spellings.append(real_root)
         elif text.startswith(alias):
-            spellings.append((real + text[len(alias):]).encode())
+            spellings.append(real + text[len(alias):])
     return spellings
 
 
 def _structural_alias_hit(record: Any, roots: list[str]) -> str | None:
-    if isinstance(record, str):
-        return next(
-            (
-                root
-                for root in roots
-                if record == root or record.startswith(root + "/")
-            ),
-            None,
-        )
-    if isinstance(record, dict):
-        values = record.values()
-    elif isinstance(record, list):
-        values = record
-    else:
-        return None
-    for value in values:
-        hit = _structural_alias_hit(value, roots)
-        if hit is not None:
-            return hit
+    stack = [record]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, str):
+            hit = next(
+                (
+                    root
+                    for root in roots
+                    if value == root or value.startswith(root + "/")
+                ),
+                None,
+            )
+            if hit is not None:
+                return hit
+        elif isinstance(value, dict):
+            stack.extend(reversed(tuple(value.values())))
+        elif isinstance(value, list):
+            stack.extend(reversed(value))
     return None
 
 
@@ -999,17 +1018,14 @@ def _negative_control_failures(
     owned_paths: list[Path], scratch: Path
 ) -> list[str]:
     """Reject aliased root values and descendants in owned JSONL transcripts."""
-    roots = [
-        spelling.decode("utf-8", errors="replace")
-        for spelling in _alias_spellings(scratch)
-    ]
+    roots = _alias_spellings(scratch)
     failures: list[str] = []
     for path in owned_paths:
         text = path.read_text(encoding="utf-8", errors="replace")
-        for line in text.splitlines():
+        for line in text.split("\n"):
             try:
                 record = json.loads(line)
-            except ValueError:
+            except (ValueError, RecursionError):
                 continue
             hit = _structural_alias_hit(record, roots)
             if hit is not None:
@@ -1073,6 +1089,7 @@ def run_e3(
         return _result(spec, Status.INVALID, "\n".join(failures))
 
     try:
+        failures.extend(_scratch_temp_root_overlap_failures(scratch))
         failures.extend(_scratch_overlap_failures(spec, scratch))
         if failures:
             return _result(spec, Status.INVALID, "\n".join(failures))

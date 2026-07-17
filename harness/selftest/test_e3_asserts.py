@@ -3003,7 +3003,7 @@ def test_runner_voids_pre_pack_when_a_run_root_alias_spelling_appears(
 
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
     monkeypatch.setattr(e3, "_seed_agent", fake_seed_agent)
-    monkeypatch.setattr(e3, "_alias_spellings", lambda root: [b"E3-ALIAS-CANARY"])
+    monkeypatch.setattr(e3, "_alias_spellings", lambda root: ["E3-ALIAS-CANARY"])
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
 
@@ -3151,6 +3151,165 @@ def test_negative_control_flags_a_nested_container_value(tmp_path):
         b'{"a":[{"p":"/var/e3-run/bivharness-scratch-x/y"}]}\n'
     )
     assert e3._negative_control_failures([transcript], scratch)
+
+
+@pytest.mark.parametrize("separator", ("\u2028", "\u2029", "\u0085"))
+def test_negative_control_preserves_raw_unicode_separators_inside_json_records(
+    tmp_path, separator
+):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        '{"msg":"mask'
+        + separator
+        + 'text","cwd":"/var/e3-run/bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_skips_json_parser_recursion_errors(
+    monkeypatch, tmp_path
+):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        'too-deep\n{"cwd":"/var/e3-run/bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+    real_loads = e3.json.loads
+
+    def loads_with_deep_record(line):
+        if line == "too-deep":
+            raise RecursionError("injected parser depth")
+        return real_loads(line)
+
+    monkeypatch.setattr(e3.json, "loads", loads_with_deep_record)
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_structural_alias_walk_handles_nesting_beyond_python_recursion_limit():
+    root = "/var/e3-run/bivharness-scratch-x"
+    record = root + "/seed"
+    for _ in range(1200):
+        record = [record]
+
+    assert e3._structural_alias_hit(record, [root]) == root
+
+
+def test_negative_control_flags_the_darwin_data_firmlink_for_users_scratch(
+    tmp_path
+):
+    scratch = Path("/Users/jack/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        '{"cwd":"/System/Volumes/Data/Users/jack/e3-run/'
+        'bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_is_silent_on_canonical_users_scratch_spelling(tmp_path):
+    scratch = Path("/Users/jack/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        '{"cwd":"/Users/jack/e3-run/bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+def test_alias_spellings_return_text_without_a_byte_round_trip():
+    spellings = e3._alias_spellings(
+        Path("/private/var/e3-run/bivharness-scratch-x")
+    )
+
+    assert "/var/e3-run/bivharness-scratch-x" in spellings
+    assert all(isinstance(spelling, str) for spelling in spellings)
+    for root, alias in (
+        ("/private/var", "/var"),
+        ("/var", "/private/var"),
+        ("/private/tmp", "/tmp"),
+        ("/tmp", "/private/tmp"),
+        ("/private/etc", "/etc"),
+        ("/etc", "/private/etc"),
+        ("/System/Volumes/Data", "/"),
+        ("/", "/System/Volumes/Data"),
+    ):
+        assert alias in e3._alias_spellings(Path(root))
+
+
+def test_negative_control_failure_binds_detail_cardinality_and_non_ascii_root(
+    tmp_path
+):
+    scratch = Path("/Users/jack/e3-run/bivharness-scratch-\u00e9")
+    alias = "/System/Volumes/Data/Users/jack/e3-run/bivharness-scratch-\u00e9"
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        f'{{"cwd":"{alias}/first"}}\n{{"cwd":"{alias}/second"}}\n',
+        encoding="utf-8",
+    )
+
+    failures = e3._negative_control_failures([transcript], scratch)
+
+    assert len(failures) == 1
+    assert str(transcript) in failures[0]
+    assert alias in failures[0]
+
+
+def test_negative_control_replaces_invalid_utf8_in_benign_noise(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'\xff\n{"cwd":"/opt/workspace"}\n')
+
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+def test_negative_control_replaces_invalid_utf8_and_still_finds_alias(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'\xff\n{"cwd":"/var/e3-run/bivharness-scratch-x/seed"}\n'
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+@pytest.mark.parametrize("temp_root_kind", ("ambient", "private-var-tmp"))
+def test_e3_refuses_scratch_equal_to_or_above_temp_roots_before_probe(
+    monkeypatch, tmp_path, stable_test_root, temp_root_kind
+):
+    calls = []
+    scratch = stable_test_root / "scratch"
+    scratch.mkdir()
+    if temp_root_kind == "ambient":
+        ambient_temp_root = scratch / "ambient-temp"
+        ambient_temp_root.mkdir()
+        monkeypatch.setenv("TMPDIR", str(ambient_temp_root))
+    else:
+        scratch = Path("/private/var/tmp")
+        monkeypatch.setenv("TMPDIR", str(stable_test_root / "unrelated-temp"))
+    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(e3, "probe", lambda root: calls.append(root) or [])
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(
+        spec_path,
+        Path("biv"),
+        scratch,
+        dry_run=True,
+    )
+
+    assert calls == []
+    assert result.status is Status.INVALID
+    assert "temporary root" in result.detail
 
 
 def test_negative_control_is_silent_on_a_prose_embedded_mention(tmp_path):
