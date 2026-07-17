@@ -836,7 +836,7 @@ def _canonical_path_text(path: Path) -> str:
 
 
 def _temp_root_failure(label: str, path: Path) -> str | None:
-    path_text = unicodedata.normalize("NFC", str(path))
+    path_text = str(path)
     data_prefix = "/System/Volumes/Data"
     has_data_prefix = (
         path_text == data_prefix or path_text.startswith(data_prefix + "/")
