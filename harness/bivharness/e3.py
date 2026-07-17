@@ -835,6 +835,16 @@ def _canonical_path_text(path: Path) -> str:
     return text
 
 
+def _canonical_spelling_failure(label: str, path: Path) -> str | None:
+    canonical = _canonical_path_text(path)
+    if str(path) == canonical:
+        return None
+    return (
+        f"{label} must use its canonical spelling ({canonical}); "
+        f"firmlink-aliased or non-NFC spellings are refused ({path})"
+    )
+
+
 def _temp_root_failure(label: str, path: Path) -> str | None:
     path_text = str(path)
     data_prefix = "/System/Volumes/Data"
@@ -866,6 +876,9 @@ def _root_failure(
         failure = _stability_failure(label, path)
         if failure is not None:
             return failure
+        failure = _canonical_spelling_failure(label, path)
+        if failure is not None:
+            return failure
         return _temp_root_failure(label, path)
     except (OSError, ValueError, RuntimeError) as exc:
         return f"{label} is not a usable path: {type(exc).__name__}: {exc}"
@@ -894,6 +907,8 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
     failures: list[str] = []
     try:
         failure = _stability_failure("scratch", scratch)
+        if failure is None:
+            failure = _canonical_spelling_failure("scratch", scratch)
         if failure is None:
             failure = _temp_root_failure("scratch", scratch)
     except (OSError, ValueError, RuntimeError) as exc:

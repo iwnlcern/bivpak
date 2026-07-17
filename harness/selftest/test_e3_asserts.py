@@ -2875,6 +2875,85 @@ def test_realpath_unstable_live_profile_is_refused(tmp_path):
     assert "live_profile" in result.detail
 
 
+@pytest.mark.parametrize(
+    "field",
+    ("scratch", "live_profile", "live_store_roots"),
+)
+@pytest.mark.parametrize("spelling", ("svd", "nfd"))
+def test_noncanonical_external_roots_are_refused_before_probe_or_spawn(
+    monkeypatch, tmp_path, stable_test_root, field, spelling
+):
+    if spelling == "svd":
+        suffix = {
+            "scratch": "e3-run/bivharness-scratch-x",
+            "live_profile": ".codex",
+            "live_store_roots": ".claude",
+        }[field]
+        canonical = Path("/Users/jack") / suffix
+        refused = Path("/System/Volumes/Data") / str(canonical).lstrip("/")
+    else:
+        canonical = stable_test_root / f"{field}-\u00e9"
+        refused = Path(unicodedata.normalize("NFD", str(canonical)))
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "scratch"
+    if field == "scratch":
+        scratch = refused
+    elif field == "live_profile":
+        spec["agents"][0]["live_profile"] = str(refused)
+    else:
+        spec["live_store_roots"] = [str(refused)]
+    probe_calls = []
+    monkeypatch.setattr(
+        e3,
+        "probe",
+        lambda root: probe_calls.append(root) or [],
+    )
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        spec,
+        scratch,
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID
+    assert probe_calls == []
+    assert (
+        f"{field} must use its canonical spelling ({canonical}); "
+        f"firmlink-aliased or non-NFC spellings are refused ({refused})"
+    ) in result.detail
+
+
+# Case-variant APFS identity containment is deliberately outside this fold and
+# remains an orchestrator-owned residual for the next negctl or E4 hardening pass.
+@pytest.mark.parametrize(
+    "field",
+    ("scratch", "live_profile", "live_store_roots"),
+)
+@pytest.mark.parametrize(
+    "canonical",
+    (
+        Path("/Users/jack/e3-run/bivharness-scratch-x"),
+        Path("/private/var/e3-run/bivharness-scratch-x"),
+    ),
+    ids=("users", "private-var"),
+)
+def test_path_field_failures_accept_canonical_external_root_spellings(
+    stable_test_root, field, canonical
+):
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "scratch"
+    if field == "scratch":
+        scratch = canonical
+    elif field == "live_profile":
+        spec["agents"][0]["live_profile"] = str(canonical)
+    else:
+        spec["live_store_roots"] = [str(canonical)]
+
+    assert e3._path_field_failures(spec, scratch) == []
+
+
 @pytest.mark.parametrize("field", ["host2_profile", "workspace_name"])
 def test_absolute_value_that_would_escape_its_root_is_refused(tmp_path, field):
     spec = _valid_two_agent_spec()
