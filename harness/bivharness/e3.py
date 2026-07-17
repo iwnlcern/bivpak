@@ -953,18 +953,72 @@ def _scratch_overlap_failures(spec: dict[str, Any], scratch: Path) -> list[str]:
     ]
 
 
-def _negative_control_failures(owned_paths: list[Path]) -> list[str]:
-    """Guard evidence: a realpath-stable run cannot render either alias spelling."""
+_ALIAS_PREFIX_PAIRS = (
+    ("/private/var/", "/var/"),
+    ("/private/tmp/", "/tmp/"),
+    ("/private/etc/", "/etc/"),
+)
+
+
+def _alias_spellings(root: Path) -> list[bytes]:
+    """Return alternate spellings of a run root under Darwin's /private aliases."""
+    text = str(root)
+    spellings: list[bytes] = []
+    for real, alias in _ALIAS_PREFIX_PAIRS:
+        if text.startswith(real):
+            spellings.append((alias + text[len(real):]).encode())
+        elif text.startswith(alias):
+            spellings.append((real + text[len(alias):]).encode())
+    return spellings
+
+
+def _structural_alias_hit(record: Any, roots: list[str]) -> str | None:
+    if isinstance(record, str):
+        return next(
+            (
+                root
+                for root in roots
+                if record == root or record.startswith(root + "/")
+            ),
+            None,
+        )
+    if isinstance(record, dict):
+        values = record.values()
+    elif isinstance(record, list):
+        values = record
+    else:
+        return None
+    for value in values:
+        hit = _structural_alias_hit(value, roots)
+        if hit is not None:
+            return hit
+    return None
+
+
+def _negative_control_failures(
+    owned_paths: list[Path], scratch: Path
+) -> list[str]:
+    """Reject aliased root values and descendants in owned JSONL transcripts."""
+    roots = [
+        spelling.decode("utf-8", errors="replace")
+        for spelling in _alias_spellings(scratch)
+    ]
     failures: list[str] = []
     for path in owned_paths:
-        blob = path.read_bytes()
-        for spelling in (b"/private/var/", b"/var/"):
-            if spelling in blob:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for line in text.splitlines():
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            hit = _structural_alias_hit(record, roots)
+            if hit is not None:
                 failures.append(
-                    f"negative-control: {path} contains {spelling.decode()} - the run did not "
-                    "execute in a realpath-stable tree; the scratch guard did not hold and this "
-                    "run's evidence is void"
+                    f"negative-control: {path} renders {hit} - an aliased "
+                    "spelling of this run's scratch tree; the scratch guard did not hold "
+                    "and this run's evidence is void"
                 )
+                break
     return failures
 
 
@@ -1090,7 +1144,7 @@ def run_e3(
                 capture_candidates, owned_paths,
             )
 
-        negative_control = _negative_control_failures(owned_paths)
+        negative_control = _negative_control_failures(owned_paths, scratch)
         if negative_control:
             return _result(spec, Status.INVALID, "\n".join(negative_control))
 
