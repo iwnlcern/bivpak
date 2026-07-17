@@ -2,6 +2,7 @@ import errno
 import hashlib
 import json
 import os
+import posixpath
 import re
 import secrets
 import shlex
@@ -1032,7 +1033,7 @@ def _structural_alias_hit(record: Any, roots: list[str]) -> str | None:
     while stack:
         value = stack.pop()
         if isinstance(value, str):
-            candidate = unicodedata.normalize("NFC", value)
+            candidate = posixpath.normpath(unicodedata.normalize("NFC", value))
             hit = next(
                 (
                     root
