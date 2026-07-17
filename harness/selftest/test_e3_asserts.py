@@ -6,6 +6,7 @@ import re
 import shutil
 import stat
 import tarfile
+import unicodedata
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -3199,6 +3200,17 @@ def test_structural_alias_walk_handles_nesting_beyond_python_recursion_limit():
     assert e3._structural_alias_hit(record, [root]) == root
 
 
+def test_structural_alias_walk_preserves_document_order():
+    first = "/alias/first"
+    second = "/alias/second"
+    record = {
+        "first": {"cwd": first + "/seed"},
+        "second": [second + "/seed"],
+    }
+
+    assert e3._structural_alias_hit(record, [first, second]) == first
+
+
 def test_negative_control_flags_the_darwin_data_firmlink_for_users_scratch(
     tmp_path
 ):
@@ -3238,10 +3250,48 @@ def test_alias_spellings_return_text_without_a_byte_round_trip():
         ("/tmp", "/private/tmp"),
         ("/private/etc", "/etc"),
         ("/etc", "/private/etc"),
-        ("/System/Volumes/Data", "/"),
         ("/", "/System/Volumes/Data"),
     ):
         assert alias in e3._alias_spellings(Path(root))
+    assert e3._alias_spellings(Path("/System/Volumes/Data")) == [
+        "/System/Volumes/Data"
+    ]
+
+
+@pytest.mark.parametrize("data_prefix_count", (1, 2))
+def test_alias_spellings_canonicalize_darwin_data_prefixes_to_a_fixed_point(
+    data_prefix_count,
+):
+    prefix = "/System/Volumes/Data" * data_prefix_count
+    scratch = Path(prefix + "/private/tmp/e3-scratch")
+
+    spellings = e3._alias_spellings(scratch)
+
+    assert "/tmp/e3-scratch" in spellings
+
+
+def test_alias_spellings_normalize_the_scratch_text_to_nfc():
+    scratch = Path(
+        unicodedata.normalize("NFD", "/Users/jack/e3-run/bivharness-scratch-\u00e9")
+    )
+    alias = "/System/Volumes/Data/Users/jack/e3-run/bivharness-scratch-\u00e9"
+
+    assert alias in e3._alias_spellings(scratch)
+
+
+def test_negative_control_normalizes_transcript_path_values_to_nfc(tmp_path):
+    scratch = Path("/Users/jack/e3-run/bivharness-scratch-\u00e9")
+    alias = unicodedata.normalize(
+        "NFD",
+        "/System/Volumes/Data/Users/jack/e3-run/bivharness-scratch-\u00e9/seed",
+    )
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        json.dumps({"cwd": alias}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
 
 
 def test_negative_control_failure_binds_detail_cardinality_and_non_ascii_root(
@@ -3258,8 +3308,9 @@ def test_negative_control_failure_binds_detail_cardinality_and_non_ascii_root(
     failures = e3._negative_control_failures([transcript], scratch)
 
     assert len(failures) == 1
-    assert str(transcript) in failures[0]
-    assert alias in failures[0]
+    assert failures[0].startswith(
+        f"negative-control: {transcript} renders {alias} - "
+    )
 
 
 def test_negative_control_replaces_invalid_utf8_in_benign_noise(tmp_path):
@@ -3278,6 +3329,138 @@ def test_negative_control_replaces_invalid_utf8_and_still_finds_alias(tmp_path):
     )
 
     assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_replacement_does_not_join_an_alias_across_invalid_utf8(
+    tmp_path,
+):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'{"cwd":"/var/e3-run/bivharness-scratch-\xffx/seed"}\n'
+    )
+
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+@pytest.mark.parametrize("delimiter", (b"\r\n", b"\r"), ids=("crlf", "lone-cr"))
+def test_negative_control_accepts_platform_newlines_as_jsonl_record_delimiters(
+    tmp_path, delimiter
+):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'{"cwd":"/opt/workspace"}'
+        + delimiter
+        + b'{"cwd":"/var/e3-run/bivharness-scratch-x/seed"}'
+        + delimiter
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_reads_a_bom_prefixed_first_record(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        '\ufeff{"cwd":"/var/e3-run/bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_temp_root_guard_canonicalizes_the_darwin_data_firmlink():
+    failure = e3._temp_root_failure(
+        "scratch",
+        Path("/System/Volumes/Data/private/tmp/e3-scratch"),
+    )
+
+    assert failure is not None
+    assert "under" in failure
+
+
+def test_temp_overlap_guard_canonicalizes_the_darwin_data_firmlink(
+    monkeypatch, stable_test_root
+):
+    monkeypatch.setenv("TMPDIR", str(stable_test_root / "unrelated-temp"))
+
+    failures = e3._scratch_temp_root_overlap_failures(
+        Path("/System/Volumes/Data/private/var")
+    )
+
+    assert failures
+    assert "/private/var/tmp" in failures[0]
+
+
+def test_temp_overlap_guard_normalizes_paths_to_nfc(
+    monkeypatch, stable_test_root
+):
+    scratch = stable_test_root / "scratch-\u00e9"
+    temp_root = Path(
+        unicodedata.normalize("NFD", str(scratch / "ambient-temp"))
+    )
+    monkeypatch.setenv("TMPDIR", str(temp_root))
+
+    failures = e3._scratch_temp_root_overlap_failures(scratch)
+
+    assert failures
+
+
+def test_e3_empty_tmpdir_falls_back_to_tmp(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+    scratch = stable_test_root / "scratch"
+    cwd = scratch / "cwd"
+    cwd.mkdir(parents=True)
+    monkeypatch.chdir(cwd)
+    monkeypatch.setenv("TMPDIR", "")
+    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(e3, "probe", lambda root: calls.append(root) or [])
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), scratch)
+
+    assert result.status is Status.PASS
+    assert calls == [scratch]
+
+
+def test_e3_absolutizes_a_relative_tmpdir_before_overlap_check(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+    scratch = stable_test_root / "scratch"
+    scratch.mkdir()
+    monkeypatch.chdir(scratch)
+    monkeypatch.setenv("TMPDIR", "ambient-temp")
+    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(e3, "probe", lambda root: calls.append(root) or [])
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), scratch)
+
+    assert result.status is Status.INVALID
+    assert calls == []
+    assert "temporary root" in result.detail
+
+
+def test_e3_allows_scratch_strictly_inside_ambient_tmpdir(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+    ambient_temp_root = stable_test_root / "ambient-temp"
+    scratch = ambient_temp_root / "e3-scratch"
+    scratch.mkdir(parents=True)
+    monkeypatch.setenv("TMPDIR", str(ambient_temp_root))
+    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(e3, "probe", lambda root: calls.append(root) or [])
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), scratch)
+
+    assert result.status is Status.PASS
+    assert calls == [scratch]
 
 
 @pytest.mark.parametrize("temp_root_kind", ("ambient", "private-var-tmp"))

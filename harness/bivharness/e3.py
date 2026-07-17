@@ -7,6 +7,7 @@ import secrets
 import shlex
 import shutil
 import subprocess
+import unicodedata
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -826,9 +827,17 @@ def _stability_failure(label: str, path: Path) -> str | None:
     return None
 
 
+def _canonical_path_text(path: Path) -> str:
+    text = unicodedata.normalize("NFC", str(path))
+    data_prefix = "/System/Volumes/Data"
+    while text == data_prefix or text.startswith(data_prefix + "/"):
+        text = text[len(data_prefix):] or "/"
+    return text
+
+
 def _temp_root_failure(label: str, path: Path) -> str | None:
-    resolved = path.resolve()
-    temp_root = Path("/tmp").resolve()
+    resolved = Path(_canonical_path_text(path.resolve()))
+    temp_root = Path(_canonical_path_text(Path("/tmp").resolve()))
     try:
         resolved.relative_to(temp_root)
     except ValueError:
@@ -954,10 +963,11 @@ def _scratch_overlap_failures(spec: dict[str, Any], scratch: Path) -> list[str]:
 
 
 def _scratch_temp_root_overlap_failures(scratch: Path) -> list[str]:
-    scratch = scratch.resolve()
+    scratch = Path(_canonical_path_text(scratch.resolve()))
+    ambient_temp_root = os.environ.get("TMPDIR") or "/tmp"
     temp_roots = {
-        Path(os.environ.get("TMPDIR", "/tmp")).resolve(),
-        Path("/private/var/tmp").resolve(),
+        Path(_canonical_path_text(Path(ambient_temp_root).resolve())),
+        Path(_canonical_path_text(Path("/private/var/tmp").resolve())),
     }
     return [
         f"scratch overlaps temporary root: {scratch} contains {temp_root}"
@@ -976,7 +986,7 @@ _ALIAS_PREFIX_PAIRS = (
 
 def _alias_spellings(root: Path) -> list[str]:
     """Return alternate spellings of a run root under Darwin aliases."""
-    text = str(root)
+    text = _canonical_path_text(root)
     spellings: list[str] = []
     for real, alias in _ALIAS_PREFIX_PAIRS:
         real_root = real.rstrip("/")
@@ -997,11 +1007,12 @@ def _structural_alias_hit(record: Any, roots: list[str]) -> str | None:
     while stack:
         value = stack.pop()
         if isinstance(value, str):
+            candidate = unicodedata.normalize("NFC", value)
             hit = next(
                 (
                     root
                     for root in roots
-                    if value == root or value.startswith(root + "/")
+                    if candidate == root or candidate.startswith(root + "/")
                 ),
                 None,
             )
@@ -1021,7 +1032,7 @@ def _negative_control_failures(
     roots = _alias_spellings(scratch)
     failures: list[str] = []
     for path in owned_paths:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = path.read_text(encoding="utf-8-sig", errors="replace")
         for line in text.split("\n"):
             try:
                 record = json.loads(line)
