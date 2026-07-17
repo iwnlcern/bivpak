@@ -3370,14 +3370,30 @@ def test_negative_control_reads_a_bom_prefixed_first_record(tmp_path):
     assert e3._negative_control_failures([transcript], scratch)
 
 
-def test_temp_root_guard_canonicalizes_the_darwin_data_firmlink():
-    failure = e3._temp_root_failure(
-        "scratch",
-        Path("/System/Volumes/Data/private/tmp/e3-scratch"),
-    )
+@pytest.mark.parametrize(
+    ("path", "refused"),
+    (
+        (Path("/System/Volumes/Data/private/tmp/e3-scratch"), True),
+        (Path("/private/tmp/e3-scratch"), False),
+    ),
+    ids=("darwin-data-firmlink", "distinct-linux-private-tmp"),
+)
+def test_temp_root_guard_handles_darwin_firmlink_without_linux_false_positive(
+    monkeypatch, path, refused
+):
+    real_resolve = Path.resolve
 
-    assert failure is not None
-    assert "under" in failure
+    def linux_style_tmp_resolve(path, *args, **kwargs):
+        if path == Path("/tmp"):
+            return Path("/tmp")
+        return real_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", linux_style_tmp_resolve)
+    failure = e3._temp_root_failure("scratch", path)
+
+    assert (failure is not None) is refused
+    if refused:
+        assert "under" in failure
 
 
 def test_temp_overlap_guard_canonicalizes_the_darwin_data_firmlink(

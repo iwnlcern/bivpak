@@ -836,13 +836,23 @@ def _canonical_path_text(path: Path) -> str:
 
 
 def _temp_root_failure(label: str, path: Path) -> str | None:
+    path_text = unicodedata.normalize("NFC", str(path))
+    data_prefix = "/System/Volumes/Data"
+    has_data_prefix = (
+        path_text == data_prefix or path_text.startswith(data_prefix + "/")
+    )
     resolved = Path(_canonical_path_text(path.resolve()))
-    temp_root = Path(_canonical_path_text(Path("/tmp").resolve()))
-    try:
-        resolved.relative_to(temp_root)
-    except ValueError:
-        return None
-    return f"{label}: resolved path must not be under {temp_root} ({resolved})"
+    host_temp_root = Path(_canonical_path_text(Path("/tmp").resolve()))
+    temp_roots = {host_temp_root}
+    if has_data_prefix or host_temp_root == Path("/private/tmp"):
+        temp_roots.add(Path("/private/tmp"))
+    for temp_root in sorted(temp_roots, key=str):
+        try:
+            resolved.relative_to(temp_root)
+        except ValueError:
+            continue
+        return f"{label}: resolved path must not be under {temp_root} ({resolved})"
+    return None
 
 
 def _root_failure(
