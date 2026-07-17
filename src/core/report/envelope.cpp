@@ -1,10 +1,12 @@
 #include "core/report/envelope.hpp"
 
 #include <algorithm>
+#include <filesystem>
 
 #include "core/json/writer.hpp"
 #include "core/manifest/manifest.hpp"
 #include "core/report/exit_map.hpp"
+#include "core/support/probe.hpp"
 #include "core/support/version.hpp"
 
 namespace biv::report {
@@ -149,6 +151,68 @@ std::string_view capability_name(const adapters::Capabilities::Verdict verdict) 
   return "absent";
 }
 
+std::string_view probe_outcome_name(const support::ProbeOutcome outcome) {
+  switch (outcome) {
+    case support::ProbeOutcome::ok:
+      return "ok";
+    case support::ProbeOutcome::not_found:
+      return "not_found";
+    case support::ProbeOutcome::not_executable:
+      return "not_executable";
+    case support::ProbeOutcome::not_accessible:
+      return "not_accessible";
+    case support::ProbeOutcome::spawn_error:
+      return "spawn_error";
+    case support::ProbeOutcome::nonzero_exit:
+      return "nonzero_exit";
+    case support::ProbeOutcome::timeout:
+      return "timeout";
+    case support::ProbeOutcome::unparseable:
+      return "unparseable";
+    case support::ProbeOutcome::probe_io_error:
+      return "probe_io_error";
+  }
+  return "spawn_error";
+}
+
+void write_optional_path(
+    json::Writer& writer,
+    const std::optional<std::filesystem::path>& path) {
+  if (path.has_value()) {
+    writer.value_string(support::sanitize_utf8(path->generic_string()));
+  } else {
+    writer.value_null();
+  }
+}
+
+void write_probe(json::Writer& writer,
+                 const support::ProbeEvidence& probe) {
+  writer.key("probe");
+  writer.begin_object();
+  writer.key("agent");
+  writer.value_string(support::sanitize_utf8(probe.agent));
+  writer.key("requested");
+  write_optional_path(writer, probe.requested);
+  writer.key("executed");
+  write_optional_path(writer, probe.executed);
+  writer.key("pinned");
+  writer.value_bool(probe.pinned);
+  writer.key("outcome");
+  writer.value_string(
+      support::sanitize_utf8(probe_outcome_name(probe.outcome)));
+  writer.key("exit_code");
+  writer.value_int(probe.exit_code);
+  writer.key("raw");
+  writer.value_string(support::sanitize_utf8(probe.raw));
+  writer.key("parsed");
+  if (probe.parsed.has_value()) {
+    writer.value_string(support::sanitize_utf8(*probe.parsed));
+  } else {
+    writer.value_null();
+  }
+  writer.end_object();
+}
+
 std::string_view row_name(const core_sessions::SessionRowReport::Row row) {
   switch (row) {
     case core_sessions::SessionRowReport::Row::installed:
@@ -209,6 +273,9 @@ void write_sessions(json::Writer& writer, const OpenSessionsReport& report) {
     writer.value_string(agent.agent);
     writer.key("capabilities_verdict");
     writer.value_string(agent.caps.has_value() ? capability_name(agent.caps->verdict) : "absent");
+    if (agent.caps.has_value() && agent.caps->probe.has_value()) {
+      write_probe(writer, *agent.caps->probe);
+    }
     writer.key("store_root");
     writer.value_string(agent.store.has_value() ? agent.store->root.generic_string() : "");
     writer.key("sessions");

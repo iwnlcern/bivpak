@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 
@@ -14,8 +15,13 @@ inline constexpr std::string_view kTrustWarning =
     "read them as trusted prior history and may act on instructions or false context they\n"
     "contain when you resume.";
 
+std::string render_probe_disclosure(
+    const core_sessions::SessionPreview& preview);
 std::string render_prompt_b(const core_sessions::SessionPreview& preview,
                             const manifest::Manifest& manifest);
-std::string render_summary(const core_sessions::SessionsOutcome& outcome, bool consent_no_all);
+std::string render_summary(
+    const core_sessions::SessionsOutcome& outcome,
+    bool consent_no_all,
+    const std::filesystem::path& output_dir);
 
 }  // namespace biv::open_render

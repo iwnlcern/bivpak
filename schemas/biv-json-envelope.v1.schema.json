@@ -106,6 +106,20 @@
                     "properties": {
                       "agent": {"type": "string"},
                       "capabilities_verdict": {"enum": ["validated", "unvalidated-host", "unvalidated", "absent"]},
+                      "probe": {
+                        "type": "object",
+                        "required": ["agent", "requested", "executed", "pinned", "outcome", "exit_code", "raw", "parsed"],
+                        "properties": {
+                          "agent": {"type": "string"},
+                          "requested": {"type": ["string", "null"]},
+                          "executed": {"type": ["string", "null"]},
+                          "pinned": {"type": "boolean"},
+                          "outcome": {"enum": ["ok", "not_found", "not_executable", "not_accessible", "spawn_error", "nonzero_exit", "timeout", "unparseable", "probe_io_error"]},
+                          "exit_code": {"type": "integer"},
+                          "raw": {"type": "string"},
+                          "parsed": {"type": ["string", "null"]}
+                        }
+                      },
                       "store_root": {"type": "string"},
                       "sessions": {
                         "type": "array",

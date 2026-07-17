@@ -1,4 +1,5 @@
-#include "adapters/codex/codex.hpp"
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <array>
@@ -7,7 +8,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <limits>
 #include <map>
 #include <optional>
@@ -17,17 +17,7 @@
 #include <string_view>
 #include <vector>
 
-#include <fcntl.h>
-#if defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
-#endif
-#include <simdjson.h>
-#if defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-#include <unistd.h>
-
+#include "adapters/codex/codex.hpp"
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
 #include "core/support/portability.hpp"
@@ -188,81 +178,6 @@ void merge_verify(InstallVerify& total, const InstallVerify& next) {
   total.artifacts_checked += next.artifacts_checked;
 }
 
-std::optional<std::string> string_field_from_json_file(const fs::path& path, std::string_view key) {
-  std::ifstream input{path, std::ios::binary};
-  if (!input) {
-    return std::nullopt;
-  }
-  std::string json{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
-  simdjson::padded_string padded{json};
-  simdjson::dom::parser parser;
-  simdjson::dom::element root;
-  if (parser.parse(padded).get(root)) {
-    return std::nullopt;
-  }
-  simdjson::dom::object object;
-  if (root.get(object)) {
-    return std::nullopt;
-  }
-  std::string_view value;
-  if (object.at_key(key).get(value)) {
-    return std::nullopt;
-  }
-  return std::string{value};
-}
-
-std::optional<std::string> rollout_cli_version(const fs::path& path) {
-  std::ifstream input{path};
-  std::string line;
-  while (std::getline(input, line)) {
-    simdjson::padded_string padded{line};
-    simdjson::dom::parser parser;
-    simdjson::dom::element root;
-    if (parser.parse(padded).get(root)) {
-      continue;
-    }
-    simdjson::dom::object object;
-    if (root.get(object)) {
-      continue;
-    }
-    simdjson::dom::object payload;
-    if (object.at_key("payload").get(payload)) {
-      continue;
-    }
-    std::string_view version;
-    if (!payload.at_key("cli_version").get(version)) {
-      return std::string{version};
-    }
-  }
-  return std::nullopt;
-}
-
-std::optional<std::string> codex_version_from_store(const fs::path& root) {
-  if (auto version = string_field_from_json_file(root / "version.json", "version"); version.has_value()) {
-    return version;
-  }
-  const auto sessions = root / "sessions";
-  std::error_code ec;
-  if (!fs::exists(sessions, ec)) {
-    return std::nullopt;
-  }
-  for (fs::recursive_directory_iterator
-           it{sessions, fs::directory_options::none, ec},
-       end;
-       !ec && it != end; it.increment(ec)) {
-    const auto& entry = *it;
-    if (!entry.is_symlink(ec) && entry.is_regular_file(ec) &&
-        entry.path().filename().generic_string().starts_with("rollout-") &&
-        entry.path().extension() == ".jsonl") {
-      if (auto version = rollout_cli_version(entry.path());
-          version.has_value()) {
-        return version;
-      }
-    }
-  }
-  return std::nullopt;
-}
-
 fs::path codex_root_for_host(const Host& host) {
   if (host.env.getenv) {
     auto configured = host.env.getenv("CODEX_HOME");
@@ -280,6 +195,81 @@ bool validated_codex_version(std::string_view version) {
   return version.starts_with("0.142.") || version.starts_with("0.144.");
 }
 
+std::optional<std::string> semver_at(const std::string_view raw, size_t position) {
+  const auto component = [&](size_t& cursor) {
+    const auto begin = cursor;
+    while (cursor < raw.size() && raw.at(cursor) >= '0' && raw.at(cursor) <= '9') {
+      ++cursor;
+    }
+    return cursor != begin;
+  };
+  const auto begin = position;
+  if (!component(position)) {
+    return std::nullopt;
+  }
+  if (position >= raw.size() || raw.at(position) != '.') {
+    return std::nullopt;
+  }
+  ++position;
+  if (!component(position)) {
+    return std::nullopt;
+  }
+  if (position >= raw.size() || raw.at(position) != '.') {
+    return std::nullopt;
+  }
+  ++position;
+  if (!component(position)) {
+    return std::nullopt;
+  }
+  if (position < raw.size() && ((raw.at(position) >= '0' && raw.at(position) <= '9') || raw.at(position) == '.')) {
+    return std::nullopt;
+  }
+  return std::string{raw.substr(begin, position - begin)};
+}
+
+std::optional<std::string> parse_codex_version(const std::string_view raw) {
+  size_t position = raw.find_first_not_of(" \t\r\n");
+  constexpr std::string_view prefix = "codex-cli";
+  if (position == std::string_view::npos || !raw.substr(position).starts_with(prefix)) {
+    return std::nullopt;
+  }
+  position += prefix.size();
+  if (position >= raw.size() || (raw.at(position) != ' ' && raw.at(position) != '\t')) {
+    return std::nullopt;
+  }
+  position = raw.find_first_not_of(" \t", position);
+  if (position == std::string_view::npos) {
+    return std::nullopt;
+  }
+  return semver_at(raw, position);
+}
+
+std::optional<support::ProbeEvidence> observe_codex(const Host& host) {
+  const auto pin = host.pinned_bins.find("codex");
+  const std::optional<fs::path> requested =
+      pin == host.pinned_bins.end() ? std::nullopt : std::optional<fs::path>{pin->second};
+  if (!host.version_probe) {
+    return std::nullopt;
+  }
+  auto observed = host.version_probe("codex", requested);
+  if (!observed) {
+    return support::ProbeEvidence{.agent = "codex",
+                                  .requested = requested,
+                                  .executed = std::nullopt,
+                                  .pinned = requested.has_value(),
+                                  .outcome = support::ProbeOutcome::spawn_error,
+                                  .exit_code = -1,
+                                  .raw = support::sanitize_utf8(observed.error().detail),
+                                  .parsed = std::nullopt};
+  }
+  observed->agent = "codex";
+  if (requested.has_value()) {
+    observed->requested = requested;
+    observed->pinned = true;
+  }
+  return std::move(*observed);
+}
+
 std::optional<bool> host_version_unverified_for_install(
     const Capabilities& caps, const std::string_view image_version) {
   if (caps.verdict == Capabilities::Verdict::validated) {
@@ -292,26 +282,31 @@ std::optional<bool> host_version_unverified_for_install(
   return std::nullopt;
 }
 
-Capabilities capabilities_for_root(const fs::path& root) {
-  Capabilities caps{
-      .agent_version = "unknown",
-      .validated_range = "0.142.x, 0.144.x",
-      .verdict = Capabilities::Verdict::absent,
-      .long_path_keys_pinned = true,
-      .per_verb = {.collect = false, .install = false, .rewrite = false}};
-  std::error_code ec;
-  if (!fs::exists(root, ec)) {
+Capabilities probe_capabilities(const Host& host) {
+  const auto root = codex_root_for_host(host);
+  std::error_code error;
+  const bool store_exists = fs::exists(root, error);
+  Capabilities caps{.agent_version = "unknown",
+                    .validated_range = "0.142.x, 0.144.x",
+                    .verdict = Capabilities::Verdict::unvalidated_host,
+                    .long_path_keys_pinned = true,
+                    .per_verb = {.collect = store_exists, .install = store_exists, .rewrite = store_exists},
+                    .probe = observe_codex(host)};
+  if (!caps.probe.has_value()) {
     return caps;
   }
-  caps.per_verb = {.collect = true, .install = true, .rewrite = true};
-  auto version = codex_version_from_store(root);
-  if (!version) {
+  if (caps.probe->outcome != support::ProbeOutcome::ok) {
     caps.verdict = Capabilities::Verdict::unvalidated_host;
     return caps;
   }
-  caps.agent_version = *version;
-  caps.verdict = validated_codex_version(*version) ? Capabilities::Verdict::validated
-                                                   : Capabilities::Verdict::unvalidated;
+  caps.probe->parsed = parse_codex_version(caps.probe->raw);
+  if (!caps.probe->parsed.has_value()) {
+    caps.probe->outcome = support::ProbeOutcome::unparseable;
+    return caps;
+  }
+  caps.agent_version = *caps.probe->parsed;
+  caps.verdict = validated_codex_version(caps.agent_version) ? Capabilities::Verdict::validated
+                                                             : Capabilities::Verdict::unvalidated;
   return caps;
 }
 
@@ -345,7 +340,7 @@ expected<InstallResult> codex_install(const InstallTarget& target,
     }
   }
 
-  const auto host_caps = capabilities_for_root(target.target_store.root);
+  const auto& host_caps = target.capabilities;
   std::vector<PreparedSession> prepared_sessions;
   prepared_sessions.reserve(records.size());
   for (const auto& record : records) {
@@ -550,8 +545,6 @@ expected<RewriteReport> codex_rewrite(const std::span<const SessionRecord> recor
   return report;
 }
 
-Capabilities codex_capabilities(const Host& host) {
-  return capabilities_for_root(codex_root_for_host(host));
-}
+Capabilities codex_capabilities(const Host& host) { return probe_capabilities(host); }
 
 }  // namespace biv::adapters

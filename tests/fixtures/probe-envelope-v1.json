@@ -1,0 +1,71 @@
+{
+  "envelope_version": 1,
+  "app_version": "0.1.0",
+  "ok": true,
+  "verb": "open",
+  "exit_code": 0,
+  "warnings": [],
+  "advisories": [],
+  "result": {
+    "image_path": "/tmp/image.bvpk",
+    "output_dir": "/tmp/restored",
+    "collision_action": "none",
+    "restored_member_count": 1,
+    "checksums_verified": true,
+    "sessions": {
+      "prompt_shown": false,
+      "warning_shown": true,
+      "consent": {
+        "source": "flag",
+        "values": [
+          {"agent": "codex", "value": "yes"},
+          {"agent": "claude-code", "value": "yes"}
+        ]
+      },
+      "agents": [
+        {
+          "agent": "codex",
+          "capabilities_verdict": "validated",
+          "probe": {
+            "agent": "codex",
+            "requested": "/opt/codex",
+            "executed": "/opt/codex",
+            "pinned": true,
+            "outcome": "ok",
+            "exit_code": 0,
+            "raw": "codex-cli 0.144.4\n",
+            "parsed": "0.144.4"
+          },
+          "store_root": "/tmp/codex",
+          "sessions": [],
+          "activation": [],
+          "caveats": []
+        },
+        {
+          "agent": "claude-code",
+          "capabilities_verdict": "unvalidated-host",
+          "probe": {
+            "agent": "claude-code",
+            "requested": null,
+            "executed": null,
+            "pinned": false,
+            "outcome": "not_found",
+            "exit_code": -1,
+            "raw": "",
+            "parsed": null
+          },
+          "store_root": "/tmp/claude",
+          "sessions": [],
+          "activation": [],
+          "caveats": []
+        }
+      ]
+    },
+    "manifest": {
+      "format_version": 1,
+      "repos": [],
+      "agent_sessions": []
+    }
+  },
+  "error": null
+}

@@ -1,10 +1,13 @@
 #include "cli/args.hpp"
 
+#include <algorithm>
 #include <optional>
 #include <set>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "adapters/registry.hpp"
 
 namespace biv::cli {
 
@@ -12,6 +15,23 @@ namespace {
 
 bool is_flag(std::string_view arg) {
   return arg.starts_with("--");
+}
+
+std::string registered_agent_list() {
+  std::vector<std::string_view> agent_ids;
+  for (const auto* adapter : adapters::all_adapters()) {
+    agent_ids.push_back(adapter->id());
+  }
+  std::ranges::sort(agent_ids);
+
+  std::string joined;
+  for (const auto id : agent_ids) {
+    if (!joined.empty()) {
+      joined.push_back('|');
+    }
+    joined.append(id);
+  }
+  return joined;
 }
 
 BivError usage(std::string_view detail) {
@@ -107,6 +127,25 @@ const char* verb_name(const Verb verb) noexcept {
   return "pack";
 }
 
+std::string help_text(const Verb verb) {
+  if (verb == Verb::open) {
+    std::string help =
+        "usage: biv open <image> [options]\n"
+        "  --dest <path>\n"
+        "  --consent <yes|no|agent=yes,...>\n"
+        "  --agent-bin <";
+    help += registered_agent_list();
+    help +=
+        ">=<absolute-or-relative-path>\n"
+        "  --rename\n"
+        "  --abort-on-collision\n"
+        "  --verify\n"
+        "  --json\n";
+    return help;
+  }
+  return {};
+}
+
 expected<Command> parse_args(std::span<char* const> args) {
   Command command;
   command.json = contains_json(args);
@@ -144,6 +183,10 @@ expected<Command> parse_args(std::span<char* const> args) {
 
   if (verb == "open") {
     command.verb = Verb::open;
+    if (tokens.size() == 2U && tokens.at(1) == "--help") {
+      command.help = true;
+      return command;
+    }
     std::optional<std::filesystem::path> image;
     bool saw_rename = false;
     bool saw_abort = false;
@@ -154,6 +197,9 @@ expected<Command> parse_args(std::span<char* const> args) {
           return std::unexpected(usage("missing-dest"));
         }
         ++i;
+        if (tokens.at(i).empty()) {
+          return std::unexpected(usage("dest-empty"));
+        }
         command.open_options.dest = std::filesystem::path{tokens.at(i)};
       } else if (arg == "--consent") {
         if (i + 1U >= tokens.size()) {
@@ -165,6 +211,33 @@ expected<Command> parse_args(std::span<char* const> args) {
           return std::unexpected(consent.error());
         }
         command.consent = std::move(*consent);
+      } else if (arg == "--agent-bin") {
+        if (i + 1U >= tokens.size()) {
+          return std::unexpected(
+              usage("agent-bin-assignment-invalid"));
+        }
+        ++i;
+        const auto assignment = tokens.at(i);
+        const auto equals = assignment.find('=');
+        if (equals == std::string_view::npos ||
+            assignment.find('=', equals + 1U) != std::string_view::npos) {
+          return std::unexpected(
+              usage("agent-bin-assignment-invalid"));
+        }
+        const auto agent = assignment.substr(0, equals);
+        const auto path = assignment.substr(equals + 1U);
+        if (adapters::find_adapter(agent) == nullptr) {
+          return std::unexpected(usage("agent-bin-agent-invalid"));
+        }
+        if (path.empty()) {
+          return std::unexpected(usage("agent-bin-path-empty"));
+        }
+        const auto absolute =
+            std::filesystem::absolute(std::filesystem::path{path})
+                .lexically_normal();
+        if (!command.agent_bins.emplace(agent, absolute).second) {
+          return std::unexpected(usage("agent-bin-duplicate"));
+        }
       } else if (arg == "--rename") {
         saw_rename = true;
         command.open_options.collision = biv::open::Collision::rename;

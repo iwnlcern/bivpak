@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
+#include <simdjson.h>
 
 #include "core/report/envelope.hpp"
 #include "core/report/exit_map.hpp"
@@ -160,6 +161,9 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
   CHECK(envelope_text.find("\"refused\"") != std::string::npos);
   CHECK(envelope_text.find("exit_code") != std::string::npos);
   CHECK(envelope_text.find("partial_dir") != std::string::npos);
+  CHECK(envelope_text.find("\"probe\"") != std::string::npos);
+  CHECK(envelope_text.find("\"nonzero_exit\"") != std::string::npos);
+  CHECK(envelope_text.find("\"not_accessible\"") != std::string::npos);
 }
 
 TEST_CASE("session exit composition uses typed skip reasons") {
@@ -202,7 +206,53 @@ TEST_CASE("open envelope includes typed sessions report") {
   biv::core_sessions::AgentPreview preview;
   preview.agent = "future-tool";
   preview.parent_count = 1;
+  preview.caps = biv::adapters::Capabilities{
+      .agent_version = "0.144.4",
+      .validated_range = "0.144.x",
+      .verdict = biv::adapters::Capabilities::Verdict::validated,
+      .long_path_keys_pinned = true,
+      .per_verb = {.collect = true, .install = true, .rewrite = true},
+      .probe = biv::support::ProbeEvidence{
+          .agent = "future-tool",
+          .requested = "/opt/future",
+          .executed = "/opt/future",
+          .pinned = true,
+          .outcome = biv::support::ProbeOutcome::ok,
+          .exit_code = 0,
+          .raw = "future 0.144.4\n",
+          .parsed = "0.144.4"}};
   sessions.preview.agents.push_back(std::move(preview));
+  biv::core_sessions::AgentPreview failed_preview;
+  failed_preview.agent = "missing-tool";
+  failed_preview.parent_count = 1;
+  failed_preview.caps = biv::adapters::Capabilities{
+      .agent_version = "unknown",
+      .validated_range = "2.1.x",
+      .verdict = biv::adapters::Capabilities::Verdict::unvalidated_host,
+      .long_path_keys_pinned = false,
+      .per_verb = {.collect = true, .install = true, .rewrite = true},
+      .probe = biv::support::ProbeEvidence{
+          .agent = "missing-tool",
+          .requested = std::nullopt,
+          .executed = std::nullopt,
+          .pinned = false,
+          .outcome = biv::support::ProbeOutcome::not_executable,
+          .exit_code = -1,
+          .raw = "",
+          .parsed = std::nullopt}};
+  sessions.preview.agents.push_back(std::move(failed_preview));
+  auto io_preview = sessions.preview.agents.back();
+  io_preview.agent = "io-failed-tool";
+  io_preview.caps->probe->agent = "io-failed-tool";
+  io_preview.caps->probe->outcome =
+      biv::support::ProbeOutcome::probe_io_error;
+  sessions.preview.agents.push_back(std::move(io_preview));
+  auto inaccessible_preview = sessions.preview.agents.at(1);
+  inaccessible_preview.agent = "inaccessible-tool";
+  inaccessible_preview.caps->probe->agent = "inaccessible-tool";
+  inaccessible_preview.caps->probe->outcome =
+      biv::support::ProbeOutcome::not_accessible;
+  sessions.preview.agents.push_back(std::move(inaccessible_preview));
   sessions.outcome.rows.push_back({.agent = "future-tool",
                                    .image_session_id = "old",
                                    .row = biv::core_sessions::SessionRowReport::Row::installed,
@@ -211,10 +261,118 @@ TEST_CASE("open envelope includes typed sessions report") {
                                    .host_version_unverified = false,
                                    .activation_suppressed = false,
                                    .live_at_pack = false});
+  sessions.outcome.activation.push_back(
+      {.agent = "future-tool", .command = "future resume new"});
 
   const auto json = biv::report::envelope("open", std::nullopt, opened, std::nullopt, 0, sessions);
   CHECK(json.find("\"sessions\"") != std::string::npos);
   CHECK(json.find("\"warning_shown\": true") != std::string::npos);
   CHECK(json.find("\"installed_session_id\": \"new\"") != std::string::npos);
   CHECK(json.find("\"session_count\": 1") != std::string::npos);
+  CHECK(json.find("\"probe\"") != std::string::npos);
+  CHECK(json.find("\"outcome\": \"not_executable\"") !=
+        std::string::npos);
+  CHECK(json.find("\"outcome\": \"probe_io_error\"") !=
+        std::string::npos);
+  CHECK(json.find("\"outcome\": \"not_accessible\"") !=
+        std::string::npos);
+  CHECK(json.find("\"requested\": \"/opt/future\"") !=
+        std::string::npos);
+  CHECK(json.find("\"executed\": \"/opt/future\"") !=
+        std::string::npos);
+  CHECK(json.find("\"pinned\": true") != std::string::npos);
+  CHECK(json.find("\"outcome\": \"ok\"") != std::string::npos);
+  CHECK(json.find("\"exit_code\": 0") != std::string::npos);
+  CHECK(json.find("\"raw\": \"future 0.144.4") != std::string::npos);
+  CHECK(json.find("future 0.144.4\n") == std::string::npos);
+  CHECK(json.find("\"parsed\": \"0.144.4\"") != std::string::npos);
+  CHECK(count_occurrences(json, "\"probe\"") == 4);
+  const auto failed_probe =
+      json.find("\"outcome\": \"not_executable\"");
+  REQUIRE(failed_probe != std::string::npos);
+  const auto failed_object = json.rfind("\"probe\"", failed_probe);
+  REQUIRE(failed_object != std::string::npos);
+  CHECK(json.find("\"requested\": null", failed_object) < failed_probe);
+  CHECK(json.find("\"executed\": null", failed_object) < failed_probe);
+  CHECK(json.find("\"parsed\": null", failed_probe) != std::string::npos);
+  CHECK(json.find("\"activation\"") != std::string::npos);
+  CHECK(json.find("\"future resume new\"") != std::string::npos);
+  CHECK(json.find("\"output_dir\": \"/tmp/restored\"") !=
+        std::string::npos);
+
+  biv::report::OpenSessionsReport unwired_sessions;
+  biv::core_sessions::AgentPreview unwired_preview;
+  unwired_preview.agent = "codex";
+  unwired_preview.parent_count = 1;
+  unwired_preview.caps = biv::adapters::Capabilities{
+      .agent_version = "unknown",
+      .validated_range = "0.142.x, 0.144.x",
+      .verdict = biv::adapters::Capabilities::Verdict::unvalidated_host,
+      .long_path_keys_pinned = true,
+      .per_verb = {},
+      .probe = std::nullopt};
+  unwired_sessions.preview.agents.push_back(std::move(unwired_preview));
+
+  const auto unwired_json =
+      biv::report::envelope("open", std::nullopt, opened, std::nullopt, 0,
+                            unwired_sessions);
+
+  CHECK(unwired_json.find(
+            "\"capabilities_verdict\": \"unvalidated-host\"") !=
+        std::string::npos);
+  CHECK(unwired_json.find("\"probe\"") == std::string::npos);
+}
+
+TEST_CASE("probe fields replace invalid UTF-8 before envelope serialization") {
+  const auto invalid = [](std::string prefix) {
+    prefix.push_back(static_cast<char>(0x9b));
+    return prefix;
+  };
+
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "codex";
+  preview.parent_count = 1;
+  std::string full_raw(300, 'r');
+  full_raw += invalid("-");
+  preview.caps = biv::adapters::Capabilities{
+      .agent_version = "0.144.4",
+      .validated_range = "0.144.x",
+      .verdict = biv::adapters::Capabilities::Verdict::validated,
+      .long_path_keys_pinned = true,
+      .per_verb = {.collect = true, .install = true, .rewrite = true},
+      .probe = biv::support::ProbeEvidence{
+          .agent = invalid("agent-"),
+          .requested = std::filesystem::path{invalid("/tmp/requested-")},
+          .executed = std::filesystem::path{invalid("/tmp/executed-")},
+          .pinned = true,
+          .outcome = biv::support::ProbeOutcome::ok,
+          .exit_code = 0,
+          .raw = full_raw,
+          .parsed = invalid("parsed-")}};
+  sessions.preview.agents.push_back(std::move(preview));
+
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  CHECK(parser.parse(json).get(document) == simdjson::SUCCESS);
+
+  const std::string replacement{"\xEF\xBF\xBD"};
+  CHECK(json.find("\"agent\": \"agent-" + replacement + "\"") !=
+        std::string::npos);
+  CHECK(json.find("\"requested\": \"/tmp/requested-" + replacement + "\"") !=
+        std::string::npos);
+  CHECK(json.find("\"executed\": \"/tmp/executed-" + replacement + "\"") !=
+        std::string::npos);
+  CHECK(json.find("\"raw\": \"" + std::string(300, 'r') + "-" +
+                  replacement + "\"") != std::string::npos);
+  CHECK(json.find("\"parsed\": \"parsed-" + replacement + "\"") !=
+        std::string::npos);
 }

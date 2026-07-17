@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -13,6 +14,7 @@
 
 #include "core/manifest/manifest.hpp"
 #include "core/support/error.hpp"
+#include "core/support/probe.hpp"
 
 namespace biv::adapters {
 
@@ -26,6 +28,10 @@ struct Env {
 struct Host {
   std::filesystem::path home;
   Env env;
+  std::function<expected<support::ProbeEvidence>(std::string_view executable,
+                                                 const std::optional<std::filesystem::path>& pin)>
+      version_probe;
+  std::map<std::string, std::filesystem::path> pinned_bins;
 };
 
 struct StoreLocator {
@@ -90,10 +96,26 @@ struct CollectReport {
 
 using MemberRead = std::function<expected<std::vector<std::byte>>(std::string_view archive_path)>;
 
+struct PerVerb {
+  bool collect{false};
+  bool install{false};
+  bool rewrite{false};
+};
+
+struct Capabilities {
+  std::string agent_version;
+  std::string validated_range;
+  enum class Verdict { validated, unvalidated_host, unvalidated, absent } verdict{Verdict::absent};
+  bool long_path_keys_pinned{false};
+  PerVerb per_verb;
+  std::optional<support::ProbeEvidence> probe;
+};
+
 struct InstallTarget {
   std::filesystem::path workspace_root;
   Store target_store;
   MemberRead member_read;
+  Capabilities capabilities;
 };
 
 enum class Consent { yes, no };
@@ -137,20 +159,6 @@ struct RewriteReport {
   std::vector<std::pair<std::string, InstallVerify>> per_artifact_hits;
   size_t skipped_non_utf8{0};
   InstallVerify verify;
-};
-
-struct PerVerb {
-  bool collect{false};
-  bool install{false};
-  bool rewrite{false};
-};
-
-struct Capabilities {
-  std::string agent_version;
-  std::string validated_range;
-  enum class Verdict { validated, unvalidated_host, unvalidated, absent } verdict{Verdict::absent};
-  bool long_path_keys_pinned{false};
-  PerVerb per_verb;
 };
 
 class AgentAdapter {

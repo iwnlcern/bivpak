@@ -10,6 +10,7 @@
 
 #include "core/open/sessions.hpp"
 #include "core/report/exit_map.hpp"
+#include "core/support/probe.hpp"
 
 namespace {
 
@@ -90,6 +91,27 @@ TEST_CASE("session preview groups manifest agents and flags unsupported rows") {
   CHECK(preview->agents.at(1).entry_schema_skipped);
   CHECK(preview->any_sessions());
   std::filesystem::remove_all(home);
+
+  const auto unwired_home = make_tmp("probe-unwired");
+  auto unwired_manifest = model({entry("claude-code"), entry("codex")});
+  const biv::adapters::Host host{
+      .home = unwired_home,
+      .env = env(unwired_home),
+      .version_probe = {},
+      .pinned_bins = {}};
+
+  const auto unwired_preview =
+      biv::core_sessions::build_preview(unwired_manifest, host);
+
+  REQUIRE(unwired_preview);
+  REQUIRE(unwired_preview->agents.size() == 2U);
+  for (const auto& agent : unwired_preview->agents) {
+    REQUIRE(agent.caps.has_value());
+    CHECK(agent.caps->verdict ==
+          biv::adapters::Capabilities::Verdict::unvalidated_host);
+    CHECK_FALSE(agent.caps->probe.has_value());
+  }
+  std::filesystem::remove_all(unwired_home);
 }
 
 TEST_CASE("consent resolution covers global per-agent prompt and deny default") {
@@ -165,7 +187,8 @@ TEST_CASE("typed session kinds cover every advisory and divergence class") {
 TEST_CASE("activation filtering suppresses only the failed session command") {
   biv::adapters::InstallResult installed;
   installed.activation = {{.agent = "future-tool", .command = "future resume clean-id"},
-                          {.agent = "future-tool", .command = "future resume bad-id"}};
+                          {.agent = "future-tool", .command = "future resume bad-id"},
+                          {.agent = "future-tool", .command = "future resume orphan-id"}};
   std::vector<biv::core_sessions::SessionRowReport> rows{
       {.agent = "future-tool",
        .image_session_id = "clean-image",
@@ -174,10 +197,9 @@ TEST_CASE("activation filtering suppresses only the failed session command") {
        .installed_session_id = "clean-id"},
       {.agent = "future-tool",
        .image_session_id = "bad-image",
-       .row = biv::core_sessions::SessionRowReport::Row::containment_refused,
-       .reason = "verify-hits",
-       .installed_session_id = "bad-id",
-       .activation_suppressed = true}};
+       .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+       .reason = "error",
+       .installed_session_id = "bad-id"}};
 
   const auto safe = biv::core_sessions::filter_activation(installed.activation, rows);
   REQUIRE(safe.size() == 1U);
@@ -210,7 +232,22 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
         marker << "{\"version\":\"" << version_case.version << "\"}\n";
       }
       auto manifest = model({codex_entry(version_case.version)});
-      auto preview = biv::core_sessions::build_preview(manifest, env(home));
+      const biv::adapters::Host host{
+          .home = home,
+          .env = env(home),
+          .version_probe = [&](const std::string_view agent, const std::optional<std::filesystem::path>&)
+              -> biv::expected<biv::support::ProbeEvidence> {
+            return biv::support::ProbeEvidence{.agent = std::string{agent},
+                                               .requested = std::nullopt,
+                                               .executed = home / "bin" / "codex",
+                                               .pinned = false,
+                                               .outcome = biv::support::ProbeOutcome::ok,
+                                               .exit_code = 0,
+                                               .raw = "codex-cli " + std::string{version_case.version},
+                                               .parsed = std::nullopt};
+          },
+          .pinned_bins = {}};
+      auto preview = biv::core_sessions::build_preview(manifest, host);
       REQUIRE(preview);
       biv::core_sessions::ConsentSpec consent_spec;
       consent_spec.global = biv::core_sessions::ConsentValue::yes;
@@ -260,4 +297,69 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
       std::filesystem::remove_all(home);
     }
   }
+}
+
+TEST_CASE(
+    "Task 3 session preview observes capabilities once and install "
+    "reuses them") {
+  constexpr std::string_view session_id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1440";
+  const auto home = make_tmp("single-capability-observation");
+  const auto store = home / ".codex";
+  const auto workspace = home / "workspace";
+  std::filesystem::create_directories(store);
+  std::filesystem::create_directories(workspace);
+  {
+    std::ofstream marker{store / "version.json"};
+    marker << "{\"version\":\"0.61.0\"}\n";
+  }
+  auto manifest = model({codex_entry("0.143.0")});
+  size_t observations = 0;
+  const biv::adapters::Host host{
+      .home = home,
+      .env = env(home),
+      .version_probe = [&](const std::string_view agent,
+                           const std::optional<std::filesystem::path>&) -> biv::expected<biv::support::ProbeEvidence> {
+        ++observations;
+        return biv::support::ProbeEvidence{.agent = std::string{agent},
+                                           .requested = std::nullopt,
+                                           .executed = home / "bin" / "codex",
+                                           .pinned = false,
+                                           .outcome = biv::support::ProbeOutcome::ok,
+                                           .exit_code = 0,
+                                           .raw = "codex-cli 0.144.4",
+                                           .parsed = std::nullopt};
+      },
+      .pinned_bins = {}};
+
+  auto preview = biv::core_sessions::build_preview(manifest, host);
+  REQUIRE(preview);
+  REQUIRE(preview->agents.size() == 1);
+  REQUIRE(preview->agents.front().caps.has_value());
+  CHECK(preview->agents.front().caps->verdict == biv::adapters::Capabilities::Verdict::validated);
+  CHECK(observations == 1);
+
+  biv::core_sessions::ConsentSpec consent_spec;
+  consent_spec.global = biv::core_sessions::ConsentValue::yes;
+  const auto consent = biv::core_sessions::resolve_consent(consent_spec, *preview, std::nullopt);
+  const std::string artifact = "agents/codex/" + std::string{session_id} + ".jsonl";
+  const auto content = bytes(
+      "{\"timestamp\":\"2026-07-12T00:00:00Z\",\"type\":"
+      "\"session_meta\",\"payload\":{\"id\":\"" +
+      std::string{session_id} + "\",\"session_id\":\"" + std::string{session_id} +
+      "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.143.0\"}}\n");
+  const biv::adapters::MemberRead reader = [&](std::string_view path) -> biv::expected<std::vector<std::byte>> {
+    if (path != artifact) {
+      return std::unexpected(biv::BivError{biv::ErrKind::ImageUnreadable, std::string{path}});
+    }
+    return content;
+  };
+
+  const auto outcome = biv::core_sessions::run_session_leg(*preview, consent, manifest, workspace, reader);
+
+  REQUIRE(outcome);
+  REQUIRE(outcome->rows.size() == 1);
+  CHECK(outcome->rows.front().row == biv::core_sessions::SessionRowReport::Row::installed);
+  CHECK_FALSE(outcome->rows.front().host_version_unverified);
+  CHECK(observations == 1);
+  std::filesystem::remove_all(home);
 }
