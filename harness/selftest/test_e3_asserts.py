@@ -6,6 +6,7 @@ import re
 import shutil
 import stat
 import tarfile
+import unicodedata
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -2874,6 +2875,106 @@ def test_realpath_unstable_live_profile_is_refused(tmp_path):
     assert "live_profile" in result.detail
 
 
+@pytest.mark.parametrize(
+    "field",
+    ("scratch", "live_profile", "live_store_roots"),
+)
+@pytest.mark.parametrize("spelling", ("svd", "nfd"))
+def test_noncanonical_external_roots_are_refused_before_probe_or_spawn(
+    monkeypatch, tmp_path, stable_test_root, field, spelling
+):
+    if spelling == "svd":
+        suffix = {
+            "scratch": "e3-run/bivharness-scratch-x",
+            "live_profile": ".codex",
+            "live_store_roots": ".claude",
+        }[field]
+        canonical = Path("/Users/jack") / suffix
+        refused = Path("/System/Volumes/Data") / str(canonical).lstrip("/")
+    else:
+        canonical = stable_test_root / f"{field}-\u00e9"
+        refused = Path(unicodedata.normalize("NFD", str(canonical)))
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "scratch"
+    if field == "scratch":
+        scratch = refused
+    elif field == "live_profile":
+        spec["agents"][0]["live_profile"] = str(refused)
+    else:
+        spec["live_store_roots"] = [str(refused)]
+    probe_calls = []
+    monkeypatch.setattr(
+        e3,
+        "probe",
+        lambda root: probe_calls.append(root) or [],
+    )
+
+    result = _run_refusal_without_side_effects(
+        monkeypatch,
+        tmp_path,
+        spec,
+        scratch,
+        watched_roots=(stable_test_root,),
+    )
+
+    assert result.status is Status.INVALID
+    assert probe_calls == []
+    assert (
+        f"{field} must use its canonical spelling ({canonical}); "
+        f"firmlink-aliased or non-NFC spellings are refused ({refused})"
+    ) in result.detail
+
+
+# Case-variant APFS identity containment is deliberately outside this fold and
+# remains an orchestrator-owned residual for the next negctl or E4 hardening pass.
+@pytest.mark.parametrize(
+    "field",
+    ("scratch", "live_profile", "live_store_roots"),
+)
+@pytest.mark.parametrize(
+    "canonical",
+    (
+        Path("/Users/jack/e3-run/bivharness-scratch-x"),
+        Path("/private/var/e3-run/bivharness-scratch-x"),
+    ),
+    ids=("users", "private-var"),
+)
+def test_path_field_failures_accept_canonical_external_root_spellings(
+    stable_test_root, field, canonical
+):
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "scratch"
+    if field == "scratch":
+        scratch = canonical
+    elif field == "live_profile":
+        spec["agents"][0]["live_profile"] = str(canonical)
+    else:
+        spec["live_store_roots"] = [str(canonical)]
+
+    assert e3._path_field_failures(spec, scratch) == []
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("scratch", "live_profile", "live_store_roots"),
+)
+def test_path_field_failures_accept_nfc_non_ascii_external_root_spellings(
+    stable_test_root, field
+):
+    canonical = stable_test_root / "canonical-\u00e9"
+    assert unicodedata.normalize("NFC", str(canonical)) == str(canonical)
+    spec = _valid_two_agent_spec()
+    scratch = stable_test_root / "scratch"
+    if field == "scratch":
+        scratch = canonical
+    elif field == "live_profile":
+        spec["agents"][0]["live_profile"] = str(canonical)
+    else:
+        spec["live_store_roots"] = [str(canonical)]
+
+    assert e3._path_field_failures(spec, scratch) == []
+
+
 @pytest.mark.parametrize("field", ["host2_profile", "workspace_name"])
 def test_absolute_value_that_would_escape_its_root_is_refused(tmp_path, field):
     spec = _valid_two_agent_spec()
@@ -2927,7 +3028,54 @@ def test_shipped_scenario_has_no_realpath_unstable_or_absolute_paths(repo_root):
     assert e3._path_field_failures(spec, Path.home()) == []
 
 
-def test_runner_stops_on_an_alias_spelled_seeded_transcript_before_pack(
+def test_runner_proceeds_past_tempdir_noise_to_pack(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        if "--version" in command:
+            version = "claude 2.1.202" if command[0] == "claude" else "codex-cli 0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command[:2] == ["biv", "pack"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="stop after negative control")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    def fake_seed_agent(
+        agent,
+        live_profile,
+        seed_workspace,
+        spec,
+        env,
+        spawn,
+        capture_candidates,
+        owned_paths,
+    ):
+        payload = (
+            b'{"output":"FileNotFoundError: No usable temporary directory found in '
+            b"['/var/folders/hq/x/T/', '/tmp', '/var/tmp', '/usr/tmp']\\n"
+            b'also /var/folders/hq/x/T/ws and /private/var/folders/hq/x/T/ws"}\n'
+            if agent["id"] == "codex"
+            else b'{"cwd":"/Users/jack/biv-e3/ws"}\n'
+        )
+        transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
+        transcript.write_bytes(payload)
+        owned_paths.append(transcript)
+        return transcript
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed_agent)
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert "negative-control" not in (result.detail or "")
+    assert any(command[:2] == ["biv", "pack"] for command in calls)
+
+
+def test_runner_voids_pre_pack_when_a_run_root_alias_spelling_appears(
     monkeypatch, tmp_path, stable_test_root
 ):
     calls = []
@@ -2949,18 +3097,14 @@ def test_runner_stops_on_an_alias_spelled_seeded_transcript_before_pack(
         capture_candidates,
         owned_paths,
     ):
-        spelling = (
-            b"/var/folders/hq/x/T/ws"
-            if agent["id"] == "codex"
-            else b"/Users/jack/biv-e3/ws"
-        )
         transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
-        transcript.write_bytes(b'{"cwd":"' + spelling + b'"}\n')
+        transcript.write_bytes(b'{"cwd":"E3-ALIAS-CANARY/seed-ws"}\n')
         owned_paths.append(transcript)
         return transcript
 
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
     monkeypatch.setattr(e3, "_seed_agent", fake_seed_agent)
+    monkeypatch.setattr(e3, "_alias_spellings", lambda root: ["E3-ALIAS-CANARY"])
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
 
@@ -2971,23 +3115,678 @@ def test_runner_stops_on_an_alias_spelled_seeded_transcript_before_pack(
     assert not any(command[:2] == ["biv", "pack"] for command in calls)
 
 
-def test_negative_control_flags_an_alias_spelled_transcript(tmp_path):
+@pytest.mark.parametrize(
+    "agent_order",
+    (
+        ("codex", "claude-code"),
+        ("claude-code", "codex"),
+    ),
+    ids=("codex-first", "claude-first"),
+)
+@pytest.mark.parametrize(
+    "hit_index",
+    (0, 1),
+    ids=("first-transcript", "second-transcript"),
+)
+def test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack(
+    monkeypatch, tmp_path, stable_test_root, agent_order, hit_index
+):
+    calls = []
+    hit_agent = agent_order[hit_index]
+    alias_root = "/tmp/E3-ALIAS-CANARY"
+
+    def fake_spawn(command, cwd, env):
+        calls.append(command)
+        if "--version" in command:
+            version = (
+                "claude 2.1.202"
+                if command[0] == "claude"
+                else "codex-cli 0.144.1"
+            )
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command[:2] == ["biv", "pack"]:
+            return SimpleNamespace(
+                returncode=1,
+                stdout="",
+                stderr="negative control was bypassed",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    def fake_seed_agent(
+        agent,
+        live_profile,
+        seed_workspace,
+        spec,
+        env,
+        spawn,
+        capture_candidates,
+        owned_paths,
+    ):
+        transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
+        cwd = (
+            "//tmp/E3-ALIAS-CANARY/seed-ws"
+            if agent["id"] == hit_agent
+            else "/opt/benign-workspace"
+        )
+        transcript.write_text(
+            json.dumps({"cwd": cwd}) + "\n",
+            encoding="utf-8",
+        )
+        owned_paths.append(transcript)
+        return transcript
+
+    spec = _valid_two_agent_spec()
+    agents_by_id = {agent["id"]: agent for agent in spec["agents"]}
+    spec["agents"] = [agents_by_id[agent_id] for agent_id in agent_order]
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed_agent)
+    monkeypatch.setattr(
+        e3,
+        "_alias_spellings",
+        lambda root: [alias_root],
+    )
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+
+    result = e3.run_e3(
+        spec_path,
+        Path("biv"),
+        stable_test_root / "scratch",
+    )
+
+    assert result.status is Status.INVALID
+    assert "negative-control" in result.detail
+    assert hit_agent in result.detail
+    assert not any(command[:2] == ["biv", "pack"] for command in calls)
+
+
+def test_negative_control_flags_the_alias_spelling_of_the_run_root(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
     transcript = tmp_path / "seed.jsonl"
-    transcript.write_bytes(b'{"cwd":"/var/folders/hq/x/T/ws"}\n')
-    failures = e3._negative_control_failures([transcript])
+    transcript.write_bytes(b'{"cwd":"/var/e3-run/bivharness-scratch-x/seed-ws"}\n')
+    failures = e3._negative_control_failures([transcript], scratch)
     assert failures and "negative-control" in failures[0]
 
 
-def test_negative_control_flags_the_resolved_spelling_too(tmp_path):
+def test_negative_control_flags_the_reverse_direction_too(tmp_path):
+    scratch = Path("/var/e3-run/bivharness-scratch-x")
     transcript = tmp_path / "seed.jsonl"
-    transcript.write_bytes(b'{"cwd":"/private/var/folders/hq/x/T/ws"}\n')
-    assert e3._negative_control_failures([transcript])
+    transcript.write_bytes(
+        b'{"cwd":"/private/var/e3-run/bivharness-scratch-x/seed-ws"}\n'
+    )
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_is_silent_on_runtime_tempdir_noise(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "rollout.jsonl"
+    transcript.write_bytes(
+        b'{"output":"FileNotFoundError: No usable temporary directory found in '
+        b"['/var/folders/hq/x/T/', '/tmp', '/var/tmp', '/usr/tmp']\\n"
+        b'also /var/folders/hq/x/T/ws and /private/var/folders/hq/x/T/ws"}\n'
+    )
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+def test_negative_control_is_silent_on_the_canonical_spelling(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'{"cwd":"/private/var/e3-run/bivharness-scratch-x/seed-ws"}\n'
+    )
+    assert e3._negative_control_failures([transcript], scratch) == []
 
 
 def test_negative_control_is_silent_on_a_realpath_stable_transcript(tmp_path):
     transcript = tmp_path / "seed.jsonl"
     transcript.write_bytes(b'{"cwd":"/Users/jack/biv-e3/seed-ws"}\n')
-    assert e3._negative_control_failures([transcript]) == []
+    assert e3._negative_control_failures(
+        [transcript], Path("/Users/jack/biv-e3-scratch")
+    ) == []
+
+
+@pytest.mark.parametrize(
+    "scratch,sibling",
+    [
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"path":"/var/e3-run/bivharness-scratch-x-old/output"}\n',
+        ),
+        (
+            Path("/var/e3-run/bivharness-scratch-x"),
+            b'{"path":"/private/var/e3-run/bivharness-scratch-x-old/output"}\n',
+        ),
+    ],
+)
+def test_negative_control_is_silent_on_a_sibling_prefix_path(
+    tmp_path, scratch, sibling
+):
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(sibling)
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+@pytest.mark.parametrize(
+    "scratch,blob",
+    [
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/opt/private/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/foo1/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/scope@/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/scope%/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/opt//var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/scope=/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/scope:/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/scope,/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/scope /var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/x@/private/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+        (
+            Path("/var/e3-run/bivharness-scratch-x"),
+            b'{"p":"/scope=/private/var/e3-run/bivharness-scratch-x/y"}\n',
+        ),
+    ],
+)
+def test_negative_control_is_silent_on_an_embedded_longer_path(
+    tmp_path, scratch, blob
+):
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(blob)
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+def test_negative_control_flags_the_exact_alias_root_as_a_complete_value(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'{"root":"/var/e3-run/bivharness-scratch-x"}\n')
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_flags_a_nested_container_value(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'{"a":[{"p":"/var/e3-run/bivharness-scratch-x/y"}]}\n'
+    )
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+@pytest.mark.parametrize("separator", ("\u2028", "\u2029", "\u0085"))
+def test_negative_control_preserves_raw_unicode_separators_inside_json_records(
+    tmp_path, separator
+):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        '{"msg":"mask'
+        + separator
+        + 'text","cwd":"/var/e3-run/bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_skips_json_parser_recursion_errors(
+    monkeypatch, tmp_path
+):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        'too-deep\n{"cwd":"/var/e3-run/bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+    real_loads = e3.json.loads
+
+    def loads_with_deep_record(line):
+        if line == "too-deep":
+            raise RecursionError("injected parser depth")
+        return real_loads(line)
+
+    monkeypatch.setattr(e3.json, "loads", loads_with_deep_record)
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_structural_alias_walk_handles_nesting_beyond_python_recursion_limit():
+    root = "/var/e3-run/bivharness-scratch-x"
+    record = root + "/seed"
+    for _ in range(1200):
+        record = [record]
+
+    assert e3._structural_alias_hit(record, [root]) == root
+
+
+def test_structural_alias_walk_preserves_document_order():
+    first = "/alias/first"
+    second = "/alias/second"
+    record = {
+        "first": {"cwd": first + "/seed"},
+        "second": [second + "/seed"],
+    }
+
+    assert e3._structural_alias_hit(record, [first, second]) == first
+
+
+@pytest.mark.parametrize(
+    ("scratch", "alias"),
+    (
+        (
+            Path("/private/var/e3-run/bivharness-scratch-x"),
+            "/var/e3-run/bivharness-scratch-x",
+        ),
+        (
+            Path("/var/e3-run/bivharness-scratch-x"),
+            "/private/var/e3-run/bivharness-scratch-x",
+        ),
+        (
+            Path("/private/tmp/e3-run/bivharness-scratch-x"),
+            "/tmp/e3-run/bivharness-scratch-x",
+        ),
+        (
+            Path("/tmp/e3-run/bivharness-scratch-x"),
+            "/private/tmp/e3-run/bivharness-scratch-x",
+        ),
+        (
+            Path("/private/etc/e3-run/bivharness-scratch-x"),
+            "/etc/e3-run/bivharness-scratch-x",
+        ),
+        (
+            Path("/etc/e3-run/bivharness-scratch-x"),
+            "/private/etc/e3-run/bivharness-scratch-x",
+        ),
+        (
+            Path("/Users/jack/e3-run/bivharness-scratch-x"),
+            "/System/Volumes/Data/Users/jack/e3-run/bivharness-scratch-x",
+        ),
+    ),
+)
+def test_structural_alias_hit_uses_lexical_path_identity(scratch, alias):
+    roots = e3._alias_spellings(scratch)
+    assert alias in roots
+    assert all(root.startswith("/") and not root.startswith("//") for root in roots)
+
+    for root in roots:
+        assert e3._structural_alias_hit(
+            {"cwd": root + "/../outside-the-run"},
+            roots,
+        ) is None
+        assert e3._structural_alias_hit(
+            {"cwd": root + "/a/../seed-ws"},
+            roots,
+        ) == root
+        assert e3._structural_alias_hit(
+            {"cwd": root + "/./seed-ws"},
+            roots,
+        ) == root
+        assert e3._structural_alias_hit({"cwd": root + "/"}, roots) == root
+        assert e3._structural_alias_hit({"cwd": "/" + root}, roots) == root
+        assert (
+            e3._structural_alias_hit({"cwd": "/" + root + "/seed-ws"}, roots)
+            == root
+        )
+        assert e3._structural_alias_hit({"cwd": "//" + root}, roots) == root
+        assert e3._structural_alias_hit(
+            {"cwd": "/" + root + "/../outside-the-run"},
+            roots,
+        ) is None
+        assert e3._structural_alias_hit(
+            {"cwd": "/" + root + "-outside"},
+            roots,
+        ) is None
+
+    assert e3._structural_alias_hit(
+        {"cwd": "//opt/unrelated/e3-run"},
+        roots,
+    ) is None
+
+
+def test_negative_control_flags_the_darwin_data_firmlink_for_users_scratch(
+    tmp_path
+):
+    scratch = Path("/Users/jack/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        '{"cwd":"/System/Volumes/Data/Users/jack/e3-run/'
+        'bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_is_silent_on_canonical_users_scratch_spelling(tmp_path):
+    scratch = Path("/Users/jack/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        '{"cwd":"/Users/jack/e3-run/bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+def test_alias_spellings_return_text_without_a_byte_round_trip():
+    spellings = e3._alias_spellings(
+        Path("/private/var/e3-run/bivharness-scratch-x")
+    )
+
+    assert "/var/e3-run/bivharness-scratch-x" in spellings
+    assert all(isinstance(spelling, str) for spelling in spellings)
+    for root, alias in (
+        ("/private/var", "/var"),
+        ("/var", "/private/var"),
+        ("/private/tmp", "/tmp"),
+        ("/tmp", "/private/tmp"),
+        ("/private/etc", "/etc"),
+        ("/etc", "/private/etc"),
+        ("/", "/System/Volumes/Data"),
+    ):
+        assert alias in e3._alias_spellings(Path(root))
+    assert e3._alias_spellings(Path("/System/Volumes/Data")) == [
+        "/System/Volumes/Data"
+    ]
+
+
+@pytest.mark.parametrize("data_prefix_count", (1, 2))
+def test_alias_spellings_canonicalize_darwin_data_prefixes_to_a_fixed_point(
+    data_prefix_count,
+):
+    prefix = "/System/Volumes/Data" * data_prefix_count
+    scratch = Path(prefix + "/private/tmp/e3-scratch")
+
+    spellings = e3._alias_spellings(scratch)
+
+    assert "/tmp/e3-scratch" in spellings
+
+
+def test_alias_spellings_normalize_the_scratch_text_to_nfc():
+    scratch = Path(
+        unicodedata.normalize("NFD", "/Users/jack/e3-run/bivharness-scratch-\u00e9")
+    )
+    alias = "/System/Volumes/Data/Users/jack/e3-run/bivharness-scratch-\u00e9"
+
+    assert alias in e3._alias_spellings(scratch)
+
+
+def test_negative_control_normalizes_transcript_path_values_to_nfc(tmp_path):
+    scratch = Path("/Users/jack/e3-run/bivharness-scratch-\u00e9")
+    alias = unicodedata.normalize(
+        "NFD",
+        "/System/Volumes/Data/Users/jack/e3-run/bivharness-scratch-\u00e9/seed",
+    )
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        json.dumps({"cwd": alias}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_failure_binds_detail_cardinality_and_non_ascii_root(
+    tmp_path
+):
+    scratch = Path("/Users/jack/e3-run/bivharness-scratch-\u00e9")
+    alias = "/System/Volumes/Data/Users/jack/e3-run/bivharness-scratch-\u00e9"
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        f'{{"cwd":"{alias}/first"}}\n{{"cwd":"{alias}/second"}}\n',
+        encoding="utf-8",
+    )
+
+    failures = e3._negative_control_failures([transcript], scratch)
+
+    assert len(failures) == 1
+    assert failures[0].startswith(
+        f"negative-control: {transcript} renders {alias} - "
+    )
+
+
+def test_negative_control_replaces_invalid_utf8_in_benign_noise(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'\xff\n{"cwd":"/opt/workspace"}\n')
+
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+def test_negative_control_replaces_invalid_utf8_and_still_finds_alias(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'\xff\n{"cwd":"/var/e3-run/bivharness-scratch-x/seed"}\n'
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_replacement_does_not_join_an_alias_across_invalid_utf8(
+    tmp_path,
+):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'{"cwd":"/var/e3-run/bivharness-scratch-\xffx/seed"}\n'
+    )
+
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+@pytest.mark.parametrize("delimiter", (b"\r\n", b"\r"), ids=("crlf", "lone-cr"))
+def test_negative_control_accepts_platform_newlines_as_jsonl_record_delimiters(
+    tmp_path, delimiter
+):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'{"cwd":"/opt/workspace"}'
+        + delimiter
+        + b'{"cwd":"/var/e3-run/bivharness-scratch-x/seed"}'
+        + delimiter
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+def test_negative_control_reads_a_bom_prefixed_first_record(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_text(
+        '\ufeff{"cwd":"/var/e3-run/bivharness-scratch-x/seed"}\n',
+        encoding="utf-8",
+    )
+
+    assert e3._negative_control_failures([transcript], scratch)
+
+
+@pytest.mark.parametrize(
+    ("path", "refused"),
+    (
+        (Path("/System/Volumes/Data/private/tmp/e3-scratch"), True),
+        (Path("/private/tmp/e3-scratch"), False),
+    ),
+    ids=("darwin-data-firmlink", "distinct-linux-private-tmp"),
+)
+def test_temp_root_guard_handles_darwin_firmlink_without_linux_false_positive(
+    monkeypatch, path, refused
+):
+    real_resolve = Path.resolve
+
+    def linux_style_tmp_resolve(path, *args, **kwargs):
+        if path == Path("/tmp"):
+            return Path("/tmp")
+        return real_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", linux_style_tmp_resolve)
+    failure = e3._temp_root_failure("scratch", path)
+
+    assert (failure is not None) is refused
+    if refused:
+        assert "under" in failure
+
+
+def test_temp_overlap_guard_canonicalizes_the_darwin_data_firmlink(
+    monkeypatch, stable_test_root
+):
+    monkeypatch.setenv("TMPDIR", str(stable_test_root / "unrelated-temp"))
+
+    failures = e3._scratch_temp_root_overlap_failures(
+        Path("/System/Volumes/Data/private/var")
+    )
+
+    assert failures
+    assert "/private/var/tmp" in failures[0]
+
+
+def test_temp_overlap_guard_normalizes_paths_to_nfc(
+    monkeypatch, stable_test_root
+):
+    scratch = stable_test_root / "scratch-\u00e9"
+    temp_root = Path(
+        unicodedata.normalize("NFD", str(scratch / "ambient-temp"))
+    )
+    monkeypatch.setenv("TMPDIR", str(temp_root))
+
+    failures = e3._scratch_temp_root_overlap_failures(scratch)
+
+    assert failures
+
+
+def test_e3_empty_tmpdir_falls_back_to_tmp(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+    scratch = stable_test_root / "scratch"
+    cwd = scratch / "cwd"
+    cwd.mkdir(parents=True)
+    monkeypatch.chdir(cwd)
+    monkeypatch.setenv("TMPDIR", "")
+    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(e3, "probe", lambda root: calls.append(root) or [])
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), scratch)
+
+    assert result.status is Status.PASS
+    assert calls == [scratch]
+
+
+def test_e3_absolutizes_a_relative_tmpdir_before_overlap_check(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+    scratch = stable_test_root / "scratch"
+    scratch.mkdir()
+    monkeypatch.chdir(scratch)
+    monkeypatch.setenv("TMPDIR", "ambient-temp")
+    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(e3, "probe", lambda root: calls.append(root) or [])
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), scratch)
+
+    assert result.status is Status.INVALID
+    assert calls == []
+    assert "temporary root" in result.detail
+
+
+def test_e3_allows_scratch_strictly_inside_ambient_tmpdir(
+    monkeypatch, tmp_path, stable_test_root
+):
+    calls = []
+    ambient_temp_root = stable_test_root / "ambient-temp"
+    scratch = ambient_temp_root / "e3-scratch"
+    scratch.mkdir(parents=True)
+    monkeypatch.setenv("TMPDIR", str(ambient_temp_root))
+    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(e3, "probe", lambda root: calls.append(root) or [])
+
+    result = _run_dry(tmp_path, _valid_two_agent_spec(), scratch)
+
+    assert result.status is Status.PASS
+    assert calls == [scratch]
+
+
+@pytest.mark.parametrize("temp_root_kind", ("ambient", "private-var-tmp"))
+def test_e3_refuses_scratch_equal_to_or_above_temp_roots_before_probe(
+    monkeypatch, tmp_path, stable_test_root, temp_root_kind
+):
+    calls = []
+    scratch = stable_test_root / "scratch"
+    scratch.mkdir()
+    if temp_root_kind == "ambient":
+        ambient_temp_root = scratch / "ambient-temp"
+        ambient_temp_root.mkdir()
+        monkeypatch.setenv("TMPDIR", str(ambient_temp_root))
+    else:
+        scratch = Path("/private/var/tmp")
+        monkeypatch.setenv("TMPDIR", str(stable_test_root / "unrelated-temp"))
+    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(e3, "probe", lambda root: calls.append(root) or [])
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+
+    result = e3.run_e3(
+        spec_path,
+        Path("biv"),
+        scratch,
+        dry_run=True,
+    )
+
+    assert calls == []
+    assert result.status is Status.INVALID
+    assert "temporary root" in result.detail
+
+
+def test_negative_control_is_silent_on_a_prose_embedded_mention(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(
+        b'{"msg":"I ran in /var/e3-run/bivharness-scratch-x/seed today"}\n'
+    )
+    assert e3._negative_control_failures([transcript], scratch) == []
+
+
+def test_negative_control_skips_malformed_lines_without_voiding(tmp_path):
+    scratch = Path("/private/var/e3-run/bivharness-scratch-x")
+    transcript = tmp_path / "seed.jsonl"
+    transcript.write_bytes(b'not json /var/e3-run/bivharness-scratch-x/seed\n')
+    assert e3._negative_control_failures([transcript], scratch) == []
+    transcript.write_bytes(
+        b'not json\n{"cwd":"/var/e3-run/bivharness-scratch-x/s"}\n'
+    )
+    assert e3._negative_control_failures([transcript], scratch)
 
 
 def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_path):

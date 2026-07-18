@@ -2,11 +2,13 @@ import errno
 import hashlib
 import json
 import os
+import posixpath
 import re
 import secrets
 import shlex
 import shutil
 import subprocess
+import unicodedata
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -826,14 +828,42 @@ def _stability_failure(label: str, path: Path) -> str | None:
     return None
 
 
-def _temp_root_failure(label: str, path: Path) -> str | None:
-    resolved = path.resolve()
-    temp_root = Path("/tmp").resolve()
-    try:
-        resolved.relative_to(temp_root)
-    except ValueError:
+def _canonical_path_text(path: Path) -> str:
+    text = unicodedata.normalize("NFC", str(path))
+    data_prefix = "/System/Volumes/Data"
+    while text == data_prefix or text.startswith(data_prefix + "/"):
+        text = text[len(data_prefix):] or "/"
+    return text
+
+
+def _canonical_spelling_failure(label: str, path: Path) -> str | None:
+    canonical = _canonical_path_text(path)
+    if str(path) == canonical:
         return None
-    return f"{label}: resolved path must not be under {temp_root} ({resolved})"
+    return (
+        f"{label} must use its canonical spelling ({canonical}); "
+        f"firmlink-aliased or non-NFC spellings are refused ({path})"
+    )
+
+
+def _temp_root_failure(label: str, path: Path) -> str | None:
+    path_text = str(path)
+    data_prefix = "/System/Volumes/Data"
+    has_data_prefix = (
+        path_text == data_prefix or path_text.startswith(data_prefix + "/")
+    )
+    resolved = Path(_canonical_path_text(path.resolve()))
+    host_temp_root = Path(_canonical_path_text(Path("/tmp").resolve()))
+    temp_roots = {host_temp_root}
+    if has_data_prefix or host_temp_root == Path("/private/tmp"):
+        temp_roots.add(Path("/private/tmp"))
+    for temp_root in sorted(temp_roots, key=str):
+        try:
+            resolved.relative_to(temp_root)
+        except ValueError:
+            continue
+        return f"{label}: resolved path must not be under {temp_root} ({resolved})"
+    return None
 
 
 def _root_failure(
@@ -845,6 +875,9 @@ def _root_failure(
     try:
         path = Path(value).expanduser()
         failure = _stability_failure(label, path)
+        if failure is not None:
+            return failure
+        failure = _canonical_spelling_failure(label, path)
         if failure is not None:
             return failure
         return _temp_root_failure(label, path)
@@ -875,6 +908,8 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
     failures: list[str] = []
     try:
         failure = _stability_failure("scratch", scratch)
+        if failure is None:
+            failure = _canonical_spelling_failure("scratch", scratch)
         if failure is None:
             failure = _temp_root_failure("scratch", scratch)
     except (OSError, ValueError, RuntimeError) as exc:
@@ -953,18 +988,92 @@ def _scratch_overlap_failures(spec: dict[str, Any], scratch: Path) -> list[str]:
     ]
 
 
-def _negative_control_failures(owned_paths: list[Path]) -> list[str]:
-    """Guard evidence: a realpath-stable run cannot render either alias spelling."""
+def _scratch_temp_root_overlap_failures(scratch: Path) -> list[str]:
+    scratch = Path(_canonical_path_text(scratch.resolve()))
+    ambient_temp_root = os.environ.get("TMPDIR") or "/tmp"
+    temp_roots = {
+        Path(_canonical_path_text(Path(ambient_temp_root).resolve())),
+        Path(_canonical_path_text(Path("/private/var/tmp").resolve())),
+    }
+    return [
+        f"scratch overlaps temporary root: {scratch} contains {temp_root}"
+        for temp_root in sorted(temp_roots, key=str)
+        if scratch == temp_root or scratch in temp_root.parents
+    ]
+
+
+_ALIAS_PREFIX_PAIRS = (
+    ("/private/var/", "/var/"),
+    ("/private/tmp/", "/tmp/"),
+    ("/private/etc/", "/etc/"),
+    ("/System/Volumes/Data/", "/"),
+)
+
+
+def _alias_spellings(root: Path) -> list[str]:
+    """Return alternate spellings of a run root under Darwin aliases."""
+    text = _canonical_path_text(root)
+    spellings: list[str] = []
+    for real, alias in _ALIAS_PREFIX_PAIRS:
+        real_root = real.rstrip("/")
+        alias_root = alias.rstrip("/") or "/"
+        if text == real_root:
+            spellings.append(alias_root)
+        elif text.startswith(real):
+            spellings.append(alias + text[len(real):])
+        elif text == alias_root:
+            spellings.append(real_root)
+        elif text.startswith(alias):
+            spellings.append(real + text[len(alias):])
+    return spellings
+
+
+def _structural_alias_hit(record: Any, roots: list[str]) -> str | None:
+    stack = [record]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, str):
+            candidate = posixpath.normpath(unicodedata.normalize("NFC", value))
+            if candidate.startswith("//"):
+                candidate = candidate[1:]
+            hit = next(
+                (
+                    root
+                    for root in roots
+                    if candidate == root or candidate.startswith(root + "/")
+                ),
+                None,
+            )
+            if hit is not None:
+                return hit
+        elif isinstance(value, dict):
+            stack.extend(reversed(tuple(value.values())))
+        elif isinstance(value, list):
+            stack.extend(reversed(value))
+    return None
+
+
+def _negative_control_failures(
+    owned_paths: list[Path], scratch: Path
+) -> list[str]:
+    """Reject aliased root values and descendants in owned JSONL transcripts."""
+    roots = _alias_spellings(scratch)
     failures: list[str] = []
     for path in owned_paths:
-        blob = path.read_bytes()
-        for spelling in (b"/private/var/", b"/var/"):
-            if spelling in blob:
+        text = path.read_text(encoding="utf-8-sig", errors="replace")
+        for line in text.split("\n"):
+            try:
+                record = json.loads(line)
+            except (ValueError, RecursionError):
+                continue
+            hit = _structural_alias_hit(record, roots)
+            if hit is not None:
                 failures.append(
-                    f"negative-control: {path} contains {spelling.decode()} - the run did not "
-                    "execute in a realpath-stable tree; the scratch guard did not hold and this "
-                    "run's evidence is void"
+                    f"negative-control: {path} renders {hit} - an aliased "
+                    "spelling of this run's scratch tree; the scratch guard did not hold "
+                    "and this run's evidence is void"
                 )
+                break
     return failures
 
 
@@ -1019,6 +1128,7 @@ def run_e3(
         return _result(spec, Status.INVALID, "\n".join(failures))
 
     try:
+        failures.extend(_scratch_temp_root_overlap_failures(scratch))
         failures.extend(_scratch_overlap_failures(spec, scratch))
         if failures:
             return _result(spec, Status.INVALID, "\n".join(failures))
@@ -1090,7 +1200,7 @@ def run_e3(
                 capture_candidates, owned_paths,
             )
 
-        negative_control = _negative_control_failures(owned_paths)
+        negative_control = _negative_control_failures(owned_paths, scratch)
         if negative_control:
             return _result(spec, Status.INVALID, "\n".join(negative_control))
 
