@@ -1034,6 +1034,8 @@ def _structural_alias_hit(record: Any, roots: list[str]) -> str | None:
         value = stack.pop()
         if isinstance(value, str):
             candidate = posixpath.normpath(unicodedata.normalize("NFC", value))
+            if candidate.startswith("//"):
+                candidate = candidate[1:]
             hit = next(
                 (
                     root

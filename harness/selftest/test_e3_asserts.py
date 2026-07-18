@@ -3123,10 +3123,17 @@ def test_runner_voids_pre_pack_when_a_run_root_alias_spelling_appears(
     ),
     ids=("codex-first", "claude-first"),
 )
-def test_runner_checks_the_second_agent_transcript_before_pack(
-    monkeypatch, tmp_path, stable_test_root, agent_order
+@pytest.mark.parametrize(
+    "hit_index",
+    (0, 1),
+    ids=("first-transcript", "second-transcript"),
+)
+def test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack(
+    monkeypatch, tmp_path, stable_test_root, agent_order, hit_index
 ):
     calls = []
+    hit_agent = agent_order[hit_index]
+    alias_root = "/tmp/E3-ALIAS-CANARY"
 
     def fake_spawn(command, cwd, env):
         calls.append(command)
@@ -3157,8 +3164,8 @@ def test_runner_checks_the_second_agent_transcript_before_pack(
     ):
         transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
         cwd = (
-            "E3-ALIAS-CANARY/seed-ws"
-            if agent["id"] == agent_order[1]
+            "//tmp/E3-ALIAS-CANARY/seed-ws"
+            if agent["id"] == hit_agent
             else "/opt/benign-workspace"
         )
         transcript.write_text(
@@ -3176,7 +3183,7 @@ def test_runner_checks_the_second_agent_transcript_before_pack(
     monkeypatch.setattr(
         e3,
         "_alias_spellings",
-        lambda root: ["E3-ALIAS-CANARY"],
+        lambda root: [alias_root],
     )
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
@@ -3189,7 +3196,7 @@ def test_runner_checks_the_second_agent_transcript_before_pack(
 
     assert result.status is Status.INVALID
     assert "negative-control" in result.detail
-    assert agent_order[1] in result.detail
+    assert hit_agent in result.detail
     assert not any(command[:2] == ["biv", "pack"] for command in calls)
 
 
@@ -3425,6 +3432,7 @@ def test_structural_alias_walk_preserves_document_order():
 def test_structural_alias_hit_uses_lexical_path_identity(scratch, alias):
     roots = e3._alias_spellings(scratch)
     assert alias in roots
+    assert all(root.startswith("/") and not root.startswith("//") for root in roots)
 
     for root in roots:
         assert e3._structural_alias_hit(
@@ -3440,6 +3448,25 @@ def test_structural_alias_hit_uses_lexical_path_identity(scratch, alias):
             roots,
         ) == root
         assert e3._structural_alias_hit({"cwd": root + "/"}, roots) == root
+        assert e3._structural_alias_hit({"cwd": "/" + root}, roots) == root
+        assert (
+            e3._structural_alias_hit({"cwd": "/" + root + "/seed-ws"}, roots)
+            == root
+        )
+        assert e3._structural_alias_hit({"cwd": "//" + root}, roots) == root
+        assert e3._structural_alias_hit(
+            {"cwd": "/" + root + "/../outside-the-run"},
+            roots,
+        ) is None
+        assert e3._structural_alias_hit(
+            {"cwd": "/" + root + "-outside"},
+            roots,
+        ) is None
+
+    assert e3._structural_alias_hit(
+        {"cwd": "//opt/unrelated/e3-run"},
+        roots,
+    ) is None
 
 
 def test_negative_control_flags_the_darwin_data_firmlink_for_users_scratch(
