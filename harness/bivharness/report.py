@@ -18,6 +18,7 @@ class ScenarioResult:
     classes: list[str]
     held_asserts: list[str] = field(default_factory=list)
     detail: str = ""
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -43,6 +44,7 @@ class Report:
                     "status": r.status.value,
                     "classes": r.classes,
                     "detail": r.detail,
+                    "warnings": r.warnings,
                 }
                 for r in self.results
             ],

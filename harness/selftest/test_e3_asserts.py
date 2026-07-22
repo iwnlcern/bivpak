@@ -37,7 +37,7 @@ from bivharness.e3 import (
     version_in_validated_range,
 )
 from bivharness.precheck import profile_root_failures
-from bivharness.report import Status
+from bivharness.report import Report, Status
 
 
 @pytest.fixture
@@ -184,6 +184,458 @@ def _live_override_spec():
     for agent in spec["agents"]:
         agent["env"] = overrides[agent["id"]]
     return spec
+
+
+def _envelope(verb, exit_code, *, ok, warnings=(), error=None, result=None):
+    warning_rows = [
+        {"kind": warning} if isinstance(warning, str) else warning
+        for warning in warnings
+    ]
+    return json.dumps(
+        {
+            "envelope_version": 1,
+            "app_version": "0.1.0",
+            "ok": ok,
+            "verb": verb,
+            "exit_code": exit_code,
+            "warnings": warning_rows,
+            "advisories": [],
+            "result": result,
+            "error": error,
+        }
+    )
+
+
+def _successful_pack(*, warnings=()):
+    return SimpleNamespace(
+        returncode=2 if warnings else 0,
+        stdout=_envelope(
+            "pack",
+            2 if warnings else 0,
+            ok=True,
+            warnings=warnings,
+            result={},
+        ),
+        stderr="",
+    )
+
+
+def _open_process_result(
+    restored_workspace,
+    *,
+    returncode=0,
+    ok=True,
+    warnings=(),
+    error=None,
+):
+    restored_workspace.mkdir(exist_ok=True)
+    sessions = {
+        "agents": [
+            {
+                "agent": agent_id,
+                "sessions": [
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": f"{agent_id}-session",
+                    }
+                ],
+            }
+            for agent_id in ("codex", "claude-code")
+        ]
+    }
+    return SimpleNamespace(
+        returncode=returncode,
+        stdout=_envelope(
+            "open",
+            returncode,
+            ok=ok,
+            warnings=warnings,
+            error=error,
+            result={"output_dir": str(restored_workspace), "sessions": sessions},
+        ),
+        stderr="",
+    )
+
+
+def _run_exit_contract_case(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    *,
+    pack_result,
+    open_result=None,
+    post_pack_exception=None,
+):
+    seen = []
+    restored_workspace = tmp_path / "restored"
+    installed_root = tmp_path / "installed"
+
+    def valid_open_result():
+        return _open_process_result(restored_workspace)
+
+    def fake_spawn(command, cwd, env):
+        if len(command) > 1 and command[1] == "pack":
+            seen.append("pack")
+            return pack_result
+        if len(command) > 1 and command[1] == "open":
+            seen.append("open")
+            result = open_result or valid_open_result()
+            if callable(result):
+                result = result(restored_workspace)
+            return result
+        if "--version" in command:
+            version = "2.1.210" if command[0] == "claude" else "0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+
+    def fake_seed(
+        agent,
+        live_profile,
+        seed_workspace,
+        spec,
+        env,
+        spawn,
+        capture_candidates,
+        owned_paths,
+    ):
+        transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
+        transcript.write_text("{}\n", encoding="utf-8")
+        capture_candidates.append(transcript)
+        owned_paths.append(transcript)
+        return transcript
+
+    def fake_install_delta(agent_id, *args):
+        installed_root.mkdir(exist_ok=True)
+        path = installed_root / f"{agent_id}.jsonl"
+        path.write_text('{"turn":"seed"}\n', encoding="utf-8")
+        return [path]
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed)
+    monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
+    if post_pack_exception is not None:
+        def raise_post_pack(*args):
+            raise post_pack_exception
+
+        monkeypatch.setattr(e3, "scan_image_secret_values", raise_post_pack)
+    monkeypatch.setattr(
+        e3,
+        "perform_oauth_checkpoint",
+        lambda spec, *args: {agent["id"]: {} for agent in spec["agents"]},
+    )
+    monkeypatch.setattr(e3, "snapshot_store", lambda *args: {})
+    monkeypatch.setattr(e3, "class_j_failures", lambda *args: [])
+    monkeypatch.setattr(e3, "assert_exact_install_delta", fake_install_delta)
+    monkeypatch.setattr(e3, "assert_resume_containment", lambda *args, **kwargs: None)
+
+    spec_path = tmp_path / "e3-exit-contract.json"
+    spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+    result = e3.run_e3(
+        spec_path,
+        Path("/fake/biv"),
+        stable_test_root / "scratch",
+        input_callback=lambda prompt: "",
+    )
+    return result, seen
+
+
+def test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces(
+    monkeypatch, tmp_path, stable_test_root
+):
+    packed = SimpleNamespace(
+        returncode=2,
+        stdout=_envelope(
+            "pack",
+            2,
+            ok=True,
+            warnings=["CodexDbEnrichmentSkipped"],
+            result={},
+        ),
+        stderr="",
+    )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=packed,
+    )
+
+    assert result.status is Status.PASS
+    assert seen == ["pack", "open"]
+    assert "CodexDbEnrichmentSkipped" in result.warnings
+    row = Report([result]).to_json()["rows"][0]
+    assert row["warnings"] == ["CodexDbEnrichmentSkipped"]
+
+
+def test_e3_pack_ok_false_at_exit2_preserves_envelope_error(
+    monkeypatch, tmp_path, stable_test_root
+):
+    packed = SimpleNamespace(
+        returncode=2,
+        stdout=_envelope(
+            "pack",
+            2,
+            ok=False,
+            error={"kind": "ContainmentRefused", "message": "live-store divergence"},
+        ),
+        stderr="discarded stderr",
+    )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert seen == ["pack"]
+    assert "ContainmentRefused" in result.detail
+    assert "divergence" in result.detail
+    assert "exit-contract violation" not in result.detail
+
+
+def test_e3_pack_failure_detail_from_envelope(
+    monkeypatch, tmp_path, stable_test_root
+):
+    packed = SimpleNamespace(
+        returncode=3,
+        stdout=_envelope(
+            "pack",
+            3,
+            ok=False,
+            error={"kind": "CollisionRefused", "message": "boom"},
+        ),
+        stderr="wrong source",
+    )
+
+    result, _ = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert "CollisionRefused" in result.detail
+    assert "boom" in result.detail
+    assert "wrong source" not in result.detail
+
+
+def test_e3_pack_exit_code_mismatch_fails(monkeypatch, tmp_path, stable_test_root):
+    packed = SimpleNamespace(
+        returncode=3,
+        stdout=_envelope(
+            "pack",
+            2,
+            ok=False,
+            error={"kind": "CollisionRefused", "message": "boom"},
+        ),
+        stderr="",
+    )
+
+    result, _ = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert "exit_code 2" in result.detail
+    assert "process exit 3" in result.detail
+
+
+def test_e3_pack_ok_true_bad_exit_is_violation(
+    monkeypatch, tmp_path, stable_test_root
+):
+    packed = SimpleNamespace(
+        returncode=3,
+        stdout=_envelope("pack", 3, ok=True, result={}),
+        stderr="",
+    )
+
+    result, _ = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert "exit-contract violation" in result.detail
+
+
+def test_e3_pack_boolean_exit_code_fails(monkeypatch, tmp_path, stable_test_root):
+    packed = SimpleNamespace(
+        returncode=0,
+        stdout=_envelope("pack", False, ok=True, result={}),
+        stderr="",
+    )
+
+    result, _ = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert "exit_code False" in result.detail
+
+
+def test_e3_pack_non_object_envelope_fails(
+    monkeypatch, tmp_path, stable_test_root
+):
+    packed = SimpleNamespace(returncode=3, stdout="[1, 2, 3]", stderr="")
+
+    result, _ = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert "not an object" in result.detail
+
+
+def test_e3_pack_unparseable_envelope_fails(
+    monkeypatch, tmp_path, stable_test_root
+):
+    packed = SimpleNamespace(returncode=3, stdout="", stderr="segfault")
+
+    result, _ = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert "unparseable" in result.detail
+    assert "segfault" in result.detail
+
+
+def test_e3_pack_non_bool_ok_fails(monkeypatch, tmp_path, stable_test_root):
+    packed = SimpleNamespace(
+        returncode=2,
+        stdout=_envelope("pack", 2, ok="false", result={}),
+        stderr="",
+    )
+
+    result, _ = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert "'ok' not a bool" in result.detail
+
+
+def test_e3_pack_malformed_warnings_fail_loud(
+    monkeypatch, tmp_path, stable_test_root
+):
+    packed = SimpleNamespace(
+        returncode=2,
+        stdout=_envelope("pack", 2, ok=True, warnings=[{"note": "x"}], result={}),
+        stderr="",
+    )
+
+    result, _ = _run_exit_contract_case(
+        monkeypatch, tmp_path, stable_test_root, pack_result=packed
+    )
+
+    assert result.status is Status.FAIL
+    assert "malformed warning" in result.detail
+
+
+def test_e3_warned_pack_then_open_failure_retains_both(
+    monkeypatch, tmp_path, stable_test_root
+):
+    opened = SimpleNamespace(
+        returncode=3,
+        stdout=_envelope(
+            "open",
+            3,
+            ok=False,
+            error={"kind": "SessionInstallFailed", "message": "install boom"},
+        ),
+        stderr="",
+    )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+        open_result=opened,
+    )
+
+    assert result.status is Status.FAIL
+    assert seen == ["pack", "open"]
+    assert "SessionInstallFailed" in result.detail
+    assert "open failed" in result.detail
+    assert result.warnings == ["CodexDbEnrichmentSkipped"]
+    assert Report([result]).to_json()["rows"][0]["warnings"] == [
+        "CodexDbEnrichmentSkipped"
+    ]
+
+
+def test_e3_warned_pack_then_handled_exception_retains_warning(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+        post_pack_exception=ValueError("credential sentinel found in image"),
+    )
+
+    assert result.status is Status.INVALID
+    assert seen == ["pack"]
+    assert "credential sentinel" in result.detail
+    assert result.warnings == ["CodexDbEnrichmentSkipped"]
+    assert Report([result]).to_json()["rows"][0]["warnings"] == [
+        "CodexDbEnrichmentSkipped"
+    ]
+
+
+def test_e3_open_exit2_with_warnings_proceeds(
+    monkeypatch, tmp_path, stable_test_root
+):
+    def warned_open(restored_workspace):
+        return _open_process_result(
+            restored_workspace,
+            returncode=2,
+            warnings=[
+                {
+                    "kind": "UnknownAgentSkipped",
+                    "path": "sessions/unknown.jsonl",
+                }
+            ],
+        )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(),
+        open_result=warned_open,
+    )
+
+    assert result.status is Status.PASS
+    assert seen == ["pack", "open"]
+    assert result.warnings == ["UnknownAgentSkipped (sessions/unknown.jsonl)"]
+
+
+def test_e3_open_failure_detail_from_envelope(
+    monkeypatch, tmp_path, stable_test_root
+):
+    opened = SimpleNamespace(
+        returncode=3,
+        stdout=_envelope(
+            "open",
+            3,
+            ok=False,
+            error={"kind": "SessionInstallFailed", "message": "open boom"},
+        ),
+        stderr="wrong source",
+    )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(),
+        open_result=opened,
+    )
+
+    assert result.status is Status.FAIL
+    assert seen == ["pack", "open"]
+    assert "SessionInstallFailed" in result.detail
+    assert "open boom" in result.detail
+    assert "wrong source" not in result.detail
 
 
 def _selector_spec(env_mode):
@@ -1250,6 +1702,8 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
         if command[:2] == ["claude", "--model"]:
             return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+        if len(command) > 1 and command[1] == "pack":
+            return _successful_pack()
         if len(command) > 1 and command[1] == "open":
             dest = Path(command[command.index("--dest") + 1])
             host2 = scratch / "host2"
@@ -1268,8 +1722,15 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
             opened.append(dest)
             reported_dest = host2 / "reported-workspace"
             reported_dest.mkdir()
-            envelope = {"result": {"output_dir": str(reported_dest), "sessions": {"agents": []}}}
-            return SimpleNamespace(returncode=0, stdout=json.dumps(envelope), stderr="")
+            result = {
+                "output_dir": str(reported_dest),
+                "sessions": {"agents": []},
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=result),
+                stderr="",
+            )
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
