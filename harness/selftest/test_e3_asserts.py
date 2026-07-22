@@ -297,10 +297,9 @@ def _configure_exit_contract_case(
     post_pack_exception=None,
 ):
     seen = []
-    restored_workspace = tmp_path / "restored"
     installed_root = tmp_path / "installed"
 
-    def valid_open_result():
+    def valid_open_result(restored_workspace):
         return _open_process_result(restored_workspace)
 
     def fake_spawn(command, cwd, env):
@@ -309,7 +308,8 @@ def _configure_exit_contract_case(
             return pack_result
         if len(command) > 1 and command[1] == "open":
             seen.append("open")
-            result = open_result or valid_open_result()
+            restored_workspace = Path(command[command.index("--dest") + 1])
+            result = open_result or valid_open_result
             if callable(result):
                 result = result(restored_workspace)
             return result
@@ -724,6 +724,77 @@ def test_e3_open_invalid_output_dir_fails_before_path_resolution(
 
 
 @pytest.mark.parametrize(
+    "output_dir",
+    (".", "..", "relative/path"),
+    ids=("dot", "dotdot", "nested-relative"),
+)
+def test_e3_open_relative_output_dir_fails_before_workspace_binding(
+    monkeypatch, tmp_path, stable_test_root, output_dir
+):
+    opened = SimpleNamespace(
+        returncode=0,
+        stdout=_envelope(
+            "open",
+            0,
+            ok=True,
+            result={
+                "output_dir": output_dir,
+                "sessions": _valid_sessions_payload(),
+            },
+        ),
+        stderr="",
+    )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+        open_result=opened,
+    )
+
+    assert result.status is Status.FAIL
+    assert seen == ["pack", "open"]
+    assert "open result malformed" in result.detail
+    assert "output_dir" in result.detail
+    assert result.warnings == ["CodexDbEnrichmentSkipped"]
+
+
+def test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding(
+    monkeypatch, tmp_path, stable_test_root
+):
+    off_tree = tmp_path / "off-tree"
+    off_tree.mkdir()
+    opened = SimpleNamespace(
+        returncode=0,
+        stdout=_envelope(
+            "open",
+            0,
+            ok=True,
+            result={
+                "output_dir": str(off_tree),
+                "sessions": _valid_sessions_payload(),
+            },
+        ),
+        stderr="",
+    )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(),
+        open_result=opened,
+    )
+
+    assert result.status is Status.FAIL
+    assert seen == ["pack", "open"]
+    assert "open result malformed" in result.detail
+    assert "output_dir" in result.detail
+    assert "requested destination" in result.detail
+
+
+@pytest.mark.parametrize(
     ("case", "sessions_payload", "detail_member"),
     (
         ("sessions-null", None, "sessions"),
@@ -817,6 +888,47 @@ def test_e3_open_malformed_sessions_fail_before_consumer_access(
     assert result.status is Status.FAIL, case
     assert "open result malformed" in result.detail
     assert detail_member in result.detail
+
+
+def test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning(
+    monkeypatch, tmp_path, stable_test_root
+):
+    def mismatched_open(restored_workspace):
+        restored_workspace.mkdir(exist_ok=True)
+        sessions = _valid_sessions_payload()
+        sessions["agents"][1]["agent"] = "bogus-agent"
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": str(restored_workspace),
+                    "sessions": sessions,
+                },
+            ),
+            stderr="",
+        )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+        open_result=mismatched_open,
+    )
+
+    assert result.status is Status.FAIL
+    assert seen == ["pack", "open"]
+    assert "open result malformed" in result.detail
+    assert "installed agents" in result.detail
+    assert "bogus-agent" in result.detail
+    assert "claude-code" in result.detail
+    assert result.detail != "'claude-code'"
+    assert Report([result]).to_json()["rows"][0]["warnings"] == [
+        "CodexDbEnrichmentSkipped"
+    ]
 
 
 def test_e3_warned_pack_then_malformed_open_result_retains_warning(
@@ -1965,10 +2077,8 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
             dest.mkdir()
             assert dest.is_dir()
             opened.append(dest)
-            reported_dest = host2 / "reported-workspace"
-            reported_dest.mkdir()
             result = {
-                "output_dir": str(reported_dest),
+                "output_dir": str(dest),
                 "sessions": {"agents": []},
             }
             return SimpleNamespace(
@@ -1985,7 +2095,7 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
         assert result.status is Status.FAIL
         assert result.detail == "open did not install exactly two session rows"
         assert opened == [expected]
-        assert restored_workspaces == [scratch / "host2" / "reported-workspace"]
+        assert restored_workspaces == [expected]
         assert e3._project_key(restored_workspaces[0]) != e3._project_key(scratch / "host2")
         assert not (scratch / "host2").exists()
     finally:

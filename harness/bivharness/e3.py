@@ -789,7 +789,9 @@ def _biv_envelope_outcome(result: object, verb: str) -> _BivOutcome:
     return _BivOutcome(False, [], f"{verb} failed: {detail}", envelope)
 
 
-def _open_result_outcome(envelope: dict[str, Any]) -> _OpenResultOutcome:
+def _open_result_outcome(
+    envelope: dict[str, Any], requested_output_dir: Path
+) -> _OpenResultOutcome:
     result = envelope.get("result")
     if not isinstance(result, dict):
         return _OpenResultOutcome(
@@ -805,6 +807,32 @@ def _open_result_outcome(envelope: dict[str, Any]) -> _OpenResultOutcome:
             "",
             [],
             "open result malformed: output_dir must be a non-empty string",
+        )
+    output_path = Path(output_dir)
+    if not output_path.is_absolute():
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: output_dir must be an absolute path",
+        )
+    try:
+        matches_requested = output_path.resolve(strict=False) == requested_output_dir.resolve(
+            strict=False
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            f"open result malformed: output_dir cannot be resolved: {exc}",
+        )
+    if not matches_requested:
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: output_dir does not match requested destination",
         )
     sessions = result.get("sessions")
     if not isinstance(sessions, dict):
@@ -1435,7 +1463,7 @@ def run_e3(
             return _run_result(Status.FAIL, open_outcome.detail)
         run_warnings.extend(open_outcome.warnings)
         envelope = open_outcome.envelope or {}
-        result_outcome = _open_result_outcome(envelope)
+        result_outcome = _open_result_outcome(envelope, restored_dest)
         if not result_outcome.ok:
             return _run_result(Status.FAIL, result_outcome.detail)
         restored_workspace = Path(result_outcome.output_dir)
@@ -1461,6 +1489,14 @@ def run_e3(
                 "open did not install exactly two session rows",
             )
 
+        installed_agents = set(installed)
+        expected_agents = {agent["id"] for agent in spec["agents"]}
+        if installed_agents != expected_agents:
+            return _run_result(
+                Status.FAIL,
+                "open result malformed: installed agents "
+                f"{sorted(installed_agents)!r} do not match spec {sorted(expected_agents)!r}",
+            )
         installed_paths: dict[str, Path] = {}
         for agent in spec["agents"]:
             profile = _agent_profile(agent, profile_root, live=False)
