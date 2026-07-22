@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import stat
+import sys
 import tarfile
 import unicodedata
 from pathlib import Path
@@ -2155,23 +2156,159 @@ def test_e3_spec_rejects_control_characters_in_credential_sentinels():
     assert "credential_scan_sentinels values must be dotenv-safe" in e3._validate_spec(spec)
 
 
+def _credential_order_fake_spawn(seen):
+    def fake_spawn(command, cwd, env):
+        seen.append(tuple(command))
+        if command in (
+            ["claude", "auth", "status"],
+            ["codex", "login", "status"],
+        ):
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command == ["claude", "--version"]:
+            return SimpleNamespace(returncode=0, stdout="2.1.0", stderr="")
+        if command == ["codex", "--version"]:
+            return SimpleNamespace(returncode=0, stdout="0.144.1", stderr="")
+        raise AssertionError(f"unexpected spawn command: {command}")
+
+    return fake_spawn
+
+
 def test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up(monkeypatch):
     scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     scratch = Path.home() / ".cache" / f"biv-e3-decoy-plant-failure-{os.getpid()}"
     shutil.rmtree(scratch, ignore_errors=True)
+    seen = []
+    seeded = []
 
     def reject_plant(workspace, sentinels):
         raise ValueError("decoy root rejected")
 
+    monkeypatch.setattr(e3, "_spawn", _credential_order_fake_spawn(seen))
+    monkeypatch.setattr(
+        e3,
+        "_seed_agent",
+        lambda agent, *args, **kwargs: seeded.append(agent["id"]),
+    )
     monkeypatch.setattr(e3, "plant_credential_decoys", reject_plant)
     try:
         result = e3.run_e3(scenario, Path("biv"), scratch)
         assert result.status is Status.INVALID
         assert result.detail == "decoy root rejected"
+        assert seeded == ["claude-code", "codex"]
+        assert all(command[0] in {"claude", "codex"} for command in seen)
         assert not (scratch / "seed-ws").exists()
         assert not (scratch / "host2").exists()
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+
+
+def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_image(
+    monkeypatch, tmp_path, stable_test_root
+):
+    sentinel = "BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR"
+    source_scenario = (
+        Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    )
+    spec = json.loads(source_scenario.read_text(encoding="utf-8"))
+    spec["credential_scan_sentinels"] = [sentinel]
+    scenario = tmp_path / "credential-fixture-order.json"
+    scenario.write_text(json.dumps(spec), encoding="utf-8")
+    scratch = stable_test_root / "scratch"
+    stub_biv = Path(__file__).with_name("stub_biv.py")
+
+    reached = []
+    seen = []
+    captured_reads = []
+    captured_members = []
+    captured_hits = []
+    pack_time = {}
+
+    def fake_seed(
+        agent,
+        live_profile,
+        seed_workspace,
+        spec,
+        env,
+        spawn,
+        capture_candidates,
+        owned_paths,
+    ):
+        reached.append(f"seed:{agent['id']}")
+        blob = "".join(
+            path.read_text(errors="ignore")
+            for path in sorted(seed_workspace.rglob("*"))
+            if path.is_file()
+        )
+        captured_reads.append(blob)
+        transcript = seed_workspace / f"seen-{agent['id']}.jsonl"
+        transcript.write_text(json.dumps({"content": blob}), encoding="utf-8")
+        owned_paths.append(transcript)
+
+    real_scan = e3.scan_image_secret_values
+
+    def capturing_scan(image, secret_values):
+        reached.append("scan")
+        captured_members[:] = e3.list_members(image)
+        captured_hits[:] = real_scan(image, secret_values)
+        return captured_hits
+
+    real_spawn = e3._spawn
+    fake_agent_spawn = _credential_order_fake_spawn(seen)
+
+    def fake_spawn(command, cwd, env):
+        if len(command) > 1 and command[0] == str(stub_biv) and command[1] == "pack":
+            seen.append(tuple(command))
+            seed_workspace = Path(command[2])
+            decoy_root = seed_workspace / e3.CREDENTIAL_DECOY_ROOT
+            pack_time["decoys"] = decoy_root.is_dir() and {
+                path.name for path in decoy_root.iterdir()
+            } == set(e3.CREDENTIAL_DECOY_NAMES)
+            pack_time["bivignore"] = e3.CREDENTIAL_DECOY_ROOT + "/" in (
+                seed_workspace / ".bivignore"
+            ).read_text(encoding="utf-8").splitlines()
+            reached.append("pack")
+            return real_spawn([sys.executable, *command], cwd, env)
+        return fake_agent_spawn(command, cwd, env)
+
+    def stop_after_scan(*args):
+        reached.append("terminal")
+        raise ValueError("stop after credential scan")
+
+    monkeypatch.setenv("STUB_BIV_MODE", "ok")
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed)
+    monkeypatch.setattr(e3, "scan_image_secret_values", capturing_scan)
+    monkeypatch.setattr(e3, "perform_oauth_checkpoint", stop_after_scan)
+
+    result = e3.run_e3(
+        scenario,
+        stub_biv,
+        scratch,
+        input_callback=lambda prompt: "",
+    )
+
+    assert result.status is Status.INVALID
+    assert result.detail == "stop after credential scan"
+    assert len(captured_reads) == 2
+    assert all(sentinel not in blob for blob in captured_reads)
+    assert not any(
+        member.startswith(f"payload/{e3.CREDENTIAL_DECOY_ROOT}/")
+        for member in captured_members
+    )
+    assert captured_hits == []
+    assert pack_time == {"decoys": True, "bivignore": True}
+    assert reached == [
+        "seed:claude-code",
+        "seed:codex",
+        "pack",
+        "scan",
+        "terminal",
+    ]
+    assert all(
+        command[0] in {"claude", "codex", str(stub_biv)} for command in seen
+    )
+    assert not (scratch / "seed-ws").exists()
+    assert not (scratch / "host2").exists()
 
 
 def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
