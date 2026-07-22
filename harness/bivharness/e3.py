@@ -1481,9 +1481,14 @@ def run_e3(
         installed_rows: list[tuple[str, dict[str, Any]]] = []
         for group in groups:
             sessions = [row for row in group.get("sessions", []) if row.get("outcome") == "installed"]
-            if len(sessions) == 1:
-                installed_rows.append((group["agent"], sessions[0]))
-        installed_agents = sorted(agent_id for agent_id, _ in installed_rows)
+            if len(sessions) != 1:
+                return _run_result(
+                    Status.FAIL,
+                    f"open result malformed: agent {group['agent']!r} reported "
+                    f"{len(sessions)} installed session rows, expected exactly 1",
+                )
+            installed_rows.append((group["agent"], sessions[0]))
+        installed_agents = sorted(group["agent"] for group in groups)
         expected_agents = sorted(agent["id"] for agent in spec["agents"])
         if installed_agents != expected_agents:
             return _run_result(

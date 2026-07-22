@@ -1003,6 +1003,72 @@ def test_e3_open_installed_agent_multiset_must_match_spec(
     ]
 
 
+@pytest.mark.parametrize(
+    ("case", "installed_count"),
+    (
+        ("mixed-over", 2),
+        ("mixed-under", 0),
+        ("sole-over", 2),
+        ("sole-under", 0),
+    ),
+)
+def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+    monkeypatch, tmp_path, stable_test_root, case, installed_count
+):
+    def malformed_open(restored_workspace):
+        restored_workspace.mkdir(exist_ok=True)
+        sessions = _valid_sessions_payload()
+        codex_group = sessions["agents"][0]
+        original_row = codex_group["sessions"][0]
+        if installed_count == 2:
+            codex_group["sessions"].append(
+                {
+                    "outcome": "installed",
+                    "installed_session_id": "codex-second-session",
+                }
+            )
+        else:
+            codex_group["sessions"] = [{"outcome": "skipped"}]
+        if case.startswith("mixed"):
+            sessions["agents"].append(
+                {
+                    "agent": "codex",
+                    "sessions": [original_row],
+                }
+            )
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": str(restored_workspace),
+                    "sessions": sessions,
+                },
+            ),
+            stderr="",
+        )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+        open_result=malformed_open,
+    )
+
+    assert result.status is Status.FAIL
+    assert seen == ["pack", "open"]
+    assert result.detail == (
+        f"open result malformed: agent 'codex' reported {installed_count} "
+        "installed session rows, expected exactly 1"
+    )
+    assert Report([result]).to_json()["rows"][0]["warnings"] == [
+        "CodexDbEnrichmentSkipped"
+    ]
+
+
 def test_e3_warned_pack_then_malformed_open_result_retains_warning(
     monkeypatch, tmp_path, stable_test_root
 ):
