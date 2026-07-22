@@ -844,7 +844,7 @@ def test_e3_warned_pack_then_malformed_open_result_retains_warning(
 
 
 def test_cli_persists_failed_e3_report_for_malformed_open_result(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, stable_test_root
 ):
     opened = SimpleNamespace(
         returncode=0,
@@ -857,7 +857,7 @@ def test_cli_persists_failed_e3_report_for_malformed_open_result(
         pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
         open_result=opened,
     )
-    report_path = tmp_path / "report.json"
+    report_path = stable_test_root / "report.json"
 
     exit_code = cli.main(
         [
@@ -880,7 +880,7 @@ def test_cli_persists_failed_e3_report_for_malformed_open_result(
     assert row["status"] == "fail"
     assert "open result malformed" in row["detail"]
     assert row["warnings"] == ["CodexDbEnrichmentSkipped"]
-    assert list(tmp_path.glob(".bivharness-scratch-*")) == []
+    assert list(stable_test_root.glob(".bivharness-scratch-*")) == []
 
 
 def _selector_spec(env_mode):
