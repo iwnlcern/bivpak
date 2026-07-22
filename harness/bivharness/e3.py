@@ -1395,7 +1395,6 @@ def run_e3(
         seed_ws.mkdir()
         host2.mkdir()
         host2_created = True
-        credential_decoys = plant_credential_decoys(seed_ws, credential_sentinels)
         live_contexts: list[tuple[dict[str, Any], Path, dict[str, str]]] = []
         for agent in spec["agents"]:
             live_profile = _agent_profile(agent, profile_root, live=True)
@@ -1427,6 +1426,7 @@ def run_e3(
         if negative_control:
             return _run_result(Status.INVALID, "\n".join(negative_control))
 
+        credential_decoys = plant_credential_decoys(seed_ws, credential_sentinels)
         verify_credential_decoys(seed_ws, credential_decoys, credential_sentinels)
         before = {path: _hash(path) for path in owned_paths}
         packed = _spawn([str(biv), "pack", str(seed_ws), "--json"], scratch, {})
