@@ -11,7 +11,7 @@ import subprocess
 import unicodedata
 import uuid
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 from bivharness.artifact import extract_member, list_members
 from bivharness.precheck import pin_env, probe, profile_root_failures
@@ -34,6 +34,20 @@ LIVE_STORE_SELECTORS: dict[str, tuple[str, ...]] = {
     "claude-code": ("CLAUDE_CONFIG_DIR",),
     "codex": ("CODEX_HOME",),
 }
+
+
+class _BivOutcome(NamedTuple):
+    ok: bool
+    warnings: list[str]
+    detail: str
+    envelope: dict[str, Any] | None
+
+
+class _OpenResultOutcome(NamedTuple):
+    ok: bool
+    output_dir: str
+    groups: list[dict[str, Any]]
+    detail: str
 
 
 def rejected_credential_names(env: dict[str, str]) -> list[str]:
@@ -680,7 +694,12 @@ def _bounded_string(value: object, fallback: str) -> str:
     return value if isinstance(value, str) and value else fallback
 
 
-def _result(spec: object, status: Status, detail: str) -> ScenarioResult:
+def _result(
+    spec: object,
+    status: Status,
+    detail: str,
+    warnings: list[str] | None = None,
+) -> ScenarioResult:
     raw_id = spec.get("id") if isinstance(spec, dict) else None
     spec_id = _bounded_string(raw_id, "e3-invalid-spec")
     return ScenarioResult(
@@ -689,7 +708,201 @@ def _result(spec: object, status: Status, detail: str) -> ScenarioResult:
         status=status,
         classes=[E3_CLASS] if status is Status.PASS else [],
         detail=detail,
+        warnings=list(warnings or []),
     )
+
+
+def _biv_envelope_outcome(result: object, verb: str) -> _BivOutcome:
+    rc = result.returncode
+    excerpt = (result.stdout or "").strip()[:500] or (result.stderr or "").strip()
+    try:
+        envelope = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return _BivOutcome(
+            False,
+            [],
+            f"{verb} failed (exit {rc}, unparseable envelope): {excerpt}",
+            None,
+        )
+    if not isinstance(envelope, dict):
+        return _BivOutcome(
+            False,
+            [],
+            f"{verb} failed (exit {rc}, envelope not an object): {excerpt}",
+            None,
+        )
+    ok = envelope.get("ok")
+    if not isinstance(ok, bool):
+        return _BivOutcome(
+            False,
+            [],
+            f"{verb} failed (envelope 'ok' not a bool: {ok!r})",
+            envelope,
+        )
+    envelope_exit = envelope.get("exit_code")
+    if type(envelope_exit) is not int or envelope_exit != rc:
+        return _BivOutcome(
+            False,
+            [],
+            f"{verb} failed (envelope exit_code {envelope_exit!r} "
+            f"not int==process exit {rc})",
+            envelope,
+        )
+    if ok:
+        if rc not in (0, 2) or envelope.get("error") is not None:
+            return _BivOutcome(
+                False,
+                [],
+                f"{verb} exit-contract violation: ok:true but exit={rc} or error present",
+                envelope,
+            )
+        raw_warnings = envelope.get("warnings")
+        if not isinstance(raw_warnings, list):
+            return _BivOutcome(
+                False,
+                [],
+                f"{verb} failed (warnings not a list: {raw_warnings!r})",
+                envelope,
+            )
+        warnings: list[str] = []
+        for warning in raw_warnings:
+            kind = warning.get("kind") if isinstance(warning, dict) else None
+            if not isinstance(kind, str) or not kind:
+                return _BivOutcome(
+                    False,
+                    [],
+                    f"{verb} failed (malformed warning row: {warning!r})",
+                    envelope,
+                )
+            path = warning.get("path")
+            if path is not None and not isinstance(path, str):
+                return _BivOutcome(
+                    False,
+                    [],
+                    f"{verb} failed (malformed warning path: {path!r})",
+                    envelope,
+                )
+            warnings.append(f"{kind} ({path})" if path else kind)
+        return _BivOutcome(True, warnings, "", envelope)
+    error = envelope.get("error")
+    detail = json.dumps(error, sort_keys=True) if error is not None else excerpt
+    return _BivOutcome(False, [], f"{verb} failed: {detail}", envelope)
+
+
+def _open_result_outcome(
+    envelope: dict[str, Any], requested_output_dir: Path
+) -> _OpenResultOutcome:
+    result = envelope.get("result")
+    if not isinstance(result, dict):
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: result is not an object",
+        )
+    output_dir = result.get("output_dir")
+    if not isinstance(output_dir, str) or not output_dir:
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: output_dir must be a non-empty string",
+        )
+    output_path = Path(output_dir)
+    if not output_path.is_absolute():
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: output_dir must be an absolute path",
+        )
+    try:
+        matches_requested = output_path.resolve(strict=False) == requested_output_dir.resolve(
+            strict=False
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            f"open result malformed: output_dir cannot be resolved: {exc}",
+        )
+    if not matches_requested:
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: output_dir does not match requested destination",
+        )
+    sessions = result.get("sessions")
+    if not isinstance(sessions, dict):
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: sessions is not an object",
+        )
+    groups = sessions.get("agents")
+    if not isinstance(groups, list):
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: sessions.agents is not a list",
+        )
+    for group_index, group in enumerate(groups):
+        group_member = f"sessions.agents[{group_index}]"
+        if not isinstance(group, dict):
+            return _OpenResultOutcome(
+                False,
+                "",
+                [],
+                f"open result malformed: {group_member} is not an object",
+            )
+        agent_id = group.get("agent")
+        if not isinstance(agent_id, str) or not agent_id:
+            return _OpenResultOutcome(
+                False,
+                "",
+                [],
+                f"open result malformed: {group_member}.agent must be a non-empty string",
+            )
+        rows = group.get("sessions")
+        if not isinstance(rows, list):
+            return _OpenResultOutcome(
+                False,
+                "",
+                [],
+                f"open result malformed: {group_member}.sessions is not a list",
+            )
+        for row_index, row in enumerate(rows):
+            row_member = f"{group_member}.sessions[{row_index}]"
+            if not isinstance(row, dict):
+                return _OpenResultOutcome(
+                    False,
+                    "",
+                    [],
+                    f"open result malformed: {row_member} is not an object",
+                )
+            outcome = row.get("outcome")
+            if not isinstance(outcome, str) or not outcome:
+                return _OpenResultOutcome(
+                    False,
+                    "",
+                    [],
+                    f"open result malformed: {row_member}.outcome must be a non-empty string",
+                )
+            if outcome == "installed":
+                installed_id = row.get("installed_session_id")
+                if not isinstance(installed_id, str) or not installed_id:
+                    return _OpenResultOutcome(
+                        False,
+                        "",
+                        [],
+                        f"open result malformed: {row_member}.installed_session_id "
+                        "must be a non-empty string",
+                    )
+    return _OpenResultOutcome(True, output_dir, groups, "")
 
 
 def _is_string_list(value: object, *, non_empty: bool = True) -> bool:
@@ -1152,6 +1365,10 @@ def run_e3(
         return _result(spec, Status.PASS, "dry-run: structural, isolation, and credential guards passed")
 
     spec = materialize_run_tokens(spec)
+    run_warnings: list[str] = []
+
+    def _run_result(status: Status, detail: str) -> ScenarioResult:
+        return _result(spec, status, detail, warnings=list(run_warnings))
 
     # Live execution is intentionally explicit: this path owns real API calls and one
     # operator OAuth checkpoint. The scenario supplies commands so CLI surface changes
@@ -1186,12 +1403,18 @@ def run_e3(
             auth = _spawn(agent["auth_status"], seed_ws, env)
             if auth.returncode != 0:
                 instruction = _login_instruction(agent, live_profile, live=True)
-                return _result(spec, Status.INVALID, f"{agent['id']} is not authenticated; run: {instruction}")
+                return _run_result(
+                    Status.INVALID,
+                    f"{agent['id']} is not authenticated; run: {instruction}",
+                )
             version = _spawn(agent["version_command"], seed_ws, env)
             if version.returncode != 0 or not version_in_validated_range(
                 version.stdout + version.stderr, agent["validated_version_prefixes"]
             ):
-                return _result(spec, Status.INVALID, f"{agent['id']} version is outside the validated range")
+                return _run_result(
+                    Status.INVALID,
+                    f"{agent['id']} version is outside the validated range",
+                )
             live_contexts.append((agent, live_profile, env))
 
         for agent, live_profile, env in live_contexts:
@@ -1202,15 +1425,20 @@ def run_e3(
 
         negative_control = _negative_control_failures(owned_paths, scratch)
         if negative_control:
-            return _result(spec, Status.INVALID, "\n".join(negative_control))
+            return _run_result(Status.INVALID, "\n".join(negative_control))
 
         verify_credential_decoys(seed_ws, credential_decoys, credential_sentinels)
         before = {path: _hash(path) for path in owned_paths}
         packed = _spawn([str(biv), "pack", str(seed_ws), "--json"], scratch, {})
-        if packed.returncode != 0:
-            return _result(spec, Status.FAIL, f"pack failed: {packed.stderr.strip()}")
+        pack_outcome = _biv_envelope_outcome(packed, "pack")
+        if not pack_outcome.ok:
+            return _run_result(Status.FAIL, pack_outcome.detail)
+        run_warnings.extend(pack_outcome.warnings)
         if any(_hash(path) != digest for path, digest in before.items()):
-            return _result(spec, Status.INVALID, "pack mutated an owned live-store transcript")
+            return _run_result(
+                Status.INVALID,
+                "pack mutated an owned live-store transcript",
+            )
         image = seed_ws.parent / f"{seed_ws.name}.bvpk"
         image_secret_hits = scan_image_secret_values(image, credential_sentinels)
         if image_secret_hits:
@@ -1230,12 +1458,17 @@ def run_e3(
         # pass through _spawn, preserving the no-credential and isolated-profile gates.
         opened = _spawn([str(biv), "open", str(image), "--dest", str(restored_dest),
                          "--consent", "yes", "--json"], host2, host2_env)
-        if opened.returncode != 0:
-            return _result(spec, Status.FAIL, f"open failed: {opened.stderr.strip()}")
-        envelope = json.loads(opened.stdout)
-        restored_workspace = Path(envelope.get("result", {}).get("output_dir", ""))
+        open_outcome = _biv_envelope_outcome(opened, "open")
+        if not open_outcome.ok:
+            return _run_result(Status.FAIL, open_outcome.detail)
+        run_warnings.extend(open_outcome.warnings)
+        envelope = open_outcome.envelope or {}
+        result_outcome = _open_result_outcome(envelope, restored_dest)
+        if not result_outcome.ok:
+            return _run_result(Status.FAIL, result_outcome.detail)
+        restored_workspace = Path(result_outcome.output_dir)
         if not restored_workspace.is_dir():
-            return _result(spec, Status.FAIL, "open output workspace missing")
+            return _run_result(Status.FAIL, "open output workspace missing")
         class_j = class_j_failures(
             seed_ws,
             restored_workspace,
@@ -1243,15 +1476,27 @@ def run_e3(
              *[scratch / path for path in spec.get("forbidden_bivpak_state", [])]],
         )
         if class_j:
-            return _result(spec, Status.INVALID, ",".join(class_j))
-        groups = envelope.get("result", {}).get("sessions", {}).get("agents", [])
-        installed: dict[str, dict[str, Any]] = {}
+            return _run_result(Status.INVALID, ",".join(class_j))
+        groups = result_outcome.groups
+        installed_rows: list[tuple[str, dict[str, Any]]] = []
         for group in groups:
             sessions = [row for row in group.get("sessions", []) if row.get("outcome") == "installed"]
-            if len(sessions) == 1:
-                installed[group.get("agent")] = sessions[0]
-        if len(installed) != len(spec["agents"]):
-            return _result(spec, Status.FAIL, "open did not install exactly two session rows")
+            if len(sessions) != 1:
+                return _run_result(
+                    Status.FAIL,
+                    f"open result malformed: agent {group['agent']!r} reported "
+                    f"{len(sessions)} installed session rows, expected exactly 1",
+                )
+            installed_rows.append((group["agent"], sessions[0]))
+        installed_agents = sorted(group["agent"] for group in groups)
+        expected_agents = sorted(agent["id"] for agent in spec["agents"])
+        if installed_agents != expected_agents:
+            return _run_result(
+                Status.FAIL,
+                "open result malformed: installed agents "
+                f"{installed_agents!r} do not match spec {expected_agents!r}",
+            )
+        installed = dict(installed_rows)
 
         installed_paths: dict[str, Path] = {}
         for agent in spec["agents"]:
@@ -1268,11 +1513,17 @@ def run_e3(
 
         for agent in spec["agents"]:
             if _hash(installed_paths[agent["id"]]) != installed_hashes[agent["id"]]:
-                return _result(spec, Status.INVALID, f"{agent['id']} installed transcript changed before resume")
+                return _run_result(
+                    Status.INVALID,
+                    f"{agent['id']} installed transcript changed before resume",
+                )
             row = installed[agent["id"]]
             session_id = row.get("installed_session_id")
             if not session_id:
-                return _result(spec, Status.FAIL, f"{agent['id']} installed id missing")
+                return _run_result(
+                    Status.FAIL,
+                    f"{agent['id']} installed id missing",
+                )
             command = [part.format(id=session_id, probe=spec["resume_probe"])
                        for part in agent["resume_command"]]
             profile = _agent_profile(agent, profile_root, live=False)
@@ -1282,7 +1533,10 @@ def run_e3(
                 lambda result: result.returncode == 0 and bool(result.stdout.strip()),
             )
             if resumed.returncode != 0 or not resumed.stdout.strip():
-                return _result(spec, Status.INVALID, f"{agent['id']} resume did not return a reply")
+                return _run_result(
+                    Status.INVALID,
+                    f"{agent['id']} resume did not return a reply",
+                )
             turns = [*spec["seed_turns"], spec["resume_probe"]]
             shape = agent["resume_mutation"] if agent["id"] == "claude-code" else agent["resume_shape"]
             assert_resume_containment(
@@ -1291,9 +1545,12 @@ def run_e3(
                 expected_transcript=installed_paths[agent["id"]],
                 pre_resume_content=installed_contents[agent["id"]],
             )
-        return _result(spec, Status.PASS, "dual-agent resume and store containment passed")
+        return _run_result(
+            Status.PASS,
+            "dual-agent resume and store containment passed",
+        )
     except (KeyError, OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
-        return _result(spec, Status.INVALID, str(exc))
+        return _run_result(Status.INVALID, str(exc))
     finally:
         print(format_cleanup_report(capture_candidates, owned_paths))
         if seed_parent_created:

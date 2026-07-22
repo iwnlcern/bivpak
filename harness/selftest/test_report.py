@@ -1,7 +1,7 @@
 from bivharness.report import Report, ScenarioResult, Status
 
 
-def _r(status, id="s", tier="E2"):
+def _r(status, id="s", tier="E2", warnings=None):
     return ScenarioResult(
         id=id,
         tier=tier,
@@ -9,6 +9,7 @@ def _r(status, id="s", tier="E2"):
         classes=["A"],
         held_asserts=[],
         detail="",
+        warnings=warnings or [],
     )
 
 
@@ -30,3 +31,17 @@ def test_fail_and_invalid_exit_nonzero():
 
 def test_pending_only_run_is_not_green():
     assert Report([_r(Status.XFAIL_PENDING)]).exit_code() == 1
+
+
+def test_report_serializes_warned_and_clean_rows_distinctly():
+    warned = _r(
+        Status.PASS,
+        id="warned",
+        warnings=["CodexDbEnrichmentSkipped"],
+    )
+    clean = _r(Status.PASS, id="clean")
+
+    rows = Report([warned, clean]).to_json()["rows"]
+
+    assert rows[0]["warnings"] == ["CodexDbEnrichmentSkipped"]
+    assert rows[1]["warnings"] == []
