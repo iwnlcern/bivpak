@@ -25,6 +25,7 @@
 #include "core/manifest/manifest.hpp"
 #include "core/open/open.hpp"
 #include "core/pack/pack.hpp"
+#include "core/support/sha256.hpp"
 
 namespace {
 
@@ -48,6 +49,12 @@ std::vector<std::byte> bytes(std::string_view text) {
     out[i] = static_cast<std::byte>(text[i]);
   }
   return out;
+}
+
+std::string sha256_hex(std::string_view text) {
+  biv::support::Sha256 sha;
+  sha.update(std::as_bytes(std::span{text.data(), text.size()}));
+  return sha.finish_hex();
 }
 
 std::string read_text(const std::filesystem::path& path) {
@@ -288,6 +295,85 @@ TEST_CASE("open collision modes refuse or rename") {
   CHECK(renamed->output_dir == (root / "restore(1)").generic_string());
   CHECK(read_text(root / "restore(1)" / "a.txt") == "alpha");
   std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open treats dangling destination leaves as occupied names") {
+  const auto root = make_tmp("dangling-destination");
+  const auto image = make_image(root);
+  const auto dest = root / "restore";
+  std::filesystem::create_symlink(root / "missing-target", dest);
+
+  auto renamed = biv::open::open(
+      biv::open::OpenOptions{.image = image,
+                             .dest = dest,
+                             .collision = biv::open::Collision::rename});
+
+  REQUIRE(renamed.has_value());
+  CHECK(renamed->output_dir == (root / "restore(1)").generic_string());
+  CHECK(read_text(root / "restore(1)" / "a.txt") == "alpha");
+  CHECK(std::filesystem::is_symlink(dest));
+  CHECK_FALSE(std::filesystem::exists(root / "restore.bvpk-open.partial"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open skips dangling rename candidates") {
+  const auto root = make_tmp("dangling-rename-candidate");
+  const auto image = make_image(root);
+  const auto dest = root / "restore";
+  std::filesystem::create_directories(dest);
+  std::filesystem::create_symlink(root / "missing-target",
+                                  root / "restore(1)");
+
+  auto renamed = biv::open::open(
+      biv::open::OpenOptions{.image = image,
+                             .dest = dest,
+                             .collision = biv::open::Collision::rename});
+
+  REQUIRE(renamed.has_value());
+  CHECK(renamed->output_dir == (root / "restore(2)").generic_string());
+  CHECK(read_text(root / "restore(2)" / "a.txt") == "alpha");
+  CHECK(std::filesystem::is_symlink(root / "restore(1)"));
+  CHECK_FALSE(std::filesystem::exists(
+      root / "restore(1).bvpk-open.partial"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("Task 4 open occupancy and destination contracts stay bounded") {
+  const auto source =
+      read_text(std::filesystem::path{BIV_SOURCE_DIR} / "src" / "core" /
+                "open" / "open.cpp");
+
+  CHECK(source.find(
+            "std::filesystem::exists(\n"
+            "            std::filesystem::symlink_status(candidate, ec))") !=
+        std::string::npos);
+  CHECK(source.find(
+            "std::filesystem::exists(std::filesystem::symlink_status(dest, "
+            "ec))") != std::string::npos);
+
+  const auto plan_begin =
+      source.find("expected<OpenPlanHandle> plan_open");
+  const auto plan_end =
+      source.find("expected<OpenReport> execute_open", plan_begin);
+  REQUIRE(plan_begin != std::string::npos);
+  REQUIRE(plan_end != std::string::npos);
+  const auto plan_source =
+      source.substr(plan_begin, plan_end - plan_begin);
+  CHECK(sha256_hex(plan_source) ==
+        "940128adbb86610d3abadac77d2f3b4ee7d76d0dee50b3e3e28193bdd06a0bb5");
+  CHECK(plan_source.find(
+            "options.dest.value_or(default_dest_for(options.image))"
+            ".lexically_normal()") != std::string::npos);
+  CHECK(plan_source.find("absolute") == std::string::npos);
+  CHECK(plan_source.find("weakly_canonical") == std::string::npos);
+
+  const auto write_begin = source.find("const auto partial_dir =");
+  const auto write_end = source.find("return OpenReport{", write_begin);
+  REQUIRE(write_begin != std::string::npos);
+  REQUIRE(write_end != std::string::npos);
+  const auto write_path = source.substr(write_begin, write_end - write_begin);
+  CHECK(sha256_hex(write_path) ==
+        "eab078f6ccecd7a9292047cc6596ea9921e9b9a8b5f0e589a66968716c0fbd5e");
 }
 
 TEST_CASE("open refuses pre-existing partial dir") {

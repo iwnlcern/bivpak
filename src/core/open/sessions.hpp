@@ -76,6 +76,7 @@ std::vector<adapters::Activation> filter_activation(
     std::span<const adapters::Activation> activation,
     std::span<const SessionRowReport> rows);
 
+expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const adapters::Host& host);
 expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const adapters::Env& env);
 ConsentDecision resolve_consent(const ConsentSpec& spec,
                                 const SessionPreview& preview,

@@ -18,6 +18,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "adapters/codex/codex.hpp"
+#include "core/support/probe.hpp"
 
 namespace {
 
@@ -173,9 +174,17 @@ std::map<std::string, std::vector<std::byte>> codex_members() {
   return members;
 }
 
-biv::adapters::InstallTarget target_for(fs::path workspace,
-                                        fs::path store,
-                                        std::map<std::string, std::vector<std::byte>>& members) {
+biv::adapters::InstallTarget target_for(
+    fs::path workspace, fs::path store, std::map<std::string, std::vector<std::byte>>& members,
+    biv::adapters::Capabilities capabilities = [] {
+      biv::adapters::Capabilities value;
+      value.agent_version = "unknown";
+      value.validated_range = "0.142.x, 0.144.x";
+      value.verdict = biv::adapters::Capabilities::Verdict::unvalidated_host;
+      value.long_path_keys_pinned = true;
+      value.per_verb = {.collect = true, .install = true, .rewrite = true};
+      return value;
+    }()) {
   return biv::adapters::InstallTarget{
       .workspace_root = std::move(workspace),
       .target_store = biv::adapters::Store{.root = std::move(store),
@@ -188,7 +197,8 @@ biv::adapters::InstallTarget target_for(fs::path workspace,
           return std::unexpected(biv::BivError{biv::ErrKind::ImageUnreadable, std::string{path}});
         }
         return found->second;
-      }};
+      },
+      .capabilities = std::move(capabilities)};
 }
 
 }  // namespace
@@ -404,21 +414,22 @@ TEST_CASE("FX-CX-144 discover collect install preserves new rollout variants") {
       "codex/capabilities\"],\"history_mode\":\"legacy\",\"context_window\":{"
       "\"window_id\":\"" +
       id_map.installed_session_id +
-      "\",\"max_tokens\":200000},\"source\":\"cli\",\"thread_source\":\"user\"}}\n";
+      "\",\"max_tokens\":200000},\"source\":\"cli\",\"thread_source\":\"user\"}"
+      "}\n";
   const auto expected_world_state =
       std::string{
           "{\"timestamp\":\"2026-07-12T12:00:01Z\",\"type\":\"world_state\","
-          "\"payload\":{\"full\":true,\"state\":{\"environments\":{\"local\":{\"cwd\":\""} +
-      workspace.generic_string() + "/sub\",\"thread_id\":\"" +
-      id_map.installed_session_id +
+          "\"payload\":{\"full\":true,\"state\":{\"environments\":{\"local\":{"
+          "\"cwd\":\""} +
+      workspace.generic_string() + "/sub\",\"thread_id\":\"" + id_map.installed_session_id +
       "\"}},\"outside_pair\":\"/opt/codex/capabilities\"}}}\n";
   const auto expected_child_meta =
       std::string{
           "{\"timestamp\":\"2026-07-12T12:01:00Z\",\"type\":\"session_meta\","
           "\"payload\":{\"id\":\""} +
-      installed_child + "\",\"session_id\":\"" + installed_child +
-      "\",\"cwd\":\"" + workspace.generic_string() +
-      "/sub\",\"cli_version\":\"0.144.1\",\"selected_capability_roots\":[\"/opt/"
+      installed_child + "\",\"session_id\":\"" + installed_child + "\",\"cwd\":\"" + workspace.generic_string() +
+      "/sub\",\"cli_version\":\"0.144.1\",\"selected_capability_roots\":[\"/"
+      "opt/"
       "codex/capabilities\"],\"history_mode\":\"legacy\",\"context_window\":{"
       "\"window_id\":\"" +
       installed_child +
@@ -445,19 +456,19 @@ TEST_CASE("FX-CX-144 discover collect install preserves new rollout variants") {
         std::string::npos);
   CHECK(all_text.find("\"context_window\":{") != std::string::npos);
   CHECK(all_text.find("\"max_tokens\":200000") != std::string::npos);
-  CHECK(parent_text.find(
-            "{\"timestamp\":\"2026-07-12T12:00:02Z\",\"type\":\"inter_agent_communication_metadata\",\"payload\":{\"trigger_turn\":true}}\n") !=
-        std::string::npos);
-  CHECK(parent_text.find(
-            "{\"timestamp\":\"2026-07-12T12:00:03Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"function_call\",\"name\":\"spawn_agent\",\"arguments\":\"candidate-child\",\"call_id\":\"call_fx_cx_144\"}}\n") !=
-        std::string::npos);
+  CHECK(parent_text.find("{\"timestamp\":\"2026-07-12T12:00:02Z\",\"type\":\"inter_agent_"
+                         "communication_metadata\",\"payload\":{\"trigger_turn\":true}}\n") != std::string::npos);
+  CHECK(parent_text.find("{\"timestamp\":\"2026-07-12T12:00:03Z\",\"type\":\"response_"
+                         "item\",\"payload\":{\"type\":\"function_call\",\"name\":\"spawn_"
+                         "agent\",\"arguments\":\"candidate-child\",\"call_id\":\"call_fx_"
+                         "cx_144\"}}\n") != std::string::npos);
   REQUIRE(installed->activation.size() == 1U);
   CHECK(installed->activation.front().command ==
         "codex resume " + id_map.installed_session_id);
   fs::remove_all(root);
 }
 
-TEST_CASE("Codex install gates host and image-entry capability verdicts") {
+TEST_CASE("Task 3 Codex install keeps the existing unverified image-version gate") {
   const auto root = make_tmp("capability-gate");
   const auto workspace = root / "workspace";
   fs::create_directories(workspace);
@@ -466,40 +477,16 @@ TEST_CASE("Codex install gates host and image-entry capability verdicts") {
   const std::vector<biv::manifest::AgentSessionEntry> valid_records{
       codex_entry()};
 
-  const auto absent_store = root / "absent-codex";
-  auto absent_target = target_for(workspace, absent_store, members);
-  const auto absent = adapter.install(
-      absent_target, biv::adapters::Consent::yes, valid_records);
-  REQUIRE(absent.has_value());
-  REQUIRE(absent->sessions.size() == 1);
-  CHECK(absent->sessions.front().outcome ==
-        biv::adapters::InstallSessionOutcome::Outcome::failed);
-  CHECK(absent->sessions.front().reason == std::optional<std::string>{"error"});
-  CHECK(absent->sessions.front().detail ==
-        std::optional<std::string>{"capability_refused"});
-  CHECK_FALSE(absent->sessions.front().host_version_unverified);
-  CHECK(absent->id_map.empty());
-  CHECK(absent->activation.empty());
-  CHECK(relative_files(absent_store).empty());
-
-  const auto unsupported_store = root / "unsupported-codex";
-  fs::create_directories(unsupported_store);
-  {
-    std::ofstream marker{unsupported_store / "version.json"};
-    marker << "{\"version\":\"1.0.0\"}\n";
-  }
-  auto unsupported_target = target_for(workspace, unsupported_store, members);
-  const auto unsupported = adapter.install(
-      unsupported_target, biv::adapters::Consent::yes, valid_records);
-  REQUIRE(unsupported.has_value());
-  REQUIRE(unsupported->sessions.size() == 1);
-  CHECK(unsupported->sessions.front().outcome ==
-        biv::adapters::InstallSessionOutcome::Outcome::failed);
-  CHECK(unsupported->sessions.front().detail ==
-        std::optional<std::string>{"capability_refused"});
-  CHECK(unsupported->id_map.empty());
-  CHECK(unsupported->activation.empty());
-  CHECK_FALSE(fs::exists(unsupported_store / "sessions"));
+  const auto supported_store = root / "supported-codex";
+  fs::create_directories(supported_store);
+  auto supported_target = target_for(workspace, supported_store, members);
+  const auto supported = adapter.install(supported_target, biv::adapters::Consent::yes, valid_records);
+  REQUIRE(supported.has_value());
+  REQUIRE(supported->sessions.size() == 1);
+  CHECK(supported->mode == biv::adapters::InstallResult::Mode::host_installed);
+  CHECK(supported->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(supported->sessions.front().host_version_unverified);
+  REQUIRE(supported->activation.size() == 1);
 
   const auto unknown_image_store = root / "unknown-image-codex";
   fs::create_directories(unknown_image_store);
@@ -520,6 +507,20 @@ TEST_CASE("Codex install gates host and image-entry capability verdicts") {
   CHECK(unknown->id_map.empty());
   CHECK(unknown->activation.empty());
   CHECK(relative_files(unknown_image_store).empty());
+
+  const auto unvalidated_store = root / "unvalidated-codex";
+  fs::create_directories(unvalidated_store);
+  auto unvalidated_caps = supported_target.capabilities;
+  unvalidated_caps.verdict = biv::adapters::Capabilities::Verdict::unvalidated;
+  auto unvalidated_target = target_for(workspace, unvalidated_store, members, unvalidated_caps);
+  const auto unvalidated = adapter.install(unvalidated_target, biv::adapters::Consent::yes, valid_records);
+  REQUIRE(unvalidated.has_value());
+  REQUIRE(unvalidated->sessions.size() == 1);
+  CHECK(unvalidated->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(unvalidated->sessions.front().detail == std::optional<std::string>{"capability_refused"});
+  CHECK(unvalidated->id_map.empty());
+  CHECK(unvalidated->activation.empty());
+  CHECK_FALSE(fs::exists(unvalidated_store / "sessions"));
   fs::remove_all(root);
 }
 
@@ -759,40 +760,265 @@ TEST_CASE("Codex rewrite applies pair rewrites and reports non-UTF8 skips") {
   fs::remove_all(root);
 }
 
-TEST_CASE(
-    "Codex capabilities use fresh-host fallback, marker, and rollout "
-    "cli_version") {
-  const auto root = make_tmp("capabilities");
-  const auto& adapter = biv::adapters::codex_adapter();
-  const biv::adapters::Env env{
-      .getenv = [](std::string_view) -> std::optional<std::string> { return std::nullopt; }, .home = root};
-  const biv::adapters::Host host{.home = root, .env = env};
+TEST_CASE("Task 3 Codex capabilities parse probe output and ignore store versions") {
+  struct ProbeCase {
+    std::string raw;
+    biv::adapters::Capabilities::Verdict verdict;
+    std::optional<std::string> parsed;
+    biv::support::ProbeOutcome outcome;
+  };
+  const std::vector<ProbeCase> cases{
+      {"codex-cli 0.144.4\n", biv::adapters::Capabilities::Verdict::validated, "0.144.4",
+       biv::support::ProbeOutcome::ok},
+      {"codex-cli 0.142.9 trailing text ", biv::adapters::Capabilities::Verdict::validated, "0.142.9",
+       biv::support::ProbeOutcome::ok},
+      {"codex-cli 0.145.0\n", biv::adapters::Capabilities::Verdict::unvalidated, "0.145.0",
+       biv::support::ProbeOutcome::ok},
+      {"not a version", biv::adapters::Capabilities::Verdict::unvalidated_host, std::nullopt,
+       biv::support::ProbeOutcome::unparseable},
+      {"", biv::adapters::Capabilities::Verdict::unvalidated_host, std::nullopt,
+       biv::support::ProbeOutcome::unparseable}};
 
-  auto caps = adapter.capabilities(host);
-  CHECK(caps.verdict == biv::adapters::Capabilities::Verdict::absent);
+  for (const auto& probe_case : cases) {
+    DYNAMIC_SECTION(probe_case.raw) {
+      const auto root = make_tmp("probe-capabilities");
+      const auto store = root / ".codex";
+      const auto rollout = store / "sessions" / "2026" / "07" / "06" /
+                           "rollout-2026-07-06T01-00-00-019faaaa-bbbb-7ccc-8ddd-"
+                           "eeeeeeee0001.jsonl";
+      fs::create_directories(rollout.parent_path());
+      {
+        std::ofstream marker{store / "version.json"};
+        marker << "{\"latest_version\":\"0.144.4\","
+                  "\"last_checked_at\":\"now\"}\n";
+      }
+      {
+        std::ofstream old_rollout{rollout};
+        old_rollout << "{\"type\":\"session_meta\",\"payload\":{\"cli_version\":"
+                       "\"0.61.0\"}}\n";
+      }
+      const auto pin = root / "bin" / "codex";
+      const biv::adapters::Env env{
+          .getenv = [](std::string_view) -> std::optional<std::string> { return std::nullopt; }, .home = root};
+      size_t observations = 0;
+      const biv::adapters::Host host{
+          .home = root,
+          .env = env,
+          .version_probe = [&](const std::string_view agent,
+                               const std::optional<fs::path>& requested) -> biv::expected<biv::support::ProbeEvidence> {
+            ++observations;
+            CHECK(agent == "codex");
+            CHECK(requested == std::optional<fs::path>{pin});
+            return biv::support::ProbeEvidence{.agent = "host-probe",
+                                               .requested = requested,
+                                               .executed = pin,
+                                               .pinned = true,
+                                               .outcome = biv::support::ProbeOutcome::ok,
+                                               .exit_code = 0,
+                                               .raw = probe_case.raw,
+                                               .parsed = std::nullopt};
+          },
+          .pinned_bins = {{"codex", pin}}};
+
+      const auto caps = biv::adapters::codex_adapter().capabilities(host);
+
+      CHECK(observations == 1);
+      CHECK(caps.validated_range == "0.142.x, 0.144.x");
+      CHECK(caps.verdict == probe_case.verdict);
+      CHECK(caps.agent_version == probe_case.parsed.value_or("unknown"));
+      REQUIRE(caps.probe.has_value());
+      CHECK(caps.probe->parsed == probe_case.parsed);
+      CHECK(caps.probe->outcome == probe_case.outcome);
+      CHECK(caps.probe->raw == probe_case.raw);
+      CHECK(caps.probe->pinned);
+      CHECK(caps.probe->executed == pin);
+      CHECK(caps.probe->agent == "codex");
+      CHECK(caps.per_verb.collect);
+      CHECK(caps.per_verb.install);
+      CHECK(caps.per_verb.rewrite);
+      fs::remove_all(root);
+    }
+  }
+}
+
+TEST_CASE("Task 3 Codex capabilities preserve not-found and timeout evidence") {
+  for (const auto outcome : {biv::support::ProbeOutcome::not_found,
+                             biv::support::ProbeOutcome::timeout}) {
+    DYNAMIC_SECTION(static_cast<int>(outcome)) {
+      const auto root = make_tmp("probe-failure-matrix");
+      const biv::adapters::Env env{
+          .getenv = [](std::string_view) -> std::optional<std::string> { return std::nullopt; }, .home = root};
+      size_t observations = 0;
+      const biv::adapters::Host host{
+          .home = root,
+          .env = env,
+          .version_probe =
+              [&](const std::string_view agent,
+                  const std::optional<fs::path>&) -> biv::expected<biv::support::ProbeEvidence> {
+            ++observations;
+            return biv::support::ProbeEvidence{
+                .agent = std::string{agent},
+                .requested = std::nullopt,
+                .executed = std::nullopt,
+                .pinned = false,
+                .outcome = outcome,
+                .exit_code = -1,
+                .raw = "",
+                .parsed = std::nullopt};
+          },
+          .pinned_bins = {}};
+
+      const auto caps = biv::adapters::codex_adapter().capabilities(host);
+
+      CHECK(observations == 1);
+      CHECK(caps.verdict ==
+            biv::adapters::Capabilities::Verdict::unvalidated_host);
+      CHECK(caps.agent_version == "unknown");
+      REQUIRE(caps.probe.has_value());
+      CHECK(caps.probe->outcome == outcome);
+      CHECK_FALSE(caps.probe->parsed.has_value());
+      fs::remove_all(root);
+    }
+  }
+
+  const auto root = make_tmp("probe-unwired");
+  const biv::adapters::Host host{
+      .home = root,
+      .env =
+          {.getenv = [](std::string_view) -> std::optional<std::string> {
+             return std::nullopt;
+           },
+           .home = root},
+      .version_probe = {},
+      .pinned_bins = {}};
+
+  const auto caps = biv::adapters::codex_adapter().capabilities(host);
+
+  CHECK(caps.verdict ==
+        biv::adapters::Capabilities::Verdict::unvalidated_host);
+  CHECK_FALSE(caps.probe.has_value());
+  fs::remove_all(root);
+
+  const auto error_root = make_tmp("probe-error-detail");
+  std::string invalid_detail{"probe error "};
+  invalid_detail.push_back(static_cast<char>(0x9b));
+  const biv::adapters::Host error_host{
+      .home = error_root,
+      .env =
+          {.getenv = [](std::string_view) -> std::optional<std::string> {
+             return std::nullopt;
+           },
+           .home = error_root},
+      .version_probe =
+          [invalid_detail](
+              std::string_view,
+              const std::optional<fs::path>&)
+          -> biv::expected<biv::support::ProbeEvidence> {
+        return std::unexpected(
+            biv::BivError{.kind = biv::ErrKind::InternalError,
+                          .detail = invalid_detail});
+      },
+      .pinned_bins = {}};
+
+  const auto error_caps =
+      biv::adapters::codex_adapter().capabilities(error_host);
+
+  REQUIRE(error_caps.probe.has_value());
+  CHECK(error_caps.probe->outcome ==
+        biv::support::ProbeOutcome::spawn_error);
+  CHECK(error_caps.probe->raw == "probe error \xEF\xBF\xBD");
+  CHECK(biv::support::sanitize_utf8(error_caps.probe->raw) ==
+        error_caps.probe->raw);
+  fs::remove_all(error_root);
+}
+
+TEST_CASE(
+    "Task 3 Codex probe verdict is orthogonal to store availability and "
+    "failures") {
+  const auto root = make_tmp("probe-store-orthogonal");
+  const auto& adapter = biv::adapters::codex_adapter();
+  const biv::adapters::Env env{.getenv = [](std::string_view) -> std::optional<std::string> { return std::nullopt; },
+                               .home = root};
+  size_t observations = 0;
+  const biv::adapters::Host working_host{
+      .home = root,
+      .env = env,
+      .version_probe = [&](const std::string_view agent,
+                           const std::optional<fs::path>&) -> biv::expected<biv::support::ProbeEvidence> {
+        ++observations;
+        return biv::support::ProbeEvidence{.agent = std::string{agent},
+                                           .requested = std::nullopt,
+                                           .executed = root / "bin" / "codex",
+                                           .pinned = false,
+                                           .outcome = biv::support::ProbeOutcome::ok,
+                                           .exit_code = 0,
+                                           .raw = "codex-cli 0.144.4",
+                                           .parsed = std::nullopt};
+      },
+      .pinned_bins = {}};
+
+  const auto caps = adapter.capabilities(working_host);
+  CHECK(observations == 1);
+  CHECK(caps.verdict == biv::adapters::Capabilities::Verdict::validated);
+  CHECK_FALSE(caps.per_verb.collect);
+  CHECK_FALSE(caps.per_verb.install);
+  CHECK_FALSE(caps.per_verb.rewrite);
 
   fs::create_directories(root / ".codex");
-  caps = adapter.capabilities(host);
-  CHECK(caps.verdict == biv::adapters::Capabilities::Verdict::unvalidated_host);
-  CHECK(caps.per_verb.collect);
-  CHECK(caps.per_verb.install);
-  CHECK(caps.per_verb.rewrite);
+  const biv::adapters::Host failed_host{
+      .home = root,
+      .env = env,
+      .version_probe = [](const std::string_view agent,
+                          const std::optional<fs::path>&) -> biv::expected<biv::support::ProbeEvidence> {
+        return biv::support::ProbeEvidence{.agent = std::string{agent},
+                                           .requested = std::nullopt,
+                                           .executed = std::nullopt,
+                                           .pinned = false,
+                                           .outcome = biv::support::ProbeOutcome::nonzero_exit,
+                                           .exit_code = 1,
+                                           .raw = "probe failed",
+                                           .parsed = std::nullopt};
+      },
+      .pinned_bins = {}};
+  const auto failed = adapter.capabilities(failed_host);
+  CHECK(failed.verdict == biv::adapters::Capabilities::Verdict::unvalidated_host);
+  REQUIRE(failed.probe.has_value());
+  CHECK(failed.probe->outcome == biv::support::ProbeOutcome::nonzero_exit);
+  CHECK(failed.per_verb.collect);
+  CHECK(failed.per_verb.install);
+  CHECK(failed.per_verb.rewrite);
+  fs::remove_all(root);
+}
 
-  std::ofstream marker{root / ".codex" / "version.json"};
-  marker << "{\"version\":\"0.142.5\"}\n";
-  marker.close();
-  caps = adapter.capabilities(host);
-  CHECK(caps.agent_version == "0.142.5");
-  CHECK(caps.verdict == biv::adapters::Capabilities::Verdict::validated);
+TEST_CASE(
+    "Task 3 Codex install consumes supplied capabilities and has no "
+    "store oracle") {
+  const auto root = make_tmp("supplied-capabilities");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  {
+    std::ofstream marker{store / "version.json"};
+    marker << "{\"version\":\"0.61.0\"}\n";
+  }
+  auto members = codex_members();
+  biv::adapters::Capabilities capabilities;
+  capabilities.agent_version = "0.144.4";
+  capabilities.validated_range = "0.142.x, 0.144.x";
+  capabilities.verdict = biv::adapters::Capabilities::Verdict::validated;
+  capabilities.long_path_keys_pinned = true;
+  capabilities.per_verb = {.collect = true, .install = true, .rewrite = true};
+  auto target = target_for(workspace, store, members, std::move(capabilities));
 
-  fs::remove(root / ".codex" / "version.json");
-  const auto rollout_dir = root / ".codex" / "sessions" / "2026" / "07" / "06";
-  fs::create_directories(rollout_dir);
-  std::ofstream rollout{rollout_dir / "rollout-2026-07-06T01-00-00-019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001.jsonl"};
-  rollout << "{\"type\":\"session_meta\",\"payload\":{\"cli_version\":\"0.142.6\"}}\n";
-  rollout.close();
-  caps = adapter.capabilities(host);
-  CHECK(caps.agent_version == "0.142.6");
-  CHECK(caps.verdict == biv::adapters::Capabilities::Verdict::validated);
+  const auto installed = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector<biv::manifest::AgentSessionEntry>{codex_entry()});
+
+  REQUIRE(installed.has_value());
+  REQUIRE(installed->sessions.size() == 1);
+  CHECK(installed->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(installed->sessions.front().host_version_unverified);
+  const auto source = read_text(fs::path{BIV_SOURCE_DIR} / "src" / "adapters" / "codex" / "install.cpp");
+  CHECK(source.find("capabilities_for_root") == std::string::npos);
   fs::remove_all(root);
 }

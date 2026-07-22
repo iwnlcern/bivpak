@@ -330,7 +330,8 @@ std::filesystem::path choose_rename_dest(const std::filesystem::path& dest) {
   for (int index = 1; index < 10000; ++index) {
     auto candidate = dest.parent_path() / (dest.filename().generic_string() + "(" + std::to_string(index) + ")");
     std::error_code ec;
-    if (!std::filesystem::exists(candidate, ec)) {
+    if (!std::filesystem::exists(
+            std::filesystem::symlink_status(candidate, ec))) {
       return candidate;
     }
   }
@@ -607,7 +608,7 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
                                      const Collision collision) {
   std::string collision_action = "none";
   std::error_code ec;
-  if (std::filesystem::exists(dest, ec)) {
+  if (std::filesystem::exists(std::filesystem::symlink_status(dest, ec))) {
     if (collision == Collision::rename) {
       dest = choose_rename_dest(dest);
       collision_action = "renamed";

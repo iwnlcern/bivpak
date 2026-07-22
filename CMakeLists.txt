@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.27)
 project(bivpak CXX)
 
 find_package(SQLite3 REQUIRED)
+find_package(Threads REQUIRED)
 if(NOT TARGET SQLite3::SQLite3)
   add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
 endif()
@@ -59,11 +60,13 @@ add_library(bivcore STATIC
   src/core/pack/pack.cpp
   src/core/report/envelope.cpp
   src/core/scan/scan.cpp
+  src/core/support/probe.cpp
   src/core/support/sha256.cpp
   src/core/support/error.cpp
   src/core/support/version.cpp)
 target_include_directories(bivcore PUBLIC src)
-target_link_libraries(bivcore PUBLIC biv_support simdjson libzstd_static)
+target_link_libraries(bivcore PUBLIC
+  biv_support simdjson libzstd_static Threads::Threads)
 target_compile_options(bivcore PRIVATE -Wall -Wextra -Werror)
 
 # ADAPTER TARGETS
@@ -85,6 +88,14 @@ target_link_libraries(biv PRIVATE bivcore biv_adapters)
 target_compile_options(biv PRIVATE -Wall -Wextra -Werror)
 
 enable_testing()
+add_library(biv_probe_test_seam STATIC src/core/support/probe.cpp)
+target_include_directories(biv_probe_test_seam PUBLIC src)
+target_link_libraries(biv_probe_test_seam PRIVATE Threads::Threads)
+target_compile_options(biv_probe_test_seam PRIVATE -Wall -Wextra -Werror)
+target_compile_definitions(biv_probe_test_seam PRIVATE
+  BIV_PROBE_TESTING=1
+  BIV_PROBE_TEST_SEAM_ONLY=1)
+
 add_executable(biv_tests
   tests/test_smoke.cpp
   tests/test_json_writer.cpp
@@ -107,9 +118,12 @@ target_sources(biv_tests PRIVATE tests/test_adapter_codex_collect.cpp)
 target_sources(biv_tests PRIVATE tests/test_adapter_codex_install.cpp)
 target_sources(biv_tests PRIVATE tests/test_sessions.cpp)
 target_sources(biv_tests PRIVATE tests/test_render.cpp)
-target_link_libraries(biv_tests PRIVATE bivcore biv_adapters biv_support Catch2::Catch2WithMain)
+target_sources(biv_tests PRIVATE tests/test_probe.cpp)
+target_link_libraries(biv_tests PRIVATE
+  biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_tests PRIVATE
+  BIV_PROBE_TESTING=1
   BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
   BIV_BINARY_PATH="$<TARGET_FILE:biv>")
 add_test(NAME biv_tests COMMAND biv_tests)
@@ -182,3 +196,15 @@ if(BIV_ENABLE_FUZZ)
 endif()
 
 add_subdirectory(harness)
+
+add_test(
+  NAME probe_envelope_schema
+  COMMAND "${BIVHARNESS_PYTHON}" -c
+          "import json, sys
+from jsonschema import Draft202012Validator
+schema = json.load(open(sys.argv[1], encoding='utf-8'))
+fixture = json.load(open(sys.argv[2], encoding='utf-8'))
+Draft202012Validator.check_schema(schema)
+Draft202012Validator(schema).validate(fixture)"
+          "${CMAKE_SOURCE_DIR}/schemas/biv-json-envelope.v1.schema.json"
+          "${CMAKE_SOURCE_DIR}/tests/fixtures/probe-envelope-v1.json")

@@ -33,6 +33,82 @@ class CommandResult(NamedTuple):
     invalid: list[str]
 
 
+class ProbeStandin(NamedTuple):
+    path: Path
+    raw: str
+    parsed: str
+
+
+def _prepare_probe_standins(work: Path) -> dict[str, ProbeStandin]:
+    root = work / "probe-standins"
+    root.mkdir(parents=True, exist_ok=True)
+    rows = (
+        ("codex", "codex-standin", "codex-cli 0.144.4\n", "0.144.4"),
+        (
+            "claude-code",
+            "claude-code-standin",
+            "2.1.211 (Claude Code)\n",
+            "2.1.211",
+        ),
+    )
+    standins: dict[str, ProbeStandin] = {}
+    for agent, filename, raw, parsed in rows:
+        path = root / filename
+        path.write_text(
+            "#!/bin/sh\nprintf '%s\\n' " + repr(raw.rstrip("\n")) + "\n",
+            encoding="utf-8",
+        )
+        path.chmod(0o755)
+        standins[agent] = ProbeStandin(path=path, raw=raw, parsed=parsed)
+    return standins
+
+
+def _probe_open_args(standins: dict[str, ProbeStandin]) -> list[str]:
+    args: list[str] = []
+    for agent, standin in standins.items():
+        args.extend(("--agent-bin", f"{agent}={standin.path}"))
+    return args
+
+
+def _probe_open_env(
+    base: dict[str, str], standins: dict[str, ProbeStandin]
+) -> dict[str, str]:
+    env = dict(base)
+    env["PATH"] = str(next(iter(standins.values())).path.parent)
+    return env
+
+
+def _probe_oracle_failures(
+    envelope: dict[str, Any], standins: dict[str, ProbeStandin]
+) -> list[str]:
+    failures: list[str] = []
+    result = envelope.get("result")
+    if not isinstance(result, dict):
+        return failures
+    agents = result.get("sessions", {}).get("agents", [])
+    for row in agents:
+        agent = row.get("agent")
+        if agent not in standins:
+            continue
+        standin = standins[agent]
+        expected = {
+            "agent": agent,
+            "requested": str(standin.path),
+            "executed": str(standin.path),
+            "pinned": True,
+            "outcome": "ok",
+            "exit_code": 0,
+            "raw": standin.raw,
+            "parsed": standin.parsed,
+        }
+        probe = row.get("probe")
+        if probe != expected:
+            failures.append(
+                f"probe oracle mismatch for {agent}: expected {expected}, got {probe}"
+            )
+    return failures
+
+
 def _command(biv: Path, args: list[str]) -> list[str]:
     if biv.suffix == ".py":
         return [sys.executable, str(biv), *args]
@@ -396,6 +472,7 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
     if work.exists():
         shutil.rmtree(work)
     work.mkdir(parents=True)
+    standins = _prepare_probe_standins(work)
     source = work / "source"
     restored = work / "restored"
     expected = work / "expected"
@@ -457,9 +534,14 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
                 (restored / "collision.txt").write_text("collision\n", encoding="utf-8")
             run = _run_json(
                 biv,
-                ["open", str(image), *step.get("args", [])],
+                [
+                    "open",
+                    str(image),
+                    *step.get("args", []),
+                    *_probe_open_args(standins),
+                ],
                 open_cwd,
-                target_env,
+                _probe_open_env(target_env, standins),
             )
             if run.invalid:
                 invalids.extend(run.invalid)
@@ -468,6 +550,7 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
             if envelope_errors:
                 invalids.extend(envelope_errors)
                 break
+            findings.extend(_probe_oracle_failures(run.envelope, standins))
             exercised.add("E")
             if spec.get("expect", {}).get("refusal"):
                 exercised.add("K")

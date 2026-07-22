@@ -82,7 +82,7 @@ std::vector<adapters::Activation> filter_activation(
   std::vector<adapters::Activation> safe;
   for (const auto& candidate : activation) {
     bool belongs_to_clean = false;
-    bool belongs_to_suppressed = false;
+    bool belongs_to_rejected = false;
     for (const auto& row : rows) {
       if (row.agent != candidate.agent || !row.installed_session_id.has_value()) {
         continue;
@@ -90,13 +90,12 @@ std::vector<adapters::Activation> filter_activation(
       if (candidate.command.find(*row.installed_session_id) == std::string::npos) {
         continue;
       }
-      belongs_to_suppressed = belongs_to_suppressed || row.activation_suppressed;
-      belongs_to_clean = belongs_to_clean || !row.activation_suppressed;
+      const bool clean =
+          row.row == SessionRowReport::Row::installed && !row.activation_suppressed;
+      belongs_to_clean = belongs_to_clean || clean;
+      belongs_to_rejected = belongs_to_rejected || !clean;
     }
-    const bool agent_has_suppressed = std::ranges::any_of(rows, [&](const auto& row) {
-      return row.agent == candidate.agent && row.activation_suppressed;
-    });
-    if (!belongs_to_suppressed && (belongs_to_clean || !agent_has_suppressed)) {
+    if (belongs_to_clean && !belongs_to_rejected) {
       safe.push_back(candidate);
     }
   }
@@ -109,7 +108,7 @@ bool SessionPreview::any_sessions() const {
   });
 }
 
-expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const adapters::Env& env) {
+expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const adapters::Host& host) {
   SessionPreview preview;
   for (const auto& entry : manifest.agent_sessions) {
     auto found = std::ranges::find(preview.agents, entry.agent, &AgentPreview::agent);
@@ -119,14 +118,14 @@ expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const
       next.adapter = adapters::find_adapter(entry.agent);
       next.known_adapter = next.adapter != nullptr;
       if (next.adapter != nullptr) {
-        auto stores = next.adapter->discover(env);
+        auto stores = next.adapter->discover(host.env);
         if (!stores) {
           return std::unexpected(stores.error());
         }
         if (!stores->empty()) {
           next.store = stores->front();
         }
-        next.caps = next.adapter->capabilities(adapters::Host{.home = env.home, .env = env});
+        next.caps = next.adapter->capabilities(host);
       }
       preview.agents.push_back(std::move(next));
       found = std::prev(preview.agents.end());
@@ -138,8 +137,16 @@ expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const
   return preview;
 }
 
-ConsentDecision resolve_consent(const ConsentSpec& spec,
-                                const SessionPreview& preview,
+expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const adapters::Env& env) {
+  return build_preview(
+      manifest,
+      adapters::Host{.home = env.home,
+                     .env = env,
+                     .version_probe = {},
+                     .pinned_bins = {}});
+}
+
+ConsentDecision resolve_consent(const ConsentSpec& spec, const SessionPreview& preview,
                                 const std::optional<bool> prompt_answer) {
   ConsentDecision result;
   if (spec.global != ConsentValue::unset || !spec.per_agent.empty()) {
@@ -244,11 +251,12 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       continue;
     }
 
-    auto installed = agent.adapter->install(adapters::InstallTarget{.workspace_root = final_workspace_root,
-                                                                     .target_store = target_store,
-                                                                     .member_read = member_read},
-                                            adapters::Consent::yes,
-                                            std::span<const manifest::AgentSessionEntry>{eligible});
+    auto installed =
+        agent.adapter->install(adapters::InstallTarget{.workspace_root = final_workspace_root,
+                                                       .target_store = target_store,
+                                                       .member_read = member_read,
+                                                       .capabilities = caps},
+                               adapters::Consent::yes, std::span<const manifest::AgentSessionEntry>{eligible});
     if (!installed) {
       for (const auto& entry : eligible) {
         const auto reason = install_failure_reason(installed.error());

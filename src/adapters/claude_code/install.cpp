@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
 #include <limits>
 #include <optional>
 #include <set>
@@ -316,51 +315,6 @@ InstallSessionOutcome failed_outcome(
       .detail = std::move(detail)};
 }
 
-std::optional<std::string> string_field_from_json_file(const fs::path& path, std::string_view key) {
-  std::ifstream input{path, std::ios::binary};
-  if (!input) {
-    return std::nullopt;
-  }
-  std::string json{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
-  simdjson::padded_string padded{json};
-  simdjson::dom::parser parser;
-  simdjson::dom::element root;
-  if (parser.parse(padded).get(root)) {
-    return std::nullopt;
-  }
-  simdjson::dom::object object;
-  if (root.get(object)) {
-    return std::nullopt;
-  }
-  std::string_view value;
-  if (object.at_key(key).get(value)) {
-    return std::nullopt;
-  }
-  return std::string{value};
-}
-
-std::optional<std::string> claude_version_from_store(const fs::path& root) {
-  if (auto version = string_field_from_json_file(root / ".last-update-result.json", "version"); version.has_value()) {
-    return version;
-  }
-  const auto sessions = root / "sessions";
-  std::error_code ec;
-  if (!fs::exists(sessions, ec)) {
-    return std::nullopt;
-  }
-  for (fs::directory_iterator it{sessions, ec}, end; !ec && it != end;
-       it.increment(ec)) {
-    const auto& entry = *it;
-    if (!entry.is_regular_file(ec) || entry.path().extension() != ".json") {
-      continue;
-    }
-    if (auto version = string_field_from_json_file(entry.path(), "version"); version.has_value()) {
-      return version;
-    }
-  }
-  return std::nullopt;
-}
-
 fs::path claude_root_for_host(const Host& host) {
   if (host.env.getenv) {
     auto configured = host.env.getenv("CLAUDE_CONFIG_DIR");
@@ -374,12 +328,85 @@ fs::path claude_root_for_host(const Host& host) {
   return host.home / ".claude";
 }
 
-bool validated_claude_version(const std::string_view version) {
-  return version.starts_with("2.1.");
+bool validated_claude_version(const std::string_view version) { return version.starts_with("2.1."); }
+
+std::optional<std::string> semver_at(const std::string_view raw, size_t position) {
+  const auto component = [&](size_t& cursor) {
+    const auto begin = cursor;
+    while (cursor < raw.size() && raw.at(cursor) >= '0' && raw.at(cursor) <= '9') {
+      ++cursor;
+    }
+    return cursor != begin;
+  };
+  const auto begin = position;
+  if (!component(position)) {
+    return std::nullopt;
+  }
+  if (position >= raw.size() || raw.at(position) != '.') {
+    return std::nullopt;
+  }
+  ++position;
+  if (!component(position)) {
+    return std::nullopt;
+  }
+  if (position >= raw.size() || raw.at(position) != '.') {
+    return std::nullopt;
+  }
+  ++position;
+  if (!component(position)) {
+    return std::nullopt;
+  }
+  if (position < raw.size() && ((raw.at(position) >= '0' && raw.at(position) <= '9') || raw.at(position) == '.')) {
+    return std::nullopt;
+  }
+  return std::string{raw.substr(begin, position - begin)};
 }
 
-std::optional<bool> host_version_unverified_for_install(
-    const Capabilities& caps, const std::string_view image_version) {
+std::optional<std::string> parse_claude_version(const std::string_view raw) {
+  const auto begin = raw.find_first_not_of(" \t\r\n");
+  if (begin == std::string_view::npos) {
+    return std::nullopt;
+  }
+  auto version = semver_at(raw, begin);
+  if (!version.has_value()) {
+    return std::nullopt;
+  }
+  auto suffix = begin + version->size();
+  suffix = raw.find_first_not_of(" \t", suffix);
+  if (suffix == std::string_view::npos || !raw.substr(suffix).starts_with("(Claude Code)")) {
+    return std::nullopt;
+  }
+  return version;
+}
+
+std::optional<support::ProbeEvidence> observe_claude(const Host& host) {
+  const auto pin = host.pinned_bins.find("claude-code");
+  const std::optional<fs::path> requested =
+      pin == host.pinned_bins.end() ? std::nullopt : std::optional<fs::path>{pin->second};
+  if (!host.version_probe) {
+    return std::nullopt;
+  }
+  auto observed = host.version_probe("claude", requested);
+  if (!observed) {
+    return support::ProbeEvidence{.agent = "claude-code",
+                                  .requested = requested,
+                                  .executed = std::nullopt,
+                                  .pinned = requested.has_value(),
+                                  .outcome = support::ProbeOutcome::spawn_error,
+                                  .exit_code = -1,
+                                  .raw = support::sanitize_utf8(observed.error().detail),
+                                  .parsed = std::nullopt};
+  }
+  observed->agent = "claude-code";
+  if (requested.has_value()) {
+    observed->requested = requested;
+    observed->pinned = true;
+  }
+  return std::move(*observed);
+}
+
+std::optional<bool> host_version_unverified_for_install(const Capabilities& caps,
+                                                        const std::string_view image_version) {
   if (caps.verdict == Capabilities::Verdict::validated) {
     return false;
   }
@@ -390,26 +417,31 @@ std::optional<bool> host_version_unverified_for_install(
   return std::nullopt;
 }
 
-Capabilities capabilities_for_root(const fs::path& root) {
-  Capabilities caps{
-      .agent_version = "unknown",
-      .validated_range = "2.1.x",
-      .verdict = Capabilities::Verdict::absent,
-      .long_path_keys_pinned = false,
-      .per_verb = {.collect = false, .install = false, .rewrite = false}};
-  std::error_code ec;
-  if (!fs::exists(root, ec)) {
+Capabilities probe_capabilities(const Host& host) {
+  const auto root = claude_root_for_host(host);
+  std::error_code error;
+  const bool store_exists = fs::exists(root, error);
+  Capabilities caps{.agent_version = "unknown",
+                    .validated_range = "2.1.x",
+                    .verdict = Capabilities::Verdict::unvalidated_host,
+                    .long_path_keys_pinned = false,
+                    .per_verb = {.collect = store_exists, .install = store_exists, .rewrite = store_exists},
+                    .probe = observe_claude(host)};
+  if (!caps.probe.has_value()) {
     return caps;
   }
-  caps.per_verb = {.collect = true, .install = true, .rewrite = true};
-  auto version = claude_version_from_store(root);
-  if (!version.has_value()) {
+  if (caps.probe->outcome != support::ProbeOutcome::ok) {
     caps.verdict = Capabilities::Verdict::unvalidated_host;
     return caps;
   }
-  caps.agent_version = *version;
-  caps.verdict = validated_claude_version(*version) ? Capabilities::Verdict::validated
-                                                    : Capabilities::Verdict::unvalidated;
+  caps.probe->parsed = parse_claude_version(caps.probe->raw);
+  if (!caps.probe->parsed.has_value()) {
+    caps.probe->outcome = support::ProbeOutcome::unparseable;
+    return caps;
+  }
+  caps.agent_version = *caps.probe->parsed;
+  caps.verdict = validated_claude_version(caps.agent_version) ? Capabilities::Verdict::validated
+                                                              : Capabilities::Verdict::unvalidated;
   return caps;
 }
 
@@ -446,7 +478,7 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
     }
   }
 
-  const auto caps = capabilities_for_root(target.target_store.root);
+  const auto& caps = target.capabilities;
   std::vector<PreparedSession> prepared;
   prepared.reserve(records.size());
   for (const auto& record : records) {
@@ -602,21 +634,15 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
       continue;
     }
 
-    result.sessions.push_back(InstallSessionOutcome{
-        .image_session_id = session.record.original_session_ids.primary,
-        .outcome = InstallSessionOutcome::Outcome::installed,
-        .reason = std::nullopt,
-        .content_rewrite = "pair",
-        .host_version_unverified = session.host_version_unverified,
-        .verify = session.verify,
-        .detail = non_utf8_detail(session.skipped_non_utf8)});
-  }
-  if (std::ranges::any_of(
-          result.sessions, [](const InstallSessionOutcome& session) {
-            return session.outcome == InstallSessionOutcome::Outcome::installed;
-          })) {
+    result.sessions.push_back(InstallSessionOutcome{.image_session_id = session.record.original_session_ids.primary,
+                                                    .outcome = InstallSessionOutcome::Outcome::installed,
+                                                    .reason = std::nullopt,
+                                                    .content_rewrite = "pair",
+                                                    .host_version_unverified = session.host_version_unverified,
+                                                    .verify = session.verify,
+                                                    .detail = non_utf8_detail(session.skipped_non_utf8)});
     result.activation.push_back(
-        Activation{.agent = "claude-code", .command = "claude"});
+        Activation{.agent = "claude-code", .command = "claude --resume " + session.installed_session_id});
   }
   return result;
 }
@@ -664,8 +690,6 @@ expected<RewriteReport> claude_code_rewrite(const std::span<const SessionRecord>
   return report;
 }
 
-Capabilities claude_code_capabilities(const Host& host) {
-  return capabilities_for_root(claude_root_for_host(host));
-}
+Capabilities claude_code_capabilities(const Host& host) { return probe_capabilities(host); }
 
 }  // namespace biv::adapters
