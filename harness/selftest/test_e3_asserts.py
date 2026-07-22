@@ -931,6 +931,78 @@ def test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning(
     ]
 
 
+@pytest.mark.parametrize(
+    ("case", "actual_agents"),
+    (
+        ("duplicate", ["claude-code", "codex", "codex"]),
+        ("missing", ["codex"]),
+        ("extra", ["claude-code", "codex", "extra-agent"]),
+    ),
+)
+def test_e3_open_installed_agent_multiset_must_match_spec(
+    monkeypatch, tmp_path, stable_test_root, case, actual_agents
+):
+    def malformed_open(restored_workspace):
+        restored_workspace.mkdir(exist_ok=True)
+        sessions = _valid_sessions_payload()
+        if case == "duplicate":
+            sessions["agents"].append(
+                {
+                    "agent": "codex",
+                    "sessions": [
+                        {
+                            "outcome": "installed",
+                            "installed_session_id": "codex-duplicate-session",
+                        }
+                    ],
+                }
+            )
+        elif case == "missing":
+            sessions["agents"].pop()
+        else:
+            sessions["agents"].append(
+                {
+                    "agent": "extra-agent",
+                    "sessions": [
+                        {
+                            "outcome": "installed",
+                            "installed_session_id": "extra-agent-session",
+                        }
+                    ],
+                }
+            )
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": str(restored_workspace),
+                    "sessions": sessions,
+                },
+            ),
+            stderr="",
+        )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+        open_result=malformed_open,
+    )
+
+    assert result.status is Status.FAIL
+    assert seen == ["pack", "open"]
+    assert "open result malformed" in result.detail
+    assert f"installed agents {actual_agents!r}" in result.detail
+    assert "spec ['claude-code', 'codex']" in result.detail
+    assert Report([result]).to_json()["rows"][0]["warnings"] == [
+        "CodexDbEnrichmentSkipped"
+    ]
+
+
 def test_e3_warned_pack_then_malformed_open_result_retains_warning(
     monkeypatch, tmp_path, stable_test_root
 ):
@@ -2093,7 +2165,10 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
         result = e3.run_e3(scenario, Path("biv"), scratch, input_callback=lambda prompt: "")
         expected = scratch / "host2" / "work"
         assert result.status is Status.FAIL
-        assert result.detail == "open did not install exactly two session rows"
+        assert result.detail == (
+            "open result malformed: installed agents [] do not match spec "
+            "['claude-code', 'codex']"
+        )
         assert opened == [expected]
         assert restored_workspaces == [expected]
         assert e3._project_key(restored_workspaces[0]) != e3._project_key(scratch / "host2")

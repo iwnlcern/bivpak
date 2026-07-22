@@ -1478,25 +1478,21 @@ def run_e3(
         if class_j:
             return _run_result(Status.INVALID, ",".join(class_j))
         groups = result_outcome.groups
-        installed: dict[str, dict[str, Any]] = {}
+        installed_rows: list[tuple[str, dict[str, Any]]] = []
         for group in groups:
             sessions = [row for row in group.get("sessions", []) if row.get("outcome") == "installed"]
             if len(sessions) == 1:
-                installed[group.get("agent")] = sessions[0]
-        if len(installed) != len(spec["agents"]):
-            return _run_result(
-                Status.FAIL,
-                "open did not install exactly two session rows",
-            )
-
-        installed_agents = set(installed)
-        expected_agents = {agent["id"] for agent in spec["agents"]}
+                installed_rows.append((group["agent"], sessions[0]))
+        installed_agents = sorted(agent_id for agent_id, _ in installed_rows)
+        expected_agents = sorted(agent["id"] for agent in spec["agents"])
         if installed_agents != expected_agents:
             return _run_result(
                 Status.FAIL,
                 "open result malformed: installed agents "
-                f"{sorted(installed_agents)!r} do not match spec {sorted(expected_agents)!r}",
+                f"{installed_agents!r} do not match spec {expected_agents!r}",
             )
+        installed = dict(installed_rows)
+
         installed_paths: dict[str, Path] = {}
         for agent in spec["agents"]:
             profile = _agent_profile(agent, profile_root, live=False)
