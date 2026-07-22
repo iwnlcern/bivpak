@@ -43,6 +43,13 @@ class _BivOutcome(NamedTuple):
     envelope: dict[str, Any] | None
 
 
+class _OpenResultOutcome(NamedTuple):
+    ok: bool
+    output_dir: str
+    groups: list[dict[str, Any]]
+    detail: str
+
+
 def rejected_credential_names(env: dict[str, str]) -> list[str]:
     return sorted(name for name in CREDENTIAL_ENV_NAMES if name in env)
 
@@ -782,6 +789,94 @@ def _biv_envelope_outcome(result: object, verb: str) -> _BivOutcome:
     return _BivOutcome(False, [], f"{verb} failed: {detail}", envelope)
 
 
+def _open_result_outcome(envelope: dict[str, Any]) -> _OpenResultOutcome:
+    result = envelope.get("result")
+    if not isinstance(result, dict):
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: result is not an object",
+        )
+    output_dir = result.get("output_dir")
+    if not isinstance(output_dir, str) or not output_dir:
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: output_dir must be a non-empty string",
+        )
+    sessions = result.get("sessions")
+    if not isinstance(sessions, dict):
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: sessions is not an object",
+        )
+    groups = sessions.get("agents")
+    if not isinstance(groups, list):
+        return _OpenResultOutcome(
+            False,
+            "",
+            [],
+            "open result malformed: sessions.agents is not a list",
+        )
+    for group_index, group in enumerate(groups):
+        group_member = f"sessions.agents[{group_index}]"
+        if not isinstance(group, dict):
+            return _OpenResultOutcome(
+                False,
+                "",
+                [],
+                f"open result malformed: {group_member} is not an object",
+            )
+        agent_id = group.get("agent")
+        if not isinstance(agent_id, str) or not agent_id:
+            return _OpenResultOutcome(
+                False,
+                "",
+                [],
+                f"open result malformed: {group_member}.agent must be a non-empty string",
+            )
+        rows = group.get("sessions")
+        if not isinstance(rows, list):
+            return _OpenResultOutcome(
+                False,
+                "",
+                [],
+                f"open result malformed: {group_member}.sessions is not a list",
+            )
+        for row_index, row in enumerate(rows):
+            row_member = f"{group_member}.sessions[{row_index}]"
+            if not isinstance(row, dict):
+                return _OpenResultOutcome(
+                    False,
+                    "",
+                    [],
+                    f"open result malformed: {row_member} is not an object",
+                )
+            outcome = row.get("outcome")
+            if not isinstance(outcome, str) or not outcome:
+                return _OpenResultOutcome(
+                    False,
+                    "",
+                    [],
+                    f"open result malformed: {row_member}.outcome must be a non-empty string",
+                )
+            if outcome == "installed":
+                installed_id = row.get("installed_session_id")
+                if not isinstance(installed_id, str) or not installed_id:
+                    return _OpenResultOutcome(
+                        False,
+                        "",
+                        [],
+                        f"open result malformed: {row_member}.installed_session_id "
+                        "must be a non-empty string",
+                    )
+    return _OpenResultOutcome(True, output_dir, groups, "")
+
+
 def _is_string_list(value: object, *, non_empty: bool = True) -> bool:
     return (
         isinstance(value, list)
@@ -1340,7 +1435,10 @@ def run_e3(
             return _run_result(Status.FAIL, open_outcome.detail)
         run_warnings.extend(open_outcome.warnings)
         envelope = open_outcome.envelope or {}
-        restored_workspace = Path(envelope.get("result", {}).get("output_dir", ""))
+        result_outcome = _open_result_outcome(envelope)
+        if not result_outcome.ok:
+            return _run_result(Status.FAIL, result_outcome.detail)
+        restored_workspace = Path(result_outcome.output_dir)
         if not restored_workspace.is_dir():
             return _run_result(Status.FAIL, "open output workspace missing")
         class_j = class_j_failures(
@@ -1351,7 +1449,7 @@ def run_e3(
         )
         if class_j:
             return _run_result(Status.INVALID, ",".join(class_j))
-        groups = envelope.get("result", {}).get("sessions", {}).get("agents", [])
+        groups = result_outcome.groups
         installed: dict[str, dict[str, Any]] = {}
         for group in groups:
             sessions = [row for row in group.get("sessions", []) if row.get("outcome") == "installed"]
