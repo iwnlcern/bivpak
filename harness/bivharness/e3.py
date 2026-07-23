@@ -63,13 +63,13 @@ SESSION_LOCATIONS: dict[str, tuple[str, ...]] = {
 _ADAPTER_SOURCE_ANCHORS = {
     "claude_inventory": (
         "src/adapters/claude_code/claude_code.cpp",
-        '.collect = {ArtifactClass{.name = "project-transcripts"',
-        "b63ee9afd60b27ac5eccb557c551fd7e71b0028c1d40629be4727ba92fc70b62",
+        "const Inventory& claude_inventory()",
+        "c7cb5b7cb6fd84b3eab9b738b5f1403ef590757832aca850d83634fa1a901341",
     ),
     "codex_inventory": (
         "src/adapters/codex/codex.cpp",
-        '.collect = {ArtifactClass{.name = "rollouts"',
-        "313f9d70fc3baa5110271c418dc13ffd7fcb83829f732f0a0dd5b0851a1bacc8",
+        "const Inventory& codex_inventory()",
+        "8c08bbf14f03ed111ee0a016f0c94445a728af1f48135f9b6bebd59986d156fa",
     ),
     "codex_discover_archived": (
         "src/adapters/codex/codex.cpp",
@@ -2016,6 +2016,9 @@ def _c1_scan_directory(
 ) -> list[str]:
     failures: list[str] = []
     try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISDIR(before.st_mode):
+            return [f"{label}: directory changed during enumeration"]
         with os.scandir(descriptor) as entries:
             for entry in entries:
                 entry_label = f"{label}/{entry.name}"
@@ -2053,6 +2056,12 @@ def _c1_scan_directory(
                     )
                 except (OSError, ValueError, RuntimeError) as exc:
                     failures.append(f"{entry_label}: {exc}")
+        after = os.fstat(descriptor)
+        if (
+            not stat.S_ISDIR(after.st_mode)
+            or not _CredentialScanner._directory_snapshot_matches(before, after)
+        ):
+            failures.append(f"{label}: directory changed during enumeration")
     except (OSError, ValueError, RuntimeError) as exc:
         failures.append(f"{label}: cannot traverse: {exc}")
     return failures

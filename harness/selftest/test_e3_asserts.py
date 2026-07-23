@@ -1369,6 +1369,66 @@ def test_c1_zero_session_control_accepts_absent_and_empty_locations(tmp_path):
     assert e3._c1_zero_session_failures(profile_root, _valid_two_agent_spec()) == []
 
 
+def _insert_session_when_scandir_stops(monkeypatch, directory):
+    real_scandir = e3.os.scandir
+    state = {"inserted": False}
+
+    class InsertOnStop:
+        def __init__(self, entries):
+            self._entries = entries
+
+        def __enter__(self):
+            self._entries.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self._entries.__exit__(*args)
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            try:
+                return next(self._entries)
+            except StopIteration:
+                if not state["inserted"]:
+                    (directory / "late-session.jsonl").write_bytes(b"{}")
+                    state["inserted"] = True
+                raise
+
+    def scandir_with_insertion(path):
+        entries = real_scandir(path)
+        if isinstance(path, int):
+            try:
+                target = os.stat(directory, follow_symlinks=False)
+                if e3._same_entry(os.fstat(path), target):
+                    return InsertOnStop(entries)
+            except FileNotFoundError:
+                pass
+        return entries
+
+    monkeypatch.setattr(e3.os, "scandir", scandir_with_insertion)
+    return state
+
+
+def test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop(
+    monkeypatch, tmp_path
+):
+    profile_root = tmp_path / "profiles"
+    sessions = profile_root / "codex" / "sessions"
+    sessions.mkdir(parents=True)
+    (profile_root / "claude-code").mkdir(parents=True)
+    mutation = _insert_session_when_scandir_stops(monkeypatch, sessions)
+
+    failures = e3._c1_zero_session_failures(
+        profile_root,
+        _valid_two_agent_spec(),
+    )
+
+    assert mutation["inserted"]
+    assert any("changed during enumeration" in failure for failure in failures)
+
+
 @pytest.mark.parametrize(
     ("agent_id", "location", "kind"),
     (
@@ -1576,37 +1636,41 @@ def test_drift_tripwire_ignores_out_of_region_edit(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("rel", "old", "new"),
+    ("rel", "function", "key"),
     (
         (
             "src/adapters/claude_code/claude_code.cpp",
-            '.globs = {"agents/claude-code/**/*.jsonl"}',
-            '.globs = {"agents/claude-code/**/*.jsonl", "unrelated/**"}',
+            "const Inventory& claude_inventory()",
+            "claude_inventory",
         ),
         (
             "src/adapters/codex/codex.cpp",
-            '"goals_1.sqlite", "logs_2.sqlite", "memories_1.sqlite"},',
-            '"goals_1.sqlite", "logs_2.sqlite", "memories_1.sqlite", "unrelated"},',
-        ),
-        (
-            "src/adapters/claude_code/claude_code.cpp",
-            '.login_flow_owner = "claude-code",',
-            '.login_flow_owner = "claude-code-v2",',
+            "const Inventory& codex_inventory()",
+            "codex_inventory",
         ),
     ),
-    ids=("rewrite", "never-collect", "caveat"),
+    ids=("claude", "codex"),
 )
-def test_drift_tripwire_ignores_inventory_fields_outside_collect(
-    tmp_path, rel, old, new
+def test_drift_tripwire_reds_on_post_initializer_collect_push_back(
+    tmp_path, rel, function, key
 ):
     repo = tmp_path / "repo"
     shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
     source = repo / rel
     text = source.read_text(encoding="utf-8")
-    assert text.count(old) == 1
-    source.write_text(text.replace(old, new, 1), encoding="utf-8")
+    function_start = text.index(function)
+    insertion = text.index("    return value;", function_start)
+    mutation = (
+        '    value.collect.push_back(ArtifactClass{.name = "late-sessions",\n'
+        '                                          .globs = {"late-sessions/**"}});\n'
+    )
+    source.write_text(
+        text[:insertion] + mutation + text[insertion:],
+        encoding="utf-8",
+    )
 
-    assert e3._c1_drift_tripwire_failures(repo) == []
+    failures = e3._c1_drift_tripwire_failures(repo)
+    assert any(key in failure for failure in failures)
 
 
 def test_run_e3_liveness_without_persistence_flag_reds_c1_before_open(
@@ -1692,6 +1756,51 @@ def test_run_e3_origin_session_isolation_mutation_stops_before_open(
 
     assert result.status is Status.INVALID
     assert "recorded regular file" in result.detail
+    assert seen == ["pack"]
+
+
+def test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open(
+    monkeypatch, tmp_path, stable_test_root
+):
+    spec_path, seen = _configure_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        pack_result=_successful_pack(),
+    )
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    spec["host2_profile_root"] = "host2/profiles"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    profile_root = stable_test_root / "scratch" / "host2/profiles"
+    sessions = profile_root / "codex" / "sessions"
+    mutation = _insert_session_when_scandir_stops(monkeypatch, sessions)
+
+    def create_isolated_session_directories(value, *_args):
+        for agent in value["agents"]:
+            store = profile_root / agent["id"]
+            store.mkdir(parents=True)
+            for location in e3.SESSION_LOCATIONS[agent["id"]]:
+                path = store / location
+                if location == "session_index.jsonl":
+                    path.write_bytes(b"")
+                else:
+                    path.mkdir()
+        return {agent["id"]: {} for agent in value["agents"]}
+
+    monkeypatch.setattr(
+        e3,
+        "setup_host2_credentials",
+        create_isolated_session_directories,
+    )
+
+    result = e3.run_e3(
+        spec_path,
+        Path("biv"),
+        stable_test_root / "scratch",
+    )
+
+    assert mutation["inserted"]
+    assert result.status is Status.INVALID
+    assert "changed during enumeration" in result.detail
     assert seen == ["pack"]
 
 
