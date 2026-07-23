@@ -1344,8 +1344,12 @@ def _extract_source_region(path: Path, anchor: str) -> str:
     raise ValueError(f"drift anchor unbalanced: {anchor!r} in {path.name}")
 
 
+def _c1_default_repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
 def _c1_drift_tripwire_failures(repo_root: Path | None = None) -> list[str]:
-    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
+    root = Path(repo_root) if repo_root is not None else _c1_default_repo_root()
     failures: list[str] = []
     for key, (relative, anchor, pinned) in _ADAPTER_SOURCE_ANCHORS.items():
         try:

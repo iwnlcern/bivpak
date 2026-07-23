@@ -1572,21 +1572,27 @@ def test_run_e3_origin_session_isolation_mutation_stops_before_open(
 def test_run_e3_tripwire_red_stops_before_open(
     monkeypatch, tmp_path, stable_test_root
 ):
+    repo = tmp_path / "repo"
+    shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+    source = repo / "src/adapters/claude_code/claude_code.cpp"
+    text = source.read_text(encoding="utf-8")
+    old = '.globs = {"projects/*/*.jsonl"}'
+    new = '.globs = {"projects/*/*.jsonl", "drift/**"}'
+    assert text.count(old) == 1
+    source.write_text(text.replace(old, new, 1), encoding="utf-8")
+
     spec_path, seen = _configure_exit_contract_case(
         monkeypatch,
         tmp_path,
         pack_result=_successful_pack(),
     )
-    monkeypatch.setattr(
-        e3,
-        "_c1_drift_tripwire_failures",
-        lambda: ["C1 drift tripwire RED: injected source drift"],
-    )
+    monkeypatch.setattr(e3, "_c1_default_repo_root", lambda: repo)
 
     result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
     assert result.status is Status.INVALID
     assert "C1 drift tripwire RED" in result.detail
+    assert "claude_inventory" in result.detail
     assert seen == ["pack"]
 
 
