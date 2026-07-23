@@ -200,6 +200,48 @@ def test_destination_leaf_created_after_preflight_is_preserved(tmp_path, monkeyp
     assert not list(dest.parent.glob(".host2-credential-*"))
 
 
+def test_error_cleanup_preserves_leaf_replacing_installed_inode(tmp_path, monkeypatch):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    dest = tmp_path / "dest" / "auth.json"
+    competing_bytes = b"post-install-competitor-must-survive"
+    installed_fd = None
+
+    def replace_then_fail_identity(_path, parent_fd):
+        nonlocal installed_fd
+        installed_fd = os.open(dest.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        competitor_name = ".post-install-competitor"
+        competitor_fd = os.open(
+            competitor_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=parent_fd,
+        )
+        try:
+            os.write(competitor_fd, competing_bytes)
+        finally:
+            os.close(competitor_fd)
+        os.rename(
+            competitor_name,
+            dest.name,
+            src_dir_fd=parent_fd,
+            dst_dir_fd=parent_fd,
+        )
+        return False
+
+    monkeypatch.setattr(credentials, "_directory_identity_matches", replace_then_fail_identity)
+    try:
+        result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+        assert result.status is CredentialStatus.DEST_UNSAFE
+        assert dest.read_bytes() == competing_bytes
+        assert os.fstat(installed_fd).st_nlink == 0
+        assert not list(dest.parent.glob(".host2-credential-*"))
+    finally:
+        if installed_fd is not None:
+            os.close(installed_fd)
+
+
 def test_file_reads_to_eof_when_reads_are_short(tmp_path, monkeypatch):
     src = tmp_path / "auth.json"
     src.write_bytes(CODEX_OK)

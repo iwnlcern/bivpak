@@ -227,12 +227,26 @@ def _directory_identity_matches(path: Path, expected_fd: int) -> bool:
         _close_fd(verification_fd)
 
 
+def _unlink_if_identity_matches(parent_fd: int, name: str, expected: tuple[int, int]) -> None:
+    try:
+        current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except OSError:
+        return
+    if (current.st_dev, current.st_ino) != expected:
+        return
+    try:
+        os.unlink(name, dir_fd=parent_fd)
+    except OSError:
+        pass
+
+
 def _atomic_write_0600(dest: Path, data: bytes) -> CredentialResult:
     """Write a new regular destination, refusing unsafe paths and cleaning temp files."""
     dest = Path(dest)
     parent_fd: int | None = None
     temporary_fd: int | None = None
     temporary: str | None = None
+    installed_identity: tuple[int, int] | None = None
     installed = False
     succeeded = False
 
@@ -246,6 +260,8 @@ def _atomic_write_0600(dest: Path, data: bytes) -> CredentialResult:
         temporary_fd, temporary = _mkstemp_at(parent_fd)
         os.fchmod(temporary_fd, 0o600)
         _write_all(temporary_fd, data)
+        temporary_stat = os.fstat(temporary_fd)
+        installed_identity = (temporary_stat.st_dev, temporary_stat.st_ino)
         _close_fd(temporary_fd)
         temporary_fd = None
 
@@ -266,11 +282,8 @@ def _atomic_write_0600(dest: Path, data: bytes) -> CredentialResult:
                 os.unlink(temporary, dir_fd=parent_fd)
             except OSError:
                 pass
-        if installed and not succeeded and parent_fd is not None:
-            try:
-                os.unlink(dest.name, dir_fd=parent_fd)
-            except OSError:
-                pass
+        if installed and not succeeded and parent_fd is not None and installed_identity is not None:
+            _unlink_if_identity_matches(parent_fd, dest.name, installed_identity)
         _close_fd(parent_fd)
 
 
