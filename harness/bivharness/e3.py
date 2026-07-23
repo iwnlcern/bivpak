@@ -115,6 +115,16 @@ class _CredentialScanOutcome(NamedTuple):
     exclusion_integrity_failed: bool
 
 
+class _ReportWriteRefused:
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "_REPORT_WRITE_REFUSED"
+
+
+_REPORT_WRITE_REFUSED = _ReportWriteRefused()
+
+
 class _CredentialScanner:
     """Fail closed while searching private credential values in untrusted trees."""
 
@@ -460,6 +470,18 @@ def _minimal_sanitized_report_result() -> ScenarioResult:
     )
 
 
+def _nonwritable_sanitized_report_result() -> ScenarioResult:
+    return ScenarioResult(
+        id="",
+        tier="",
+        status=Status.INVALID,
+        classes=[],
+        held_asserts=[_REPORT_WRITE_REFUSED],  # type: ignore[list-item]
+        detail="",
+        warnings=[],
+    )
+
+
 def _typed_post_materialization_result(
     primary: ScenarioResult,
     integrity_notes: list[str],
@@ -498,23 +520,23 @@ def _finalize_report(
     result: ScenarioResult,
     scanner: _CredentialScanner,
 ) -> ScenarioResult:
-    try:
-        if not scanner.scan_bytes(serialize_report([result]).encode("utf-8")):
-            return result
-    except Exception:
-        pass
-    sanitized = _sanitized_report_result()
-    try:
-        if not scanner.scan_bytes(serialize_report([sanitized]).encode("utf-8")):
-            return sanitized
-    except Exception:
-        pass
-    minimal = _minimal_sanitized_report_result()
-    try:
-        scanner.scan_bytes(serialize_report([minimal]).encode("utf-8"))
-    except Exception:
-        pass
-    return minimal
+    candidates = (
+        result,
+        _sanitized_report_result(),
+        _minimal_sanitized_report_result(),
+    )
+    for candidate in candidates:
+        try:
+            serialized = serialize_report([candidate]).encode("utf-8")
+        except Exception:
+            continue
+        try:
+            known_positive = scanner.scan_bytes(serialized)
+        except Exception:
+            return _nonwritable_sanitized_report_result()
+        if not known_positive:
+            return candidate
+    return _nonwritable_sanitized_report_result()
 
 
 def _scan_and_teardown(
@@ -622,11 +644,15 @@ def _scan_and_teardown(
         for candidate in candidates:
             try:
                 serialized = serialize_report([candidate]).encode("utf-8")
-                if not scanner.scan_bytes(serialized):
-                    return candidate
             except BaseException:
                 continue
-        return candidates[-1]
+            try:
+                known_positive = scanner.scan_bytes(serialized)
+            except BaseException:
+                return _nonwritable_sanitized_report_result()
+            if not known_positive:
+                return candidate
+        return _nonwritable_sanitized_report_result()
 
     final: ScenarioResult | None = None
     try:

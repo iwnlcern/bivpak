@@ -5252,7 +5252,7 @@ def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path
 
         def scan_bytes(self, value):
             self.calls += 1
-            return self.calls == 2
+            return self.calls >= 2
 
         def drop(self):
             raise RuntimeError("drop failed")
@@ -5274,7 +5274,10 @@ def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path
     )
 
     assert scanner.calls == 3
-    assert final == e3._minimal_sanitized_report_result()
+    assert final.status is Status.INVALID
+    assert final.held_asserts
+    with pytest.raises(TypeError):
+        serialize_report([final])
 
 
 def test_scan_and_teardown_internal_finalizer_failure_rescans_constant_ladder(
@@ -5566,8 +5569,8 @@ def test_finalize_report_handles_serializer_failure_without_raising(monkeypatch)
 
     assert final.status is Status.INVALID
     assert final.classes == []
-    assert final.held_asserts == []
     assert final.warnings == []
+    assert final.held_asserts
 
 
 def test_finalize_report_swallows_a_rescan_failure_after_sanitizing():
@@ -5589,14 +5592,16 @@ def test_finalize_report_swallows_a_rescan_failure_after_sanitizing():
         scanner,
     )
 
-    assert scanner.calls == 3
+    assert scanner.calls == 2
     assert final.status is Status.INVALID
     assert final.id == ""
     assert final.tier == ""
     assert final.detail == ""
     assert final.classes == []
-    assert final.held_asserts == []
+    assert final.held_asserts
     assert final.warnings == []
+    with pytest.raises(TypeError):
+        serialize_report([final])
 
 
 def test_finalize_report_uses_minimal_fallback_on_positive_sanitized_rescan():
@@ -5639,15 +5644,30 @@ def test_finalize_report_returns_minimal_fallback_when_its_scan_fails(
     )
 
     assert scanner.calls == 3
-    assert final == ScenarioResult(
-        id="",
-        tier="",
-        status=Status.INVALID,
-        classes=[],
-        held_asserts=[],
-        detail="",
-        warnings=[],
+    assert final.status is Status.INVALID
+    assert final.id == ""
+    assert final.tier == ""
+    assert final.detail == ""
+    assert final.classes == []
+    assert final.held_asserts
+    assert final.warnings == []
+    with pytest.raises(TypeError):
+        serialize_report([final])
+
+
+def test_finalize_report_refuses_write_after_known_positive_terminal_scan():
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b'"classes": []')
+
+    final = e3._finalize_report(
+        ScenarioResult("id", "E3", Status.FAIL, [], detail="unsafe"),
+        scanner,
     )
+
+    assert final.status is Status.INVALID
+    assert final.held_asserts
+    with pytest.raises(TypeError):
+        serialize_report([final])
 
 
 def test_class_j_workspace_memoryless_and_version_predicates(tmp_path):
