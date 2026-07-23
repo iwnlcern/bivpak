@@ -59,21 +59,19 @@ SESSION_LOCATIONS: dict[str, tuple[str, ...]] = {
     "claude-code": ("projects",),
     "codex": ("sessions", "session_index.jsonl", "archived_sessions"),
 }
+# C1 guards the read/pack-side session-location surface used by the zero-session
+# negative control. Adapter install.cpp files are deliberately excluded: they
+# are write/restore-side, cannot desync SESSION_LOCATIONS, and are covered by
+# restore round-trip tests. Including them would dilute C1 with restore-only
+# changes.
 _ADAPTER_SOURCE_ANCHORS = {
-    "claude_inventory": (
+    "claude_adapter_file": (
         "src/adapters/claude_code/claude_code.cpp",
-        "const Inventory& claude_inventory()",
-        "c7cb5b7cb6fd84b3eab9b738b5f1403ef590757832aca850d83634fa1a901341",
+        "ba4308eca5c79a0af8d1543707a5f44344edd2ee22b812f66c4f892cca16a4d4",
     ),
-    "codex_inventory": (
+    "codex_adapter_file": (
         "src/adapters/codex/codex.cpp",
-        "const Inventory& codex_inventory()",
-        "8c08bbf14f03ed111ee0a016f0c94445a728af1f48135f9b6bebd59986d156fa",
-    ),
-    "codex_discover_archived": (
-        "src/adapters/codex/codex.cpp",
-        'if (fs::exists(root / "archived_sessions", ec))',
-        "98eb3f362d23dcb4dd39881cc7add622155505a802b697f404417c8b0fc51b72",
+        "4fb3b38ca8df11dfc92e735c69ac8717a4920d54724d85cde49a93c24ace56cb",
     ),
 }
 
@@ -2313,30 +2311,6 @@ def _c1_zero_session_failures(profile_root: Path, spec: dict[str, Any]) -> list[
     return failures
 
 
-def _extract_source_region(path: Path, anchor: str) -> str:
-    text = path.read_text(encoding="utf-8")
-    first = text.find(anchor)
-    if first < 0:
-        raise ValueError(f"drift anchor missing: {anchor!r} in {path.name}")
-    if text.find(anchor, first + 1) >= 0:
-        raise ValueError(f"drift anchor not unique: {anchor!r} in {path.name}")
-    try:
-        brace = text.index("{", first)
-    except ValueError as exc:
-        raise ValueError(f"drift anchor unbalanced: {anchor!r} in {path.name}") from exc
-    depth = 0
-    for index in range(brace, len(text)):
-        if text[index] == "{":
-            depth += 1
-        elif text[index] == "}":
-            depth -= 1
-            if depth == 0:
-                return text[first : index + 1]
-            if depth < 0:
-                break
-    raise ValueError(f"drift anchor unbalanced: {anchor!r} in {path.name}")
-
-
 def _c1_default_repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -2344,11 +2318,10 @@ def _c1_default_repo_root() -> Path:
 def _c1_drift_tripwire_failures(repo_root: Path | None = None) -> list[str]:
     root = Path(repo_root) if repo_root is not None else _c1_default_repo_root()
     failures: list[str] = []
-    for key, (relative, anchor, pinned) in _ADAPTER_SOURCE_ANCHORS.items():
+    for key, (relative, pinned) in _ADAPTER_SOURCE_ANCHORS.items():
         try:
-            region = _extract_source_region(root / relative, anchor)
-            digest = hashlib.sha256(region.encode("utf-8")).hexdigest()
-        except (OSError, UnicodeError, ValueError, RuntimeError) as exc:
+            digest = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+        except (OSError, RuntimeError) as exc:
             failures.append(f"C1 drift tripwire RED: {key}: {exc}")
             continue
         if digest != pinned:

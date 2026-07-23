@@ -1820,27 +1820,74 @@ def test_drift_tripwire_is_green_at_pinned_source():
 @pytest.mark.parametrize(
     ("rel", "anchor_old", "anchor_new", "key"),
     (
-        (
+        pytest.param(
             "src/adapters/claude_code/claude_code.cpp",
             '.globs = {"projects/*/*.jsonl"}',
             '.globs = {"projects/*/*.jsonl", "x/**"}',
-            "claude_inventory",
+            "claude_adapter_file",
+            id="claude-inventory",
         ),
-        (
+        pytest.param(
             "src/adapters/codex/codex.cpp",
             '.globs = {"sessions/**/rollout-*.jsonl"}',
             '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
-            "codex_inventory",
+            "codex_adapter_file",
+            id="codex-inventory",
         ),
-        (
+        pytest.param(
+            "src/adapters/claude_code/claude_code.cpp",
+            '.path = root / "projects"',
+            '.path = root / "projects_moved"',
+            "claude_adapter_file",
+            id="claude-discover-primary",
+        ),
+        pytest.param(
+            "src/adapters/codex/codex.cpp",
+            '.path = root / "sessions"',
+            '.path = root / "sessions_moved"',
+            "codex_adapter_file",
+            id="codex-discover-primary",
+        ),
+        pytest.param(
             "src/adapters/codex/codex.cpp",
             'root / "archived_sessions"}}',
             'root / "archived_sessions2"}}',
-            "codex_discover_archived",
+            "codex_adapter_file",
+            id="codex-discover-archived",
+        ),
+        pytest.param(
+            "src/adapters/claude_code/claude_code.cpp",
+            "    std::vector<Store> stores;\n",
+            (
+                "    std::vector<Store> stores;\n"
+                "    stores.push_back(Store{\n"
+                '        .root = env.home / ".claude",\n'
+                '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                '                                  .path = env.home / "legacy_sessions"}},\n'
+                "        .tier = DiscoveryTier::defaults,\n"
+                "        .archived = false});\n"
+            ),
+            "claude_adapter_file",
+            id="claude-discover-novel-location",
+        ),
+        pytest.param(
+            "src/adapters/codex/codex.cpp",
+            "    std::vector<Store> stores;\n",
+            (
+                "    std::vector<Store> stores;\n"
+                "    stores.push_back(Store{\n"
+                '        .root = env.home / ".codex",\n'
+                '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                '                                  .path = env.home / "legacy_sessions"}},\n'
+                "        .tier = DiscoveryTier::defaults,\n"
+                "        .archived = false});\n"
+            ),
+            "codex_adapter_file",
+            id="codex-discover-novel-location",
         ),
     ),
 )
-def test_drift_tripwire_reds_each_session_location_region(
+def test_drift_tripwire_reds_each_adapter_read_side_change(
     tmp_path, rel, anchor_old, anchor_new, key
 ):
     repo = tmp_path / "repo"
@@ -1848,20 +1895,48 @@ def test_drift_tripwire_reds_each_session_location_region(
     assert e3._c1_drift_tripwire_failures(repo) == []
 
     source = repo / rel
+    text = source.read_text(encoding="utf-8")
+    assert anchor_old in text
     source.write_text(
-        source.read_text(encoding="utf-8").replace(anchor_old, anchor_new, 1),
+        text.replace(anchor_old, anchor_new, 1),
         encoding="utf-8",
     )
 
     failures = e3._c1_drift_tripwire_failures(repo)
-    assert any(key in failure for failure in failures)
+    assert any(f"({key})" in failure for failure in failures)
 
 
-def test_drift_tripwire_ignores_out_of_region_edit(tmp_path):
+def test_drift_tripwire_reds_on_unrelated_anchored_file_edit(tmp_path):
     repo = tmp_path / "repo"
     shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
     source = repo / "src/adapters/codex/codex.cpp"
-    source.write_text("// unrelated\n" + source.read_text(encoding="utf-8"), encoding="utf-8")
+    text = source.read_text(encoding="utf-8")
+    anchor = "std::string discovery_tier_string(const DiscoveryTier tier) {\n"
+    assert anchor in text
+    source.write_text(
+        text.replace(anchor, anchor + "  // unrelated control edit\n", 1),
+        encoding="utf-8",
+    )
+
+    failures = e3._c1_drift_tripwire_failures(repo)
+    assert any("(codex_adapter_file)" in failure for failure in failures)
+
+
+def test_drift_tripwire_ignores_write_side_install_change(tmp_path):
+    repo = tmp_path / "repo"
+    shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+    source = repo / "src/adapters/claude_code/install.cpp"
+    text = source.read_text(encoding="utf-8")
+    old = 'target.target_store.root / "projects" / project_key'
+    assert old in text
+    source.write_text(
+        text.replace(
+            old,
+            'target.target_store.root / "projects_moved" / project_key',
+            1,
+        ),
+        encoding="utf-8",
+    )
 
     assert e3._c1_drift_tripwire_failures(repo) == []
 
@@ -1872,12 +1947,12 @@ def test_drift_tripwire_ignores_out_of_region_edit(tmp_path):
         (
             "src/adapters/claude_code/claude_code.cpp",
             "const Inventory& claude_inventory()",
-            "claude_inventory",
+            "claude_adapter_file",
         ),
         (
             "src/adapters/codex/codex.cpp",
             "const Inventory& codex_inventory()",
-            "codex_inventory",
+            "codex_adapter_file",
         ),
     ),
     ids=("claude", "codex"),
