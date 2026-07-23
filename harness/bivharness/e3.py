@@ -1133,6 +1133,33 @@ def _read_credential_destination_nofollow(path: Path) -> bytes:
         _close_nofollow_parent(opened)
 
 
+def _seed_credential_scanner(
+    scanner: _CredentialScanner,
+    raw: bytes,
+    credential_id: str,
+) -> None:
+    scanner.add_value(raw)
+    if credential_id == "claude-code":
+        if not claude_shape_ok(raw):
+            raise ValueError("credential destination unavailable")
+        parsed = json.loads(raw)
+        oauth = parsed["claudeAiOauth"]
+        candidates = (oauth["accessToken"], oauth["refreshToken"])
+    elif credential_id == "codex":
+        if not codex_shape_ok(raw):
+            raise ValueError("credential destination unavailable")
+        parsed = json.loads(raw)
+        candidates = [parsed.get("OPENAI_API_KEY")]
+        tokens = parsed.get("tokens")
+        if isinstance(tokens, dict):
+            candidates.extend(tokens.values())
+    else:
+        raise ValueError("credential destination unavailable")
+    for value in candidates:
+        if isinstance(value, str) and value:
+            scanner.add_value(value)
+
+
 def _credential_path_exists_nofollow(path: Path) -> bool:
     opened = _open_parent_directory_nofollow(path)
     if opened is None:
@@ -1515,7 +1542,8 @@ def setup_host2_credentials(
     if claude_result.status is not CredentialStatus.OK or claude_result.dest is None:
         raise ValueError("host2 credential unavailable: claude-code")
     try:
-        scanner.add_value(_read_credential_destination_nofollow(claude_result.dest))
+        raw = _read_credential_destination_nofollow(claude_result.dest)
+        _seed_credential_scanner(scanner, raw, "claude-code")
     except (OSError, ValueError, TypeError):
         raise ValueError("host2 credential unavailable: claude-code") from None
 
@@ -1532,7 +1560,8 @@ def setup_host2_credentials(
     ):
         raise ValueError("host2 credential unavailable: codex")
     try:
-        scanner.add_value(_read_credential_destination_nofollow(codex_result.dest))
+        raw = _read_credential_destination_nofollow(codex_result.dest)
+        _seed_credential_scanner(scanner, raw, "codex")
     except (OSError, ValueError, TypeError):
         raise ValueError("host2 credential unavailable: codex") from None
     ambient_snapshots["codex-auth.json"] = codex_result.identity

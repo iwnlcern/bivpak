@@ -42,6 +42,13 @@ from bivharness.precheck import profile_root_failures
 from bivharness.report import Report, ScenarioResult, Status, serialize_report
 
 
+CLAUDE_ACCESS_LEAF = "claude-access-leaf-7f6d1a"
+CLAUDE_REFRESH_LEAF = "claude-refresh-leaf-2c8b4e"
+CODEX_ACCESS_LEAF = "codex-access-leaf-9a3e5d"
+CODEX_REFRESH_LEAF = "codex-refresh-leaf-4b7c2f"
+CODEX_API_KEY_LEAF = "codex-api-key-leaf-8d1f6a"
+
+
 @pytest.fixture
 def repo_root() -> Path:
     root = Path(__file__).resolve().parents[2]
@@ -58,8 +65,25 @@ def repo_root() -> Path:
 def _fake_run_e3_credential_materialization(monkeypatch):
     """Keep E3 orchestration tests offline while preserving Task 2 result semantics."""
 
-    claude_bytes = b'{"claudeAiOauth":{"accessToken":"fixture","refreshToken":"fixture"}}'
-    codex_bytes = b'{"tokens":{"access_token":"fixture"}}'
+    claude_bytes = json.dumps(
+        {
+            "claudeAiOauth": {
+                "accessToken": CLAUDE_ACCESS_LEAF,
+                "refreshToken": CLAUDE_REFRESH_LEAF,
+            }
+        },
+        separators=(",", ":"),
+    ).encode()
+    codex_bytes = json.dumps(
+        {
+            "OPENAI_API_KEY": CODEX_API_KEY_LEAF,
+            "tokens": {
+                "access_token": CODEX_ACCESS_LEAF,
+                "refresh_token": CODEX_REFRESH_LEAF,
+            },
+        },
+        separators=(",", ":"),
+    ).encode()
     identity = e3.SourceIdentity(1, 2, len(codex_bytes), "fixture-digest")
 
     def fake_keychain(_service, _account, dest, **_kwargs):
@@ -2074,8 +2098,35 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
 ):
     host2 = tmp_path / "host2"
     profile_root = host2 / "profiles"
-    claude_bytes = b'{"claudeAiOauth":{"accessToken":"claude-secret","refreshToken":"refresh"}}'
-    codex_bytes = b'{"tokens":{"access_token":"codex-secret"}}'
+    claude_access = "setup-claude-access-leaf"
+    claude_refresh = "setup-claude-refresh-leaf"
+    codex_api_key = "setup-codex-api-key-leaf"
+    codex_access = "setup-codex-access-leaf"
+    codex_refresh = "setup-codex-refresh-leaf"
+    codex_id = "setup-codex-id-leaf"
+    claude_bytes = json.dumps(
+        {
+            "claudeAiOauth": {
+                "accessToken": claude_access,
+                "refreshToken": claude_refresh,
+            }
+        },
+        separators=(",", ":"),
+    ).encode()
+    codex_bytes = json.dumps(
+        {
+            "OPENAI_API_KEY": codex_api_key,
+            "tokens": {
+                "access_token": codex_access,
+                "refresh_token": codex_refresh,
+                "id_token": codex_id,
+                "expires_at": 123,
+                "nullable": None,
+                "empty": "",
+            },
+        },
+        separators=(",", ":"),
+    ).encode()
     scanner = e3._CredentialScanner()
     child_outputs = []
     ambient_snapshots = {}
@@ -2135,11 +2186,84 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
     assert not (profile_root / "codex" / "config.toml").exists()
     assert scanner.scan_bytes(claude_bytes)
     assert scanner.scan_bytes(codex_bytes)
+    for leaf in (
+        claude_access,
+        claude_refresh,
+        codex_api_key,
+        codex_access,
+        codex_refresh,
+        codex_id,
+    ):
+        assert scanner.scan_text(leaf)
+    finalized = e3._finalize_report(
+        ScenarioResult("e3", "E3", Status.FAIL, [], detail=codex_access),
+        scanner,
+    )
+    assert finalized.status is Status.INVALID
+    assert codex_access not in serialize_report([finalized])
     assert ambient_snapshots["codex-auth.json"] == e3.SourceIdentity(
         1, 2, len(codex_bytes), "digest"
     )
     assert child_outputs == [b"authenticated", b"authenticated", b"OK"]
     assert all(command[0].startswith("/") for command in calls)
+    owned_values = list(scanner._values)
+    scanner.drop()
+    assert scanner._values == []
+    assert all(value == bytearray(len(value)) for value in owned_values)
+
+
+@pytest.mark.parametrize(
+    ("credential_id", "raw"),
+    (
+        ("claude-code", b"not-json"),
+        ("codex", b'{"tokens":{}}'),
+    ),
+)
+def test_setup_host2_credentials_rejects_unparseable_or_inconsistent_seed_shape(
+    monkeypatch, tmp_path, credential_id, raw
+):
+    def materialize(dest, *, identity=False):
+        path = Path(dest)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        source_identity = (
+            e3.SourceIdentity(1, 2, len(raw), "shape-test") if identity else None
+        )
+        return e3.CredentialResult(e3.CredentialStatus.OK, path, source_identity)
+
+    if credential_id == "claude-code":
+        monkeypatch.setattr(
+            e3,
+            "materialize_keychain_credential",
+            lambda _service, _account, dest, **_kwargs: materialize(dest),
+        )
+    else:
+        monkeypatch.setattr(
+            e3,
+            "materialize_file_credential",
+            lambda _source, dest, **_kwargs: materialize(dest, identity=True),
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=rf"^host2 credential unavailable: {credential_id}$",
+    ) as exc_info:
+        e3.setup_host2_credentials(
+            {"agents": _host2_agents()},
+            tmp_path / "host2",
+            tmp_path / "profiles",
+            _host2_binaries(),
+            lambda command, *_args: SimpleNamespace(
+                returncode=0,
+                stdout=_host2_version_output(command),
+                stderr="",
+            ),
+            e3._CredentialScanner(),
+            [],
+            {},
+        )
+
+    assert raw.decode(errors="replace") not in str(exc_info.value)
 
 
 def test_setup_host2_credentials_retains_first_seed_when_second_materializer_refuses(
@@ -6604,11 +6728,13 @@ def _run_argv_barrier_flow(
     stable_test_root,
     *,
     wrong_version=None,
+    wrong_host2_version=None,
     leak_phase=None,
     exception_leak_phase=None,
     restored_symlink=False,
     unexpected_phase=None,
     post_materialization_base_exception=None,
+    scratch_leaf_leak=False,
 ):
     spec = _argv_barrier_spec(stable_test_root)
     binaries = {
@@ -6621,6 +6747,7 @@ def _run_argv_barrier_flow(
     biv = tmp_path / "fake-biv"
     scratch = stable_test_root / "scratch"
     ledger = []
+    lifecycle_events = []
     exceptional_phases = set()
     seed_attempts = {agent["id"]: 0 for agent in spec["agents"]}
     resume_attempts = {agent["id"]: 0 for agent in spec["agents"]}
@@ -6669,11 +6796,18 @@ def _run_argv_barrier_flow(
         )
         agent_name = agent["id"]
         if command[1:] == ["--version"]:
+            if Path(cwd) == scratch / "host2":
+                lifecycle_events.append(
+                    ("version", agent_name, tuple(command), None)
+                )
             version = {
                 "codex": "0.144.1",
                 "claude-code": "2.1.210",
             }[agent_name]
-            if wrong_version == agent_name:
+            if wrong_version == agent_name or (
+                wrong_host2_version == agent_name
+                and Path(cwd) == scratch / "host2"
+            ):
                 version = "9.9.9"
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
         if command[1:] in (["login", "status"], ["auth", "status"]):
@@ -6719,6 +6853,9 @@ def _run_argv_barrier_flow(
         elif Path(cwd) == scratch / "host2" / "work":
             phase = "resume"
         post_materialization = Path(cwd) != scratch / "seed-ws" / spec["workspace_name"]
+        if scratch_leaf_leak and phase == "open":
+            leaked = scratch / "seed-ws" / "post-materialization-leaf"
+            leaked.write_text(CODEX_ACCESS_LEAF, encoding="utf-8")
         if (
             post_materialization_base_exception is not None
             and phase == "open"
@@ -6736,14 +6873,14 @@ def _run_argv_barrier_flow(
             raise e3.subprocess.TimeoutExpired(
                 command,
                 120,
-                output=b'{"tokens":{"access_token":"fixture"}}',
+                output=CODEX_ACCESS_LEAF.encode(),
                 stderr=b"exceptional-attempt-stderr",
             )
         if phase == leak_phase:
             return SimpleNamespace(
                 returncode=result.returncode,
                 stdout=result.stdout,
-                stderr=(result.stderr or "") + '{"tokens":{"access_token":"fixture"}}',
+                stderr=(result.stderr or "") + CODEX_ACCESS_LEAF,
             )
         return result
 
@@ -6755,6 +6892,18 @@ def _run_argv_barrier_flow(
 
     setup_calls = []
     real_setup = e3.setup_host2_credentials
+    real_keychain_materializer = e3.materialize_keychain_credential
+    real_file_materializer = e3.materialize_file_credential
+
+    def recording_keychain_materializer(service, account, dest, **kwargs):
+        lifecycle_events.append(
+            ("materializer", "claude-code", None, Path(dest))
+        )
+        return real_keychain_materializer(service, account, dest, **kwargs)
+
+    def recording_file_materializer(source, dest, **kwargs):
+        lifecycle_events.append(("materializer", "codex", None, Path(dest)))
+        return real_file_materializer(source, dest, **kwargs)
 
     def recording_setup(*args):
         setup_calls.append(args)
@@ -6764,9 +6913,19 @@ def _run_argv_barrier_flow(
     monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
     monkeypatch.setattr(e3, "assert_exact_install_delta", fake_install_delta)
     monkeypatch.setattr(e3, "assert_resume_containment", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        e3,
+        "materialize_keychain_credential",
+        recording_keychain_materializer,
+    )
+    monkeypatch.setattr(
+        e3,
+        "materialize_file_credential",
+        recording_file_materializer,
+    )
     monkeypatch.setattr(e3, "setup_host2_credentials", recording_setup)
     result = e3.run_e3(spec_path, biv, scratch)
-    return result, spec, binaries, ledger, setup_calls, scratch
+    return result, spec, binaries, ledger, setup_calls, scratch, lifecycle_events
 
 
 def _agent_ledger(ledger, binaries):
@@ -6786,7 +6945,15 @@ def _agent_ledger(ledger, binaries):
 def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_barrier(
     monkeypatch, tmp_path, stable_test_root
 ):
-    result, spec, binaries, ledger, setup_calls, scratch = _run_argv_barrier_flow(
+    (
+        result,
+        spec,
+        binaries,
+        ledger,
+        setup_calls,
+        scratch,
+        lifecycle_events,
+    ) = _run_argv_barrier_flow(
         monkeypatch, tmp_path, stable_test_root
     )
 
@@ -6828,6 +6995,63 @@ def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_b
     ]
     first_auth = events.index(("codex", "auth"))
     assert all(event == "version" for _, event in events[:first_auth])
+    assert [event[:2] for event in lifecycle_events] == [
+        ("version", "codex"),
+        ("version", "claude-code"),
+        ("materializer", "claude-code"),
+        ("materializer", "codex"),
+    ]
+    version_events = [
+        event for event in lifecycle_events if event[0] == "version"
+    ]
+    materializer_events = [
+        event for event in lifecycle_events if event[0] == "materializer"
+    ]
+    expected_versions = [
+        (
+            agent["id"],
+            tuple(
+                e3._rewrite_agent_command(
+                    agent["version_command"],
+                    binaries[agent["auth_status"][0]],
+                )
+            ),
+        )
+        for agent in spec["agents"]
+    ]
+    assert [(event[1], event[2]) for event in version_events] == expected_versions
+    assert all(Path(command[0]).is_absolute() for _, command in expected_versions)
+    profile_root = scratch / "host2" / "profiles"
+    expected_destinations = [
+        (
+            "claude-code",
+            e3._agent_profile(
+                next(
+                    agent
+                    for agent in spec["agents"]
+                    if agent["id"] == "claude-code"
+                ),
+                profile_root,
+                live=False,
+            )
+            / ".credentials.json",
+        ),
+        (
+            "codex",
+            e3._agent_profile(
+                next(agent for agent in spec["agents"] if agent["id"] == "codex"),
+                profile_root,
+                live=False,
+            )
+            / "auth.json",
+        ),
+    ]
+    assert [(event[1], event[3]) for event in materializer_events] == (
+        expected_destinations
+    )
+    assert max(lifecycle_events.index(event) for event in version_events) < min(
+        lifecycle_events.index(event) for event in materializer_events
+    )
     assert agent_ledger[5][1] == agent_ledger[6][1]
     assert agent_ledger[8][1] == agent_ledger[9][1]
     assert agent_ledger[14][1] == agent_ledger[15][1]
@@ -6847,7 +7071,8 @@ def test_run_e3_invalidates_each_post_materialization_output_leak(
     )
 
     assert result.status is Status.INVALID
-    assert '{"tokens":{"access_token":"fixture"}}' not in serialize_report([result])
+    assert "credential-child-output-detected" in result.warnings
+    assert CODEX_ACCESS_LEAF not in serialize_report([result])
 
 
 @pytest.mark.parametrize(
@@ -6857,7 +7082,7 @@ def test_run_e3_invalidates_each_post_materialization_output_leak(
 def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
     monkeypatch, tmp_path, stable_test_root, exception_leak_phase
 ):
-    result, _, _, ledger, _, _ = _run_argv_barrier_flow(
+    result, _, _, ledger, _, _, _ = _run_argv_barrier_flow(
         monkeypatch,
         tmp_path,
         stable_test_root,
@@ -6865,7 +7090,8 @@ def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
     )
 
     assert result.status is Status.INVALID
-    assert '{"tokens":{"access_token":"fixture"}}' not in serialize_report([result])
+    assert "credential-child-output-detected" in result.warnings
+    assert CODEX_ACCESS_LEAF not in serialize_report([result])
     if exception_leak_phase == "auth":
         auth_calls = [
             command
@@ -6875,10 +7101,25 @@ def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
         assert len(auth_calls) == 4
 
 
+def test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        scratch_leaf_leak=True,
+    )
+
+    assert result.status is Status.INVALID
+    assert "credential-scan-detected" in result.warnings
+    assert CODEX_ACCESS_LEAF not in serialize_report([result])
+
+
 def test_run_e3_rejects_restored_workspace_symlink_before_any_resume_spawn(
     monkeypatch, tmp_path, stable_test_root
 ):
-    result, _, binaries, ledger, _, scratch = _run_argv_barrier_flow(
+    result, _, binaries, ledger, _, scratch, _ = _run_argv_barrier_flow(
         monkeypatch,
         tmp_path,
         stable_test_root,
@@ -6996,7 +7237,7 @@ def test_run_e3_post_materialization_baseexception_finalizes_and_removes_all_tar
 
     monkeypatch.setattr(e3, "_CredentialScanner", RecordingScanner)
     monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
-    result, spec, _, _, _, scratch = _run_argv_barrier_flow(
+    result, spec, _, _, _, scratch, _ = _run_argv_barrier_flow(
         monkeypatch,
         tmp_path,
         stable_test_root,
@@ -7030,14 +7271,43 @@ def test_run_e3_post_materialization_baseexception_finalizes_and_removes_all_tar
 def test_run_e3_wrong_agent_version_is_invalid_before_any_auth_or_setup(
     monkeypatch, tmp_path, stable_test_root, wrong_version
 ):
-    result, _, _, ledger, setup_calls, _ = _run_argv_barrier_flow(
+    result, _, _, ledger, setup_calls, _, lifecycle_events = _run_argv_barrier_flow(
         monkeypatch, tmp_path, stable_test_root, wrong_version=wrong_version
     )
 
     assert result.status is Status.INVALID
     assert "version is outside the validated range" in result.detail
     assert setup_calls == []
+    assert lifecycle_events == []
     assert not any(command[1:] in (["login", "status"], ["auth", "status"]) for command, _, _ in ledger)
+
+
+@pytest.mark.parametrize("wrong_host2_version", ["claude-code", "codex"])
+def test_run_e3_wrong_host2_version_materializes_no_credentials(
+    monkeypatch, tmp_path, stable_test_root, wrong_host2_version
+):
+    result, spec, _, _, setup_calls, scratch, lifecycle_events = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        wrong_host2_version=wrong_host2_version,
+    )
+
+    assert result.status is Status.INVALID
+    assert "host2 version is outside the validated range" in result.detail
+    assert len(setup_calls) == 1
+    assert [event[0] for event in lifecycle_events] == ["version", "version"]
+    assert not any(event[0] == "materializer" for event in lifecycle_events)
+    profile_root = scratch / "host2" / "profiles"
+    for agent in spec["agents"]:
+        profile = e3._agent_profile(agent, profile_root, live=False)
+        destination = (
+            profile / ".credentials.json"
+            if agent["id"] == "claude-code"
+            else profile / "auth.json"
+        )
+        with pytest.raises(FileNotFoundError):
+            os.lstat(destination)
 
 
 def test_e3_spec_validation_rejects_dead_or_wrong_resume_shape():
