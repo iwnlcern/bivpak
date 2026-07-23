@@ -200,46 +200,90 @@ def test_destination_leaf_created_after_preflight_is_preserved(tmp_path, monkeyp
     assert not list(dest.parent.glob(".host2-credential-*"))
 
 
-def test_error_cleanup_preserves_leaf_replacing_installed_inode(tmp_path, monkeypatch):
+def test_no_destination_target_after_atomic_commit(tmp_path, monkeypatch):
     src = tmp_path / "auth.json"
     src.write_bytes(CODEX_OK)
     dest = tmp_path / "dest" / "auth.json"
+    dest.parent.mkdir()
     competing_bytes = b"post-install-competitor-must-survive"
-    installed_fd = None
+    competitor = dest.parent / ".post-install-competitor"
+    competitor.write_bytes(competing_bytes)
+    real_replace_at = credentials._replace_at
+    real_directory_identity_matches = credentials._directory_identity_matches
+    real_stat = os.stat
+    committed = False
+    race_attempted = False
 
-    def replace_then_fail_identity(_path, parent_fd):
-        nonlocal installed_fd
-        installed_fd = os.open(dest.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
-        competitor_name = ".post-install-competitor"
-        competitor_fd = os.open(
-            competitor_name,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-            0o600,
-            dir_fd=parent_fd,
+    def tracking_replace_at(parent_fd, temporary, destination):
+        nonlocal committed
+        real_replace_at(parent_fd, temporary, destination)
+        committed = True
+
+    def phase_sensitive_identity(path, parent_fd):
+        if committed:
+            return False
+        return real_directory_identity_matches(path, parent_fd)
+
+    def racing_stat(path, *args, dir_fd=None, follow_symlinks=True, **kwargs):
+        nonlocal race_attempted
+        if committed and path == dest.name and dir_fd is not None and follow_symlinks is False:
+            installed = real_stat(
+                path,
+                *args,
+                dir_fd=dir_fd,
+                follow_symlinks=follow_symlinks,
+                **kwargs,
+            )
+            os.rename(
+                competitor.name,
+                dest.name,
+                src_dir_fd=dir_fd,
+                dst_dir_fd=dir_fd,
+            )
+            race_attempted = True
+            return installed
+        return real_stat(
+            path,
+            *args,
+            dir_fd=dir_fd,
+            follow_symlinks=follow_symlinks,
+            **kwargs,
         )
-        try:
-            os.write(competitor_fd, competing_bytes)
-        finally:
-            os.close(competitor_fd)
-        os.rename(
-            competitor_name,
-            dest.name,
-            src_dir_fd=parent_fd,
-            dst_dir_fd=parent_fd,
-        )
-        return False
 
-    monkeypatch.setattr(credentials, "_directory_identity_matches", replace_then_fail_identity)
-    try:
-        result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+    monkeypatch.setattr(credentials, "_replace_at", tracking_replace_at)
+    monkeypatch.setattr(credentials, "_directory_identity_matches", phase_sensitive_identity)
+    monkeypatch.setattr(credentials.os, "stat", racing_stat)
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
 
-        assert result.status is CredentialStatus.DEST_UNSAFE
-        assert dest.read_bytes() == competing_bytes
-        assert os.fstat(installed_fd).st_nlink == 0
-        assert not list(dest.parent.glob(".host2-credential-*"))
-    finally:
-        if installed_fd is not None:
-            os.close(installed_fd)
+    assert result.status is CredentialStatus.OK
+    assert committed
+    assert not race_attempted
+    assert dest.read_bytes() == CODEX_OK
+    assert competitor.read_bytes() == competing_bytes
+    assert not list(dest.parent.glob(".host2-credential-*"))
+
+
+@pytest.mark.parametrize("primitive_state", ["unsupported", "failure"])
+def test_exclusive_move_failure_is_typed_and_cleans_temp(tmp_path, monkeypatch, primitive_state):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    dest = tmp_path / "dest" / "auth.json"
+
+    if primitive_state == "unsupported":
+        primitive = None
+    else:
+        def primitive(*_args):
+            import ctypes
+
+            ctypes.set_errno(errno.EIO)
+            return -1
+
+    monkeypatch.setattr(credentials, "_RENAMEATX_NP", primitive, raising=False)
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert result.status is CredentialStatus.DEST_UNSAFE
+    assert not dest.exists()
+    assert not list(dest.parent.glob(".host2-credential-*"))
 
 
 def test_file_reads_to_eof_when_reads_are_short(tmp_path, monkeypatch):

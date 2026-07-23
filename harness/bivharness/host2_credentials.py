@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import enum
 import errno
 import hashlib
@@ -11,6 +12,7 @@ import re
 import secrets
 import stat
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -46,6 +48,28 @@ _ERRSEC_ITEM_NOT_FOUND = 44
 _READ_CHUNK = 16 * 1024
 _CLOEXEC = getattr(os, "O_CLOEXEC", 0)
 _DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | _CLOEXEC
+_RENAME_EXCL = 0x00000004
+
+
+def _load_renameatx_np():
+    if sys.platform != "darwin":
+        return None
+    try:
+        primitive = ctypes.CDLL(None, use_errno=True).renameatx_np
+    except (AttributeError, OSError):
+        return None
+    primitive.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    primitive.restype = ctypes.c_int
+    return primitive
+
+
+_RENAMEATX_NP = _load_renameatx_np()
 
 
 def claude_shape_ok(raw: bytes) -> bool:
@@ -207,14 +231,21 @@ def _mkstemp_at(parent_fd: int) -> tuple[int, str]:
 
 
 def _replace_at(parent_fd: int, temporary: str, destination: str) -> None:
-    """Atomically install without replacing a destination created after preflight."""
-    os.link(
-        temporary,
-        destination,
-        src_dir_fd=parent_fd,
-        dst_dir_fd=parent_fd,
-        follow_symlinks=False,
+    """Make the final install an atomic, exclusive, descriptor-relative move."""
+    primitive = _RENAMEATX_NP
+    if primitive is None:
+        raise OSError(errno.ENOTSUP, "exclusive credential install is unsupported")
+    ctypes.set_errno(0)
+    result = primitive(
+        parent_fd,
+        os.fsencode(temporary),
+        parent_fd,
+        os.fsencode(destination),
+        _RENAME_EXCL,
     )
+    if result != 0:
+        error = ctypes.get_errno() or errno.EIO
+        raise OSError(error, "exclusive credential install failed")
 
 
 def _directory_identity_matches(path: Path, expected_fd: int) -> bool:
@@ -227,28 +258,12 @@ def _directory_identity_matches(path: Path, expected_fd: int) -> bool:
         _close_fd(verification_fd)
 
 
-def _unlink_if_identity_matches(parent_fd: int, name: str, expected: tuple[int, int]) -> None:
-    try:
-        current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-    except OSError:
-        return
-    if (current.st_dev, current.st_ino) != expected:
-        return
-    try:
-        os.unlink(name, dir_fd=parent_fd)
-    except OSError:
-        pass
-
-
 def _atomic_write_0600(dest: Path, data: bytes) -> CredentialResult:
     """Write a new regular destination, refusing unsafe paths and cleaning temp files."""
     dest = Path(dest)
     parent_fd: int | None = None
     temporary_fd: int | None = None
     temporary: str | None = None
-    installed_identity: tuple[int, int] | None = None
-    installed = False
-    succeeded = False
 
     try:
         if dest.name in ("", ".", ".."):
@@ -260,18 +275,13 @@ def _atomic_write_0600(dest: Path, data: bytes) -> CredentialResult:
         temporary_fd, temporary = _mkstemp_at(parent_fd)
         os.fchmod(temporary_fd, 0o600)
         _write_all(temporary_fd, data)
-        temporary_stat = os.fstat(temporary_fd)
-        installed_identity = (temporary_stat.st_dev, temporary_stat.st_ino)
         _close_fd(temporary_fd)
         temporary_fd = None
 
-        _replace_at(parent_fd, temporary, dest.name)
-        installed = True
-        os.unlink(temporary, dir_fd=parent_fd)
-        temporary = None
         if not _directory_identity_matches(dest.parent, parent_fd):
             return CredentialResult(CredentialStatus.DEST_UNSAFE)
-        succeeded = True
+        _replace_at(parent_fd, temporary, dest.name)
+        temporary = None
         return CredentialResult(CredentialStatus.OK, dest)
     except (OSError, TypeError, ValueError):
         return CredentialResult(CredentialStatus.DEST_UNSAFE)
@@ -282,8 +292,6 @@ def _atomic_write_0600(dest: Path, data: bytes) -> CredentialResult:
                 os.unlink(temporary, dir_fd=parent_fd)
             except OSError:
                 pass
-        if installed and not succeeded and parent_fd is not None and installed_identity is not None:
-            _unlink_if_identity_matches(parent_fd, dest.name, installed_identity)
         _close_fd(parent_fd)
 
 
