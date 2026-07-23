@@ -47,6 +47,7 @@ class CredentialResult:
 _ERRSEC_ITEM_NOT_FOUND = 44
 _READ_CHUNK = 16 * 1024
 _CLOEXEC = getattr(os, "O_CLOEXEC", 0)
+_NONBLOCK = getattr(os, "O_NONBLOCK", 0)
 _DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | _CLOEXEC
 _RENAME_EXCL = 0x00000004
 
@@ -139,7 +140,11 @@ def _open_file_nofollow(src: Path) -> int:
         raise OSError(errno.EINVAL, "invalid source leaf")
     parent_fd = _open_directory(src.parent, create=False)
     try:
-        return os.open(src.name, os.O_RDONLY | os.O_NOFOLLOW | _CLOEXEC, dir_fd=parent_fd)
+        return os.open(
+            src.name,
+            os.O_RDONLY | os.O_NOFOLLOW | _CLOEXEC | _NONBLOCK,
+            dir_fd=parent_fd,
+        )
     finally:
         _close_fd(parent_fd)
 

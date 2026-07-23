@@ -1,7 +1,11 @@
 import errno
 import hashlib
 import json
+import multiprocessing
 import os
+import socket
+import stat
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,6 +30,25 @@ CODEX_OK = json.dumps(
 ).encode()
 
 
+def _fifo_source_worker(operation, src, dest, connection):
+    try:
+        if operation == "materialize":
+            result = materialize_file_credential(
+                Path(src),
+                Path(dest),
+                max_bytes=1_000_000,
+                shape_ok=codex_shape_ok,
+            )
+            connection.send(("status", result.status.value))
+        else:
+            identity = snapshot_identity(Path(src), max_bytes=1_000_000)
+            connection.send(("identity", identity is None))
+    except BaseException as exc:
+        connection.send(("error", type(exc).__name__))
+    finally:
+        connection.close()
+
+
 def test_file_copies_bytes_0600_and_sets_identity(tmp_path):
     src = tmp_path / "auth.json"
     src.write_bytes(CODEX_OK)
@@ -39,6 +62,97 @@ def test_file_copies_bytes_0600_and_sets_identity(tmp_path):
     assert result.identity is not None
     assert result.identity.digest == snapshot_identity(src, max_bytes=1_000_000).digest
     assert result.identity.size == len(CODEX_OK)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO sources are unavailable")
+@pytest.mark.parametrize("operation", ("materialize", "snapshot"))
+def test_fifo_source_is_rejected_without_blocking(tmp_path, operation):
+    src = tmp_path / "credential-fifo"
+    os.mkfifo(src)
+    dest = tmp_path / "dest" / "auth.json"
+    context = multiprocessing.get_context("spawn")
+    receive, send = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_fifo_source_worker,
+        args=(operation, str(src), str(dest), send),
+    )
+    process.start()
+    send.close()
+    process.join(timeout=5)
+    if process.is_alive():
+        process.kill()
+        process.join()
+        receive.close()
+        pytest.fail(f"{operation} blocked while opening a FIFO credential source")
+
+    assert process.exitcode == 0
+    assert receive.poll(timeout=1)
+    outcome = receive.recv()
+    receive.close()
+    if operation == "materialize":
+        assert outcome == ("status", CredentialStatus.SOURCE_UNREADABLE.value)
+        assert not dest.exists()
+    else:
+        assert outcome == ("identity", True)
+
+
+@pytest.mark.parametrize("source_kind", ("device", "socket"))
+def test_shared_reader_rejects_portable_nonregular_sources(tmp_path, source_kind):
+    opened_socket = None
+    socket_parent = None
+    if source_kind == "device":
+        src = Path(os.devnull)
+        if not stat.S_ISCHR(src.stat().st_mode):
+            pytest.skip("os.devnull is not a character device")
+    else:
+        if not hasattr(socket, "AF_UNIX"):
+            pytest.skip("Unix-domain sockets are unavailable")
+        socket_parent = tempfile.TemporaryDirectory(
+            prefix="biv-h2-sock-",
+            dir=Path(tempfile.gettempdir()).resolve(),
+        )
+        src = Path(socket_parent.name) / "credential.sock"
+        opened_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        opened_socket.bind(str(src))
+
+    try:
+        dest = tmp_path / source_kind / "auth.json"
+        result = materialize_file_credential(
+            src,
+            dest,
+            max_bytes=1_000_000,
+            shape_ok=codex_shape_ok,
+        )
+
+        assert result.status is CredentialStatus.SOURCE_UNREADABLE
+        assert snapshot_identity(src, max_bytes=1_000_000) is None
+        assert not dest.exists()
+    finally:
+        if opened_socket is not None:
+            opened_socket.close()
+        if socket_parent is not None:
+            socket_parent.cleanup()
+
+
+def test_source_leaf_open_retains_nofollow_cloexec_and_nonblock(tmp_path, monkeypatch):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    real_open = os.open
+    leaf_flags = []
+
+    def tracking_open(path, flags, mode=0o777, *, dir_fd=None):
+        if path == src.name and dir_fd is not None:
+            leaf_flags.append(flags)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(credentials.os, "open", tracking_open)
+
+    assert snapshot_identity(src, max_bytes=1_000_000) is not None
+    assert len(leaf_flags) == 1
+    for flag_name in ("O_NOFOLLOW", "O_CLOEXEC", "O_NONBLOCK"):
+        flag = getattr(os, flag_name, 0)
+        if flag:
+            assert leaf_flags[0] & flag
 
 
 def test_file_refuses_symlink_nonregular_missing_empty_oversize_and_wrong_shape(tmp_path):
