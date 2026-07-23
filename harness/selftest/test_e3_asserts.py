@@ -60,45 +60,8 @@ NESTED_CREDENTIAL_OUTPUT = json.dumps(
     {"event": {"items": [{"credential": NESTED_CREDENTIAL_LEAF}]}},
     separators=(",", ":"),
 )
-
-
-def _credential_traversal_worker(case, connection):
-    secret = "TRAVERSAL_ANOMALY_MUST_NOT_ECHO"
-    parsed = {"tokens": {"access_token": "shape-value"}}
-    if case == "cycle":
-        anomaly = [secret]
-        anomaly.append(anomaly)
-    elif case == "over-budget":
-        anomaly = secret
-        for _ in range(70_000):
-            anomaly = [anomaly]
-    else:
-        class Unsupported:
-            def __repr__(self):
-                return secret
-
-        anomaly = Unsupported()
-    parsed["metadata"] = anomaly
-    original_loads = e3.json.loads
-    scanner = e3._CredentialScanner()
-    try:
-        e3.json.loads = lambda _raw: parsed
-        try:
-            e3._seed_credential_scanner(
-                scanner,
-                b'{"tokens":{"access_token":"shape-value"}}',
-                "codex",
-            )
-        except ValueError as exc:
-            connection.send(("refused", str(exc), secret not in str(exc)))
-        else:
-            connection.send(("accepted", "", True))
-    except BaseException as exc:
-        connection.send(("escaped", type(exc).__name__, secret not in str(exc)))
-    finally:
-        e3.json.loads = original_loads
-        scanner.drop()
-        connection.close()
+CONTROLLED_RUNTIME_SENTINEL = "bive3-sentinel-" + "e" * 64
+CONTROLLED_SLASH_SENTINEL = "bive3-sentinel-" + "f" * 63 + "/"
 
 
 @pytest.fixture
@@ -468,6 +431,22 @@ def _run_exit_contract_case(
     return result, seen
 
 
+def _materialize_test_credential_guards(spec, profile_root, credential_guards):
+    destinations = {}
+    for agent in spec["agents"]:
+        profile = e3._agent_profile(agent, Path(profile_root), live=False)
+        destination = (
+            profile / ".credentials.json"
+            if agent["id"] == "claude-code"
+            else profile / "auth.json"
+        )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"test-credential-object")
+        credential_guards[agent["id"]] = e3._credential_guard(destination)
+        destinations[agent["id"]] = destination
+    return destinations
+
+
 def _configure_exit_contract_case(
     monkeypatch,
     tmp_path,
@@ -529,11 +508,25 @@ def _configure_exit_contract_case(
             raise post_pack_exception
 
         monkeypatch.setattr(e3, "scan_image_secret_values", raise_post_pack)
-    monkeypatch.setattr(
-        e3,
-        "setup_host2_credentials",
-        lambda spec, *args: {agent["id"]: {} for agent in spec["agents"]},
-    )
+    def fake_setup(
+        spec,
+        _host2,
+        profile_root,
+        _resolved_binaries,
+        _spawn,
+        _scanner,
+        _child_outputs,
+        _ambient_snapshots,
+        credential_guards,
+    ):
+        _materialize_test_credential_guards(
+            spec,
+            profile_root,
+            credential_guards,
+        )
+        return {agent["id"]: {} for agent in spec["agents"]}
+
+    monkeypatch.setattr(e3, "setup_host2_credentials", fake_setup)
     monkeypatch.setattr(e3, "snapshot_store", lambda *args: {})
     monkeypatch.setattr(e3, "class_j_failures", lambda *args: [])
     monkeypatch.setattr(e3, "assert_exact_install_delta", fake_install_delta)
@@ -568,9 +561,10 @@ def test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces(
 
     assert result.status is Status.PASS
     assert seen == ["pack", "open"]
-    assert "CodexDbEnrichmentSkipped" in result.warnings
+    assert result.detail == "e3-post-materialization-pass"
+    assert result.warnings == ["biv-warning-present"]
     row = Report([result]).to_json()["rows"][0]
-    assert row["warnings"] == ["CodexDbEnrichmentSkipped"]
+    assert row["warnings"] == ["biv-warning-present"]
 
 
 def test_e3_pack_ok_false_at_exit2_preserves_envelope_error(
@@ -758,11 +752,10 @@ def test_e3_warned_pack_then_open_failure_retains_both(
 
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
-    assert "SessionInstallFailed" in result.detail
-    assert "open failed" in result.detail
-    assert result.warnings == ["CodexDbEnrichmentSkipped"]
+    assert result.detail == "e3-post-materialization-fail"
+    assert result.warnings == ["biv-warning-present"]
     assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "CodexDbEnrichmentSkipped"
+        "biv-warning-present"
     ]
 
 
@@ -811,7 +804,8 @@ def test_e3_open_exit2_with_warnings_proceeds(
 
     assert result.status is Status.PASS
     assert seen == ["pack", "open"]
-    assert result.warnings == ["UnknownAgentSkipped (sessions/unknown.jsonl)"]
+    assert result.detail == "e3-post-materialization-pass"
+    assert result.warnings == ["biv-warning-present"]
 
 
 def test_e3_open_failure_detail_from_envelope(
@@ -838,9 +832,7 @@ def test_e3_open_failure_detail_from_envelope(
 
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
-    assert "SessionInstallFailed" in result.detail
-    assert "open boom" in result.detail
-    assert "wrong source" not in result.detail
+    assert result.detail == "e3-post-materialization-fail"
 
 
 @pytest.mark.parametrize(
@@ -867,8 +859,7 @@ def test_e3_open_non_object_result_fails_loudly(
 
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
-    assert "open result malformed" in result.detail
-    assert "result" in result.detail
+    assert result.detail == "e3-post-materialization-fail"
 
 
 @pytest.mark.parametrize(
@@ -899,9 +890,7 @@ def test_e3_open_invalid_output_dir_fails_before_path_resolution(
     )
 
     assert result.status is Status.FAIL
-    assert "open result malformed" in result.detail
-    assert "output_dir" in result.detail
-    assert "session rows" not in result.detail
+    assert result.detail == "e3-post-materialization-fail"
 
 
 @pytest.mark.parametrize(
@@ -936,9 +925,8 @@ def test_e3_open_relative_output_dir_fails_before_workspace_binding(
 
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
-    assert "open result malformed" in result.detail
-    assert "output_dir" in result.detail
-    assert result.warnings == ["CodexDbEnrichmentSkipped"]
+    assert result.detail == "e3-post-materialization-fail"
+    assert result.warnings == ["biv-warning-present"]
 
 
 def test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding(
@@ -970,9 +958,7 @@ def test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding(
 
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
-    assert "open result malformed" in result.detail
-    assert "output_dir" in result.detail
-    assert "requested destination" in result.detail
+    assert result.detail == "e3-post-materialization-fail"
 
 
 def test_open_result_rejects_dotdot_alias_of_requested_destination(tmp_path):
@@ -1083,8 +1069,7 @@ def test_e3_open_malformed_sessions_fail_before_consumer_access(
     )
 
     assert result.status is Status.FAIL, case
-    assert "open result malformed" in result.detail
-    assert detail_member in result.detail
+    assert result.detail == "e3-post-materialization-fail"
 
 
 def test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning(
@@ -1118,13 +1103,9 @@ def test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning(
 
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
-    assert "open result malformed" in result.detail
-    assert "installed agents" in result.detail
-    assert "bogus-agent" in result.detail
-    assert "claude-code" in result.detail
-    assert result.detail != "'claude-code'"
+    assert result.detail == "e3-post-materialization-fail"
     assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "CodexDbEnrichmentSkipped"
+        "biv-warning-present"
     ]
 
 
@@ -1192,11 +1173,9 @@ def test_e3_open_installed_agent_multiset_must_match_spec(
 
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
-    assert "open result malformed" in result.detail
-    assert f"installed agents {actual_agents!r}" in result.detail
-    assert "spec ['claude-code', 'codex']" in result.detail
+    assert result.detail == "e3-post-materialization-fail"
     assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "CodexDbEnrichmentSkipped"
+        "biv-warning-present"
     ]
 
 
@@ -1257,12 +1236,9 @@ def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
 
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
-    assert result.detail == (
-        f"open result malformed: agent 'codex' reported {installed_count} "
-        "installed session rows, expected exactly 1"
-    )
+    assert result.detail == "e3-post-materialization-fail"
     assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "CodexDbEnrichmentSkipped"
+        "biv-warning-present"
     ]
 
 
@@ -1284,9 +1260,9 @@ def test_e3_warned_pack_then_malformed_open_result_retains_warning(
     )
 
     assert result.status is Status.FAIL
-    assert "open result malformed" in result.detail
+    assert result.detail == "e3-post-materialization-fail"
     assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "CodexDbEnrichmentSkipped"
+        "biv-warning-present"
     ]
 
 
@@ -1325,8 +1301,8 @@ def test_cli_persists_failed_e3_report_for_malformed_open_result(
     assert len(report["rows"]) == 1
     row = report["rows"][0]
     assert row["status"] == "fail"
-    assert "open result malformed" in row["detail"]
-    assert row["warnings"] == ["CodexDbEnrichmentSkipped"]
+    assert row["detail"] == "e3-post-materialization-fail"
+    assert row["warnings"] == ["biv-warning-present"]
     assert list(stable_test_root.glob(".bivharness-scratch-*")) == []
 
 
@@ -1722,8 +1698,7 @@ def test_run_e3_liveness_without_persistence_flag_reds_c1_before_open(
     result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
     assert result.status is Status.INVALID
-    assert "claude-code" in result.detail
-    assert "recorded regular file" in result.detail
+    assert result.detail == "e3-post-materialization-invalid"
     assert open_calls == []
 
 
@@ -1755,7 +1730,7 @@ def test_run_e3_origin_session_isolation_mutation_stops_before_open(
     result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
     assert result.status is Status.INVALID
-    assert "recorded regular file" in result.detail
+    assert result.detail == "e3-post-materialization-invalid"
     assert seen == ["pack"]
 
 
@@ -1800,7 +1775,7 @@ def test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open(
 
     assert mutation["inserted"]
     assert result.status is Status.INVALID
-    assert "changed during enumeration" in result.detail
+    assert result.detail == "e3-post-materialization-invalid"
     assert seen == ["pack"]
 
 
@@ -1826,8 +1801,7 @@ def test_run_e3_tripwire_red_stops_before_open(
     result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
     assert result.status is Status.INVALID
-    assert "C1 drift tripwire RED" in result.detail
-    assert "claude_inventory" in result.detail
+    assert result.detail == "e3-post-materialization-invalid"
     assert seen == ["pack"]
 
 
@@ -2316,7 +2290,47 @@ def test_setup_host2_credentials_refuses_symlinked_profile_topology_before_spawn
     assert list(outside.iterdir()) == [canary]
 
 
-def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner(
+def test_runtime_credential_sentinels_are_fresh_prefixed_and_cardinality_only(
+    monkeypatch,
+):
+    configured = [
+        "bive3-sentinel-" + "a" * 64,
+        "documented-durable-sentinel",
+    ]
+    generated = iter(("1" * 64, "2" * 64, "3" * 64, "4" * 64))
+    monkeypatch.setattr(e3.secrets, "token_hex", lambda size: next(generated))
+
+    first = e3._runtime_credential_sentinels(len(configured))
+    second = e3._runtime_credential_sentinels(len(configured))
+
+    assert first == [
+        "bive3-sentinel-" + "1" * 64,
+        "bive3-sentinel-" + "2" * 64,
+    ]
+    assert second == [
+        "bive3-sentinel-" + "3" * 64,
+        "bive3-sentinel-" + "4" * 64,
+    ]
+    assert first != second
+    assert not set(first + second).intersection(configured)
+
+
+def test_credential_scanner_adds_only_bounded_sentinel_representations():
+    scanner = e3._CredentialScanner()
+    sentinel = "bive3-sentinel-" + "a" * 64 + "/"
+
+    scanner.add_sentinel(sentinel)
+
+    representations = e3._sentinel_representations(sentinel)
+    canonical, solidus, ascii_u = representations[:3]
+    assert canonical != solidus
+    assert canonical != ascii_u
+    assert solidus != ascii_u
+    assert all(scanner.scan_bytes(value) for value in representations)
+    assert len(scanner._values) == len(representations)
+
+
+def test_setup_host2_credentials_materializes_both_credentials_without_seeding_scanner(
     monkeypatch, tmp_path
 ):
     host2 = tmp_path / "host2"
@@ -2355,6 +2369,8 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
         separators=(",", ":"),
     ).encode()
     scanner = e3._CredentialScanner()
+    scanner.add_sentinel("bive3-sentinel-" + "f" * 64)
+    scanner_values = [bytes(value) for value in scanner._values]
     child_outputs = []
     ambient_snapshots = {}
     calls = []
@@ -2411,8 +2427,9 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
     assert claude_dest.stat().st_mode & 0o777 == 0o600
     assert codex_dest.stat().st_mode & 0o777 == 0o600
     assert not (profile_root / "codex" / "config.toml").exists()
-    assert scanner.scan_bytes(claude_bytes)
-    assert scanner.scan_bytes(codex_bytes)
+    assert [bytes(value) for value in scanner._values] == scanner_values
+    assert not scanner.scan_bytes(claude_bytes)
+    assert not scanner.scan_bytes(codex_bytes)
     for leaf in (
         claude_access,
         claude_refresh,
@@ -2423,14 +2440,8 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
         claude_nested,
         codex_nested,
     ):
-        assert scanner.scan_text(leaf)
-        assert scanner.scan_bytes(json.dumps(leaf)[1:-1].encode("ascii"))
-    finalized = e3._finalize_report(
-        ScenarioResult("e3", "E3", Status.FAIL, [], detail=codex_access),
-        scanner,
-    )
-    assert finalized.status is Status.INVALID
-    assert codex_access not in serialize_report([finalized])
+        assert not scanner.scan_text(leaf)
+        assert not scanner.scan_bytes(json.dumps(leaf)[1:-1].encode("ascii"))
     assert ambient_snapshots["codex-auth.json"] == e3.SourceIdentity(
         1, 2, len(codex_bytes), "digest"
     )
@@ -2442,222 +2453,112 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
     assert all(value == bytearray(len(value)) for value in owned_values)
 
 
-def test_seed_credential_scanner_matches_raw_and_canonical_json_escaped_leaf():
-    raw = json.dumps(
-        {"tokens": {"access_token": ESCAPED_CREDENTIAL_LEAF}},
-        separators=(",", ":"),
-    ).encode()
-    scanner = e3._CredentialScanner()
-
-    e3._seed_credential_scanner(scanner, raw, "codex")
-
-    raw_leaf = ESCAPED_CREDENTIAL_LEAF.encode()
-    escaped_leaf = ESCAPED_CREDENTIAL_JSON.encode("ascii")
-    assert escaped_leaf != raw_leaf
-    assert not escaped_leaf.startswith(b'"')
-    assert not escaped_leaf.endswith(b'"')
-    assert scanner.scan_bytes(raw_leaf)
-    assert scanner.scan_bytes(escaped_leaf)
-
-
-@pytest.mark.parametrize(
-    ("credential_id", "document"),
-    (
-        (
-            "claude-code",
-            {
-                "claudeAiOauth": {
-                    "accessToken": "claude-shape-access",
-                    "refreshToken": "claude-shape-refresh",
-                },
-                "metadata": {
-                    "history": [{"items": [None, 7, NESTED_CREDENTIAL_LEAF]}],
-                },
-            },
-        ),
-        (
-            "codex",
-            {
-                "tokens": {"access_token": "codex-shape-access"},
-                "metadata": {
-                    "history": [{"items": [False, {}, NESTED_CREDENTIAL_LEAF]}],
-                },
-            },
-        ),
-    ),
-)
-def test_seed_credential_scanner_matches_every_nested_string_value(
-    credential_id,
-    document,
+def test_setup_host2_credentials_guards_each_materialized_destination_without_reread(
+    monkeypatch, tmp_path
 ):
-    document["nested-key-must-not-be-seeded"] = None
-    raw = json.dumps(document, separators=(",", ":")).encode()
+    host2 = tmp_path / "host2"
+    profile_root = host2 / "profiles"
+    claude_raw = b'{"claudeAiOauth":{"accessToken":"real-claude-value"}}'
+    codex_raw = b'{"tokens":{"access_token":"real-codex-value"}}'
+    identity = e3.SourceIdentity(1, 2, len(codex_raw), "source-digest")
+    lifecycle = []
     scanner = e3._CredentialScanner()
+    scanner.add_sentinel("bive3-sentinel-" + "a" * 64)
+    scanner_values = [bytes(value) for value in scanner._values]
+    guards = {}
+    destinations = {
+        profile_root / "claude" / ".credentials.json",
+        profile_root / "codex" / "auth.json",
+    }
 
-    e3._seed_credential_scanner(scanner, raw, credential_id)
-
-    assert scanner.scan_bytes(raw)
-    assert scanner.scan_text(NESTED_CREDENTIAL_LEAF)
-    assert scanner.scan_bytes(NESTED_CREDENTIAL_JSON.encode("ascii"))
-    assert not scanner.scan_text("nested-key-must-not-be-seeded")
-
-
-def test_seed_credential_scanner_handles_deep_values_iteratively(monkeypatch):
-    parsed = {"tokens": {"access_token": "codex-shape-access"}}
-    nested = NESTED_CREDENTIAL_LEAF
-    for _ in range(5_000):
-        nested = [nested]
-    parsed["metadata"] = nested
-    monkeypatch.setattr(e3.json, "loads", lambda _raw: parsed)
-    scanner = e3._CredentialScanner()
-
-    e3._seed_credential_scanner(
-        scanner,
-        b'{"tokens":{"access_token":"codex-shape-access"}}',
-        "codex",
-    )
-
-    assert scanner.scan_text(NESTED_CREDENTIAL_LEAF)
-    assert scanner.scan_bytes(NESTED_CREDENTIAL_JSON.encode("ascii"))
-
-
-@pytest.mark.parametrize("case", ("cycle", "over-budget", "unsupported"))
-def test_seed_credential_scanner_bounds_traversal_without_echo_or_hang(case):
-    context = multiprocessing.get_context("spawn")
-    receive, send = context.Pipe(duplex=False)
-    process = context.Process(
-        target=_credential_traversal_worker,
-        args=(case, send),
-    )
-    process.start()
-    send.close()
-    process.join(timeout=5)
-    if process.is_alive():
-        process.kill()
-        process.join()
-        receive.close()
-        pytest.fail(f"credential traversal hung on {case}")
-
-    assert process.exitcode == 0
-    assert receive.poll(timeout=1)
-    outcome = receive.recv()
-    receive.close()
-    assert outcome == ("refused", "credential destination unavailable", True)
-
-
-def test_finalize_report_sanitizes_json_escaped_credential_leaf_fields():
-    raw = json.dumps(
-        {"tokens": {"access_token": ESCAPED_CREDENTIAL_LEAF}},
-        separators=(",", ":"),
-    ).encode()
-    scanner = e3._CredentialScanner()
-    e3._seed_credential_scanner(scanner, raw, "codex")
-    primary = ScenarioResult(
-        "e3",
-        "E3",
-        Status.FAIL,
-        [],
-        detail=ESCAPED_CREDENTIAL_LEAF,
-        warnings=[ESCAPED_CREDENTIAL_LEAF],
-    )
-
-    final = e3._finalize_report(primary, scanner)
-    serialized = serialize_report([final]).encode()
-
-    assert final.status is Status.INVALID
-    assert final.warnings == []
-    assert ESCAPED_CREDENTIAL_JSON.encode() not in serialized
-    assert not scanner.scan_bytes(serialized)
-
-
-@pytest.mark.parametrize(
-    ("credential_id", "raw"),
-    (
-        ("claude-code", b"not-json"),
-        ("codex", b'{"tokens":{}}'),
-        ("codex", b'{"tokens":{"access_token":"\\ud800"}}'),
-    ),
-)
-def test_setup_host2_credentials_rejects_unparseable_or_inconsistent_seed_shape(
-    monkeypatch, tmp_path, credential_id, raw
-):
-    def materialize(dest, *, identity=False):
+    def materialize(raw, credential_id, dest, source_identity=None):
+        lifecycle.append(("materialize", credential_id))
         path = Path(dest)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(raw)
-        source_identity = (
-            e3.SourceIdentity(1, 2, len(raw), "shape-test") if identity else None
-        )
-        return e3.CredentialResult(e3.CredentialStatus.OK, path, source_identity)
-
-    if credential_id == "claude-code":
-        monkeypatch.setattr(
-            e3,
-            "materialize_keychain_credential",
-            lambda _service, _account, dest, **_kwargs: materialize(dest),
-        )
-    else:
-        monkeypatch.setattr(
-            e3,
-            "materialize_file_credential",
-            lambda _source, dest, **_kwargs: materialize(dest, identity=True),
+        return e3.CredentialResult(
+            e3.CredentialStatus.OK,
+            path,
+            source_identity,
         )
 
-    with pytest.raises(
-        ValueError,
-        match=rf"^host2 credential unavailable: {credential_id}$",
-    ) as exc_info:
-        e3.setup_host2_credentials(
-            {"agents": _host2_agents()},
-            tmp_path / "host2",
-            tmp_path / "profiles",
-            _host2_binaries(),
-            lambda command, *_args: SimpleNamespace(
-                returncode=0,
-                stdout=_host2_version_output(command),
-                stderr="",
-            ),
-            e3._CredentialScanner(),
-            [],
-            {},
-        )
-
-    assert raw.decode(errors="replace") not in str(exc_info.value)
-
-
-def test_setup_host2_credentials_retains_first_seed_when_second_materializer_refuses(
-    monkeypatch, tmp_path
-):
-    scanner = e3._CredentialScanner()
-    claude_bytes = b'{"claudeAiOauth":{"accessToken":"claude-secret","refreshToken":"refresh"}}'
-
-    def fake_keychain(_service, _account, dest, **_kwargs):
-        Path(dest).parent.mkdir(parents=True, exist_ok=True)
-        Path(dest).write_bytes(claude_bytes)
-        return e3.CredentialResult(e3.CredentialStatus.OK, Path(dest))
-
-    monkeypatch.setattr(e3, "materialize_keychain_credential", fake_keychain)
+    monkeypatch.setattr(
+        e3,
+        "materialize_keychain_credential",
+        lambda _service, _account, dest, **_kwargs: materialize(
+            claude_raw,
+            "claude-code",
+            dest,
+        ),
+    )
     monkeypatch.setattr(
         e3,
         "materialize_file_credential",
-        lambda *_args, **_kwargs: e3.CredentialResult(e3.CredentialStatus.SOURCE_MISSING),
+        lambda _source, dest, **_kwargs: materialize(
+            codex_raw,
+            "codex",
+            dest,
+            identity,
+        ),
+    )
+    real_guard = e3._credential_guard
+
+    def recording_guard(path):
+        credential_id = (
+            "claude-code" if Path(path).name == ".credentials.json" else "codex"
+        )
+        lifecycle.append(("guard", credential_id))
+        return real_guard(path)
+
+    monkeypatch.setattr(e3, "_credential_guard", recording_guard)
+    monkeypatch.setattr(
+        e3,
+        "_read_regular_file_nofollow",
+        lambda *_args, **_kwargs: pytest.fail("credential destination reread"),
+    )
+    real_path_open = e3.Path.open
+
+    def refuse_destination_read(path, mode="r", *args, **kwargs):
+        if Path(path) in destinations and "r" in mode:
+            pytest.fail("credential destination reread")
+        return real_path_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(e3.Path, "open", refuse_destination_read)
+
+    envs = e3.setup_host2_credentials(
+        {"agents": _host2_agents()},
+        host2,
+        profile_root,
+        _host2_binaries(),
+        lambda command, *_args: SimpleNamespace(
+            returncode=0,
+            stdout=_host2_version_output(command)
+            if command[1:] == ["--version"]
+            else "OK",
+            stderr="",
+        ),
+        scanner,
+        [],
+        {},
+        guards,
     )
 
-    with pytest.raises(ValueError, match="host2 credential unavailable: codex"):
-        e3.setup_host2_credentials(
-            {"agents": _host2_agents()},
-            tmp_path / "host2",
-            tmp_path / "profiles",
-            _host2_binaries(),
-            lambda command, *_args: SimpleNamespace(
-                returncode=0, stdout=_host2_version_output(command), stderr=""
-            ),
-            scanner,
-            [],
-            {},
-        )
+    assert set(envs) == {"claude-code", "codex"}
+    assert lifecycle == [
+        ("materialize", "claude-code"),
+        ("guard", "claude-code"),
+        ("materialize", "codex"),
+        ("guard", "codex"),
+    ]
+    assert set(guards) == {"claude-code", "codex"}
+    assert [bytes(value) for value in scanner._values] == scanner_values
+    assert not scanner.scan_bytes(claude_raw)
+    assert not scanner.scan_bytes(codex_raw)
 
-    assert scanner.scan_bytes(claude_bytes)
+
+def test_real_credential_scanner_seed_helpers_are_retired():
+    assert not hasattr(e3, "_read_credential_destination_nofollow")
+    assert not hasattr(e3, "_seed_credential_scanner")
 
 
 def test_setup_host2_credentials_refuses_codex_config_toml(monkeypatch, tmp_path):
@@ -2692,7 +2593,7 @@ def test_setup_host2_credentials_refuses_codex_config_toml(monkeypatch, tmp_path
             ambient_snapshots,
         )
 
-    assert scanner.scan_bytes(codex_bytes)
+    assert not scanner.scan_bytes(codex_bytes)
     assert ambient_snapshots["codex-auth.json"] == identity
 
 
@@ -3413,6 +3314,32 @@ def test_workspace_credential_decoys_are_exact_and_format_valid(tmp_path):
     verify_credential_decoys(tmp_path, paths, sentinels)
 
 
+def test_workspace_credential_decoys_are_removed_and_absence_proven(tmp_path):
+    paths = plant_credential_decoys(tmp_path, ["synthetic-secret"])
+    root = paths[0].parent
+
+    e3._remove_credential_decoys(tmp_path, paths)
+
+    assert not root.exists()
+    assert all(not path.exists() for path in paths)
+
+
+@pytest.mark.parametrize("failure_mode", ("no-op", "missing-error"))
+def test_workspace_credential_decoy_removal_fails_closed_when_absence_is_unproven(
+    monkeypatch, tmp_path, failure_mode
+):
+    paths = plant_credential_decoys(tmp_path, ["synthetic-secret"])
+
+    def failed_remove(*_args, **_kwargs):
+        if failure_mode == "missing-error":
+            raise FileNotFoundError("injected deletion failure")
+
+    monkeypatch.setattr(e3.shutil, "rmtree", failed_remove)
+
+    with pytest.raises(ValueError, match="decoy cleanup failed"):
+        e3._remove_credential_decoys(tmp_path, paths)
+
+
 @pytest.mark.parametrize("removed_count", [1, 2])
 def test_workspace_credential_decoys_reject_missing_required_paths(tmp_path, removed_count):
     sentinels = ["synthetic-secret"]
@@ -3586,14 +3513,15 @@ def test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up(monkeypatch):
 
 
 def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_image(
-    monkeypatch, tmp_path, stable_test_root
+    monkeypatch, tmp_path, stable_test_root, capsys
 ):
-    sentinel = "BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR"
+    configured = "BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR"
+    sentinel = "bive3-sentinel-" + "d" * 64
     source_scenario = (
         Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     )
     spec = json.loads(source_scenario.read_text(encoding="utf-8"))
-    spec["credential_scan_sentinels"] = [sentinel]
+    spec["credential_scan_sentinels"] = [configured]
     scenario = tmp_path / "credential-fixture-order.json"
     scenario.write_text(json.dumps(spec), encoding="utf-8")
     scratch = stable_test_root / "scratch"
@@ -3605,6 +3533,7 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
     captured_members = []
     captured_hits = []
     pack_time = {}
+    generated_counts = []
 
     def fake_seed(
         agent,
@@ -3656,9 +3585,28 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
 
     def stop_after_scan(*args):
         reached.append("terminal")
+        scanner = args[5]
+        assert scanner.scan_text(sentinel)
+        assert not scanner.scan_text(configured)
+        assert not (
+            scratch
+            / "seed-ws"
+            / spec["workspace_name"]
+            / e3.CREDENTIAL_DECOY_ROOT
+        ).exists()
         raise ValueError("stop after credential scan")
 
     monkeypatch.setenv("STUB_BIV_MODE", "ok")
+
+    def controlled_runtime_sentinels(count):
+        generated_counts.append(count)
+        return [sentinel] if count == 1 else pytest.fail(count)
+
+    monkeypatch.setattr(
+        e3,
+        "_runtime_credential_sentinels",
+        controlled_runtime_sentinels,
+    )
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
     monkeypatch.setattr(e3, "_seed_agent", fake_seed)
     monkeypatch.setattr(e3, "scan_image_secret_values", capturing_scan)
@@ -3669,11 +3617,16 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
         stub_biv,
         scratch,
     )
+    captured_console = capsys.readouterr()
 
     assert result.status is Status.INVALID
-    assert result.detail == "stop after credential scan"
+    assert result.detail == "e3-post-materialization-invalid"
+    assert generated_counts == [1]
+    assert sentinel not in captured_console.out
+    assert sentinel not in captured_console.err
     assert len(captured_reads) == 2
     assert all(sentinel not in blob for blob in captured_reads)
+    assert all(configured not in blob for blob in captured_reads)
     assert not any(
         member.startswith(f"payload/{e3.CREDENTIAL_DECOY_ROOT}/")
         for member in captured_members
@@ -3693,6 +3646,84 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
     )
     assert not (scratch / "seed-ws").exists()
     assert not (scratch / "host2").exists()
+
+
+def test_e3_controlled_sentinel_image_hit_stops_before_credential_materialization(
+    monkeypatch, tmp_path, stable_test_root
+):
+    sentinel = "bive3-sentinel-" + "f" * 64
+    spec_path, seen = _configure_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        pack_result=_successful_pack(),
+    )
+    scanned = []
+
+    monkeypatch.setattr(
+        e3,
+        "_runtime_credential_sentinels",
+        lambda count: [sentinel] if count == 1 else pytest.fail(count),
+    )
+
+    def controlled_hit(_image, values):
+        scanned.append(list(values))
+        return ["payload/auth.json:secret[0]"]
+
+    monkeypatch.setattr(e3, "scan_image_secret_values", controlled_hit)
+    monkeypatch.setattr(
+        e3,
+        "setup_host2_credentials",
+        lambda *_args: pytest.fail("credential materialization followed image hit"),
+    )
+
+    result = e3.run_e3(
+        spec_path,
+        Path("/fake/biv"),
+        stable_test_root / "scratch",
+    )
+
+    assert result.status is Status.INVALID
+    assert result.detail == (
+        "credential sentinel found in image: payload/auth.json:secret[0]"
+    )
+    assert sentinel not in result.detail
+    assert scanned == [[sentinel]]
+    assert seen == ["pack"]
+
+
+def test_e3_decoy_removal_error_stops_before_scanner_activation_and_setup(
+    monkeypatch, tmp_path, stable_test_root
+):
+    spec_path, seen = _configure_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        pack_result=_successful_pack(),
+    )
+    real_rmtree = e3.shutil.rmtree
+    setup_calls = []
+
+    def fail_decoy_remove(path, *args, **kwargs):
+        if Path(path).name == e3.CREDENTIAL_DECOY_ROOT:
+            raise FileNotFoundError("injected deletion failure")
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(e3.shutil, "rmtree", fail_decoy_remove)
+    monkeypatch.setattr(
+        e3,
+        "setup_host2_credentials",
+        lambda *_args: setup_calls.append(True),
+    )
+
+    result = e3.run_e3(
+        spec_path,
+        Path("/fake/biv"),
+        stable_test_root / "scratch",
+    )
+
+    assert result.status is Status.INVALID
+    assert result.detail == "controlled credential decoy cleanup failed"
+    assert setup_calls == []
+    assert seen == ["pack"]
 
 
 def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
@@ -3752,10 +3783,7 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
         result = e3.run_e3(scenario, Path("biv"), scratch)
         expected = scratch / "host2" / "work"
         assert result.status is Status.FAIL
-        assert result.detail == (
-            "open result malformed: installed agents [] do not match spec "
-            "['claude-code', 'codex']"
-        )
+        assert result.detail == "e3-post-materialization-fail"
         assert opened == [expected]
         assert restored_workspaces == [expected]
         assert e3._project_key(restored_workspaces[0]) != e3._project_key(scratch / "host2")
@@ -4432,6 +4460,144 @@ def _guarded_teardown_paths(tmp_path):
     )
 
 
+def test_scan_and_teardown_builds_typed_post_materialization_result(tmp_path):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+    dynamic = "RAW_REFRESHED_CREDENTIAL_OR_ENVELOPE_TEXT"
+    scanner = e3._CredentialScanner()
+    scanner.add_sentinel("bive3-sentinel-" + "a" * 64)
+
+    final = e3._scan_and_teardown(
+        ScenarioResult(
+            "e3",
+            "untrusted-tier",
+            Status.FAIL,
+            [dynamic],
+            [dynamic],
+            detail=dynamic,
+            warnings=[dynamic],
+        ),
+        scanner,
+        scratch,
+        child_outputs=[dynamic.encode()],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    serialized = serialize_report([final])
+    assert final == ScenarioResult(
+        id="e3",
+        tier="E3",
+        status=Status.FAIL,
+        classes=[],
+        held_asserts=[],
+        detail="e3-post-materialization-fail",
+        warnings=["biv-warning-present"],
+    )
+    assert dynamic not in serialized
+
+
+@pytest.mark.parametrize("representation_index", (0, 1, 2))
+@pytest.mark.parametrize("surface", ("child", "scratch"))
+def test_controlled_sentinel_forms_in_capture_surfaces_invalidate_cleanly(
+    tmp_path,
+    representation_index,
+    surface,
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+    sentinel = "bive3-sentinel-" + "b" * 63 + "/"
+    representation = (
+        sentinel.encode("ascii"),
+        sentinel.replace("/", r"\/").encode("ascii"),
+        "".join(f"\\u{ord(character):04x}" for character in sentinel).encode(
+            "ascii"
+        ),
+    )[representation_index]
+    child_outputs = []
+    if surface == "child":
+        child_outputs.append(representation)
+    else:
+        (seed_parent / "sentinel-copy").write_bytes(representation)
+    scanner = e3._CredentialScanner()
+    scanner.add_sentinel(sentinel)
+
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, [e3.E3_CLASS], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=child_outputs,
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    serialized = serialize_report([final]).encode()
+    expected_warning = (
+        "credential-child-output-detected"
+        if surface == "child"
+        else "credential-scan-detected"
+    )
+    assert final.status is Status.INVALID
+    assert expected_warning in final.warnings
+    assert representation not in serialized
+
+
+@pytest.mark.parametrize("representation_index", (0, 1, 2))
+def test_controlled_sentinel_forms_in_final_candidate_are_discarded(
+    representation_index,
+):
+    sentinel = "bive3-sentinel-" + "c" * 63 + "/"
+    representation = (
+        sentinel.encode("ascii"),
+        sentinel.replace("/", r"\/").encode("ascii"),
+        "".join(f"\\u{ord(character):04x}" for character in sentinel).encode(
+            "ascii"
+        ),
+    )[representation_index]
+    scanner = e3._CredentialScanner()
+    scanner.add_sentinel(sentinel)
+
+    final = e3._finalize_report(
+        ScenarioResult(
+            "e3",
+            "E3",
+            Status.FAIL,
+            [],
+            detail=representation.decode("ascii"),
+        ),
+        scanner,
+    )
+
+    serialized = serialize_report([final]).encode()
+    assert final.status is Status.INVALID
+    assert representation not in serialized
+    assert not scanner.scan_bytes(serialized)
+
+
 @pytest.mark.parametrize("credential_id", ("claude-code", "codex"))
 @pytest.mark.parametrize("mutation", ("missing", "replaced"))
 def test_scan_and_teardown_rejects_each_changed_credential_guard_during_tree_scan(
@@ -4977,7 +5143,7 @@ def test_scan_and_teardown_removes_all_targets_in_both_profile_topologies(
     )
 
     assert final.status is Status.FAIL
-    assert final.detail == "primary failure"
+    assert final.detail == "e3-post-materialization-fail"
     for target in (claude_dest, codex_dest, profile_root, host2, seed_parent):
         with pytest.raises(FileNotFoundError):
             os.lstat(target)
@@ -5027,7 +5193,7 @@ def test_scan_and_teardown_attempts_all_targets_after_non_oserror_stat_failure(
     )
 
     assert final.status is Status.FAIL
-    assert final.detail == "primary failure"
+    assert final.detail == "e3-post-materialization-fail"
     assert "cleanup-stat-failed" in final.warnings
     assert all(count >= 1 for count in target_calls.values())
     assert all(count >= 2 for count in target_calls.values())
@@ -5072,7 +5238,7 @@ def test_scan_and_teardown_folds_unlink_failure_and_preserves_primary(
     )
 
     assert final.status is Status.FAIL
-    assert final.detail == "primary failure"
+    assert final.detail == "e3-post-materialization-fail"
     assert "cleanup-unlink-failed" in final.warnings
     assert not any(
         target.exists()
@@ -5124,7 +5290,7 @@ def test_scan_and_teardown_folds_absence_stat_failure_after_all_removals(
     )
 
     assert final.status is Status.FAIL
-    assert final.detail == "primary failure"
+    assert final.detail == "e3-post-materialization-fail"
     assert "cleanup-absence-stat-failed" in final.warnings
     assert all(count >= 2 for count in calls.values())
 
@@ -7404,18 +7570,25 @@ def _run_argv_barrier_flow(
     restored_symlink=False,
     unexpected_phase=None,
     post_materialization_base_exception=None,
-    leak_payload=CODEX_ACCESS_LEAF,
-    exception_leak_payload=CODEX_ACCESS_LEAF,
+    leak_payload=None,
+    exception_leak_payload=None,
     scratch_leak_payload=None,
     credential_guard_mutation=None,
     profile_topology="nested",
     preexisting_profile_symlink=None,
+    controlled_sentinel=CONTROLLED_RUNTIME_SENTINEL,
 ):
     spec = _argv_barrier_spec(stable_test_root)
     if profile_topology == "sibling":
         spec.pop("host2_profile_root")
     elif profile_topology != "nested":
         raise AssertionError(f"unsupported profile topology: {profile_topology}")
+    leak_payload = controlled_sentinel if leak_payload is None else leak_payload
+    exception_leak_payload = (
+        controlled_sentinel
+        if exception_leak_payload is None
+        else exception_leak_payload
+    )
     binaries = {
         "codex": "/opt/agents/codex-real",
         "claude": "/opt/agents/claude-real",
@@ -7636,6 +7809,11 @@ def _run_argv_barrier_flow(
         return envs
 
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(
+        e3,
+        "_runtime_credential_sentinels",
+        lambda count: [controlled_sentinel] if count == 1 else pytest.fail(count),
+    )
     monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
     monkeypatch.setattr(e3, "assert_exact_install_delta", fake_install_delta)
     monkeypatch.setattr(e3, "assert_resume_containment", lambda *args, **kwargs: None)
@@ -7798,7 +7976,7 @@ def test_run_e3_invalidates_each_post_materialization_output_leak(
 
     assert result.status is Status.INVALID
     assert "credential-child-output-detected" in result.warnings
-    assert CODEX_ACCESS_LEAF not in serialize_report([result])
+    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
 
 
 @pytest.mark.parametrize(
@@ -7817,7 +7995,7 @@ def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
 
     assert result.status is Status.INVALID
     assert "credential-child-output-detected" in result.warnings
-    assert CODEX_ACCESS_LEAF not in serialize_report([result])
+    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
     if exception_leak_phase == "auth":
         auth_calls = [
             command
@@ -7834,12 +8012,12 @@ def test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization
         monkeypatch,
         tmp_path,
         stable_test_root,
-        scratch_leak_payload=CODEX_ACCESS_LEAF,
+        scratch_leak_payload=CONTROLLED_RUNTIME_SENTINEL,
     )
 
     assert result.status is Status.INVALID
     assert "credential-scan-detected" in result.warnings
-    assert CODEX_ACCESS_LEAF not in serialize_report([result])
+    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
 
 
 @pytest.mark.parametrize("mutation", ("missing", "replaced"))
@@ -7857,86 +8035,6 @@ def test_run_e3_invalidates_changed_credential_guard_after_materialization(
     assert result.status is Status.INVALID
     assert "credential-exclusion-integrity-failed" in result.warnings
     assert CODEX_ACCESS_LEAF not in serialized
-
-
-def test_run_e3_invalidates_json_escaped_leaf_in_child_output(
-    monkeypatch, tmp_path, stable_test_root
-):
-    result, *_ = _run_argv_barrier_flow(
-        monkeypatch,
-        tmp_path,
-        stable_test_root,
-        leak_phase="open",
-        leak_payload=ESCAPED_CREDENTIAL_OUTPUT,
-    )
-
-    assert result.status is Status.INVALID
-    assert "credential-child-output-detected" in result.warnings
-    assert ESCAPED_CREDENTIAL_JSON not in serialize_report([result])
-
-
-def test_run_e3_invalidates_json_escaped_leaf_in_exceptional_output(
-    monkeypatch, tmp_path, stable_test_root
-):
-    result, *_ = _run_argv_barrier_flow(
-        monkeypatch,
-        tmp_path,
-        stable_test_root,
-        exception_leak_phase="liveness",
-        exception_leak_payload=ESCAPED_CREDENTIAL_OUTPUT,
-    )
-
-    assert result.status is Status.INVALID
-    assert "credential-child-output-detected" in result.warnings
-    assert ESCAPED_CREDENTIAL_JSON not in serialize_report([result])
-
-
-def test_run_e3_invalidates_json_escaped_leaf_copied_into_scratch(
-    monkeypatch, tmp_path, stable_test_root
-):
-    result, *_ = _run_argv_barrier_flow(
-        monkeypatch,
-        tmp_path,
-        stable_test_root,
-        scratch_leak_payload=ESCAPED_CREDENTIAL_OUTPUT,
-    )
-
-    assert result.status is Status.INVALID
-    assert "credential-scan-detected" in result.warnings
-    assert ESCAPED_CREDENTIAL_JSON not in serialize_report([result])
-
-
-def test_run_e3_invalidates_nested_credential_value_copied_into_scratch(
-    monkeypatch, tmp_path, stable_test_root
-):
-    result, *_ = _run_argv_barrier_flow(
-        monkeypatch,
-        tmp_path,
-        stable_test_root,
-        scratch_leak_payload=NESTED_CREDENTIAL_LEAF,
-    )
-
-    assert result.status is Status.INVALID
-    assert "credential-scan-detected" in result.warnings
-    assert NESTED_CREDENTIAL_LEAF not in serialize_report([result])
-
-
-def test_run_e3_sanitizes_nested_json_escaped_value_from_child_and_report(
-    monkeypatch, tmp_path, stable_test_root
-):
-    result, *_ = _run_argv_barrier_flow(
-        monkeypatch,
-        tmp_path,
-        stable_test_root,
-        leak_phase="open",
-        leak_payload=NESTED_CREDENTIAL_OUTPUT,
-    )
-
-    serialized = serialize_report([result])
-    assert result.status is Status.INVALID
-    assert "credential-child-output-detected" in result.warnings
-    assert NESTED_CREDENTIAL_JSON not in serialized
-    assert NESTED_CREDENTIAL_LEAF not in serialized
 
 
 def test_run_e3_rejects_restored_workspace_symlink_before_any_resume_spawn(
@@ -8117,7 +8215,7 @@ def test_run_e3_wrong_host2_version_materializes_no_credentials(
     )
 
     assert result.status is Status.INVALID
-    assert "host2 version is outside the validated range" in result.detail
+    assert result.detail == "e3-post-materialization-invalid"
     assert len(setup_calls) == 1
     assert [event[0] for event in lifecycle_events] == ["version", "version"]
     assert not any(event[0] == "materializer" for event in lifecycle_events)

@@ -39,7 +39,6 @@ CREDENTIAL_DECOY_NAMES = (".credentials.json", "auth.json", ".env")
 CREDENTIAL_DECOY_ROOT = ".biv-e3-credential-decoys"
 CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
 CREDENTIAL_MAX_BYTES = 64 * 1024
-_CREDENTIAL_VALUE_MAX_NODES = CREDENTIAL_MAX_BYTES
 DOTENV_SAFE_SENTINEL = re.compile(r"[A-Za-z0-9_.:@/+\-=]+")
 CLAUDE_RESUME_MUTATION = "appends-same-file"
 CODEX_RESUME_SHAPE = "appends-same-rollout"
@@ -146,6 +145,14 @@ class _CredentialScanner:
                 self._values.append(bytearray(value))
             return
         raise TypeError("credential value must be text or bytes")
+
+    def add_sentinel(self, sentinel: str) -> None:
+        seen: set[bytes] = set()
+        for representation in _sentinel_representations(sentinel):
+            if representation in seen:
+                continue
+            seen.add(representation)
+            self.add_value(representation)
 
     def scan_bytes(self, blob: bytes | bytearray) -> bool:
         return any(value in blob for value in self._values)
@@ -453,6 +460,40 @@ def _minimal_sanitized_report_result() -> ScenarioResult:
     )
 
 
+def _typed_post_materialization_result(
+    primary: ScenarioResult,
+    integrity_notes: list[str],
+    cleanup_notes: list[str],
+) -> ScenarioResult:
+    status = primary.status
+    if integrity_notes or (cleanup_notes and status is Status.PASS):
+        status = Status.INVALID
+    safe_id = (
+        primary.id
+        if isinstance(primary.id, str)
+        and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", primary.id)
+        else "e3-invalid-spec"
+    )
+    detail = {
+        Status.PASS: "e3-post-materialization-pass",
+        Status.FAIL: "e3-post-materialization-fail",
+        Status.INVALID: "e3-post-materialization-invalid",
+        Status.XFAIL_PENDING: "e3-post-materialization-pending",
+    }[status]
+    warnings = [*integrity_notes, *cleanup_notes]
+    if primary.warnings:
+        warnings.insert(0, "biv-warning-present")
+    return ScenarioResult(
+        id=safe_id,
+        tier="E3",
+        status=status,
+        classes=[E3_CLASS] if status is Status.PASS else [],
+        held_asserts=[],
+        detail=detail,
+        warnings=warnings,
+    )
+
+
 def _finalize_report(
     result: ScenarioResult,
     scanner: _CredentialScanner,
@@ -645,7 +686,13 @@ def _scan_and_teardown(
 
         settled = primary
         notes = [*integrity_notes, *cleanup_notes]
-        if notes:
+        if active:
+            settled = _typed_post_materialization_result(
+                primary,
+                integrity_notes,
+                cleanup_notes,
+            )
+        elif notes:
             if integrity_notes or primary.status is Status.PASS:
                 settled = ScenarioResult(
                     primary.id,
@@ -1289,108 +1336,6 @@ def _credential_guard(path: Path) -> _CredentialGuard:
         _close_nofollow_parent(opened)
 
 
-def _read_credential_destination_nofollow(
-    path: Path,
-) -> tuple[bytes, _CredentialGuard]:
-    """Read one private credential destination without following a path component."""
-    opened = _open_parent_directory_nofollow(path)
-    if opened is None:
-        raise ValueError("credential destination unavailable")
-    try:
-        expected = _entry_status(opened.descriptor, opened.name)
-        if (
-            expected is None
-            or not stat.S_ISREG(expected.st_mode)
-            or expected.st_nlink != 1
-            or expected.st_size > CREDENTIAL_MAX_BYTES
-        ):
-            raise ValueError("credential destination unavailable")
-        data = _read_regular_file_nofollow(
-            opened.descriptor,
-            opened.name,
-            expected,
-            "credential destination",
-        )
-        if not data or len(data) > CREDENTIAL_MAX_BYTES:
-            raise ValueError("credential destination unavailable")
-        current = _entry_status(opened.descriptor, opened.name)
-        if (
-            current is None
-            or not stat.S_ISREG(current.st_mode)
-            or current.st_nlink != 1
-            or not _same_entry(expected, current)
-        ):
-            raise ValueError("credential destination unavailable")
-        _verify_parent_unchanged(opened, "credential destination")
-        return data, _CredentialGuard(Path(path), current)
-    finally:
-        _close_nofollow_parent(opened)
-
-
-def _seed_credential_scanner(
-    scanner: _CredentialScanner,
-    raw: bytes,
-    credential_id: str,
-) -> None:
-    try:
-        scanner.add_value(raw)
-        if credential_id == "claude-code":
-            shape_ok = claude_shape_ok(raw)
-        elif credential_id == "codex":
-            shape_ok = codex_shape_ok(raw)
-        else:
-            shape_ok = False
-        if not shape_ok:
-            raise ValueError("credential destination unavailable")
-        parsed = json.loads(raw)
-
-        stack: list[object] = [parsed]
-        seen_containers: set[int] = set()
-        visited = 0
-        while stack:
-            value = stack.pop()
-            visited += 1
-            if visited > _CREDENTIAL_VALUE_MAX_NODES:
-                raise ValueError("credential destination unavailable")
-            if isinstance(value, str):
-                if not value:
-                    continue
-                encoded = value.encode("utf-8")
-                escaped_json = json.dumps(value, ensure_ascii=True)
-                if (
-                    len(escaped_json) < 2
-                    or escaped_json[0] != '"'
-                    or escaped_json[-1] != '"'
-                ):
-                    raise ValueError("credential destination unavailable")
-                scanner.add_value(encoded)
-                scanner.add_value(escaped_json[1:-1].encode("ascii"))
-                continue
-            if isinstance(value, dict):
-                child_count = len(value)
-            elif isinstance(value, list):
-                child_count = len(value)
-            elif value is None or isinstance(value, (bool, int, float)):
-                continue
-            else:
-                raise ValueError("credential destination unavailable")
-
-            identity = id(value)
-            if identity in seen_containers:
-                raise ValueError("credential destination unavailable")
-            seen_containers.add(identity)
-            if visited + len(stack) + child_count > _CREDENTIAL_VALUE_MAX_NODES:
-                raise ValueError("credential destination unavailable")
-            if isinstance(value, dict):
-                if any(not isinstance(key, str) for key in value):
-                    raise ValueError("credential destination unavailable")
-                stack.extend(reversed(value.values()))
-            else:
-                stack.extend(reversed(value))
-    except Exception:
-        raise ValueError("credential destination unavailable") from None
-
-
 def _credential_path_exists_nofollow(path: Path) -> bool:
     opened = _open_parent_directory_nofollow(path)
     if opened is None:
@@ -1571,6 +1516,54 @@ def verify_credential_decoys(workspace: Path, paths: list[Path], sentinels: list
         or any(sentinel not in value for sentinel in sentinels)
     ):
         raise ValueError("controlled credential-shaped decoy format invalid")
+
+
+def _remove_credential_decoys(workspace: Path, paths: list[Path]) -> None:
+    root = workspace / CREDENTIAL_DECOY_ROOT
+    if (
+        not paths
+        or any(path.parent != root for path in paths)
+        or {path.name for path in paths} != set(CREDENTIAL_DECOY_NAMES)
+    ):
+        raise ValueError("controlled credential decoy cleanup failed")
+    try:
+        shutil.rmtree(root)
+    except BaseException:
+        raise ValueError("controlled credential decoy cleanup failed") from None
+    try:
+        os.lstat(root)
+    except FileNotFoundError:
+        return
+    except BaseException:
+        raise ValueError("controlled credential decoy cleanup failed") from None
+    raise ValueError("controlled credential decoy cleanup failed")
+
+
+def _runtime_credential_sentinels(count: int) -> list[str]:
+    if type(count) is not int or count <= 0:
+        raise ValueError("credential sentinel cardinality invalid")
+    return [f"bive3-sentinel-{secrets.token_hex(32)}" for _ in range(count)]
+
+
+def _sentinel_representations(sentinel: str) -> tuple[bytes, ...]:
+    if (
+        not isinstance(sentinel, str)
+        or not sentinel
+        or len(sentinel) > 128
+        or not sentinel.isascii()
+    ):
+        raise ValueError("credential sentinel representation unavailable")
+    canonical = sentinel.encode("ascii")
+    solidus = sentinel.replace("/", r"\/").encode("ascii")
+    ascii_u = "".join(f"\\u{ord(character):04x}" for character in sentinel).encode(
+        "ascii"
+    )
+    source_forms = (canonical, solidus, ascii_u)
+    report_forms = tuple(
+        json.dumps(form.decode("ascii"), ensure_ascii=True)[1:-1].encode("ascii")
+        for form in source_forms
+    )
+    return tuple(dict.fromkeys((*source_forms, *report_forms)))
 
 
 def _hash(path: Path) -> str:
@@ -1825,9 +1818,7 @@ def setup_host2_credentials(
     if claude_result.status is not CredentialStatus.OK or claude_result.dest is None:
         raise ValueError("host2 credential unavailable: claude-code")
     try:
-        raw, guard = _read_credential_destination_nofollow(claude_result.dest)
-        _seed_credential_scanner(scanner, raw, "claude-code")
-        credential_guards["claude-code"] = guard
+        credential_guards["claude-code"] = _credential_guard(claude_result.dest)
     except (OSError, ValueError, TypeError):
         raise ValueError("host2 credential unavailable: claude-code") from None
 
@@ -1844,9 +1835,7 @@ def setup_host2_credentials(
     ):
         raise ValueError("host2 credential unavailable: codex")
     try:
-        raw, guard = _read_credential_destination_nofollow(codex_result.dest)
-        _seed_credential_scanner(scanner, raw, "codex")
-        credential_guards["codex"] = guard
+        credential_guards["codex"] = _credential_guard(codex_result.dest)
     except (OSError, ValueError, TypeError):
         raise ValueError("host2 credential unavailable: codex") from None
     ambient_snapshots["codex-auth.json"] = codex_result.identity
@@ -2860,7 +2849,7 @@ def run_e3(
         ) / "auth.json"
         spec = materialize_run_tokens(spec)
         seed_ws = seed_parent / spec.get("workspace_name", "resume-e3")
-        credential_sentinels = spec.get("credential_scan_sentinels", [])
+        credential_sentinel_count = len(spec.get("credential_scan_sentinels", []))
         resolved_binaries = _resolve_agent_binaries(spec)
         if seed_parent.is_symlink() or seed_parent.exists() or seed_ws.is_symlink() or seed_ws.exists():
             raise ValueError("seed workspace must be fresh and contained by scratch")
@@ -2908,6 +2897,9 @@ def run_e3(
         if negative_control:
             raise _ScenarioExit(_run_result(Status.INVALID, "\n".join(negative_control)))
 
+        credential_sentinels = _runtime_credential_sentinels(
+            credential_sentinel_count
+        )
         credential_decoys = plant_credential_decoys(seed_ws, credential_sentinels)
         verify_credential_decoys(seed_ws, credential_decoys, credential_sentinels)
         before = {path: _hash(path) for path in owned_paths}
@@ -2925,6 +2917,9 @@ def run_e3(
         image_secret_hits = scan_image_secret_values(image, credential_sentinels)
         if image_secret_hits:
             raise ValueError("credential sentinel found in image: " + ", ".join(image_secret_hits))
+        _remove_credential_decoys(seed_ws, credential_decoys)
+        for sentinel in credential_sentinels:
+            scanner.add_sentinel(sentinel)
 
         try:
             _validate_fresh_host2_profile_topology(spec, profile_root)
