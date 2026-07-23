@@ -105,7 +105,7 @@ class _CredentialScanner:
             return
         if isinstance(value, bytearray):
             if value:
-                self._values.append(value)
+                self._values.append(bytearray(value))
             return
         if isinstance(value, bytes):
             if value:
@@ -151,6 +151,29 @@ class _CredentialScanner:
         current = os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
         return _same_entry(expected, current)
 
+    @staticmethod
+    def _directory_snapshot_matches(
+        before: os.stat_result,
+        after: os.stat_result,
+    ) -> bool:
+        return (
+            before.st_dev,
+            before.st_ino,
+            stat.S_IFMT(before.st_mode),
+            before.st_nlink,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        ) == (
+            after.st_dev,
+            after.st_ino,
+            stat.S_IFMT(after.st_mode),
+            after.st_nlink,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        )
+
     def _scan_regular(
         self,
         parent_descriptor: int,
@@ -158,11 +181,18 @@ class _CredentialScanner:
         expected: os.stat_result,
         *,
         read_contents: bool,
+        require_single_link: bool = False,
     ) -> bool:
+        if require_single_link and expected.st_nlink != 1:
+            return True
         descriptor = os.open(name, _REGULAR_NOFOLLOW_FLAGS, dir_fd=parent_descriptor)
         try:
             opened = os.fstat(descriptor)
-            if not stat.S_ISREG(opened.st_mode) or not _same_entry(expected, opened):
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or not _same_entry(expected, opened)
+                or (require_single_link and opened.st_nlink != 1)
+            ):
                 return True
             if read_contents:
                 tail = b""
@@ -176,11 +206,19 @@ class _CredentialScanner:
                         return True
                     tail = window[-tail_size:] if tail_size else b""
             final = os.fstat(descriptor)
-            if not stat.S_ISREG(final.st_mode) or not _same_entry(opened, final):
+            if (
+                not stat.S_ISREG(final.st_mode)
+                or not _same_entry(opened, final)
+                or (require_single_link and final.st_nlink != 1)
+            ):
                 return True
         finally:
             os.close(descriptor)
-        return not self._entry_matches(parent_descriptor, name, expected)
+        current = os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
+        return (
+            not _same_entry(expected, current)
+            or (require_single_link and current.st_nlink != 1)
+        )
 
     def _scan_directory(
         self,
@@ -190,6 +228,9 @@ class _CredentialScanner:
         unseen_exclusions: set[Path],
     ) -> bool:
         try:
+            before = os.fstat(descriptor)
+            if not stat.S_ISDIR(before.st_mode):
+                return True
             with os.scandir(descriptor) as entries:
                 for entry in entries:
                     name = entry.name
@@ -208,6 +249,7 @@ class _CredentialScanner:
                             name,
                             expected,
                             read_contents=False,
+                            require_single_link=True,
                         ):
                             return True
                         continue
@@ -233,6 +275,12 @@ class _CredentialScanner:
                         os.close(child)
                     if not self._entry_matches(descriptor, name, expected):
                         return True
+            after = os.fstat(descriptor)
+            if (
+                not stat.S_ISDIR(after.st_mode)
+                or not self._directory_snapshot_matches(before, after)
+            ):
+                return True
         except (OSError, ValueError, RuntimeError):
             return True
         return False
@@ -284,6 +332,18 @@ def _sanitized_report_result() -> ScenarioResult:
     )
 
 
+def _minimal_sanitized_report_result() -> ScenarioResult:
+    return ScenarioResult(
+        id="",
+        tier="",
+        status=Status.INVALID,
+        classes=[],
+        held_asserts=[],
+        detail="",
+        warnings=[],
+    )
+
+
 def _finalize_report(
     result: ScenarioResult,
     scanner: _CredentialScanner,
@@ -295,10 +355,16 @@ def _finalize_report(
         pass
     sanitized = _sanitized_report_result()
     try:
-        scanner.scan_bytes(serialize_report([sanitized]).encode("utf-8"))
+        if not scanner.scan_bytes(serialize_report([sanitized]).encode("utf-8")):
+            return sanitized
     except Exception:
         pass
-    return sanitized
+    minimal = _minimal_sanitized_report_result()
+    try:
+        scanner.scan_bytes(serialize_report([minimal]).encode("utf-8"))
+    except Exception:
+        pass
+    return minimal
 
 
 def rejected_credential_names(env: dict[str, str]) -> list[str]:

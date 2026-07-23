@@ -3425,6 +3425,17 @@ def test_credential_scanner_excludes_only_the_exact_regular_path(tmp_path):
     assert not scanner.scan_tree(tmp_path, {excluded})
 
 
+def test_credential_scanner_rejects_multiply_linked_exclusion_without_values(
+    tmp_path,
+):
+    scanner = e3._CredentialScanner()
+    excluded = tmp_path / "credential"
+    excluded.write_bytes(b"ordinary")
+    os.link(excluded, tmp_path / "hardlink-alias")
+
+    assert scanner.scan_tree(tmp_path, {excluded})
+
+
 def test_credential_scanner_ignores_empty_values():
     scanner = e3._CredentialScanner()
     scanner.add_value(b"")
@@ -3510,15 +3521,64 @@ def test_credential_scanner_detects_values_split_across_read_chunks(tmp_path):
     assert scanner.scan_tree(tmp_path, set())
 
 
-def test_credential_scanner_drop_zeroes_owned_bytearray_without_revealing_it():
+def test_credential_scanner_copies_caller_bytearray():
     scanner = e3._CredentialScanner()
-    observed = bytearray(b"scanner-drop-secret")
-    scanner.add_value(observed)
+    caller = bytearray(b"scanner-owned-secret")
+    scanner.add_value(caller)
+
+    caller[:] = b"x" * len(caller)
+
+    assert scanner.scan_bytes(b"scanner-owned-secret")
+    assert not scanner.scan_bytes(caller)
+
+
+def test_credential_scanner_drop_zeroes_and_clears_private_owned_buffer():
+    scanner = e3._CredentialScanner()
+    scanner.add_value(bytearray(b"scanner-drop-secret"))
+    owned = scanner._values[0]
 
     scanner.drop()
 
-    assert observed == bytearray(len(observed))
+    assert owned == bytearray(len(owned))
+    assert scanner._values == []
     assert "scanner-drop-secret" not in repr(scanner)
+
+
+def test_credential_scanner_detects_entry_added_after_directory_enumeration(
+    monkeypatch, tmp_path
+):
+    scanner = e3._CredentialScanner()
+    (tmp_path / "existing").write_bytes(b"ordinary")
+    real_scandir = e3.os.scandir
+    mutated = False
+
+    class MutatingScandir:
+        def __init__(self, descriptor):
+            self._entries = real_scandir(descriptor)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self._entries.close()
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            nonlocal mutated
+            try:
+                return next(self._entries)
+            except StopIteration:
+                if not mutated:
+                    (tmp_path / "late-addition").write_bytes(b"ordinary")
+                    mutated = True
+                raise
+
+    monkeypatch.setattr(e3.os, "scandir", MutatingScandir)
+
+    assert scanner.scan_tree(tmp_path, set())
+    assert mutated
 
 
 def test_finalize_report_replaces_all_secret_bearing_fields(tmp_path):
@@ -3573,7 +3633,9 @@ def test_finalize_report_swallows_a_rescan_failure_after_sanitizing():
             self.calls += 1
             if self.calls == 1:
                 return True
-            raise RuntimeError("rescan failed")
+            if self.calls == 2:
+                raise RuntimeError("rescan failed")
+            return False
 
     scanner = BrokenRescan()
     final = e3._finalize_report(
@@ -3581,11 +3643,65 @@ def test_finalize_report_swallows_a_rescan_failure_after_sanitizing():
         scanner,
     )
 
-    assert scanner.calls == 2
+    assert scanner.calls == 3
     assert final.status is Status.INVALID
+    assert final.id == ""
+    assert final.tier == ""
+    assert final.detail == ""
     assert final.classes == []
     assert final.held_asserts == []
     assert final.warnings == []
+
+
+def test_finalize_report_uses_minimal_fallback_on_positive_sanitized_rescan():
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"E3")
+
+    final = e3._finalize_report(
+        ScenarioResult("id", "E3", Status.FAIL, [], detail="unsafe"),
+        scanner,
+    )
+
+    assert b"E3" not in serialize_report([final]).encode("utf-8")
+    assert final.status is Status.INVALID
+    assert final.id == ""
+    assert final.tier == ""
+    assert final.detail == ""
+    assert final.classes == []
+    assert final.held_asserts == []
+    assert final.warnings == []
+
+
+@pytest.mark.parametrize("fallback_outcome", ["hit", "error"])
+def test_finalize_report_returns_minimal_fallback_when_its_scan_fails(
+    fallback_outcome,
+):
+    class FallbackScanner:
+        def __init__(self):
+            self.calls = 0
+
+        def scan_bytes(self, blob):
+            self.calls += 1
+            if self.calls < 3 or fallback_outcome == "hit":
+                return True
+            raise RuntimeError("fallback scan failed")
+
+    scanner = FallbackScanner()
+    final = e3._finalize_report(
+        ScenarioResult("id", "E3", Status.FAIL, [], detail="unsafe"),
+        scanner,
+    )
+
+    assert scanner.calls == 3
+    assert final == ScenarioResult(
+        id="",
+        tier="",
+        status=Status.INVALID,
+        classes=[],
+        held_asserts=[],
+        detail="",
+        warnings=[],
+    )
 
 
 def test_class_j_workspace_memoryless_and_version_predicates(tmp_path):
