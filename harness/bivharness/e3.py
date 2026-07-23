@@ -2720,12 +2720,18 @@ def run_e3(
         ))
     except _ScenarioExit as exit_result:
         primary = exit_result.result
-    except Exception as exc:
+    except BaseException as exc:
         try:
             scanner_active = scanner is not None and scanner.active
         except BaseException:
             scanner_active = True
-        detail = "post-materialization execution failed" if scanner_active else str(exc)
+        if scanner_active:
+            detail = "post-materialization execution failed"
+        else:
+            try:
+                detail = str(exc)
+            except BaseException:
+                detail = "post-dry-run execution failed"
         primary = _run_result(Status.INVALID, detail)
     finally:
         try:

@@ -6608,6 +6608,7 @@ def _run_argv_barrier_flow(
     exception_leak_phase=None,
     restored_symlink=False,
     unexpected_phase=None,
+    post_materialization_base_exception=None,
 ):
     spec = _argv_barrier_spec(stable_test_root)
     binaries = {
@@ -6718,6 +6719,11 @@ def _run_argv_barrier_flow(
         elif Path(cwd) == scratch / "host2" / "work":
             phase = "resume"
         post_materialization = Path(cwd) != scratch / "seed-ws" / spec["workspace_name"]
+        if (
+            post_materialization_base_exception is not None
+            and phase == "open"
+        ):
+            raise post_materialization_base_exception
         if unexpected_phase is not None and phase == unexpected_phase:
             raise RuntimeError("unexpected synthetic execution failure")
         if (
@@ -6960,6 +6966,64 @@ def test_run_e3_token_materialization_exception_is_finalized_and_dropped_once(
     assert finalize_calls == 1
     assert len(scanners) == 1
     assert scanners[0].drop_calls == 1
+
+
+def test_run_e3_post_materialization_baseexception_finalizes_and_removes_all_targets(
+    monkeypatch, tmp_path, stable_test_root
+):
+    class SyntheticAbort(BaseException):
+        pass
+
+    scanners = []
+
+    class RecordingScanner(e3._CredentialScanner):
+        def __init__(self):
+            super().__init__()
+            self.drop_calls = 0
+            scanners.append(self)
+
+        def drop(self):
+            self.drop_calls += 1
+            return super().drop()
+
+    finalize_calls = 0
+    real_finalize = e3._finalize_report
+
+    def recording_finalize(result, scanner):
+        nonlocal finalize_calls
+        finalize_calls += 1
+        return real_finalize(result, scanner)
+
+    monkeypatch.setattr(e3, "_CredentialScanner", RecordingScanner)
+    monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+    result, spec, _, _, _, scratch = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        post_materialization_base_exception=SyntheticAbort(
+            "synthetic post-materialization abort"
+        ),
+    )
+
+    profile_root = scratch / "host2" / "profiles"
+    claude = next(agent for agent in spec["agents"] if agent["id"] == "claude-code")
+    codex = next(agent for agent in spec["agents"] if agent["id"] == "codex")
+    claude_dest = e3._agent_profile(claude, profile_root, live=False) / ".credentials.json"
+    codex_dest = e3._agent_profile(codex, profile_root, live=False) / "auth.json"
+    targets = (
+        claude_dest,
+        codex_dest,
+        profile_root,
+        scratch / "host2",
+        scratch / "seed-ws",
+    )
+    assert result.status is Status.INVALID
+    assert finalize_calls == 1
+    assert len(scanners) == 1
+    assert scanners[0].drop_calls == 1
+    for target in targets:
+        with pytest.raises(FileNotFoundError):
+            os.lstat(target)
 
 
 @pytest.mark.parametrize("wrong_version", ["claude-code", "codex"])
