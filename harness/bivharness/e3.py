@@ -1,4 +1,5 @@
 import errno
+import getpass
 import hashlib
 import json
 import os
@@ -15,6 +16,16 @@ from pathlib import Path
 from typing import Any, Callable, NamedTuple
 
 from bivharness.artifact import extract_member, list_members
+from bivharness.host2_credentials import (
+    CredentialResult,
+    CredentialStatus,
+    SourceIdentity,
+    claude_shape_ok,
+    codex_shape_ok,
+    materialize_file_credential,
+    materialize_keychain_credential,
+    snapshot_identity,
+)
 from bivharness.precheck import pin_env, probe, profile_root_failures
 from bivharness.report import ScenarioResult, Status, serialize_report
 
@@ -26,6 +37,8 @@ CREDENTIAL_ENV_NAMES = (
 )
 CREDENTIAL_DECOY_NAMES = (".credentials.json", "auth.json", ".env")
 CREDENTIAL_DECOY_ROOT = ".biv-e3-credential-decoys"
+CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
+CREDENTIAL_MAX_BYTES = 64 * 1024
 DOTENV_SAFE_SENTINEL = re.compile(r"[A-Za-z0-9_.:@/+\-=]+")
 CLAUDE_RESUME_MUTATION = "appends-same-file"
 CODEX_RESUME_SHAPE = "appends-same-rollout"
@@ -79,6 +92,12 @@ class _OpenResultOutcome(NamedTuple):
     detail: str
 
 
+class _ScenarioExit(Exception):
+    def __init__(self, result: ScenarioResult) -> None:
+        super().__init__()
+        self.result = result
+
+
 class _NofollowParent(NamedTuple):
     descriptor: int
     name: str
@@ -96,6 +115,10 @@ class _CredentialScanner:
 
     def __repr__(self) -> str:
         return "_CredentialScanner()"
+
+    @property
+    def active(self) -> bool:
+        return bool(self._values)
 
     def add_value(self, value: str | bytes | bytearray) -> None:
         if isinstance(value, str):
@@ -380,6 +403,177 @@ def _finalize_report(
     except Exception:
         pass
     return minimal
+
+
+def _scan_and_teardown(
+    primary: ScenarioResult,
+    scanner: _CredentialScanner,
+    scratch: Path,
+    *,
+    child_outputs: list[bytes],
+    ambient_snapshots: dict[str, SourceIdentity],
+    claude_dest: Path,
+    codex_dest: Path,
+    profile_root: Path,
+    host2: Path,
+    seed_parent: Path,
+    remove_targets: bool = True,
+) -> ScenarioResult:
+    """Settle one result, scan all captured state, then remove every private target."""
+
+    notes: list[str] = []
+
+    def note(value: str) -> None:
+        if value not in notes:
+            notes.append(value)
+
+    def remove_file(path: Path) -> None:
+        try:
+            os.lstat(path)
+        except FileNotFoundError:
+            return
+        except BaseException:
+            note("cleanup-stat-failed")
+            return
+        try:
+            path.unlink()
+        except BaseException:
+            note("cleanup-unlink-failed")
+
+    def remove_tree(path: Path) -> None:
+        try:
+            os.lstat(path)
+        except FileNotFoundError:
+            return
+        except BaseException:
+            note("cleanup-stat-failed")
+            return
+
+        def onerror(_function: Callable[..., Any], _path: str, _exc: Any) -> None:
+            note("cleanup-rmtree-failed")
+
+        try:
+            shutil.rmtree(path, onerror=onerror)
+        except BaseException:
+            note("cleanup-rmtree-failed")
+
+    def exact_exclusion(path: Path) -> Path | None:
+        opened: _NofollowParent | None = None
+        try:
+            opened = _open_parent_directory_nofollow(path)
+            if opened is None:
+                return None
+            expected = _entry_status(opened.descriptor, opened.name)
+            if (
+                expected is None
+                or not stat.S_ISREG(expected.st_mode)
+                or expected.st_nlink != 1
+            ):
+                return None
+            _verify_parent_unchanged(opened, "credential exclusion")
+            return path
+        except BaseException:
+            return None
+        finally:
+            if opened is not None:
+                try:
+                    _close_nofollow_parent(opened)
+                except BaseException:
+                    note("credential-scan-failed")
+
+    def scanned_constant() -> ScenarioResult:
+        constant = _sanitized_report_result()
+        try:
+            scanner.scan_bytes(serialize_report([constant]).encode("utf-8"))
+        except BaseException:
+            pass
+        return constant
+
+    final: ScenarioResult | None = None
+    try:
+        active = False
+        try:
+            active = scanner.active
+        except BaseException:
+            note("credential-scan-failed")
+        if active:
+            try:
+                exclusions = {
+                    path
+                    for path in (exact_exclusion(claude_dest), exact_exclusion(codex_dest))
+                    if path is not None
+                }
+                if scanner.scan_tree(scratch.resolve(strict=False), exclusions):
+                    note("credential-scan-detected")
+            except BaseException:
+                note("credential-scan-failed")
+            for output in child_outputs:
+                try:
+                    if scanner.scan_bytes(output):
+                        note("credential-child-output-detected")
+                except BaseException:
+                    note("credential-child-output-scan-failed")
+            expected = ambient_snapshots.get("codex-auth.json")
+            if expected is not None:
+                try:
+                    current = snapshot_identity(
+                        Path("~/.codex/auth.json").expanduser(),
+                        max_bytes=CREDENTIAL_MAX_BYTES,
+                    )
+                    if current != expected:
+                        note("codex-ambient-credential-drift")
+                except BaseException:
+                    note("codex-ambient-credential-drift")
+
+        if remove_targets:
+            remove_file(claude_dest)
+            remove_file(codex_dest)
+            for target in (profile_root, host2, seed_parent):
+                remove_tree(target)
+        for target in (claude_dest, codex_dest, profile_root, host2, seed_parent):
+            try:
+                os.lstat(target)
+            except FileNotFoundError:
+                continue
+            except BaseException:
+                note("cleanup-absence-stat-failed")
+            else:
+                note("cleanup-target-present")
+
+        settled = primary
+        if notes:
+            if primary.status is Status.PASS:
+                settled = ScenarioResult(
+                    primary.id,
+                    primary.tier,
+                    Status.INVALID,
+                    [],
+                    [],
+                    detail="post-materialization verification failed",
+                    warnings=[*primary.warnings, *notes],
+                )
+            else:
+                settled = ScenarioResult(
+                    primary.id,
+                    primary.tier,
+                    primary.status,
+                    list(primary.classes),
+                    list(primary.held_asserts),
+                    detail=primary.detail,
+                    warnings=[*primary.warnings, *notes],
+                )
+        try:
+            final = _finalize_report(settled, scanner)
+        except BaseException:
+            final = scanned_constant()
+    except BaseException:
+        final = scanned_constant()
+    finally:
+        try:
+            scanner.drop()
+        except BaseException:
+            final = scanned_constant()
+    return final if final is not None else scanned_constant()
 
 
 def rejected_credential_names(env: dict[str, str]) -> list[str]:
@@ -863,6 +1057,44 @@ def _read_regular_file_nofollow(
     return b"".join(chunks)
 
 
+def _read_credential_destination_nofollow(path: Path) -> bytes:
+    """Read one private credential destination without following a path component."""
+    opened = _open_parent_directory_nofollow(path)
+    if opened is None:
+        raise ValueError("credential destination unavailable")
+    try:
+        expected = _entry_status(opened.descriptor, opened.name)
+        if (
+            expected is None
+            or not stat.S_ISREG(expected.st_mode)
+            or expected.st_nlink != 1
+            or expected.st_size > CREDENTIAL_MAX_BYTES
+        ):
+            raise ValueError("credential destination unavailable")
+        data = _read_regular_file_nofollow(
+            opened.descriptor,
+            opened.name,
+            expected,
+            "credential destination",
+        )
+        if not data or len(data) > CREDENTIAL_MAX_BYTES:
+            raise ValueError("credential destination unavailable")
+        _verify_parent_unchanged(opened, "credential destination")
+        return data
+    finally:
+        _close_nofollow_parent(opened)
+
+
+def _credential_path_exists_nofollow(path: Path) -> bool:
+    opened = _open_parent_directory_nofollow(path)
+    if opened is None:
+        return False
+    try:
+        return _entry_status(opened.descriptor, opened.name) is not None
+    finally:
+        _close_nofollow_parent(opened)
+
+
 def _snapshot_directory_nofollow(
     descriptor: int,
     relative: Path,
@@ -1094,6 +1326,30 @@ def _spawn_retry_with(
     raise ValueError("model-call retry produced no result")
 
 
+def _spawn_with_capture(
+    spawn: Callable[[list[str], Path, dict[str, str]], Any],
+    child_outputs: list[bytes],
+) -> Callable[[list[str], Path, dict[str, str]], Any]:
+    """Preserve every post-materialization child output for final secret scanning."""
+
+    def capture(command: list[str], cwd: Path, env: dict[str, str]) -> Any:
+        result = spawn(command, cwd, env)
+        stdout = getattr(result, "stdout", "")
+        stderr = getattr(result, "stderr", "")
+        if isinstance(stdout, bytes):
+            stdout_bytes = stdout
+        else:
+            stdout_bytes = str(stdout or "").encode("utf-8", errors="replace")
+        if isinstance(stderr, bytes):
+            stderr_bytes = stderr
+        else:
+            stderr_bytes = str(stderr or "").encode("utf-8", errors="replace")
+        child_outputs.append(stdout_bytes + stderr_bytes)
+        return result
+
+    return capture
+
+
 def _resolve_agent_binaries(spec: dict[str, Any]) -> dict[str, str]:
     resolved: dict[str, str] = {}
     for agent in spec["agents"]:
@@ -1173,6 +1429,9 @@ def setup_host2_credentials(
     profile_root: Path,
     resolved_binaries: dict[str, str],
     spawn: Callable[[list[str], Path, dict[str, str]], Any],
+    scanner: _CredentialScanner,
+    child_outputs: list[bytes],
+    ambient_snapshots: dict[str, SourceIdentity],
 ) -> dict[str, dict[str, str]]:
     home = host2 / "home"
     home.mkdir(parents=True, exist_ok=True)
@@ -1186,12 +1445,52 @@ def setup_host2_credentials(
 
     _version_gate_agents(contexts, resolved_binaries, host2, spawn, "host2")
 
+    claude = next((item for item in contexts if item[0]["id"] == "claude-code"), None)
+    codex = next((item for item in contexts if item[0]["id"] == "codex"), None)
+    if claude is None or codex is None:
+        raise ValueError("host2 credential unavailable: claude-code")
+
+    claude_result = materialize_keychain_credential(
+        CLAUDE_KEYCHAIN_SERVICE,
+        getpass.getuser(),
+        claude[1] / ".credentials.json",
+        max_bytes=CREDENTIAL_MAX_BYTES,
+        shape_ok=claude_shape_ok,
+    )
+    if claude_result.status is not CredentialStatus.OK or claude_result.dest is None:
+        raise ValueError("host2 credential unavailable: claude-code")
+    try:
+        scanner.add_value(_read_credential_destination_nofollow(claude_result.dest))
+    except (OSError, ValueError, TypeError):
+        raise ValueError("host2 credential unavailable: claude-code") from None
+
+    codex_result = materialize_file_credential(
+        Path("~/.codex/auth.json").expanduser(),
+        codex[1] / "auth.json",
+        max_bytes=CREDENTIAL_MAX_BYTES,
+        shape_ok=codex_shape_ok,
+    )
+    if (
+        codex_result.status is not CredentialStatus.OK
+        or codex_result.dest is None
+        or codex_result.identity is None
+    ):
+        raise ValueError("host2 credential unavailable: codex")
+    try:
+        if _credential_path_exists_nofollow(codex[1] / "config.toml"):
+            raise ValueError("credential destination unavailable")
+        scanner.add_value(_read_credential_destination_nofollow(codex_result.dest))
+    except (OSError, ValueError, TypeError):
+        raise ValueError("host2 credential unavailable: codex") from None
+    ambient_snapshots["codex-auth.json"] = codex_result.identity
+    capture_spawn = _spawn_with_capture(spawn, child_outputs)
+
     auth_failures: list[str] = []
     for agent, _, env in contexts:
         command = _rewrite_agent_command(
             agent["auth_status"], resolved_binaries[agent["id"]]
         )
-        if spawn(command, host2, env).returncode != 0:
+        if capture_spawn(command, host2, env).returncode != 0:
             auth_failures.append(agent["id"])
     if auth_failures:
         raise ValueError("host2 credential unavailable: " + ", ".join(auth_failures))
@@ -1203,7 +1502,7 @@ def setup_host2_credentials(
         _rewrite_agent_command(
             claude[0]["liveness_command"], resolved_binaries[claude[0]["id"]]
         ),
-        host2, claude[2], spawn,
+        host2, claude[2], capture_spawn,
         lambda result: result.returncode == 0 and len(result.stdout.split()) == 1,
     )
     if liveness.returncode != 0 or len(liveness.stdout.split()) != 1:
@@ -2071,6 +2370,16 @@ def ambient_store_selector_failures(spec: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _clear_precheck_probe_artifacts(scratch: Path) -> None:
+    for name in (".bivharness-link-probe", ".bivharness-mode-probe"):
+        try:
+            (scratch / name).unlink()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise ValueError("pre-run probe cleanup failed") from exc
+
+
 def run_e3(
     spec_path: Path,
     biv: Path,
@@ -2119,6 +2428,10 @@ def run_e3(
         )
     if failures:
         return _result(spec, Status.INVALID, "\n".join(failures))
+    try:
+        _clear_precheck_probe_artifacts(scratch)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return _result(spec, Status.INVALID, f"pre-run filesystem check failed: {exc}")
 
     pin_env()
     if dry_run:
@@ -2142,8 +2455,21 @@ def run_e3(
     host2_env: dict[str, str] = {}
     host2_agent_envs: dict[str, dict[str, str]] = {}
     credential_sentinels = spec.get("credential_scan_sentinels", [])
-    seed_parent_created = False
-    host2_created = False
+    scanner = _CredentialScanner()
+    child_outputs: list[bytes] = []
+    ambient_snapshots: dict[str, SourceIdentity] = {}
+    claude_dest = _agent_profile(
+        next(agent for agent in spec["agents"] if agent["id"] == "claude-code"),
+        profile_root,
+        live=False,
+    ) / ".credentials.json"
+    codex_dest = _agent_profile(
+        next(agent for agent in spec["agents"] if agent["id"] == "codex"),
+        profile_root,
+        live=False,
+    ) / "auth.json"
+    primary: ScenarioResult
+    run_workspace_created = False
     try:
         resolved_binaries = _resolve_agent_binaries(spec)
         if seed_parent.is_symlink() or seed_parent.exists() or seed_ws.is_symlink() or seed_ws.exists():
@@ -2152,10 +2478,9 @@ def run_e3(
             raise ValueError("host2 workspace must be fresh and contained by scratch")
         scratch.mkdir(parents=True, exist_ok=True)
         seed_parent.mkdir()
-        seed_parent_created = True
+        run_workspace_created = True
         seed_ws.mkdir()
         host2.mkdir()
-        host2_created = True
         live_contexts: list[tuple[dict[str, Any], Path, dict[str, str]]] = []
         for agent in spec["agents"]:
             live_profile = _agent_profile(agent, profile_root, live=True)
@@ -2178,10 +2503,10 @@ def run_e3(
                     live=True,
                     resolved_binary=resolved_binaries[agent["id"]],
                 )
-                return _run_result(
+                raise _ScenarioExit(_run_result(
                     Status.INVALID,
                     f"{agent['id']} is not authenticated; run: {instruction}",
-                )
+                ))
         for agent, live_profile, env in live_contexts:
             _seed_agent(
                 agent, live_profile, seed_ws, spec, env, _spawn,
@@ -2191,7 +2516,7 @@ def run_e3(
 
         negative_control = _negative_control_failures(owned_paths, scratch)
         if negative_control:
-            return _run_result(Status.INVALID, "\n".join(negative_control))
+            raise _ScenarioExit(_run_result(Status.INVALID, "\n".join(negative_control)))
 
         credential_decoys = plant_credential_decoys(seed_ws, credential_sentinels)
         verify_credential_decoys(seed_ws, credential_decoys, credential_sentinels)
@@ -2199,21 +2524,29 @@ def run_e3(
         packed = _spawn([str(biv), "pack", str(seed_ws), "--json"], scratch, {})
         pack_outcome = _biv_envelope_outcome(packed, "pack")
         if not pack_outcome.ok:
-            return _run_result(Status.FAIL, pack_outcome.detail)
+            raise _ScenarioExit(_run_result(Status.FAIL, pack_outcome.detail))
         run_warnings.extend(pack_outcome.warnings)
         if any(_hash(path) != digest for path, digest in before.items()):
-            return _run_result(
+            raise _ScenarioExit(_run_result(
                 Status.INVALID,
                 "pack mutated an owned live-store transcript",
-            )
+            ))
         image = seed_ws.parent / f"{seed_ws.name}.bvpk"
         image_secret_hits = scan_image_secret_values(image, credential_sentinels)
         if image_secret_hits:
             raise ValueError("credential sentinel found in image: " + ", ".join(image_secret_hits))
 
         host2_agent_envs = setup_host2_credentials(
-            spec, host2, profile_root, resolved_binaries, _spawn
+            spec,
+            host2,
+            profile_root,
+            resolved_binaries,
+            _spawn,
+            scanner,
+            child_outputs,
+            ambient_snapshots,
         )
+        capture_spawn = _spawn_with_capture(_spawn, child_outputs)
         for env in host2_agent_envs.values():
             host2_env.update(env)
         pre_open_stores = {
@@ -2222,26 +2555,26 @@ def run_e3(
         }
         drift_failures = _c1_drift_tripwire_failures()
         if drift_failures:
-            return _run_result(Status.INVALID, "\n".join(drift_failures))
+            raise _ScenarioExit(_run_result(Status.INVALID, "\n".join(drift_failures)))
         zero_session_failures = _c1_zero_session_failures(profile_root, spec)
         if zero_session_failures:
-            return _run_result(Status.INVALID, "\n".join(zero_session_failures))
+            raise _ScenarioExit(_run_result(Status.INVALID, "\n".join(zero_session_failures)))
 
         # The remaining open/resume commands are deliberately data-driven and still
         # pass through _spawn, preserving the no-credential and isolated-profile gates.
-        opened = _spawn([str(biv), "open", str(image), "--dest", str(restored_dest),
-                         "--consent", "yes", "--json"], host2, host2_env)
+        opened = capture_spawn([str(biv), "open", str(image), "--dest", str(restored_dest),
+                                "--consent", "yes", "--json"], host2, host2_env)
         open_outcome = _biv_envelope_outcome(opened, "open")
         if not open_outcome.ok:
-            return _run_result(Status.FAIL, open_outcome.detail)
+            raise _ScenarioExit(_run_result(Status.FAIL, open_outcome.detail))
         run_warnings.extend(open_outcome.warnings)
         envelope = open_outcome.envelope or {}
         result_outcome = _open_result_outcome(envelope, restored_dest)
         if not result_outcome.ok:
-            return _run_result(Status.FAIL, result_outcome.detail)
+            raise _ScenarioExit(_run_result(Status.FAIL, result_outcome.detail))
         restored_workspace = Path(result_outcome.output_dir)
         if not restored_workspace.is_dir():
-            return _run_result(Status.FAIL, "open output workspace missing")
+            raise _ScenarioExit(_run_result(Status.FAIL, "open output workspace missing"))
         class_j = class_j_failures(
             seed_ws,
             restored_workspace,
@@ -2249,26 +2582,26 @@ def run_e3(
              *[scratch / path for path in spec.get("forbidden_bivpak_state", [])]],
         )
         if class_j:
-            return _run_result(Status.INVALID, ",".join(class_j))
+            raise _ScenarioExit(_run_result(Status.INVALID, ",".join(class_j)))
         groups = result_outcome.groups
         installed_rows: list[tuple[str, dict[str, Any]]] = []
         for group in groups:
             sessions = [row for row in group.get("sessions", []) if row.get("outcome") == "installed"]
             if len(sessions) != 1:
-                return _run_result(
+                raise _ScenarioExit(_run_result(
                     Status.FAIL,
                     f"open result malformed: agent {group['agent']!r} reported "
                     f"{len(sessions)} installed session rows, expected exactly 1",
-                )
+                ))
             installed_rows.append((group["agent"], sessions[0]))
         installed_agents = sorted(group["agent"] for group in groups)
         expected_agents = sorted(agent["id"] for agent in spec["agents"])
         if installed_agents != expected_agents:
-            return _run_result(
+            raise _ScenarioExit(_run_result(
                 Status.FAIL,
                 "open result malformed: installed agents "
                 f"{installed_agents!r} do not match spec {expected_agents!r}",
-            )
+            ))
         installed = dict(installed_rows)
 
         installed_paths: dict[str, Path] = {}
@@ -2286,17 +2619,17 @@ def run_e3(
 
         for agent in spec["agents"]:
             if _hash(installed_paths[agent["id"]]) != installed_hashes[agent["id"]]:
-                return _run_result(
+                raise _ScenarioExit(_run_result(
                     Status.INVALID,
                     f"{agent['id']} installed transcript changed before resume",
-                )
+                ))
             row = installed[agent["id"]]
             session_id = row.get("installed_session_id")
             if not session_id:
-                return _run_result(
+                raise _ScenarioExit(_run_result(
                     Status.FAIL,
                     f"{agent['id']} installed id missing",
-                )
+                ))
             command = _rewrite_agent_command(
                 [part.format(id=session_id, probe=spec["resume_probe"])
                  for part in agent["resume_command"]],
@@ -2304,15 +2637,15 @@ def run_e3(
             )
             profile = _agent_profile(agent, profile_root, live=False)
             env = host2_agent_envs[agent["id"]]
-            resumed = _spawn_retry(
-                command, restored_workspace, env,
+            resumed = _spawn_retry_with(
+                command, restored_workspace, env, capture_spawn,
                 lambda result: result.returncode == 0 and bool(result.stdout.strip()),
             )
             if resumed.returncode != 0 or not resumed.stdout.strip():
-                return _run_result(
+                raise _ScenarioExit(_run_result(
                     Status.INVALID,
                     f"{agent['id']} resume did not return a reply",
-                )
+                ))
             turns = [*spec["seed_turns"], spec["resume_probe"]]
             shape = agent["resume_mutation"] if agent["id"] == "claude-code" else agent["resume_shape"]
             assert_resume_containment(
@@ -2321,15 +2654,30 @@ def run_e3(
                 expected_transcript=installed_paths[agent["id"]],
                 pre_resume_content=installed_contents[agent["id"]],
             )
-        return _run_result(
+        raise _ScenarioExit(_run_result(
             Status.PASS,
             "dual-agent resume and store containment passed",
-        )
-    except (KeyError, OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
-        return _run_result(Status.INVALID, str(exc))
+        ))
+    except _ScenarioExit as exit_result:
+        primary = exit_result.result
+    except Exception as exc:
+        detail = str(exc) if not scanner.active else "post-materialization execution failed"
+        primary = _run_result(Status.INVALID, detail)
     finally:
-        print(format_cleanup_report(capture_candidates, owned_paths))
-        if seed_parent_created:
-            shutil.rmtree(seed_parent, ignore_errors=True)
-        if host2_created:
-            shutil.rmtree(host2, ignore_errors=True)
+        try:
+            print(format_cleanup_report(capture_candidates, owned_paths))
+        except Exception:
+            pass
+    return _scan_and_teardown(
+        primary,
+        scanner,
+        scratch,
+        child_outputs=child_outputs,
+        ambient_snapshots=ambient_snapshots,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+        remove_targets=run_workspace_created,
+    )

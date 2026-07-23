@@ -54,6 +54,33 @@ def repo_root() -> Path:
     return root
 
 
+@pytest.fixture(autouse=True)
+def _fake_run_e3_credential_materialization(monkeypatch):
+    """Keep E3 orchestration tests offline while preserving Task 2 result semantics."""
+
+    claude_bytes = b'{"claudeAiOauth":{"accessToken":"fixture","refreshToken":"fixture"}}'
+    codex_bytes = b'{"tokens":{"access_token":"fixture"}}'
+    identity = e3.SourceIdentity(1, 2, len(codex_bytes), "fixture-digest")
+
+    def fake_keychain(_service, _account, dest, **_kwargs):
+        path = Path(dest)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(claude_bytes)
+        path.chmod(0o600)
+        return e3.CredentialResult(e3.CredentialStatus.OK, path)
+
+    def fake_file(_source, dest, **_kwargs):
+        path = Path(dest)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(codex_bytes)
+        path.chmod(0o600)
+        return e3.CredentialResult(e3.CredentialStatus.OK, path, identity)
+
+    monkeypatch.setattr(e3, "materialize_keychain_credential", fake_keychain)
+    monkeypatch.setattr(e3, "materialize_file_credential", fake_file)
+    monkeypatch.setattr(e3, "snapshot_identity", lambda *_args, **_kwargs: identity)
+
+
 @pytest.fixture
 def stable_test_root(tmp_path):
     root = (
@@ -1555,7 +1582,7 @@ def test_run_e3_origin_session_isolation_mutation_stops_before_open(
     origin = tmp_path / "origin-session.jsonl"
     origin.write_bytes(b"origin-session")
 
-    def expose_origin_session(value, host2, profile_root, resolved_binaries, spawn):
+    def expose_origin_session(value, host2, profile_root, resolved_binaries, spawn, *_args):
         claude_project = profile_root / "claude-code" / "projects" / "origin"
         claude_project.mkdir(parents=True)
         os.link(origin, claude_project / "session.jsonl")
@@ -2003,7 +2030,14 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path)
         )
 
     envs = e3.setup_host2_credentials(
-        {"agents": _host2_agents()}, host2, profile_root, _host2_binaries(), fake_spawn
+        {"agents": _host2_agents()},
+        host2,
+        profile_root,
+        _host2_binaries(),
+        fake_spawn,
+        e3._CredentialScanner(),
+        [],
+        {},
     )
 
     assert (host2 / "home").is_dir()
@@ -2017,6 +2051,142 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path)
     assert _agent_basename(calls[-1]) == "claude"
     assert "--no-session-persistence" in calls[-1]
     assert "-p" in calls[-1]
+
+
+def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner(
+    monkeypatch, tmp_path
+):
+    host2 = tmp_path / "host2"
+    profile_root = host2 / "profiles"
+    claude_bytes = b'{"claudeAiOauth":{"accessToken":"claude-secret","refreshToken":"refresh"}}'
+    codex_bytes = b'{"tokens":{"access_token":"codex-secret"}}'
+    scanner = e3._CredentialScanner()
+    child_outputs = []
+    ambient_snapshots = {}
+    calls = []
+
+    def fake_keychain(service, account, dest, **kwargs):
+        assert service == "Claude Code-credentials"
+        assert account == "host2-test-user"
+        Path(dest).parent.mkdir(parents=True, exist_ok=True)
+        Path(dest).write_bytes(claude_bytes)
+        Path(dest).chmod(0o600)
+        return e3.CredentialResult(e3.CredentialStatus.OK, Path(dest))
+
+    def fake_file(source, dest, **kwargs):
+        assert source == Path("~/.codex/auth.json").expanduser()
+        Path(dest).parent.mkdir(parents=True, exist_ok=True)
+        Path(dest).write_bytes(codex_bytes)
+        Path(dest).chmod(0o600)
+        return e3.CredentialResult(
+            e3.CredentialStatus.OK,
+            Path(dest),
+            e3.SourceIdentity(1, 2, len(codex_bytes), "digest"),
+        )
+
+    def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        if command[1:] == ["--version"]:
+            return SimpleNamespace(
+                returncode=0, stdout=_host2_version_output(command), stderr=""
+            )
+        if "-p" in command:
+            return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+        return SimpleNamespace(returncode=0, stdout="authenticated", stderr="")
+
+    monkeypatch.setattr(e3.getpass, "getuser", lambda: "host2-test-user")
+    monkeypatch.setattr(e3, "materialize_keychain_credential", fake_keychain)
+    monkeypatch.setattr(e3, "materialize_file_credential", fake_file)
+
+    envs = e3.setup_host2_credentials(
+        {"agents": _host2_agents()},
+        host2,
+        profile_root,
+        _host2_binaries(),
+        fake_spawn,
+        scanner,
+        child_outputs,
+        ambient_snapshots,
+    )
+
+    claude_dest = profile_root / "claude" / ".credentials.json"
+    codex_dest = profile_root / "codex" / "auth.json"
+    assert set(envs) == {"claude-code", "codex"}
+    assert claude_dest.read_bytes() == claude_bytes
+    assert codex_dest.read_bytes() == codex_bytes
+    assert claude_dest.stat().st_mode & 0o777 == 0o600
+    assert codex_dest.stat().st_mode & 0o777 == 0o600
+    assert not (profile_root / "codex" / "config.toml").exists()
+    assert scanner.scan_bytes(claude_bytes)
+    assert scanner.scan_bytes(codex_bytes)
+    assert ambient_snapshots["codex-auth.json"] == e3.SourceIdentity(
+        1, 2, len(codex_bytes), "digest"
+    )
+    assert child_outputs == [b"authenticated", b"authenticated", b"OK"]
+    assert all(command[0].startswith("/") for command in calls)
+
+
+def test_setup_host2_credentials_retains_first_seed_when_second_materializer_refuses(
+    monkeypatch, tmp_path
+):
+    scanner = e3._CredentialScanner()
+    claude_bytes = b'{"claudeAiOauth":{"accessToken":"claude-secret","refreshToken":"refresh"}}'
+
+    def fake_keychain(_service, _account, dest, **_kwargs):
+        Path(dest).parent.mkdir(parents=True, exist_ok=True)
+        Path(dest).write_bytes(claude_bytes)
+        return e3.CredentialResult(e3.CredentialStatus.OK, Path(dest))
+
+    monkeypatch.setattr(e3, "materialize_keychain_credential", fake_keychain)
+    monkeypatch.setattr(
+        e3,
+        "materialize_file_credential",
+        lambda *_args, **_kwargs: e3.CredentialResult(e3.CredentialStatus.SOURCE_MISSING),
+    )
+
+    with pytest.raises(ValueError, match="host2 credential unavailable: codex"):
+        e3.setup_host2_credentials(
+            {"agents": _host2_agents()},
+            tmp_path / "host2",
+            tmp_path / "profiles",
+            _host2_binaries(),
+            lambda command, *_args: SimpleNamespace(
+                returncode=0, stdout=_host2_version_output(command), stderr=""
+            ),
+            scanner,
+            [],
+            {},
+        )
+
+    assert scanner.scan_bytes(claude_bytes)
+
+
+def test_setup_host2_credentials_refuses_codex_config_toml(monkeypatch, tmp_path):
+    def fake_file(_source, dest, **_kwargs):
+        path = Path(dest)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'{"tokens":{"access_token":"fixture"}}')
+        (path.parent / "config.toml").write_text("unexpected", encoding="utf-8")
+        return e3.CredentialResult(
+            e3.CredentialStatus.OK,
+            path,
+            e3.SourceIdentity(1, 2, path.stat().st_size, "fixture"),
+        )
+
+    monkeypatch.setattr(e3, "materialize_file_credential", fake_file)
+    with pytest.raises(ValueError, match="host2 credential unavailable: codex"):
+        e3.setup_host2_credentials(
+            {"agents": _host2_agents()},
+            tmp_path / "host2",
+            tmp_path / "profiles",
+            _host2_binaries(),
+            lambda command, *_args: SimpleNamespace(
+                returncode=0, stdout=_host2_version_output(command), stderr=""
+            ),
+            e3._CredentialScanner(),
+            [],
+            {},
+        )
 
 
 @pytest.mark.parametrize(
@@ -2055,6 +2225,9 @@ def test_setup_host2_credentials_probes_all_agents_before_rejecting(
             tmp_path / "profiles",
             _host2_binaries(),
             fake_spawn,
+            e3._CredentialScanner(),
+            [],
+            {},
         )
     assert str(exc_info.value) == expected_error
     assert auth_seen == ["claude-code", "codex"]
@@ -2085,7 +2258,7 @@ def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
     with pytest.raises(ValueError, match="liveness"):
         e3.setup_host2_credentials(
             {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
-            _host2_binaries(), fake_spawn
+            _host2_binaries(), fake_spawn, e3._CredentialScanner(), [], {}
         )
     _assert_host2_binary_ledger(
         calls,
@@ -2112,7 +2285,7 @@ def test_setup_host2_credentials_rejects_multi_token_claude_liveness(tmp_path):
     with pytest.raises(ValueError, match="one token"):
         e3.setup_host2_credentials(
             {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
-            _host2_binaries(), fake_spawn
+            _host2_binaries(), fake_spawn, e3._CredentialScanner(), [], {}
         )
     _assert_host2_binary_ledger(
         calls,
@@ -2146,7 +2319,7 @@ def test_setup_host2_credentials_retries_claude_liveness_once(tmp_path):
 
     e3.setup_host2_credentials(
         {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
-        _host2_binaries(), fake_spawn
+        _host2_binaries(), fake_spawn, e3._CredentialScanner(), [], {}
     )
     assert liveness_calls == 2
     _assert_host2_binary_ledger(
@@ -2183,7 +2356,7 @@ def test_setup_host2_credentials_retries_invalid_or_exceptional_liveness_once(tm
 
     e3.setup_host2_credentials(
         {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
-        _host2_binaries(), fake_spawn
+        _host2_binaries(), fake_spawn, e3._CredentialScanner(), [], {}
     )
     assert liveness_calls == 2
     _assert_host2_binary_ledger(
@@ -3641,6 +3814,124 @@ def test_finalize_report_replaces_all_secret_bearing_fields(tmp_path):
     assert secret not in serialize_report([final])
 
 
+def test_scan_and_teardown_scans_seed_tree_before_removing_all_targets(tmp_path):
+    scratch = tmp_path / "scratch"
+    seed_parent = scratch / "seed-ws"
+    host2 = scratch / "host2"
+    profile_root = scratch / "host2-profile"
+    claude_dest = profile_root / "claude" / ".credentials.json"
+    codex_dest = profile_root / "codex" / "auth.json"
+    secret = b"teardown-seed-copy-secret"
+    for path in (claude_dest, codex_dest):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(secret)
+    (seed_parent / "image-era-copy").parent.mkdir(parents=True)
+    (seed_parent / "image-era-copy").write_bytes(secret)
+    host2.mkdir(parents=True)
+    scanner = e3._CredentialScanner()
+    scanner.add_value(secret)
+    primary = ScenarioResult("e3", "E3", Status.PASS, [], detail="passed")
+
+    final = e3._scan_and_teardown(
+        primary,
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.INVALID
+    assert secret.decode() not in serialize_report([final])
+    assert not any(path.exists() for path in (claude_dest, codex_dest, profile_root, host2, seed_parent))
+
+
+def test_scan_and_teardown_clears_pass_evidence_and_continues_after_cleanup_error(
+    monkeypatch, tmp_path
+):
+    scratch = tmp_path / "scratch"
+    seed_parent = scratch / "seed-ws"
+    host2 = scratch / "host2"
+    profile_root = scratch / "host2-profile"
+    claude_dest = profile_root / "claude" / ".credentials.json"
+    codex_dest = profile_root / "codex" / "auth.json"
+    for path in (claude_dest, codex_dest):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"teardown-helper-secret")
+    host2.mkdir(parents=True)
+    seed_parent.mkdir(parents=True)
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"teardown-helper-secret")
+    rmtree_calls = []
+    real_rmtree = e3.shutil.rmtree
+
+    def broken_first_rmtree(path, *args, **kwargs):
+        rmtree_calls.append(Path(path))
+        if Path(path) == profile_root:
+            raise RuntimeError("unexpected cleanup failure")
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(e3.shutil, "rmtree", broken_first_rmtree)
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, ["held-class"], ["held-assert"], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[b"teardown-helper-secret"],
+        ambient_snapshots={},
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.INVALID
+    assert final.classes == []
+    assert final.held_asserts == []
+    assert rmtree_calls == [profile_root, host2, seed_parent]
+    assert not host2.exists()
+    assert not seed_parent.exists()
+    assert "cleanup-rmtree-failed" in final.warnings
+
+
+def test_scan_and_teardown_drop_failure_returns_a_fresh_scanned_constant(tmp_path):
+    class BrokenDropScanner:
+        active = False
+
+        def __init__(self):
+            self.scanned = []
+
+        def scan_bytes(self, value):
+            self.scanned.append(bytes(value))
+            return False
+
+        def drop(self):
+            raise RuntimeError("drop failed")
+
+    scanner = BrokenDropScanner()
+    scratch = tmp_path / "scratch"
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, [], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        claude_dest=scratch / "profile" / ".credentials.json",
+        codex_dest=scratch / "profile" / "auth.json",
+        profile_root=scratch / "profile",
+        host2=scratch / "host2",
+        seed_parent=scratch / "seed-ws",
+    )
+
+    assert final.status is Status.INVALID
+    assert final.detail == e3._SANITIZED_REPORT_DETAIL
+    assert serialize_report([final]).encode("utf-8") in scanner.scanned
+
+
 def test_finalize_report_handles_serializer_failure_without_raising(monkeypatch):
     scanner = e3._CredentialScanner()
     scanner.add_value(b"scanner-finalize-secret")
@@ -3920,6 +4211,9 @@ def test_host2_version_gate_enforces_the_enumerated_set(tmp_path, version, accep
         host2 / "profiles",
         _host2_binaries(),
         fake_spawn,
+        e3._CredentialScanner(),
+        [],
+        {},
     )
     if accepted:
         e3.setup_host2_credentials(*args)
@@ -5900,7 +6194,14 @@ def _argv_barrier_spec(stable_test_root):
     return spec
 
 
-def _run_argv_barrier_flow(monkeypatch, tmp_path, stable_test_root, *, wrong_version=None):
+def _run_argv_barrier_flow(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    *,
+    wrong_version=None,
+    leak_phase=None,
+):
     spec = _argv_barrier_spec(stable_test_root)
     binaries = {
         "codex": "/opt/agents/codex-real",
@@ -5938,7 +6239,7 @@ def _run_argv_barrier_flow(monkeypatch, tmp_path, stable_test_root, *, wrong_ver
             encoding="utf-8",
         )
 
-    def fake_spawn(command, cwd, env):
+    def base_spawn(command, cwd, env):
         command = list(command)
         ledger.append((command, Path(cwd), dict(env)))
         if command[0] == str(biv):
@@ -5990,6 +6291,25 @@ def _run_argv_barrier_flow(monkeypatch, tmp_path, stable_test_root, *, wrong_ver
             stdout="" if resume_attempts[agent_name] == 1 else "reply",
             stderr="transient" if resume_attempts[agent_name] == 1 else "",
         )
+
+    def fake_spawn(command, cwd, env):
+        result = base_spawn(command, cwd, env)
+        phase = None
+        if command[0] == str(biv) and len(command) > 1 and command[1] == "open":
+            phase = "open"
+        elif command[1:] in (["login", "status"], ["auth", "status"]):
+            phase = "auth"
+        elif "-p" in command:
+            phase = "liveness"
+        elif Path(cwd) == scratch / "host2" / "work":
+            phase = "resume"
+        if phase == leak_phase:
+            return SimpleNamespace(
+                returncode=result.returncode,
+                stdout=result.stdout,
+                stderr=(result.stderr or "") + '{"tokens":{"access_token":"fixture"}}',
+            )
+        return result
 
     def fake_install_delta(agent_id, profile, *args):
         path = Path(profile) / f"{agent_id}-installed.jsonl"
@@ -6077,6 +6397,21 @@ def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_b
     assert agent_ledger[14][1] == agent_ledger[15][1]
     assert agent_ledger[16][1] == agent_ledger[17][1]
     assert agent_ledger[18][1] == agent_ledger[19][1]
+
+
+@pytest.mark.parametrize("leak_phase", ("auth", "liveness", "open", "resume"))
+def test_run_e3_invalidates_each_post_materialization_output_leak(
+    monkeypatch, tmp_path, stable_test_root, leak_phase
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        leak_phase=leak_phase,
+    )
+
+    assert result.status is Status.INVALID
+    assert '{"tokens":{"access_token":"fixture"}}' not in serialize_report([result])
 
 
 @pytest.mark.parametrize("wrong_version", ["claude-code", "codex"])
