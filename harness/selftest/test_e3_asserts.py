@@ -80,6 +80,20 @@ PRODUCT_PREDICATES = {
     ),
 }
 
+TEST_AGENT_BINARIES = {
+    "claude-code": "/opt/bivharness-test/bin/claude",
+    "codex": "/opt/bivharness-test/bin/codex",
+}
+
+
+@pytest.fixture(autouse=True)
+def deterministic_agent_path(monkeypatch):
+    binaries_by_executable = {
+        "claude": TEST_AGENT_BINARIES["claude-code"],
+        "codex": TEST_AGENT_BINARIES["codex"],
+    }
+    monkeypatch.setattr(e3.shutil, "which", binaries_by_executable.get)
+
 
 def _product_prefixes(repo_root: Path, agent_id: str) -> list[str]:
     rel, function = PRODUCT_PREDICATES[agent_id]
@@ -1387,8 +1401,7 @@ def _agent_basename(command):
 
 
 def _resolved_agent_command(agent_id, *args):
-    executable = "claude" if agent_id == "claude-code" else agent_id
-    return [e3.shutil.which(executable) or executable, *args]
+    return [TEST_AGENT_BINARIES[agent_id], *args]
 
 
 def test_live_leg_env_construction_has_no_store_override():
@@ -1518,15 +1531,38 @@ def test_seed_agent_forwards_received_env_to_every_model_spawn(
         assert env == sentinel
 
 
-def _host2_version_output(command):
-    return "2.1.202" if _agent_basename(command) == "claude" else "0.142.5"
+def _host2_agent_id(command):
+    matches = [
+        agent_id
+        for agent_id, binary in TEST_AGENT_BINARIES.items()
+        if command[0] == binary
+    ]
+    assert len(matches) == 1, f"unexpected host2 agent binary: {command[0]}"
+    return matches[0]
+
+
+def _assert_host2_binary_ledger(commands, expected_agents):
+    assert [command[0] for command in commands] == [
+        TEST_AGENT_BINARIES[agent_id] for agent_id in expected_agents
+    ]
 
 
 def _host2_binaries():
-    return {
-        "claude-code": e3.shutil.which("claude"),
-        "codex": e3.shutil.which("codex"),
-    }
+    return dict(TEST_AGENT_BINARIES)
+
+
+def _host2_version_output(command):
+    return "2.1.202" if _host2_agent_id(command) == "claude-code" else "0.142.5"
+
+
+def test_host2_binary_fixtures_are_explicit_absolute_and_path_independent(monkeypatch):
+    def unexpected_which(executable):
+        raise AssertionError(f"host2 fixture consulted PATH for {executable}")
+
+    monkeypatch.setattr(e3.shutil, "which", unexpected_which)
+
+    assert _host2_binaries() == TEST_AGENT_BINARIES
+    assert all(Path(binary).is_absolute() for binary in _host2_binaries().values())
 
 
 def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path):
@@ -1535,6 +1571,7 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path)
     calls = []
 
     def fake_spawn(command, cwd, env):
+        _host2_agent_id(command)
         calls.append(command)
         return SimpleNamespace(
             returncode=0,
@@ -1550,6 +1587,10 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path)
     assert (profile_root / "claude").is_dir()
     assert (profile_root / "codex").is_dir()
     assert set(envs) == {"claude-code", "codex"}
+    _assert_host2_binary_ledger(
+        calls,
+        ["claude-code", "codex", "claude-code", "codex", "claude-code"],
+    )
     assert _agent_basename(calls[-1]) == "claude"
     assert "--no-session-persistence" in calls[-1]
     assert "-p" in calls[-1]
@@ -1574,7 +1615,7 @@ def test_setup_host2_credentials_probes_all_agents_before_rejecting(
 
     def fake_spawn(command, cwd, env):
         calls.append(list(command))
-        agent = "claude-code" if _agent_basename(command) == "claude" else "codex"
+        agent = _host2_agent_id(command)
         if command[-1] == "status":
             auth_seen.append(agent)
             return SimpleNamespace(
@@ -1598,11 +1639,19 @@ def test_setup_host2_credentials_probes_all_agents_before_rejecting(
     assert [command[1:] for command in calls[2:]] == [
         ["auth", "status"], ["login", "status"],
     ]
+    _assert_host2_binary_ledger(
+        calls,
+        ["claude-code", "codex", "claude-code", "codex"],
+    )
 
 
 def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
+    calls = []
+
     def fake_spawn(command, cwd, env):
-        if _agent_basename(command) == "claude" and "-p" in command:
+        calls.append(list(command))
+        agent = _host2_agent_id(command)
+        if agent == "claude-code" and "-p" in command:
             return SimpleNamespace(returncode=1, stdout="", stderr="offline")
         return SimpleNamespace(
             returncode=0,
@@ -1615,13 +1664,24 @@ def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
             {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
             _host2_binaries(), fake_spawn
         )
+    _assert_host2_binary_ledger(
+        calls,
+        [
+            "claude-code", "codex", "claude-code", "codex",
+            "claude-code", "claude-code",
+        ],
+    )
 
 
 def test_setup_host2_credentials_rejects_multi_token_claude_liveness(tmp_path):
+    calls = []
+
     def fake_spawn(command, cwd, env):
+        calls.append(list(command))
+        agent = _host2_agent_id(command)
         output = (
             "too many tokens"
-            if _agent_basename(command) == "claude" and "-p" in command
+            if agent == "claude-code" and "-p" in command
             else _host2_version_output(command)
         )
         return SimpleNamespace(returncode=0, stdout=output, stderr="")
@@ -1631,14 +1691,24 @@ def test_setup_host2_credentials_rejects_multi_token_claude_liveness(tmp_path):
             {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
             _host2_binaries(), fake_spawn
         )
+    _assert_host2_binary_ledger(
+        calls,
+        [
+            "claude-code", "codex", "claude-code", "codex",
+            "claude-code", "claude-code",
+        ],
+    )
 
 
 def test_setup_host2_credentials_retries_claude_liveness_once(tmp_path):
     liveness_calls = 0
+    calls = []
 
     def fake_spawn(command, cwd, env):
         nonlocal liveness_calls
-        if _agent_basename(command) == "claude" and "-p" in command:
+        calls.append(list(command))
+        agent = _host2_agent_id(command)
+        if agent == "claude-code" and "-p" in command:
             liveness_calls += 1
             return SimpleNamespace(
                 returncode=1 if liveness_calls == 1 else 0,
@@ -1656,15 +1726,25 @@ def test_setup_host2_credentials_retries_claude_liveness_once(tmp_path):
         _host2_binaries(), fake_spawn
     )
     assert liveness_calls == 2
+    _assert_host2_binary_ledger(
+        calls,
+        [
+            "claude-code", "codex", "claude-code", "codex",
+            "claude-code", "claude-code",
+        ],
+    )
 
 
 @pytest.mark.parametrize("first_failure", ["multi-token", "timeout", "oserror"])
 def test_setup_host2_credentials_retries_invalid_or_exceptional_liveness_once(tmp_path, first_failure):
     liveness_calls = 0
+    calls = []
 
     def fake_spawn(command, cwd, env):
         nonlocal liveness_calls
-        if _agent_basename(command) == "claude" and "-p" in command:
+        calls.append(list(command))
+        agent = _host2_agent_id(command)
+        if agent == "claude-code" and "-p" in command:
             liveness_calls += 1
             if liveness_calls == 1 and first_failure == "timeout":
                 raise e3.subprocess.TimeoutExpired(command, 120)
@@ -1683,6 +1763,13 @@ def test_setup_host2_credentials_retries_invalid_or_exceptional_liveness_once(tm
         _host2_binaries(), fake_spawn
     )
     assert liveness_calls == 2
+    _assert_host2_binary_ledger(
+        calls,
+        [
+            "claude-code", "codex", "claude-code", "codex",
+            "claude-code", "claude-code",
+        ],
+    )
 
 
 @pytest.mark.parametrize("first_failure", ["empty", "timeout", "oserror"])
@@ -3062,8 +3149,12 @@ def test_prerun_version_gate_rejects_ambiguous_multi_token_output(
 
 @pytest.mark.parametrize("version,accepted", CX_MATRIX)
 def test_host2_version_gate_enforces_the_enumerated_set(tmp_path, version, accepted):
+    calls = []
+
     def fake_spawn(command, cwd, env):
-        if _agent_basename(command) == "claude":
+        calls.append(list(command))
+        agent = _host2_agent_id(command)
+        if agent == "claude-code":
             if "-p" in command:
                 return SimpleNamespace(returncode=0, stdout="OK", stderr="")
             return SimpleNamespace(returncode=0, stdout="2.1.202", stderr="")
@@ -3079,9 +3170,14 @@ def test_host2_version_gate_enforces_the_enumerated_set(tmp_path, version, accep
     )
     if accepted:
         e3.setup_host2_credentials(*args)
+        expected_agents = [
+            "claude-code", "codex", "claude-code", "codex", "claude-code",
+        ]
     else:
         with pytest.raises(ValueError, match="host2 version is outside the validated range"):
             e3.setup_host2_credentials(*args)
+        expected_agents = ["claude-code", "codex"]
+    _assert_host2_binary_ledger(calls, expected_agents)
 
 
 def _symlinked_ancestor(tmp_path):
