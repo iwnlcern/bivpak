@@ -482,12 +482,18 @@ def _scan_and_teardown(
                     note("credential-scan-failed")
 
     def scanned_constant() -> ScenarioResult:
-        constant = _sanitized_report_result()
-        try:
-            scanner.scan_bytes(serialize_report([constant]).encode("utf-8"))
-        except BaseException:
-            pass
-        return constant
+        candidates = (
+            _sanitized_report_result(),
+            _minimal_sanitized_report_result(),
+        )
+        for candidate in candidates:
+            try:
+                serialized = serialize_report([candidate]).encode("utf-8")
+                if not scanner.scan_bytes(serialized):
+                    return candidate
+            except BaseException:
+                continue
+        return candidates[-1]
 
     final: ScenarioResult | None = None
     try:
@@ -1010,6 +1016,48 @@ def _open_verified_directory(
     return descriptor
 
 
+def _directory_topology_is_nofollow(path: Path) -> bool:
+    """Prove that every lexical component and the target are stable directories."""
+    opened = None
+    descriptor = None
+    valid = False
+    try:
+        opened = _open_parent_directory_nofollow(path)
+        if opened is None:
+            return False
+        expected = _entry_status(opened.descriptor, opened.name)
+        if expected is None or not stat.S_ISDIR(expected.st_mode):
+            return False
+        descriptor = _open_verified_directory(
+            opened.descriptor,
+            opened.name,
+            expected,
+            "restored workspace",
+        )
+        _verify_entry_unchanged(
+            opened.descriptor,
+            opened.name,
+            expected,
+            "restored workspace",
+        )
+        _verify_parent_unchanged(opened, "restored workspace")
+        valid = _same_entry(expected, os.fstat(descriptor))
+    except BaseException:
+        valid = False
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except BaseException:
+                valid = False
+        if opened is not None:
+            try:
+                _close_nofollow_parent(opened)
+            except BaseException:
+                valid = False
+    return valid
+
+
 def _verify_entry_unchanged(
     parent_descriptor: int,
     name: str,
@@ -1332,19 +1380,26 @@ def _spawn_with_capture(
 ) -> Callable[[list[str], Path, dict[str, str]], Any]:
     """Preserve every post-materialization child output for final secret scanning."""
 
+    def output_bytes(value: Any) -> bytes:
+        if isinstance(value, bytes):
+            return value
+        return str(value or "").encode("utf-8", errors="replace")
+
     def capture(command: list[str], cwd: Path, env: dict[str, str]) -> Any:
-        result = spawn(command, cwd, env)
-        stdout = getattr(result, "stdout", "")
-        stderr = getattr(result, "stderr", "")
-        if isinstance(stdout, bytes):
-            stdout_bytes = stdout
-        else:
-            stdout_bytes = str(stdout or "").encode("utf-8", errors="replace")
-        if isinstance(stderr, bytes):
-            stderr_bytes = stderr
-        else:
-            stderr_bytes = str(stderr or "").encode("utf-8", errors="replace")
-        child_outputs.append(stdout_bytes + stderr_bytes)
+        try:
+            result = spawn(command, cwd, env)
+        except BaseException as exc:
+            stdout = getattr(exc, "stdout", None)
+            if stdout is None:
+                stdout = getattr(exc, "output", "")
+            child_outputs.append(
+                output_bytes(stdout) + output_bytes(getattr(exc, "stderr", ""))
+            )
+            raise
+        child_outputs.append(
+            output_bytes(getattr(result, "stdout", ""))
+            + output_bytes(getattr(result, "stderr", ""))
+        )
         return result
 
     return capture
@@ -1477,12 +1532,15 @@ def setup_host2_credentials(
     ):
         raise ValueError("host2 credential unavailable: codex")
     try:
-        if _credential_path_exists_nofollow(codex[1] / "config.toml"):
-            raise ValueError("credential destination unavailable")
         scanner.add_value(_read_credential_destination_nofollow(codex_result.dest))
     except (OSError, ValueError, TypeError):
         raise ValueError("host2 credential unavailable: codex") from None
     ambient_snapshots["codex-auth.json"] = codex_result.identity
+    try:
+        if _credential_path_exists_nofollow(codex[1] / "config.toml"):
+            raise ValueError("credential destination unavailable")
+    except (OSError, ValueError, TypeError):
+        raise ValueError("host2 credential unavailable: codex") from None
     capture_spawn = _spawn_with_capture(spawn, child_outputs)
 
     auth_failures: list[str] = []
@@ -1490,7 +1548,11 @@ def setup_host2_credentials(
         command = _rewrite_agent_command(
             agent["auth_status"], resolved_binaries[agent["id"]]
         )
-        if capture_spawn(command, host2, env).returncode != 0:
+        try:
+            auth_ok = capture_spawn(command, host2, env).returncode == 0
+        except Exception:
+            auth_ok = False
+        if not auth_ok:
             auth_failures.append(agent["id"])
     if auth_failures:
         raise ValueError("host2 credential unavailable: " + ", ".join(auth_failures))
@@ -1679,17 +1741,7 @@ def _open_result_outcome(
             [],
             "open result malformed: output_dir must be an absolute path",
         )
-    try:
-        matches_requested = output_path.resolve(strict=False) == requested_output_dir.resolve(
-            strict=False
-        )
-    except (OSError, RuntimeError, ValueError) as exc:
-        return _OpenResultOutcome(
-            False,
-            "",
-            [],
-            f"open result malformed: output_dir cannot be resolved: {exc}",
-        )
+    matches_requested = output_path == requested_output_dir
     if not matches_requested:
         return _OpenResultOutcome(
             False,
@@ -2437,48 +2489,56 @@ def run_e3(
     if dry_run:
         return _result(spec, Status.PASS, "dry-run: structural, isolation, and credential guards passed")
 
-    spec = materialize_run_tokens(spec)
     run_warnings: list[str] = []
 
     def _run_result(status: Status, detail: str) -> ScenarioResult:
         return _result(spec, status, detail, warnings=list(run_warnings))
 
+    owned_paths: list[Path] = []
+    capture_candidates: list[Path] = []
+    scanner: _CredentialScanner | None = None
+    child_outputs: list[bytes] = []
+    ambient_snapshots: dict[str, SourceIdentity] = {}
+    seed_parent: Path | None = None
+    host2: Path | None = None
+    claude_dest: Path | None = None
+    codex_dest: Path | None = None
+    primary: ScenarioResult | None = None
+    remove_targets = False
+
     # Live execution is intentionally explicit: this path owns real API calls. The
     # scenario supplies commands so CLI surface changes cannot silently alter the
     # safety predicates in this runner.
-    seed_parent = scratch / "seed-ws"
-    seed_ws = scratch / "seed-ws" / spec.get("workspace_name", "resume-e3")
-    host2 = scratch / "host2"
-    restored_dest = host2 / "work"
-    owned_paths: list[Path] = []
-    capture_candidates: list[Path] = []
-    host2_env: dict[str, str] = {}
-    host2_agent_envs: dict[str, dict[str, str]] = {}
-    credential_sentinels = spec.get("credential_scan_sentinels", [])
-    scanner = _CredentialScanner()
-    child_outputs: list[bytes] = []
-    ambient_snapshots: dict[str, SourceIdentity] = {}
-    claude_dest = _agent_profile(
-        next(agent for agent in spec["agents"] if agent["id"] == "claude-code"),
-        profile_root,
-        live=False,
-    ) / ".credentials.json"
-    codex_dest = _agent_profile(
-        next(agent for agent in spec["agents"] if agent["id"] == "codex"),
-        profile_root,
-        live=False,
-    ) / "auth.json"
-    primary: ScenarioResult
-    run_workspace_created = False
     try:
+        seed_parent = scratch / "seed-ws"
+        host2 = scratch / "host2"
+        restored_dest = host2 / "work"
+        claude_dest = profile_root / "claude-code" / ".credentials.json"
+        codex_dest = profile_root / "codex" / "auth.json"
+        host2_env: dict[str, str] = {}
+        host2_agent_envs: dict[str, dict[str, str]] = {}
+        scanner = _CredentialScanner()
+        claude_dest = _agent_profile(
+            next(agent for agent in spec["agents"] if agent["id"] == "claude-code"),
+            profile_root,
+            live=False,
+        ) / ".credentials.json"
+        codex_dest = _agent_profile(
+            next(agent for agent in spec["agents"] if agent["id"] == "codex"),
+            profile_root,
+            live=False,
+        ) / "auth.json"
+        spec = materialize_run_tokens(spec)
+        seed_ws = seed_parent / spec.get("workspace_name", "resume-e3")
+        credential_sentinels = spec.get("credential_scan_sentinels", [])
         resolved_binaries = _resolve_agent_binaries(spec)
         if seed_parent.is_symlink() or seed_parent.exists() or seed_ws.is_symlink() or seed_ws.exists():
             raise ValueError("seed workspace must be fresh and contained by scratch")
         if host2.is_symlink() or host2.exists():
             raise ValueError("host2 workspace must be fresh and contained by scratch")
+        remove_targets = True
         scratch.mkdir(parents=True, exist_ok=True)
         seed_parent.mkdir()
-        run_workspace_created = True
         seed_ws.mkdir()
         host2.mkdir()
         live_contexts: list[tuple[dict[str, Any], Path, dict[str, str]]] = []
@@ -2573,7 +2633,7 @@ def run_e3(
         if not result_outcome.ok:
             raise _ScenarioExit(_run_result(Status.FAIL, result_outcome.detail))
         restored_workspace = Path(result_outcome.output_dir)
-        if not restored_workspace.is_dir():
+        if not _directory_topology_is_nofollow(restored_workspace):
             raise _ScenarioExit(_run_result(Status.FAIL, "open output workspace missing"))
         class_j = class_j_failures(
             seed_ws,
@@ -2661,13 +2721,27 @@ def run_e3(
     except _ScenarioExit as exit_result:
         primary = exit_result.result
     except Exception as exc:
-        detail = str(exc) if not scanner.active else "post-materialization execution failed"
+        try:
+            scanner_active = scanner is not None and scanner.active
+        except BaseException:
+            scanner_active = True
+        detail = "post-materialization execution failed" if scanner_active else str(exc)
         primary = _run_result(Status.INVALID, detail)
     finally:
         try:
             print(format_cleanup_report(capture_candidates, owned_paths))
-        except Exception:
+        except BaseException:
             pass
+    if (
+        scanner is None
+        or seed_parent is None
+        or host2 is None
+        or claude_dest is None
+        or codex_dest is None
+    ):
+        return _minimal_sanitized_report_result()
+    if primary is None:
+        primary = _run_result(Status.INVALID, "post-materialization execution failed")
     return _scan_and_teardown(
         primary,
         scanner,
@@ -2679,5 +2753,5 @@ def run_e3(
         profile_root=profile_root,
         host2=host2,
         seed_parent=seed_parent,
-        remove_targets=run_workspace_created,
+        remove_targets=remove_targets,
     )

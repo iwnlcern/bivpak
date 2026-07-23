@@ -895,6 +895,22 @@ def test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding(
     assert "requested destination" in result.detail
 
 
+def test_open_result_rejects_dotdot_alias_of_requested_destination(tmp_path):
+    requested = tmp_path / "host2" / "work"
+    alias = tmp_path / "host2" / "alias" / ".." / "work"
+    envelope = {
+        "result": {
+            "output_dir": str(alias),
+            "sessions": _valid_sessions_payload(),
+        }
+    }
+
+    outcome = e3._open_result_outcome(envelope, requested)
+
+    assert not outcome.ok
+    assert "requested destination" in outcome.detail
+
+
 @pytest.mark.parametrize(
     ("case", "sessions_payload", "detail_member"),
     (
@@ -2162,15 +2178,20 @@ def test_setup_host2_credentials_retains_first_seed_when_second_materializer_ref
 
 
 def test_setup_host2_credentials_refuses_codex_config_toml(monkeypatch, tmp_path):
+    codex_bytes = b'{"tokens":{"access_token":"fixture"}}'
+    identity = e3.SourceIdentity(1, 2, len(codex_bytes), "fixture")
+    scanner = e3._CredentialScanner()
+    ambient_snapshots = {}
+
     def fake_file(_source, dest, **_kwargs):
         path = Path(dest)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b'{"tokens":{"access_token":"fixture"}}')
+        path.write_bytes(codex_bytes)
         (path.parent / "config.toml").write_text("unexpected", encoding="utf-8")
         return e3.CredentialResult(
             e3.CredentialStatus.OK,
             path,
-            e3.SourceIdentity(1, 2, path.stat().st_size, "fixture"),
+            identity,
         )
 
     monkeypatch.setattr(e3, "materialize_file_credential", fake_file)
@@ -2183,10 +2204,13 @@ def test_setup_host2_credentials_refuses_codex_config_toml(monkeypatch, tmp_path
             lambda command, *_args: SimpleNamespace(
                 returncode=0, stdout=_host2_version_output(command), stderr=""
             ),
-            e3._CredentialScanner(),
+            scanner,
             [],
-            {},
+            ambient_snapshots,
         )
+
+    assert scanner.scan_bytes(codex_bytes)
+    assert ambient_snapshots["codex-auth.json"] == identity
 
 
 @pytest.mark.parametrize(
@@ -2239,6 +2263,86 @@ def test_setup_host2_credentials_probes_all_agents_before_rejecting(
         calls,
         ["claude-code", "codex", "claude-code", "codex"],
     )
+
+
+def test_setup_host2_credentials_auth_exception_still_probes_all_agents(tmp_path):
+    auth_seen = []
+    child_outputs = []
+    leaked = b'{"tokens":{"access_token":"fixture"}}'
+
+    def fake_spawn(command, cwd, env):
+        agent = _host2_agent_id(command)
+        if command[-1] == "status":
+            auth_seen.append(agent)
+            if agent == "claude-code":
+                raise e3.subprocess.TimeoutExpired(
+                    command,
+                    120,
+                    output=leaked,
+                    stderr=b"exceptional-auth-stderr",
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout="codex-auth-stdout",
+                stderr="codex-auth-stderr",
+            )
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_host2_version_output(command),
+            stderr="",
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=r"^host2 credential unavailable: claude-code$",
+    ):
+        e3.setup_host2_credentials(
+            {"agents": _host2_agents()},
+            tmp_path / "host2",
+            tmp_path / "profiles",
+            _host2_binaries(),
+            fake_spawn,
+            e3._CredentialScanner(),
+            child_outputs,
+            {},
+        )
+
+    assert auth_seen == ["claude-code", "codex"]
+    assert child_outputs == [
+        leaked + b"exceptional-auth-stderr",
+        b"codex-auth-stdoutcodex-auth-stderr",
+    ]
+
+
+def test_spawn_retry_captures_exception_and_retry_outputs_in_order(tmp_path):
+    command = ["/fake/agent", "resume"]
+    child_outputs = []
+    calls = 0
+
+    def fake_spawn(command, cwd, env):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise e3.subprocess.TimeoutExpired(
+                command,
+                120,
+                output=b"first-attempt-stdout",
+                stderr=b"first-attempt-stderr",
+            )
+        return SimpleNamespace(
+            returncode=0,
+            stdout="retry-stdout",
+            stderr="retry-stderr",
+        )
+
+    captured = e3._spawn_with_capture(fake_spawn, child_outputs)
+    result = e3._spawn_retry_with(command, tmp_path, {}, captured)
+
+    assert result.returncode == 0
+    assert child_outputs == [
+        b"first-attempt-stdoutfirst-attempt-stderr",
+        b"retry-stdoutretry-stderr",
+    ]
 
 
 def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
@@ -3930,6 +4034,306 @@ def test_scan_and_teardown_drop_failure_returns_a_fresh_scanned_constant(tmp_pat
     assert final.status is Status.INVALID
     assert final.detail == e3._SANITIZED_REPORT_DETAIL
     assert serialize_report([final]).encode("utf-8") in scanner.scanned
+
+
+def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path):
+    class BrokenDropScanner:
+        active = False
+
+        def __init__(self):
+            self.calls = 0
+
+        def scan_bytes(self, value):
+            self.calls += 1
+            return self.calls == 2
+
+        def drop(self):
+            raise RuntimeError("drop failed")
+
+    scanner = BrokenDropScanner()
+    scratch = tmp_path / "scratch"
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, [], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        claude_dest=scratch / "profile" / ".credentials.json",
+        codex_dest=scratch / "profile" / "auth.json",
+        profile_root=scratch / "profile",
+        host2=scratch / "host2",
+        seed_parent=scratch / "seed-ws",
+    )
+
+    assert scanner.calls == 3
+    assert final == e3._minimal_sanitized_report_result()
+
+
+def test_scan_and_teardown_internal_finalizer_failure_rescans_constant_ladder(
+    monkeypatch, tmp_path
+):
+    class ConstantScanner:
+        active = False
+
+        def __init__(self):
+            self.calls = 0
+
+        def scan_bytes(self, value):
+            self.calls += 1
+            return self.calls == 1
+
+        def drop(self):
+            return None
+
+    monkeypatch.setattr(
+        e3,
+        "_finalize_report",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("finalizer failed")),
+    )
+    scanner = ConstantScanner()
+    scratch = tmp_path / "scratch"
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, [], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        claude_dest=scratch / "profile" / ".credentials.json",
+        codex_dest=scratch / "profile" / "auth.json",
+        profile_root=scratch / "profile",
+        host2=scratch / "host2",
+        seed_parent=scratch / "seed-ws",
+    )
+
+    assert scanner.calls == 2
+    assert final == e3._minimal_sanitized_report_result()
+
+
+@pytest.mark.parametrize(
+    "snapshot_outcome",
+    (
+        e3.SourceIdentity(9, 9, 9, "drifted"),
+        None,
+        RuntimeError("ambient unreadable"),
+    ),
+    ids=("drifted", "short-or-missing", "unreadable"),
+)
+def test_scan_and_teardown_invalidates_each_codex_ambient_drift(
+    monkeypatch, tmp_path, snapshot_outcome
+):
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"credential-secret")
+    expected = e3.SourceIdentity(1, 2, 3, "expected")
+
+    def fake_snapshot(*args, **kwargs):
+        if isinstance(snapshot_outcome, Exception):
+            raise snapshot_outcome
+        return snapshot_outcome
+
+    monkeypatch.setattr(e3, "snapshot_identity", fake_snapshot)
+    scratch = tmp_path / "scratch"
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, ["pass"], ["held"], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={"codex-auth.json": expected},
+        claude_dest=scratch / "profile" / ".credentials.json",
+        codex_dest=scratch / "profile" / "auth.json",
+        profile_root=scratch / "profile",
+        host2=scratch / "host2",
+        seed_parent=scratch / "seed-ws",
+        remove_targets=False,
+    )
+
+    assert final.status is Status.INVALID
+    assert final.classes == []
+    assert final.held_asserts == []
+    assert "codex-ambient-credential-drift" in final.warnings
+
+
+@pytest.mark.parametrize("profile_topology", ("sibling", "nested"))
+def test_scan_and_teardown_removes_all_targets_in_both_profile_topologies(
+    tmp_path, profile_topology
+):
+    scratch = tmp_path / "scratch"
+    host2 = scratch / "host2"
+    profile_root = (
+        scratch / "host2-profile"
+        if profile_topology == "sibling"
+        else host2 / "profiles"
+    )
+    seed_parent = scratch / "seed-ws"
+    claude_dest = profile_root / "claude" / ".credentials.json"
+    codex_dest = profile_root / "codex" / "auth.json"
+    for path in (claude_dest, codex_dest):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"credential-secret")
+    seed_parent.mkdir(parents=True)
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"credential-secret")
+
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.FAIL, [], detail="primary failure"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.FAIL
+    assert final.detail == "primary failure"
+    for target in (claude_dest, codex_dest, profile_root, host2, seed_parent):
+        with pytest.raises(FileNotFoundError):
+            os.lstat(target)
+
+
+def test_scan_and_teardown_attempts_all_targets_after_non_oserror_stat_failure(
+    monkeypatch, tmp_path
+):
+    scratch = tmp_path / "scratch"
+    profile_root = scratch / "host2-profile"
+    host2 = scratch / "host2"
+    seed_parent = scratch / "seed-ws"
+    claude_dest = profile_root / "claude" / ".credentials.json"
+    codex_dest = profile_root / "codex" / "auth.json"
+    for path in (claude_dest, codex_dest):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"credential-secret")
+    host2.mkdir(parents=True)
+    seed_parent.mkdir(parents=True)
+    targets = (claude_dest, codex_dest, profile_root, host2, seed_parent)
+    target_calls = {target: 0 for target in targets}
+    real_lstat = e3.os.lstat
+
+    def flaky_lstat(path, *args, **kwargs):
+        candidate = Path(path)
+        if candidate in target_calls:
+            target_calls[candidate] += 1
+            if candidate == claude_dest and target_calls[candidate] == 1:
+                raise RuntimeError("non-oserror stat failure")
+        return real_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(e3.os, "lstat", flaky_lstat)
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"credential-secret")
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.FAIL, [], detail="primary failure"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.FAIL
+    assert final.detail == "primary failure"
+    assert "cleanup-stat-failed" in final.warnings
+    assert all(count >= 1 for count in target_calls.values())
+    assert all(count >= 2 for count in target_calls.values())
+
+
+def test_scan_and_teardown_folds_unlink_failure_and_preserves_primary(
+    monkeypatch, tmp_path
+):
+    scratch = tmp_path / "scratch"
+    profile_root = scratch / "host2-profile"
+    host2 = scratch / "host2"
+    seed_parent = scratch / "seed-ws"
+    claude_dest = profile_root / "claude" / ".credentials.json"
+    codex_dest = profile_root / "codex" / "auth.json"
+    for path in (claude_dest, codex_dest):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"credential-secret")
+    host2.mkdir(parents=True)
+    seed_parent.mkdir(parents=True)
+    real_unlink = e3.Path.unlink
+
+    def flaky_unlink(path, *args, **kwargs):
+        if Path(path) == claude_dest:
+            raise RuntimeError("non-oserror unlink failure")
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(e3.Path, "unlink", flaky_unlink)
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"credential-secret")
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.FAIL, [], detail="primary failure"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.FAIL
+    assert final.detail == "primary failure"
+    assert "cleanup-unlink-failed" in final.warnings
+    assert not any(
+        target.exists()
+        for target in (claude_dest, codex_dest, profile_root, host2, seed_parent)
+    )
+
+
+def test_scan_and_teardown_folds_absence_stat_failure_after_all_removals(
+    monkeypatch, tmp_path
+):
+    scratch = tmp_path / "scratch"
+    profile_root = scratch / "host2-profile"
+    host2 = scratch / "host2"
+    seed_parent = scratch / "seed-ws"
+    claude_dest = profile_root / "claude" / ".credentials.json"
+    codex_dest = profile_root / "codex" / "auth.json"
+    for path in (claude_dest, codex_dest):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"credential-secret")
+    host2.mkdir(parents=True)
+    seed_parent.mkdir(parents=True)
+    targets = (claude_dest, codex_dest, profile_root, host2, seed_parent)
+    calls = {target: 0 for target in targets}
+    real_lstat = e3.os.lstat
+
+    def flaky_lstat(path, *args, **kwargs):
+        candidate = Path(path)
+        if candidate in calls:
+            calls[candidate] += 1
+            if candidate == claude_dest and calls[candidate] == 2:
+                raise RuntimeError("absence stat failure")
+        return real_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(e3.os, "lstat", flaky_lstat)
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"credential-secret")
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.FAIL, [], detail="primary failure"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.FAIL
+    assert final.detail == "primary failure"
+    assert "cleanup-absence-stat-failed" in final.warnings
+    assert all(count >= 2 for count in calls.values())
 
 
 def test_finalize_report_handles_serializer_failure_without_raising(monkeypatch):
@@ -6201,6 +6605,9 @@ def _run_argv_barrier_flow(
     *,
     wrong_version=None,
     leak_phase=None,
+    exception_leak_phase=None,
+    restored_symlink=False,
+    unexpected_phase=None,
 ):
     spec = _argv_barrier_spec(stable_test_root)
     binaries = {
@@ -6213,6 +6620,7 @@ def _run_argv_barrier_flow(
     biv = tmp_path / "fake-biv"
     scratch = stable_test_root / "scratch"
     ledger = []
+    exceptional_phases = set()
     seed_attempts = {agent["id"]: 0 for agent in spec["agents"]}
     resume_attempts = {agent["id"]: 0 for agent in spec["agents"]}
 
@@ -6247,7 +6655,13 @@ def _run_argv_barrier_flow(
                 return _successful_pack()
             if command[1] == "open":
                 destination = Path(command[command.index("--dest") + 1])
-                return _open_process_result(destination)
+                result = _open_process_result(destination)
+                if restored_symlink:
+                    shutil.rmtree(destination)
+                    outside = stable_test_root / "outside-restored"
+                    outside.mkdir()
+                    destination.symlink_to(outside, target_is_directory=True)
+                return result
         agent = next(
             agent for agent in spec["agents"]
             if command[0] in (agent["auth_status"][0], binaries[agent["auth_status"][0]])
@@ -6303,6 +6717,22 @@ def _run_argv_barrier_flow(
             phase = "liveness"
         elif Path(cwd) == scratch / "host2" / "work":
             phase = "resume"
+        post_materialization = Path(cwd) != scratch / "seed-ws" / spec["workspace_name"]
+        if unexpected_phase is not None and phase == unexpected_phase:
+            raise RuntimeError("unexpected synthetic execution failure")
+        if (
+            exception_leak_phase is not None
+            and phase == exception_leak_phase
+            and post_materialization
+            and phase not in exceptional_phases
+        ):
+            exceptional_phases.add(phase)
+            raise e3.subprocess.TimeoutExpired(
+                command,
+                120,
+                output=b'{"tokens":{"access_token":"fixture"}}',
+                stderr=b"exceptional-attempt-stderr",
+            )
         if phase == leak_phase:
             return SimpleNamespace(
                 returncode=result.returncode,
@@ -6412,6 +6842,124 @@ def test_run_e3_invalidates_each_post_materialization_output_leak(
 
     assert result.status is Status.INVALID
     assert '{"tokens":{"access_token":"fixture"}}' not in serialize_report([result])
+
+
+@pytest.mark.parametrize(
+    "exception_leak_phase",
+    ("auth", "liveness", "open", "resume"),
+)
+def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
+    monkeypatch, tmp_path, stable_test_root, exception_leak_phase
+):
+    result, _, _, ledger, _, _ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        exception_leak_phase=exception_leak_phase,
+    )
+
+    assert result.status is Status.INVALID
+    assert '{"tokens":{"access_token":"fixture"}}' not in serialize_report([result])
+    if exception_leak_phase == "auth":
+        auth_calls = [
+            command
+            for command, _, _ in ledger
+            if command[1:] in (["login", "status"], ["auth", "status"])
+        ]
+        assert len(auth_calls) == 4
+
+
+def test_run_e3_rejects_restored_workspace_symlink_before_any_resume_spawn(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, _, binaries, ledger, _, scratch = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        restored_symlink=True,
+    )
+
+    assert result.status is Status.FAIL
+    restored_workspace = scratch / "host2" / "work"
+    resume_calls = [
+        command
+        for _, command, cwd in _agent_ledger(ledger, binaries)
+        if cwd == restored_workspace
+    ]
+    assert resume_calls == []
+
+
+@pytest.mark.parametrize("outcome", ("pass", "resume-invalid", "runtime"))
+def test_run_e3_finalizes_exactly_once_for_each_execution_outcome(
+    monkeypatch, tmp_path, stable_test_root, outcome
+):
+    calls = 0
+    real_finalize = e3._finalize_report
+
+    def recording_finalize(result, scanner):
+        nonlocal calls
+        calls += 1
+        return real_finalize(result, scanner)
+
+    monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+    kwargs = {}
+    if outcome == "resume-invalid":
+        kwargs["leak_phase"] = "resume"
+    elif outcome == "runtime":
+        kwargs["unexpected_phase"] = "open"
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        **kwargs,
+    )
+
+    assert result.status is (Status.PASS if outcome == "pass" else Status.INVALID)
+    assert calls == 1
+
+
+def test_run_e3_token_materialization_exception_is_finalized_and_dropped_once(
+    monkeypatch, tmp_path, stable_test_root
+):
+    spec_path, _ = _configure_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        pack_result=_successful_pack(),
+    )
+    scanners = []
+
+    class RecordingScanner(e3._CredentialScanner):
+        def __init__(self):
+            super().__init__()
+            self.drop_calls = 0
+            scanners.append(self)
+
+        def drop(self):
+            self.drop_calls += 1
+            return super().drop()
+
+    finalize_calls = 0
+    real_finalize = e3._finalize_report
+
+    def recording_finalize(result, scanner):
+        nonlocal finalize_calls
+        finalize_calls += 1
+        return real_finalize(result, scanner)
+
+    monkeypatch.setattr(e3, "_CredentialScanner", RecordingScanner)
+    monkeypatch.setattr(
+        e3,
+        "materialize_run_tokens",
+        lambda _spec: (_ for _ in ()).throw(RuntimeError("token setup failed")),
+    )
+    monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+
+    result = e3.run_e3(spec_path, Path("/fake/biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert finalize_calls == 1
+    assert len(scanners) == 1
+    assert scanners[0].drop_calls == 1
 
 
 @pytest.mark.parametrize("wrong_version", ["claude-code", "codex"])
