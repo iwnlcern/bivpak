@@ -47,6 +47,12 @@ CLAUDE_REFRESH_LEAF = "claude-refresh-leaf-2c8b4e"
 CODEX_ACCESS_LEAF = "codex-access-leaf-9a3e5d"
 CODEX_REFRESH_LEAF = "codex-refresh-leaf-4b7c2f"
 CODEX_API_KEY_LEAF = "codex-api-key-leaf-8d1f6a"
+ESCAPED_CREDENTIAL_LEAF = 'quote" backslash\\ newline\n tab\t snowman-\u2603'
+ESCAPED_CREDENTIAL_JSON = json.dumps(ESCAPED_CREDENTIAL_LEAF)[1:-1]
+ESCAPED_CREDENTIAL_OUTPUT = json.dumps(
+    {"credential": ESCAPED_CREDENTIAL_LEAF},
+    separators=(",", ":"),
+)
 
 
 @pytest.fixture
@@ -80,6 +86,7 @@ def _fake_run_e3_credential_materialization(monkeypatch):
             "tokens": {
                 "access_token": CODEX_ACCESS_LEAF,
                 "refresh_token": CODEX_REFRESH_LEAF,
+                "escaped_token": ESCAPED_CREDENTIAL_LEAF,
             },
         },
         separators=(",", ":"),
@@ -2212,11 +2219,55 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
     assert all(value == bytearray(len(value)) for value in owned_values)
 
 
+def test_seed_credential_scanner_matches_raw_and_canonical_json_escaped_leaf():
+    raw = json.dumps(
+        {"tokens": {"access_token": ESCAPED_CREDENTIAL_LEAF}},
+        separators=(",", ":"),
+    ).encode()
+    scanner = e3._CredentialScanner()
+
+    e3._seed_credential_scanner(scanner, raw, "codex")
+
+    raw_leaf = ESCAPED_CREDENTIAL_LEAF.encode()
+    escaped_leaf = ESCAPED_CREDENTIAL_JSON.encode("ascii")
+    assert escaped_leaf != raw_leaf
+    assert not escaped_leaf.startswith(b'"')
+    assert not escaped_leaf.endswith(b'"')
+    assert scanner.scan_bytes(raw_leaf)
+    assert scanner.scan_bytes(escaped_leaf)
+
+
+def test_finalize_report_sanitizes_json_escaped_credential_leaf_fields():
+    raw = json.dumps(
+        {"tokens": {"access_token": ESCAPED_CREDENTIAL_LEAF}},
+        separators=(",", ":"),
+    ).encode()
+    scanner = e3._CredentialScanner()
+    e3._seed_credential_scanner(scanner, raw, "codex")
+    primary = ScenarioResult(
+        "e3",
+        "E3",
+        Status.FAIL,
+        [],
+        detail=ESCAPED_CREDENTIAL_LEAF,
+        warnings=[ESCAPED_CREDENTIAL_LEAF],
+    )
+
+    final = e3._finalize_report(primary, scanner)
+    serialized = serialize_report([final]).encode()
+
+    assert final.status is Status.INVALID
+    assert final.warnings == []
+    assert ESCAPED_CREDENTIAL_JSON.encode() not in serialized
+    assert not scanner.scan_bytes(serialized)
+
+
 @pytest.mark.parametrize(
     ("credential_id", "raw"),
     (
         ("claude-code", b"not-json"),
         ("codex", b'{"tokens":{}}'),
+        ("codex", b'{"tokens":{"access_token":"\\ud800"}}'),
     ),
 )
 def test_setup_host2_credentials_rejects_unparseable_or_inconsistent_seed_shape(
@@ -6734,7 +6785,9 @@ def _run_argv_barrier_flow(
     restored_symlink=False,
     unexpected_phase=None,
     post_materialization_base_exception=None,
-    scratch_leaf_leak=False,
+    leak_payload=CODEX_ACCESS_LEAF,
+    exception_leak_payload=CODEX_ACCESS_LEAF,
+    scratch_leak_payload=None,
 ):
     spec = _argv_barrier_spec(stable_test_root)
     binaries = {
@@ -6853,9 +6906,9 @@ def _run_argv_barrier_flow(
         elif Path(cwd) == scratch / "host2" / "work":
             phase = "resume"
         post_materialization = Path(cwd) != scratch / "seed-ws" / spec["workspace_name"]
-        if scratch_leaf_leak and phase == "open":
+        if scratch_leak_payload is not None and phase == "open":
             leaked = scratch / "seed-ws" / "post-materialization-leaf"
-            leaked.write_text(CODEX_ACCESS_LEAF, encoding="utf-8")
+            leaked.write_text(scratch_leak_payload, encoding="utf-8")
         if (
             post_materialization_base_exception is not None
             and phase == "open"
@@ -6873,14 +6926,14 @@ def _run_argv_barrier_flow(
             raise e3.subprocess.TimeoutExpired(
                 command,
                 120,
-                output=CODEX_ACCESS_LEAF.encode(),
+                output=exception_leak_payload.encode(),
                 stderr=b"exceptional-attempt-stderr",
             )
         if phase == leak_phase:
             return SimpleNamespace(
                 returncode=result.returncode,
                 stdout=result.stdout,
-                stderr=(result.stderr or "") + CODEX_ACCESS_LEAF,
+                stderr=(result.stderr or "") + leak_payload,
             )
         return result
 
@@ -7108,12 +7161,59 @@ def test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization
         monkeypatch,
         tmp_path,
         stable_test_root,
-        scratch_leaf_leak=True,
+        scratch_leak_payload=CODEX_ACCESS_LEAF,
     )
 
     assert result.status is Status.INVALID
     assert "credential-scan-detected" in result.warnings
     assert CODEX_ACCESS_LEAF not in serialize_report([result])
+
+
+def test_run_e3_invalidates_json_escaped_leaf_in_child_output(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        leak_phase="open",
+        leak_payload=ESCAPED_CREDENTIAL_OUTPUT,
+    )
+
+    assert result.status is Status.INVALID
+    assert "credential-child-output-detected" in result.warnings
+    assert ESCAPED_CREDENTIAL_JSON not in serialize_report([result])
+
+
+def test_run_e3_invalidates_json_escaped_leaf_in_exceptional_output(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        exception_leak_phase="liveness",
+        exception_leak_payload=ESCAPED_CREDENTIAL_OUTPUT,
+    )
+
+    assert result.status is Status.INVALID
+    assert "credential-child-output-detected" in result.warnings
+    assert ESCAPED_CREDENTIAL_JSON not in serialize_report([result])
+
+
+def test_run_e3_invalidates_json_escaped_leaf_copied_into_scratch(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        scratch_leak_payload=ESCAPED_CREDENTIAL_OUTPUT,
+    )
+
+    assert result.status is Status.INVALID
+    assert "credential-scan-detected" in result.warnings
+    assert ESCAPED_CREDENTIAL_JSON not in serialize_report([result])
 
 
 def test_run_e3_rejects_restored_workspace_symlink_before_any_resume_spawn(

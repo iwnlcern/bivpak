@@ -1157,7 +1157,19 @@ def _seed_credential_scanner(
         raise ValueError("credential destination unavailable")
     for value in candidates:
         if isinstance(value, str) and value:
-            scanner.add_value(value)
+            try:
+                encoded = json.dumps(value, ensure_ascii=True)
+                if (
+                    len(encoded) < 2
+                    or encoded[0] != '"'
+                    or encoded[-1] != '"'
+                ):
+                    raise ValueError("credential destination unavailable")
+                escaped = encoded[1:-1].encode("ascii")
+                scanner.add_value(value)
+                scanner.add_value(escaped)
+            except (TypeError, UnicodeError, ValueError):
+                raise ValueError("credential destination unavailable") from None
 
 
 def _credential_path_exists_nofollow(path: Path) -> bool:
