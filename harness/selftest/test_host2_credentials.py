@@ -168,6 +168,38 @@ def test_destination_parent_substitution_is_typed_and_cleans_original_dir(tmp_pa
     assert not list(moved_parent.glob(".host2-credential-*"))
 
 
+def test_destination_leaf_created_after_preflight_is_preserved(tmp_path, monkeypatch):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    dest = tmp_path / "dest" / "auth.json"
+    competing_bytes = b"competing-leaf-must-survive"
+    real_replace_at = credentials._replace_at
+    raced = False
+
+    def racing_replace_at(parent_fd, temporary, destination):
+        nonlocal raced
+        competing_fd = os.open(
+            destination,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=parent_fd,
+        )
+        try:
+            os.write(competing_fd, competing_bytes)
+        finally:
+            os.close(competing_fd)
+        raced = True
+        return real_replace_at(parent_fd, temporary, destination)
+
+    monkeypatch.setattr(credentials, "_replace_at", racing_replace_at)
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert raced
+    assert result.status is CredentialStatus.DEST_UNSAFE
+    assert dest.read_bytes() == competing_bytes
+    assert not list(dest.parent.glob(".host2-credential-*"))
+
+
 def test_file_reads_to_eof_when_reads_are_short(tmp_path, monkeypatch):
     src = tmp_path / "auth.json"
     src.write_bytes(CODEX_OK)

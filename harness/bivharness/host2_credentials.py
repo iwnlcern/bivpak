@@ -207,11 +207,13 @@ def _mkstemp_at(parent_fd: int) -> tuple[int, str]:
 
 
 def _replace_at(parent_fd: int, temporary: str, destination: str) -> None:
-    os.rename(
+    """Atomically install without replacing a destination created after preflight."""
+    os.link(
         temporary,
         destination,
         src_dir_fd=parent_fd,
         dst_dir_fd=parent_fd,
+        follow_symlinks=False,
     )
 
 
@@ -248,8 +250,9 @@ def _atomic_write_0600(dest: Path, data: bytes) -> CredentialResult:
         temporary_fd = None
 
         _replace_at(parent_fd, temporary, dest.name)
-        temporary = None
         installed = True
+        os.unlink(temporary, dir_fd=parent_fd)
+        temporary = None
         if not _directory_identity_matches(dest.parent, parent_fd):
             return CredentialResult(CredentialStatus.DEST_UNSAFE)
         succeeded = True
