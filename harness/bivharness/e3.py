@@ -39,6 +39,7 @@ CREDENTIAL_DECOY_NAMES = (".credentials.json", "auth.json", ".env")
 CREDENTIAL_DECOY_ROOT = ".biv-e3-credential-decoys"
 CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
 CREDENTIAL_MAX_BYTES = 64 * 1024
+_CREDENTIAL_VALUE_MAX_NODES = CREDENTIAL_MAX_BYTES
 DOTENV_SAFE_SENTINEL = re.compile(r"[A-Za-z0-9_.:@/+\-=]+")
 CLAUDE_RESUME_MUTATION = "appends-same-file"
 CODEX_RESUME_SHAPE = "appends-same-rollout"
@@ -1204,38 +1205,63 @@ def _seed_credential_scanner(
     raw: bytes,
     credential_id: str,
 ) -> None:
-    scanner.add_value(raw)
-    if credential_id == "claude-code":
-        if not claude_shape_ok(raw):
+    try:
+        scanner.add_value(raw)
+        if credential_id == "claude-code":
+            shape_ok = claude_shape_ok(raw)
+        elif credential_id == "codex":
+            shape_ok = codex_shape_ok(raw)
+        else:
+            shape_ok = False
+        if not shape_ok:
             raise ValueError("credential destination unavailable")
         parsed = json.loads(raw)
-        oauth = parsed["claudeAiOauth"]
-        candidates = (oauth["accessToken"], oauth["refreshToken"])
-    elif credential_id == "codex":
-        if not codex_shape_ok(raw):
-            raise ValueError("credential destination unavailable")
-        parsed = json.loads(raw)
-        candidates = [parsed.get("OPENAI_API_KEY")]
-        tokens = parsed.get("tokens")
-        if isinstance(tokens, dict):
-            candidates.extend(tokens.values())
-    else:
-        raise ValueError("credential destination unavailable")
-    for value in candidates:
-        if isinstance(value, str) and value:
-            try:
-                encoded = json.dumps(value, ensure_ascii=True)
+
+        stack: list[object] = [parsed]
+        seen_containers: set[int] = set()
+        visited = 0
+        while stack:
+            value = stack.pop()
+            visited += 1
+            if visited > _CREDENTIAL_VALUE_MAX_NODES:
+                raise ValueError("credential destination unavailable")
+            if isinstance(value, str):
+                if not value:
+                    continue
+                encoded = value.encode("utf-8")
+                escaped_json = json.dumps(value, ensure_ascii=True)
                 if (
-                    len(encoded) < 2
-                    or encoded[0] != '"'
-                    or encoded[-1] != '"'
+                    len(escaped_json) < 2
+                    or escaped_json[0] != '"'
+                    or escaped_json[-1] != '"'
                 ):
                     raise ValueError("credential destination unavailable")
-                escaped = encoded[1:-1].encode("ascii")
-                scanner.add_value(value)
-                scanner.add_value(escaped)
-            except (TypeError, UnicodeError, ValueError):
-                raise ValueError("credential destination unavailable") from None
+                scanner.add_value(encoded)
+                scanner.add_value(escaped_json[1:-1].encode("ascii"))
+                continue
+            if isinstance(value, dict):
+                child_count = len(value)
+            elif isinstance(value, list):
+                child_count = len(value)
+            elif value is None or isinstance(value, (bool, int, float)):
+                continue
+            else:
+                raise ValueError("credential destination unavailable")
+
+            identity = id(value)
+            if identity in seen_containers:
+                raise ValueError("credential destination unavailable")
+            seen_containers.add(identity)
+            if visited + len(stack) + child_count > _CREDENTIAL_VALUE_MAX_NODES:
+                raise ValueError("credential destination unavailable")
+            if isinstance(value, dict):
+                if any(not isinstance(key, str) for key in value):
+                    raise ValueError("credential destination unavailable")
+                stack.extend(reversed(value.values()))
+            else:
+                stack.extend(reversed(value))
+    except Exception:
+        raise ValueError("credential destination unavailable") from None
 
 
 def _credential_path_exists_nofollow(path: Path) -> bool:

@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import multiprocessing
 import os
 import re
 import shutil
@@ -53,6 +54,51 @@ ESCAPED_CREDENTIAL_OUTPUT = json.dumps(
     {"credential": ESCAPED_CREDENTIAL_LEAF},
     separators=(",", ":"),
 )
+NESTED_CREDENTIAL_LEAF = 'nested quote" slash\\ line\n tab\t globe-\u2603'
+NESTED_CREDENTIAL_JSON = json.dumps(NESTED_CREDENTIAL_LEAF)[1:-1]
+NESTED_CREDENTIAL_OUTPUT = json.dumps(
+    {"event": {"items": [{"credential": NESTED_CREDENTIAL_LEAF}]}},
+    separators=(",", ":"),
+)
+
+
+def _credential_traversal_worker(case, connection):
+    secret = "TRAVERSAL_ANOMALY_MUST_NOT_ECHO"
+    parsed = {"tokens": {"access_token": "shape-value"}}
+    if case == "cycle":
+        anomaly = [secret]
+        anomaly.append(anomaly)
+    elif case == "over-budget":
+        anomaly = secret
+        for _ in range(70_000):
+            anomaly = [anomaly]
+    else:
+        class Unsupported:
+            def __repr__(self):
+                return secret
+
+        anomaly = Unsupported()
+    parsed["metadata"] = anomaly
+    original_loads = e3.json.loads
+    scanner = e3._CredentialScanner()
+    try:
+        e3.json.loads = lambda _raw: parsed
+        try:
+            e3._seed_credential_scanner(
+                scanner,
+                b'{"tokens":{"access_token":"shape-value"}}',
+                "codex",
+            )
+        except ValueError as exc:
+            connection.send(("refused", str(exc), secret not in str(exc)))
+        else:
+            connection.send(("accepted", "", True))
+    except BaseException as exc:
+        connection.send(("escaped", type(exc).__name__, secret not in str(exc)))
+    finally:
+        e3.json.loads = original_loads
+        scanner.drop()
+        connection.close()
 
 
 @pytest.fixture
@@ -87,6 +133,9 @@ def _fake_run_e3_credential_materialization(monkeypatch):
                 "access_token": CODEX_ACCESS_LEAF,
                 "refresh_token": CODEX_REFRESH_LEAF,
                 "escaped_token": ESCAPED_CREDENTIAL_LEAF,
+            },
+            "metadata": {
+                "history": [{"credential": NESTED_CREDENTIAL_LEAF}],
             },
         },
         separators=(",", ":"),
@@ -2169,12 +2218,15 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
     codex_access = "setup-codex-access-leaf"
     codex_refresh = "setup-codex-refresh-leaf"
     codex_id = "setup-codex-id-leaf"
+    claude_nested = 'setup-claude nested "value"'
+    codex_nested = "setup-codex nested\\value\n"
     claude_bytes = json.dumps(
         {
             "claudeAiOauth": {
                 "accessToken": claude_access,
                 "refreshToken": claude_refresh,
-            }
+            },
+            "metadata": {"history": [{"credential": claude_nested}]},
         },
         separators=(",", ":"),
     ).encode()
@@ -2189,6 +2241,7 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
                 "nullable": None,
                 "empty": "",
             },
+            "metadata": {"history": [[{"credential": codex_nested}]]},
         },
         separators=(",", ":"),
     ).encode()
@@ -2258,8 +2311,11 @@ def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner
         codex_access,
         codex_refresh,
         codex_id,
+        claude_nested,
+        codex_nested,
     ):
         assert scanner.scan_text(leaf)
+        assert scanner.scan_bytes(json.dumps(leaf)[1:-1].encode("ascii"))
     finalized = e3._finalize_report(
         ScenarioResult("e3", "E3", Status.FAIL, [], detail=codex_access),
         scanner,
@@ -2293,6 +2349,91 @@ def test_seed_credential_scanner_matches_raw_and_canonical_json_escaped_leaf():
     assert not escaped_leaf.endswith(b'"')
     assert scanner.scan_bytes(raw_leaf)
     assert scanner.scan_bytes(escaped_leaf)
+
+
+@pytest.mark.parametrize(
+    ("credential_id", "document"),
+    (
+        (
+            "claude-code",
+            {
+                "claudeAiOauth": {
+                    "accessToken": "claude-shape-access",
+                    "refreshToken": "claude-shape-refresh",
+                },
+                "metadata": {
+                    "history": [{"items": [None, 7, NESTED_CREDENTIAL_LEAF]}],
+                },
+            },
+        ),
+        (
+            "codex",
+            {
+                "tokens": {"access_token": "codex-shape-access"},
+                "metadata": {
+                    "history": [{"items": [False, {}, NESTED_CREDENTIAL_LEAF]}],
+                },
+            },
+        ),
+    ),
+)
+def test_seed_credential_scanner_matches_every_nested_string_value(
+    credential_id,
+    document,
+):
+    document["nested-key-must-not-be-seeded"] = None
+    raw = json.dumps(document, separators=(",", ":")).encode()
+    scanner = e3._CredentialScanner()
+
+    e3._seed_credential_scanner(scanner, raw, credential_id)
+
+    assert scanner.scan_bytes(raw)
+    assert scanner.scan_text(NESTED_CREDENTIAL_LEAF)
+    assert scanner.scan_bytes(NESTED_CREDENTIAL_JSON.encode("ascii"))
+    assert not scanner.scan_text("nested-key-must-not-be-seeded")
+
+
+def test_seed_credential_scanner_handles_deep_values_iteratively(monkeypatch):
+    parsed = {"tokens": {"access_token": "codex-shape-access"}}
+    nested = NESTED_CREDENTIAL_LEAF
+    for _ in range(5_000):
+        nested = [nested]
+    parsed["metadata"] = nested
+    monkeypatch.setattr(e3.json, "loads", lambda _raw: parsed)
+    scanner = e3._CredentialScanner()
+
+    e3._seed_credential_scanner(
+        scanner,
+        b'{"tokens":{"access_token":"codex-shape-access"}}',
+        "codex",
+    )
+
+    assert scanner.scan_text(NESTED_CREDENTIAL_LEAF)
+    assert scanner.scan_bytes(NESTED_CREDENTIAL_JSON.encode("ascii"))
+
+
+@pytest.mark.parametrize("case", ("cycle", "over-budget", "unsupported"))
+def test_seed_credential_scanner_bounds_traversal_without_echo_or_hang(case):
+    context = multiprocessing.get_context("spawn")
+    receive, send = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_credential_traversal_worker,
+        args=(case, send),
+    )
+    process.start()
+    send.close()
+    process.join(timeout=5)
+    if process.is_alive():
+        process.kill()
+        process.join()
+        receive.close()
+        pytest.fail(f"credential traversal hung on {case}")
+
+    assert process.exitcode == 0
+    assert receive.poll(timeout=1)
+    outcome = receive.recv()
+    receive.close()
+    assert outcome == ("refused", "credential destination unavailable", True)
 
 
 def test_finalize_report_sanitizes_json_escaped_credential_leaf_fields():
@@ -7310,6 +7451,39 @@ def test_run_e3_invalidates_json_escaped_leaf_copied_into_scratch(
     assert result.status is Status.INVALID
     assert "credential-scan-detected" in result.warnings
     assert ESCAPED_CREDENTIAL_JSON not in serialize_report([result])
+
+
+def test_run_e3_invalidates_nested_credential_value_copied_into_scratch(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        scratch_leak_payload=NESTED_CREDENTIAL_LEAF,
+    )
+
+    assert result.status is Status.INVALID
+    assert "credential-scan-detected" in result.warnings
+    assert NESTED_CREDENTIAL_LEAF not in serialize_report([result])
+
+
+def test_run_e3_sanitizes_nested_json_escaped_value_from_child_and_report(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        leak_phase="open",
+        leak_payload=NESTED_CREDENTIAL_OUTPUT,
+    )
+
+    serialized = serialize_report([result])
+    assert result.status is Status.INVALID
+    assert "credential-child-output-detected" in result.warnings
+    assert NESTED_CREDENTIAL_JSON not in serialized
+    assert NESTED_CREDENTIAL_LEAF not in serialized
 
 
 def test_run_e3_rejects_restored_workspace_symlink_before_any_resume_spawn(
