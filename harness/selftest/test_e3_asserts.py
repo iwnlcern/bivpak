@@ -5419,6 +5419,53 @@ def test_scan_and_teardown_drop_failure_returns_a_fresh_scanned_constant(tmp_pat
     assert serialize_report([final]).encode("utf-8") in scanner.scanned
 
 
+def test_scan_and_teardown_activation_failure_returns_only_typed_constant_invalid(
+    tmp_path,
+):
+    class BrokenActiveScanner(e3._CredentialScanner):
+        @property
+        def active(self):
+            raise RuntimeError("active unavailable")
+
+    secret = "REFRESHED_REAL_CREDENTIAL_VALUE_7f1a"
+    scratch = tmp_path / "scratch"
+    scanner = BrokenActiveScanner()
+    scanner.add_value(b"CONTROLLED_RUNTIME_SENTINEL_activation_failure")
+    final = e3._scan_and_teardown(
+        ScenarioResult(
+            "unsafe-primary",
+            "E3",
+            Status.FAIL,
+            ["unsafe-class"],
+            ["unsafe-assert"],
+            detail="unsafe-primary-detail",
+            warnings=[secret],
+        ),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards={},
+        claude_dest=scratch / "profile" / ".credentials.json",
+        codex_dest=scratch / "profile" / "auth.json",
+        profile_root=scratch / "profile",
+        host2=scratch / "host2",
+        seed_parent=scratch / "seed-ws",
+        remove_targets=False,
+    )
+
+    assert final == ScenarioResult(
+        id="e3-report-refused",
+        tier="E3",
+        status=Status.INVALID,
+        classes=[],
+        held_asserts=[],
+        detail="report refused: result could not be sanitized",
+        warnings=[],
+    )
+    assert secret not in serialize_report([final])
+
+
 def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path):
     class BrokenDropScanner:
         active = False
@@ -5450,10 +5497,8 @@ def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path
     )
 
     assert scanner.calls == 3
-    assert final.status is Status.INVALID
-    assert final.held_asserts
-    with pytest.raises(TypeError):
-        serialize_report([final])
+    assert final == e3._nonwritable_sanitized_report_result()
+    assert json.loads(serialize_report([final]))["invalid"] == ["e3-report-refused"]
 
 
 def test_scan_and_teardown_internal_finalizer_failure_rescans_constant_ladder(
@@ -5743,10 +5788,8 @@ def test_finalize_report_handles_serializer_failure_without_raising(monkeypatch)
         scanner,
     )
 
-    assert final.status is Status.INVALID
-    assert final.classes == []
-    assert final.warnings == []
-    assert final.held_asserts
+    assert final == e3._nonwritable_sanitized_report_result()
+    assert json.loads(serialize_report([final]))["invalid"] == ["e3-report-refused"]
 
 
 def test_finalize_report_swallows_a_rescan_failure_after_sanitizing():
@@ -5769,15 +5812,8 @@ def test_finalize_report_swallows_a_rescan_failure_after_sanitizing():
     )
 
     assert scanner.calls == 2
-    assert final.status is Status.INVALID
-    assert final.id == ""
-    assert final.tier == ""
-    assert final.detail == ""
-    assert final.classes == []
-    assert final.held_asserts
-    assert final.warnings == []
-    with pytest.raises(TypeError):
-        serialize_report([final])
+    assert final == e3._nonwritable_sanitized_report_result()
+    assert json.loads(serialize_report([final]))["invalid"] == ["e3-report-refused"]
 
 
 def test_finalize_report_uses_minimal_fallback_on_positive_sanitized_rescan():
@@ -5820,18 +5856,11 @@ def test_finalize_report_returns_minimal_fallback_when_its_scan_fails(
     )
 
     assert scanner.calls == 3
-    assert final.status is Status.INVALID
-    assert final.id == ""
-    assert final.tier == ""
-    assert final.detail == ""
-    assert final.classes == []
-    assert final.held_asserts
-    assert final.warnings == []
-    with pytest.raises(TypeError):
-        serialize_report([final])
+    assert final == e3._nonwritable_sanitized_report_result()
+    assert json.loads(serialize_report([final]))["invalid"] == ["e3-report-refused"]
 
 
-def test_finalize_report_refuses_write_after_known_positive_terminal_scan():
+def test_finalize_report_returns_serializable_constant_after_positive_terminal_scan():
     scanner = e3._CredentialScanner()
     scanner.add_value(b'"classes": []')
 
@@ -5840,10 +5869,8 @@ def test_finalize_report_refuses_write_after_known_positive_terminal_scan():
         scanner,
     )
 
-    assert final.status is Status.INVALID
-    assert final.held_asserts
-    with pytest.raises(TypeError):
-        serialize_report([final])
+    assert final == e3._nonwritable_sanitized_report_result()
+    assert json.loads(serialize_report([final]))["invalid"] == ["e3-report-refused"]
 
 
 def test_class_j_workspace_memoryless_and_version_predicates(tmp_path):

@@ -5,12 +5,155 @@ import sys
 from pathlib import Path
 
 from bivharness import cli
+from bivharness import e3
 from bivharness.report import Report, ScenarioResult, Status
 from bivharness.report import serialize_report as shared_serialize_report
 from test_scenario import use_schema_root
 
 
 STUB = Path(__file__).with_name("stub_biv.py")
+
+
+def test_cli_atomically_replaces_stale_pass_with_terminal_report_refusal(
+    monkeypatch, tmp_path
+):
+    scenario = tmp_path / "e3.json"
+    scenario.write_text("{}", encoding="utf-8")
+    report = tmp_path / "report.json"
+    report.write_text(
+        shared_serialize_report(
+            [
+                ScenarioResult(
+                    "stale-pass",
+                    "E3",
+                    Status.PASS,
+                    ["RAW_CAPTURED_PRIOR"],
+                    detail="PASS",
+                )
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        cli,
+        "run_e3",
+        lambda *_args, **_kwargs: e3._nonwritable_sanitized_report_result(),
+    )
+    replacements = []
+    real_replace = os.replace
+
+    def recording_replace(source, destination):
+        replacements.append((Path(source), Path(destination)))
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", recording_replace)
+    exit_code = cli.main(
+        [
+            "--biv",
+            str(STUB),
+            "--e3",
+            str(scenario),
+            "--report",
+            str(report),
+        ]
+    )
+
+    assert exit_code == 1
+    report_text = report.read_text(encoding="utf-8")
+    data = json.loads(report_text)
+    expected = ScenarioResult(
+        id="e3-report-refused",
+        tier="E3",
+        status=Status.INVALID,
+        classes=[],
+        held_asserts=[],
+        detail="report refused: result could not be sanitized",
+        warnings=[],
+    )
+    assert report.read_bytes() == shared_serialize_report([expected]).encode("utf-8")
+    assert data["invalid"] == ["e3-report-refused"]
+    assert data["runnable_passed"] == []
+    assert data["rows"] == [
+        {
+            "id": "e3-report-refused",
+            "tier": "E3",
+            "status": "invalid",
+            "classes": [],
+            "detail": "report refused: result could not be sanitized",
+            "warnings": [],
+        }
+    ]
+    assert "stale-pass" not in report_text
+    assert "RAW_CAPTURED_PRIOR" not in report_text
+    assert len(replacements) == 1
+    temporary, destination = replacements[0]
+    assert destination == report.resolve()
+    assert temporary.parent == report.parent
+    assert temporary != destination
+    assert not temporary.exists()
+
+
+def test_cli_writes_constant_invalid_when_scanner_activation_inspection_fails(
+    monkeypatch, tmp_path
+):
+    class BrokenActiveScanner(e3._CredentialScanner):
+        @property
+        def active(self):
+            raise RuntimeError("active unavailable")
+
+    scenario = tmp_path / "e3.json"
+    scenario.write_text("{}", encoding="utf-8")
+    report = tmp_path / "report.json"
+    secret = "REFRESHED_REAL_CREDENTIAL_VALUE_7f1a"
+
+    def run_with_activation_failure(*_args, **_kwargs):
+        scratch = tmp_path / "scratch"
+        scanner = BrokenActiveScanner()
+        scanner.add_value(b"CONTROLLED_RUNTIME_SENTINEL_activation_failure")
+        return e3._scan_and_teardown(
+            ScenarioResult(
+                "unsafe-primary",
+                "E3",
+                Status.FAIL,
+                [],
+                detail="unsafe-primary-detail",
+                warnings=[secret],
+            ),
+            scanner,
+            scratch,
+            child_outputs=[],
+            ambient_snapshots={},
+            credential_guards={},
+            claude_dest=scratch / "profile" / ".credentials.json",
+            codex_dest=scratch / "profile" / "auth.json",
+            profile_root=scratch / "profile",
+            host2=scratch / "host2",
+            seed_parent=scratch / "seed-ws",
+            remove_targets=False,
+        )
+
+    monkeypatch.setattr(cli, "run_e3", run_with_activation_failure)
+
+    assert (
+        cli.main(
+            [
+                "--biv",
+                str(STUB),
+                "--e3",
+                str(scenario),
+                "--report",
+                str(report),
+            ]
+        )
+        == 1
+    )
+    report_text = report.read_text(encoding="utf-8")
+    data = json.loads(report_text)
+    assert data["invalid"] == ["e3-report-refused"]
+    assert data["rows"][0]["warnings"] == []
+    assert secret not in report_text
+    assert "unsafe-primary" not in report_text
+    assert "unsafe-primary-detail" not in report_text
 
 
 def test_cli_writes_exact_shared_serializer_bytes_and_reuses_results_for_exit(

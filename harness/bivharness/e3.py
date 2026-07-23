@@ -51,6 +51,8 @@ _CREDENTIAL_SCAN_CHUNK_SIZE = 64 * 1024
 _SANITIZED_REPORT_ID = "e3-report-sanitized"
 _SANITIZED_REPORT_TIER = "E3"
 _SANITIZED_REPORT_DETAIL = "credential value detected; report invalidated"
+_REPORT_REFUSED_ID = "e3-report-refused"
+_REPORT_REFUSED_DETAIL = "report refused: result could not be sanitized"
 LIVE_STORE_SELECTORS: dict[str, tuple[str, ...]] = {
     "claude-code": ("CLAUDE_CONFIG_DIR",),
     "codex": ("CODEX_HOME",),
@@ -111,16 +113,6 @@ class _CredentialGuard(NamedTuple):
 class _CredentialScanOutcome(NamedTuple):
     unsafe: bool
     exclusion_integrity_failed: bool
-
-
-class _ReportWriteRefused:
-    __slots__ = ()
-
-    def __repr__(self) -> str:
-        return "_REPORT_WRITE_REFUSED"
-
-
-_REPORT_WRITE_REFUSED = _ReportWriteRefused()
 
 
 class _CredentialScanner:
@@ -471,12 +463,12 @@ def _minimal_sanitized_report_result() -> ScenarioResult:
 
 def _nonwritable_sanitized_report_result() -> ScenarioResult:
     return ScenarioResult(
-        id="",
-        tier="",
+        id=_REPORT_REFUSED_ID,
+        tier="E3",
         status=Status.INVALID,
         classes=[],
-        held_asserts=[_REPORT_WRITE_REFUSED],  # type: ignore[list-item]
-        detail="",
+        held_asserts=[],
+        detail=_REPORT_REFUSED_DETAIL,
         warnings=[],
     )
 
@@ -658,9 +650,9 @@ def _scan_and_teardown(
 
     final: ScenarioResult | None = None
     try:
-        active = False
+        active: bool | None = None
         try:
-            active = scanner.active
+            active = bool(scanner.active)
         except BaseException:
             integrity_note("credential-scan-failed")
         if active:
@@ -714,7 +706,9 @@ def _scan_and_teardown(
 
         settled = primary
         notes = [*integrity_notes, *cleanup_notes]
-        if active:
+        if active is None:
+            settled = _nonwritable_sanitized_report_result()
+        elif active:
             settled = _typed_post_materialization_result(
                 primary,
                 integrity_notes,

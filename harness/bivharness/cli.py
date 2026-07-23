@@ -1,10 +1,34 @@
 import argparse
+import os
 import tempfile
 from pathlib import Path
 
 from bivharness.e3 import run_e3
-from bivharness.report import Report, serialize_report
+from bivharness.report import Report, ScenarioResult, serialize_report
 from bivharness.scenario import run_scenario
+
+
+def _write_report_atomic(
+    report_path: Path,
+    results: list[ScenarioResult],
+) -> None:
+    serialized = serialize_report(results)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix=f".{report_path.name}.",
+            suffix=".tmp",
+            dir=report_path.parent,
+            delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(serialized)
+        os.replace(temporary, report_path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
                 run_scenario(path, biv, scratch / path.stem)
                 for path in sorted(scenarios.rglob("*.json"))
             ]
-    report_path.write_text(serialize_report(results), encoding="utf-8")
+    _write_report_atomic(report_path, results)
     return Report(results).exit_code()
 
 
