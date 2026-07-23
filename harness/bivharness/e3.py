@@ -607,9 +607,12 @@ def setup_host2_credentials(
         env["HOME"] = str(home)
         contexts.append((agent, profile, env))
 
+    auth_failures: list[str] = []
     for agent, _, env in contexts:
         if spawn(agent["auth_status"], host2, env).returncode != 0:
-            raise ValueError(f"host2 credential unavailable: {agent['id']}")
+            auth_failures.append(agent["id"])
+    if auth_failures:
+        raise ValueError("host2 credential unavailable: " + ", ".join(auth_failures))
 
     for agent, _, env in contexts:
         version = spawn(agent["version_command"], host2, env)
@@ -925,10 +928,14 @@ def _validate_spec(spec: object) -> list[str]:
     require_string(spec, "id", "scenario id")
     if spec.get("tier") != "E3":
         failures.append("scenario tier must be E3")
-    if "checkpoint_count" in spec:
-        failures.append("checkpoint_count must not be declared (run is non-interactive)")
-    if "checkpoint_prompt" in spec:
-        failures.append("checkpoint_prompt must not be declared (run is non-interactive)")
+    for field in (
+        "checkpoint_count",
+        "checkpoint_prompt",
+        "oauth_checkpoint",
+        "pause_text",
+    ):
+        if field in spec:
+            failures.append(f"{field} must not be declared (run is non-interactive)")
     optional_string(spec, "workspace_name", "workspace_name")
     optional_string(spec, "host2_profile_root", "host2_profile_root")
     optional_string_list(spec, "live_store_roots", "live_store_roots")

@@ -187,14 +187,22 @@ def test_setup_host2_credentials_replaces_checkpoint_helper():
     assert not hasattr(e3, "assert_one_checkpoint")
 
 
-def test_validate_spec_rejects_checkpoint_fields():
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("checkpoint_count", 1),
+        ("checkpoint_prompt", "x"),
+        ("oauth_checkpoint", True),
+        ("pause_text", "x"),
+    ),
+)
+def test_validate_spec_rejects_stale_interactive_fields(field, value):
     spec = _valid_two_agent_spec()
-    spec["checkpoint_count"] = 1
-    assert any("checkpoint" in failure for failure in e3._validate_spec(spec))
-
-    spec = _valid_two_agent_spec()
-    spec["checkpoint_prompt"] = "x"
-    assert any("checkpoint" in failure for failure in e3._validate_spec(spec))
+    spec[field] = value
+    assert (
+        f"{field} must not be declared (run is non-interactive)"
+        in e3._validate_spec(spec)
+    )
 
 
 def _live_override_spec():
@@ -1305,7 +1313,7 @@ def test_owned_rollout_rejects_foreign_and_ambiguous_candidates(tmp_path):
         select_owned_rollout(tmp_path, "owned-id", "mine")
 
 
-def _checkpoint_agents():
+def _host2_agents():
     return [
         {
             "id": "claude-code",
@@ -1314,7 +1322,14 @@ def _checkpoint_agents():
             "auth_status": ["claude", "auth", "status"],
             "version_command": ["claude", "--version"],
             "validated_version_prefixes": ["2.1."],
-            "liveness_command": ["claude", "--model", "haiku", "-p", "Reply with one token: OK"],
+            "liveness_command": [
+                "claude",
+                "--model",
+                "haiku",
+                "--no-session-persistence",
+                "-p",
+                "Reply with one token: OK",
+            ],
         },
         {
             "id": "codex",
@@ -1332,12 +1347,12 @@ def _by_id(agents):
 
 
 def test_live_leg_env_construction_has_no_store_override():
-    for agent in _checkpoint_agents():
+    for agent in _host2_agents():
         assert e3._agent_env(agent, Path("/anything"), live=True) == {}
 
 
 def test_host2_leg_env_construction_keeps_store_override():
-    agents = _by_id(_checkpoint_agents())
+    agents = _by_id(_host2_agents())
     root = Path("/tmp/e3-host2-profiles")
 
     assert e3._agent_env(agents["claude-code"], root / "claude", live=False) == {
@@ -1349,7 +1364,7 @@ def test_host2_leg_env_construction_keeps_store_override():
 
 
 def test_live_login_instruction_is_ambient():
-    agents = _by_id(_checkpoint_agents())
+    agents = _by_id(_host2_agents())
 
     assert (
         e3._login_instruction(agents["claude-code"], Path("/x"), live=True)
@@ -1449,7 +1464,7 @@ def test_seed_agent_forwards_received_env_to_every_model_spawn(
         assert env == sentinel
 
 
-def _checkpoint_version_output(command):
+def _host2_version_output(command):
     return "2.1.202" if command[0] == "claude" else "0.142.5"
 
 
@@ -1462,12 +1477,12 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path)
         calls.append(command)
         return SimpleNamespace(
             returncode=0,
-            stdout=_checkpoint_version_output(command),
+            stdout=_host2_version_output(command),
             stderr="",
         )
 
     envs = e3.setup_host2_credentials(
-        {"agents": _checkpoint_agents()}, host2, profile_root, fake_spawn
+        {"agents": _host2_agents()}, host2, profile_root, fake_spawn
     )
 
     assert (host2 / "home").is_dir()
@@ -1475,28 +1490,46 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path)
     assert (profile_root / "codex").is_dir()
     assert set(envs) == {"claude-code", "codex"}
     assert calls[-1][0] == "claude"
+    assert "--no-session-persistence" in calls[-1]
     assert "-p" in calls[-1]
 
 
-@pytest.mark.parametrize("failed", [{"claude-code", "codex"}, {"claude-code"}, {"codex"}])
-def test_setup_host2_credentials_rejects_neither_or_one_authenticated_agent(tmp_path, failed):
+@pytest.mark.parametrize(
+    ("failed", "expected_error"),
+    (
+        (
+            {"claude-code", "codex"},
+            "host2 credential unavailable: claude-code, codex",
+        ),
+        ({"claude-code"}, "host2 credential unavailable: claude-code"),
+        ({"codex"}, "host2 credential unavailable: codex"),
+    ),
+)
+def test_setup_host2_credentials_probes_all_agents_before_rejecting(
+    tmp_path, failed, expected_error
+):
     auth_seen = []
 
     def fake_spawn(command, cwd, env):
         agent = "claude-code" if command[0] == "claude" else "codex"
         if command[-1] == "status":
             auth_seen.append(agent)
-            return SimpleNamespace(returncode=1 if agent in failed else 0, stdout="", stderr="")
+            return SimpleNamespace(
+                returncode=1 if agent in failed else 0,
+                stdout="sensitive-auth-stdout",
+                stderr="sensitive-auth-stderr",
+            )
         return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
 
-    with pytest.raises(ValueError, match="host2 credential unavailable"):
+    with pytest.raises(ValueError) as exc_info:
         e3.setup_host2_credentials(
-            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+            {"agents": _host2_agents()},
+            tmp_path / "host2",
+            tmp_path / "profiles",
+            fake_spawn,
         )
-    expected_seen = ["claude-code"]
-    if "claude-code" not in failed:
-        expected_seen.append("codex")
-    assert auth_seen == expected_seen
+    assert str(exc_info.value) == expected_error
+    assert auth_seen == ["claude-code", "codex"]
 
 
 def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
@@ -1505,13 +1538,13 @@ def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
             return SimpleNamespace(returncode=1, stdout="", stderr="offline")
         return SimpleNamespace(
             returncode=0,
-            stdout=_checkpoint_version_output(command),
+            stdout=_host2_version_output(command),
             stderr="",
         )
 
     with pytest.raises(ValueError, match="liveness"):
         e3.setup_host2_credentials(
-            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+            {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
         )
 
 
@@ -1520,13 +1553,13 @@ def test_setup_host2_credentials_rejects_multi_token_claude_liveness(tmp_path):
         output = (
             "too many tokens"
             if command[0] == "claude" and "-p" in command
-            else _checkpoint_version_output(command)
+            else _host2_version_output(command)
         )
         return SimpleNamespace(returncode=0, stdout=output, stderr="")
 
     with pytest.raises(ValueError, match="one token"):
         e3.setup_host2_credentials(
-            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+            {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
         )
 
 
@@ -1544,12 +1577,12 @@ def test_setup_host2_credentials_retries_claude_liveness_once(tmp_path):
             )
         return SimpleNamespace(
             returncode=0,
-            stdout=_checkpoint_version_output(command),
+            stdout=_host2_version_output(command),
             stderr="",
         )
 
     e3.setup_host2_credentials(
-        {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+        {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
     )
     assert liveness_calls == 2
 
@@ -1570,12 +1603,12 @@ def test_setup_host2_credentials_retries_invalid_or_exceptional_liveness_once(tm
             return SimpleNamespace(returncode=0, stdout=output, stderr="")
         return SimpleNamespace(
             returncode=0,
-            stdout=_checkpoint_version_output(command),
+            stdout=_host2_version_output(command),
             stderr="",
         )
 
     e3.setup_host2_credentials(
-        {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+        {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
     )
     assert liveness_calls == 2
 
@@ -2953,7 +2986,7 @@ def test_prerun_version_gate_rejects_ambiguous_multi_token_output(
 
 
 @pytest.mark.parametrize("version,accepted", CX_MATRIX)
-def test_checkpoint_version_gate_enforces_the_enumerated_set(tmp_path, version, accepted):
+def test_host2_version_gate_enforces_the_enumerated_set(tmp_path, version, accepted):
     def fake_spawn(command, cwd, env):
         if command[0] == "claude":
             if "-p" in command:
@@ -2963,7 +2996,7 @@ def test_checkpoint_version_gate_enforces_the_enumerated_set(tmp_path, version, 
 
     host2 = tmp_path / "host two"
     args = (
-        {"agents": _checkpoint_agents()},
+        {"agents": _host2_agents()},
         host2,
         host2 / "profiles",
         fake_spawn,
