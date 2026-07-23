@@ -50,6 +50,7 @@ _CLOEXEC = getattr(os, "O_CLOEXEC", 0)
 _NONBLOCK = getattr(os, "O_NONBLOCK", 0)
 _DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | _CLOEXEC
 _RENAME_EXCL = 0x00000004
+_RENAME_NOREPLACE = 0x00000001
 
 
 def _load_renameatx_np():
@@ -70,7 +71,26 @@ def _load_renameatx_np():
     return primitive
 
 
+def _load_renameat2():
+    if not sys.platform.startswith("linux"):
+        return None
+    try:
+        primitive = ctypes.CDLL(None, use_errno=True).renameat2
+    except (AttributeError, OSError):
+        return None
+    primitive.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    primitive.restype = ctypes.c_int
+    return primitive
+
+
 _RENAMEATX_NP = _load_renameatx_np()
+_RENAMEAT2 = _load_renameat2()
 
 
 def claude_shape_ok(raw: bytes) -> bool:
@@ -238,6 +258,10 @@ def _mkstemp_at(parent_fd: int) -> tuple[int, str]:
 def _replace_at(parent_fd: int, temporary: str, destination: str) -> None:
     """Make the final install an atomic, exclusive, descriptor-relative move."""
     primitive = _RENAMEATX_NP
+    flags = _RENAME_EXCL
+    if primitive is None:
+        primitive = _RENAMEAT2
+        flags = _RENAME_NOREPLACE
     if primitive is None:
         raise OSError(errno.ENOTSUP, "exclusive credential install is unsupported")
     ctypes.set_errno(0)
@@ -246,7 +270,7 @@ def _replace_at(parent_fd: int, temporary: str, destination: str) -> None:
         os.fsencode(temporary),
         parent_fd,
         os.fsencode(destination),
-        _RENAME_EXCL,
+        flags,
     )
     if result != 0:
         error = ctypes.get_errno() or errno.EIO

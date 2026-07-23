@@ -314,6 +314,32 @@ def test_destination_leaf_created_after_preflight_is_preserved(tmp_path, monkeyp
     assert not list(dest.parent.glob(".host2-credential-*"))
 
 
+def test_exclusive_move_uses_renameat2_noreplace_when_available(tmp_path, monkeypatch):
+    calls = []
+
+    def renameat2(src_fd, src, dest_fd, dest, flags):
+        calls.append((src_fd, src, dest_fd, dest, flags))
+        return 0
+
+    monkeypatch.setattr(credentials, "_RENAMEATX_NP", None)
+    monkeypatch.setattr(credentials, "_RENAMEAT2", renameat2)
+    parent_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        credentials._replace_at(parent_fd, "temporary", "credential")
+    finally:
+        os.close(parent_fd)
+
+    assert calls == [
+        (
+            parent_fd,
+            b"temporary",
+            parent_fd,
+            b"credential",
+            credentials._RENAME_NOREPLACE,
+        )
+    ]
+
+
 def test_no_destination_target_after_atomic_commit(tmp_path, monkeypatch):
     src = tmp_path / "auth.json"
     src.write_bytes(CODEX_OK)
@@ -393,6 +419,7 @@ def test_exclusive_move_failure_is_typed_and_cleans_temp(tmp_path, monkeypatch, 
             return -1
 
     monkeypatch.setattr(credentials, "_RENAMEATX_NP", primitive, raising=False)
+    monkeypatch.setattr(credentials, "_RENAMEAT2", None, raising=False)
     result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
 
     assert result.status is CredentialStatus.DEST_UNSAFE
