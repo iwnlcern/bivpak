@@ -8,9 +8,9 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import stat
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -44,7 +44,8 @@ class CredentialResult:
 
 _ERRSEC_ITEM_NOT_FOUND = 44
 _READ_CHUNK = 16 * 1024
-_SNAPSHOT_MAX_BYTES = 64 * 1024
+_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
+_DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | _CLOEXEC
 
 
 def claude_shape_ok(raw: bytes) -> bool:
@@ -69,33 +70,62 @@ def codex_shape_ok(raw: bytes) -> bool:
     return (isinstance(tokens, dict) and "access_token" in tokens) or "OPENAI_API_KEY" in value
 
 
-def _has_symlink_component(path: Path) -> bool:
-    """Reject a path whose existing components require following a symlink."""
+def _close_fd(fd: int | None) -> None:
+    if fd is None:
+        return
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
+
+def _open_directory(path: Path, *, create: bool) -> int:
+    """Open a directory by walking each component without following symlinks."""
     path = Path(path)
-    parts = path.parts
-    current = Path(path.anchor) if path.is_absolute() else Path()
+    current = os.open(path.anchor if path.is_absolute() else ".", _DIRECTORY_FLAGS)
     start = 1 if path.is_absolute() else 0
-    for part in parts[start:]:
-        current /= part
-        try:
-            mode = os.lstat(current).st_mode
-        except FileNotFoundError:
-            return False
-        except OSError:
-            return True
-        if stat.S_ISLNK(mode):
-            return True
-    return False
+    try:
+        for component in path.parts[start:]:
+            if component in ("", "."):
+                continue
+            if component == "..":
+                raise OSError(errno.EINVAL, "parent traversal is not allowed")
+            try:
+                next_fd = os.open(component, _DIRECTORY_FLAGS, dir_fd=current)
+            except OSError as exc:
+                if not create or exc.errno != errno.ENOENT:
+                    raise
+                try:
+                    os.mkdir(component, mode=0o700, dir_fd=current)
+                except OSError as mkdir_exc:
+                    if mkdir_exc.errno != errno.EEXIST:
+                        raise
+                next_fd = os.open(component, _DIRECTORY_FLAGS, dir_fd=current)
+            _close_fd(current)
+            current = next_fd
+        return current
+    except BaseException:
+        _close_fd(current)
+        raise
+
+
+def _open_file_nofollow(src: Path) -> int:
+    src = Path(src)
+    if src.name in ("", ".", ".."):
+        raise OSError(errno.EINVAL, "invalid source leaf")
+    parent_fd = _open_directory(src.parent, create=False)
+    try:
+        return os.open(src.name, os.O_RDONLY | os.O_NOFOLLOW | _CLOEXEC, dir_fd=parent_fd)
+    finally:
+        _close_fd(parent_fd)
 
 
 def _read_via_nofollow_fd(
     src: Path, max_bytes: int
 ) -> tuple[CredentialStatus, bytes | None, SourceIdentity | None]:
     """Read a regular source once, proving bytes and identity came from one fd."""
-    if _has_symlink_component(Path(src)):
-        return CredentialStatus.SOURCE_UNREADABLE, None, None
     try:
-        fd = os.open(src, os.O_RDONLY | os.O_NOFOLLOW)
+        fd = _open_file_nofollow(Path(src))
     except OSError as exc:
         if exc.errno == errno.ENOENT:
             return CredentialStatus.SOURCE_MISSING, None, None
@@ -121,10 +151,7 @@ def _read_via_nofollow_fd(
     except (OSError, TypeError, ValueError):
         return CredentialStatus.SOURCE_UNREADABLE, None, None
     finally:
-        try:
-            os.close(fd)
-        except OSError:
-            pass
+        _close_fd(fd)
 
     if (first.st_dev, first.st_ino, first.st_size) != (second.st_dev, second.st_ino, second.st_size):
         return CredentialStatus.SOURCE_UNREADABLE, None, None
@@ -140,19 +167,17 @@ def _read_via_nofollow_fd(
     return CredentialStatus.OK, captured, identity
 
 
-def snapshot_identity(src: Path) -> SourceIdentity | None:
+def snapshot_identity(src: Path, *, max_bytes: int) -> SourceIdentity | None:
     """Return an identity only when the source satisfies the same safe-read rules."""
-    status, _raw, identity = _read_via_nofollow_fd(src, _SNAPSHOT_MAX_BYTES)
+    status, _raw, identity = _read_via_nofollow_fd(src, max_bytes)
     return identity if status is CredentialStatus.OK else None
 
 
-def _destination_exists(dest: Path) -> bool | None:
+def _entry_exists_at(parent_fd: int, name: str) -> bool:
     try:
-        os.lstat(dest)
+        os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
     except FileNotFoundError:
         return False
-    except OSError:
-        return None
     return True
 
 
@@ -165,56 +190,85 @@ def _write_all(fd: int, data: bytes) -> None:
         offset += count
 
 
+def _mkstemp_at(parent_fd: int) -> tuple[int, str]:
+    for _attempt in range(100):
+        name = f".host2-credential-{secrets.token_hex(8)}"
+        try:
+            fd = os.open(
+                name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | _CLOEXEC,
+                0o600,
+                dir_fd=parent_fd,
+            )
+        except FileExistsError:
+            continue
+        return fd, name
+    raise FileExistsError(errno.EEXIST, "unable to allocate credential temporary file")
+
+
+def _replace_at(parent_fd: int, temporary: str, destination: str) -> None:
+    os.rename(
+        temporary,
+        destination,
+        src_dir_fd=parent_fd,
+        dst_dir_fd=parent_fd,
+    )
+
+
+def _directory_identity_matches(path: Path, expected_fd: int) -> bool:
+    verification_fd = _open_directory(path, create=False)
+    try:
+        expected = os.fstat(expected_fd)
+        verification = os.fstat(verification_fd)
+        return (expected.st_dev, expected.st_ino) == (verification.st_dev, verification.st_ino)
+    finally:
+        _close_fd(verification_fd)
+
+
 def _atomic_write_0600(dest: Path, data: bytes) -> CredentialResult:
     """Write a new regular destination, refusing unsafe paths and cleaning temp files."""
     dest = Path(dest)
-    parent = dest.parent
-    fd: int | None = None
+    parent_fd: int | None = None
+    temporary_fd: int | None = None
     temporary: str | None = None
-    replaced = False
+    installed = False
     succeeded = False
 
     try:
-        if _has_symlink_component(dest):
+        if dest.name in ("", ".", ".."):
             return CredentialResult(CredentialStatus.DEST_UNSAFE)
-        parent.mkdir(parents=True, exist_ok=True)
-        if _has_symlink_component(dest) or _destination_exists(dest) is not False:
+        parent_fd = _open_directory(dest.parent, create=True)
+        if _entry_exists_at(parent_fd, dest.name):
             return CredentialResult(CredentialStatus.DEST_UNSAFE)
 
-        fd, temporary = tempfile.mkstemp(prefix=".host2-credential-", dir=parent)
-        os.fchmod(fd, 0o600)
-        _write_all(fd, data)
-        os.close(fd)
-        fd = None
+        temporary_fd, temporary = _mkstemp_at(parent_fd)
+        os.fchmod(temporary_fd, 0o600)
+        _write_all(temporary_fd, data)
+        _close_fd(temporary_fd)
+        temporary_fd = None
 
-        # Check again just before replacing: rename does not follow a destination symlink.
-        if _has_symlink_component(dest) or _destination_exists(dest) is not False:
-            return CredentialResult(CredentialStatus.DEST_UNSAFE)
-        os.replace(temporary, dest)
+        _replace_at(parent_fd, temporary, dest.name)
         temporary = None
-        replaced = True
-        os.chmod(dest, 0o600)
+        installed = True
+        if not _directory_identity_matches(dest.parent, parent_fd):
+            return CredentialResult(CredentialStatus.DEST_UNSAFE)
         succeeded = True
         return CredentialResult(CredentialStatus.OK, dest)
     except (OSError, TypeError, ValueError):
         return CredentialResult(CredentialStatus.DEST_UNSAFE)
     finally:
-        if fd is not None:
+        _close_fd(temporary_fd)
+        if temporary is not None and parent_fd is not None:
             try:
-                os.close(fd)
+                os.unlink(temporary, dir_fd=parent_fd)
             except OSError:
                 pass
-        if temporary is not None:
+        if installed and not succeeded and parent_fd is not None:
             try:
-                os.unlink(temporary)
+                os.unlink(dest.name, dir_fd=parent_fd)
             except OSError:
                 pass
-        if replaced and not succeeded:
-            # A failed final chmod must not leave a partially-confirmed credential behind.
-            try:
-                os.unlink(dest)
-            except OSError:
-                pass
+        _close_fd(parent_fd)
 
 
 def materialize_file_credential(

@@ -37,7 +37,7 @@ def test_file_copies_bytes_0600_and_sets_identity(tmp_path):
     assert dest.read_bytes() == CODEX_OK
     assert dest.stat().st_mode & 0o777 == 0o600
     assert result.identity is not None
-    assert result.identity.digest == snapshot_identity(src).digest
+    assert result.identity.digest == snapshot_identity(src, max_bytes=1_000_000).digest
     assert result.identity.size == len(CODEX_OK)
 
 
@@ -99,6 +99,75 @@ def test_file_refuses_symlink_destination(tmp_path):
     assert target.read_bytes() == b"unchanged"
 
 
+def test_source_parent_substitution_cannot_change_opened_bytes(tmp_path, monkeypatch):
+    source_parent = tmp_path / "source"
+    source_parent.mkdir()
+    src = source_parent / "auth.json"
+    src.write_bytes(CODEX_OK)
+    original_identity = src.stat()
+
+    attacker_parent = tmp_path / "attacker"
+    attacker_parent.mkdir()
+    attacker_bytes = json.dumps({"tokens": {"access_token": "ATTACKER_VALUE"}}).encode()
+    (attacker_parent / "auth.json").write_bytes(attacker_bytes)
+    moved_parent = tmp_path / "source-original"
+    dest = tmp_path / "dest" / "auth.json"
+    real_open = os.open
+    swapped = False
+
+    def racing_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        is_old_leaf_open = Path(path) == src and dir_fd is None
+        is_secure_leaf_open = path == src.name and dir_fd is not None
+        if not swapped and (is_old_leaf_open or is_secure_leaf_open):
+            source_parent.rename(moved_parent)
+            source_parent.symlink_to(attacker_parent, target_is_directory=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(credentials.os, "open", racing_open)
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert swapped
+    assert result.status is CredentialStatus.OK
+    assert dest.read_bytes() == CODEX_OK
+    assert result.identity.dev == original_identity.st_dev
+    assert result.identity.ino == original_identity.st_ino
+    assert result.identity.digest == hashlib.sha256(CODEX_OK).hexdigest()
+
+
+def test_destination_parent_substitution_is_typed_and_cleans_original_dir(tmp_path, monkeypatch):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    dest_parent = tmp_path / "dest"
+    dest_parent.mkdir()
+    dest = dest_parent / "auth.json"
+
+    attacker_parent = tmp_path / "attacker"
+    attacker_parent.mkdir()
+    attacker_dest = attacker_parent / "auth.json"
+    attacker_dest.write_bytes(b"attacker-file-unchanged")
+    moved_parent = tmp_path / "dest-original"
+    real_mkstemp_at = getattr(credentials, "_mkstemp_at", None)
+    swapped = False
+
+    def racing_mkstemp_at(dir_fd):
+        nonlocal swapped
+        dest_parent.rename(moved_parent)
+        dest_parent.symlink_to(attacker_parent, target_is_directory=True)
+        swapped = True
+        return real_mkstemp_at(dir_fd)
+
+    monkeypatch.setattr(credentials, "_mkstemp_at", racing_mkstemp_at, raising=False)
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert swapped
+    assert result.status is CredentialStatus.DEST_UNSAFE
+    assert attacker_dest.read_bytes() == b"attacker-file-unchanged"
+    assert not (moved_parent / "auth.json").exists()
+    assert not list(moved_parent.glob(".host2-credential-*"))
+
+
 def test_file_reads_to_eof_when_reads_are_short(tmp_path, monkeypatch):
     src = tmp_path / "auth.json"
     src.write_bytes(CODEX_OK)
@@ -147,12 +216,28 @@ def test_shape_validators_only_require_source_specific_keys():
 def test_snapshot_identity_uses_safe_reader_and_detects_change(tmp_path):
     path = tmp_path / "auth.json"
     path.write_bytes(CODEX_OK)
-    original = snapshot_identity(path)
+    original = snapshot_identity(path, max_bytes=1_000_000)
 
-    assert snapshot_identity(path) == original
-    assert snapshot_identity(tmp_path / "missing") is None
+    assert snapshot_identity(path, max_bytes=1_000_000) == original
+    assert snapshot_identity(tmp_path / "missing", max_bytes=1_000_000) is None
     path.write_bytes(CODEX_OK + b" ")
-    assert snapshot_identity(path) != original
+    assert snapshot_identity(path, max_bytes=1_000_000) != original
+
+
+def test_snapshot_identity_accepts_source_over_64k_under_explicit_limit(tmp_path):
+    raw = json.dumps({"tokens": {"access_token": "A"}, "padding": "x" * (70 * 1024)}).encode()
+    src = tmp_path / "large-auth.json"
+    src.write_bytes(raw)
+    max_bytes = len(raw) + 1
+
+    result = materialize_file_credential(
+        src, tmp_path / "dest" / "auth.json", max_bytes=max_bytes, shape_ok=codex_shape_ok
+    )
+    identity = snapshot_identity(src, max_bytes=max_bytes)
+
+    assert result.status is CredentialStatus.OK
+    assert identity is not None
+    assert identity == result.identity
 
 
 def _keychain_runner(list_out, per_keychain, value=CLAUDE_OK, *, list_returncode=0, read_returncode=0):
@@ -274,21 +359,49 @@ def test_destination_operation_failures_are_typed_and_clean_temp(tmp_path, monke
         raise OSError(errno.EIO, operation)
 
     if operation == "mkdir":
-        monkeypatch.setattr(Path, "mkdir", fail)
+        monkeypatch.setattr(credentials.os, "mkdir", fail)
     elif operation == "mkstemp":
-        monkeypatch.setattr(credentials.tempfile, "mkstemp", fail)
+        monkeypatch.setattr(credentials, "_mkstemp_at", fail, raising=False)
     elif operation == "write":
         monkeypatch.setattr(credentials.os, "write", fail)
     elif operation == "replace":
-        monkeypatch.setattr(credentials.os, "replace", fail)
+        monkeypatch.setattr(credentials, "_replace_at", fail, raising=False)
     else:
-        monkeypatch.setattr(credentials.os, "chmod", fail)
+        monkeypatch.setattr(credentials.os, "fchmod", fail)
 
     result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
 
     assert result.status is CredentialStatus.DEST_UNSAFE
     if dest.parent.exists():
         assert not list(dest.parent.glob(".host2-credential-*"))
+
+
+def test_descriptor_fds_are_closed_after_materialization(tmp_path, monkeypatch):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    opened = []
+    closed = []
+    real_open = os.open
+    real_close = os.close
+
+    def tracking_open(path, flags, mode=0o777, *, dir_fd=None):
+        fd = real_open(path, flags, mode, dir_fd=dir_fd)
+        opened.append(fd)
+        return fd
+
+    def tracking_close(fd):
+        closed.append(fd)
+        return real_close(fd)
+
+    monkeypatch.setattr(credentials.os, "open", tracking_open)
+    monkeypatch.setattr(credentials.os, "close", tracking_close)
+    result = materialize_file_credential(
+        src, tmp_path / "dest" / "auth.json", max_bytes=1_000_000, shape_ok=codex_shape_ok
+    )
+
+    assert result.status is CredentialStatus.OK
+    assert opened
+    assert set(opened) <= set(closed)
 
 
 def test_secret_never_escapes_result_owners_or_error_text(tmp_path):
