@@ -174,6 +174,21 @@ class _CredentialScanner:
             after.st_ctime_ns,
         )
 
+    @staticmethod
+    def _regular_snapshot_matches(
+        before: os.stat_result,
+        after: os.stat_result,
+    ) -> bool:
+        return _same_entry(before, after) and (
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        ) == (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        )
+
     def _scan_regular(
         self,
         parent_descriptor: int,
@@ -190,7 +205,7 @@ class _CredentialScanner:
             opened = os.fstat(descriptor)
             if (
                 not stat.S_ISREG(opened.st_mode)
-                or not _same_entry(expected, opened)
+                or not self._regular_snapshot_matches(expected, opened)
                 or (require_single_link and opened.st_nlink != 1)
             ):
                 return True
@@ -208,7 +223,7 @@ class _CredentialScanner:
             final = os.fstat(descriptor)
             if (
                 not stat.S_ISREG(final.st_mode)
-                or not _same_entry(opened, final)
+                or not self._regular_snapshot_matches(opened, final)
                 or (require_single_link and final.st_nlink != 1)
             ):
                 return True
@@ -216,7 +231,7 @@ class _CredentialScanner:
             os.close(descriptor)
         current = os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
         return (
-            not _same_entry(expected, current)
+            not self._regular_snapshot_matches(final, current)
             or (require_single_link and current.st_nlink != 1)
         )
 

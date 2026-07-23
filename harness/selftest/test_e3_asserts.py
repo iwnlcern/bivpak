@@ -3521,6 +3521,43 @@ def test_credential_scanner_detects_values_split_across_read_chunks(tmp_path):
     assert scanner.scan_tree(tmp_path, set())
 
 
+def test_credential_scanner_rejects_in_place_overwrite_after_final_read(
+    monkeypatch, tmp_path
+):
+    scanner = e3._CredentialScanner()
+    secret = b"credential-secret"
+    original = b"ordinary-content!"
+    assert len(secret) == len(original)
+    scanner.add_value(secret)
+    candidate = tmp_path / "candidate"
+    candidate.write_bytes(original)
+    os.utime(candidate, ns=(1_000_000_000, 1_000_000_000))
+    before = candidate.stat()
+    real_read = e3.os.read
+    mutated = False
+
+    def overwrite_after_eof(descriptor, size):
+        nonlocal mutated
+        chunk = real_read(descriptor, size)
+        if not chunk and not mutated:
+            candidate.write_bytes(secret)
+            mutated = True
+        return chunk
+
+    monkeypatch.setattr(e3.os, "read", overwrite_after_eof)
+
+    assert scanner.scan_tree(tmp_path, set())
+    assert mutated
+    assert candidate.read_bytes() == secret
+    after = candidate.stat()
+    assert (after.st_dev, after.st_ino, after.st_size) == (
+        before.st_dev,
+        before.st_ino,
+        before.st_size,
+    )
+    assert after.st_mtime_ns != before.st_mtime_ns
+
+
 def test_credential_scanner_copies_caller_bytearray():
     scanner = e3._CredentialScanner()
     caller = bytearray(b"scanner-owned-secret")
