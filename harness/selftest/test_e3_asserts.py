@@ -175,6 +175,32 @@ def _valid_two_agent_spec():
     }
 
 
+def test_resolve_agent_binaries_is_once_per_agent_and_requires_absolute_paths(monkeypatch):
+    spec = _valid_two_agent_spec()
+    paths = {"codex": "/opt/agents/codex", "claude": "/opt/agents/claude"}
+    calls = []
+
+    def fake_which(executable):
+        calls.append(executable)
+        return paths[executable]
+
+    monkeypatch.setattr(e3.shutil, "which", fake_which)
+    assert e3._resolve_agent_binaries(spec) == {
+        "codex": paths["codex"],
+        "claude-code": paths["claude"],
+    }
+    assert calls == ["codex", "claude"]
+
+    for invalid in (None, "relative/claude"):
+        monkeypatch.setattr(
+            e3.shutil,
+            "which",
+            lambda executable, invalid=invalid: invalid if executable == "claude" else paths[executable],
+        )
+        with pytest.raises(ValueError, match="absolute path"):
+            e3._resolve_agent_binaries(spec)
+
+
 def test_run_e3_has_no_input_callback_param():
     import inspect
 
@@ -344,7 +370,7 @@ def _configure_exit_contract_case(
                 result = result(restored_workspace)
             return result
         if "--version" in command:
-            version = "2.1.210" if command[0] == "claude" else "0.144.1"
+            version = "2.1.210" if _agent_basename(command) == "claude" else "0.144.1"
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
         return SimpleNamespace(returncode=0, stdout="OK", stderr="")
 
@@ -357,6 +383,7 @@ def _configure_exit_contract_case(
         spawn,
         capture_candidates,
         owned_paths,
+        resolved_binary=None,
     ):
         transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
         transcript.write_text("{}\n", encoding="utf-8")
@@ -1240,7 +1267,10 @@ def test_live_codex_auth_probe_runs_ambient_no_store_override(
     def fake_spawn(command, cwd, env):
         calls.append(list(command))
         seen[tuple(command)] = dict(env)
-        if command == ["codex", "login", "status"]:
+        if command[1:] == ["--version"]:
+            version = "2.1.210" if _agent_basename(command) == "claude" else "0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command[1:] == ["login", "status"] and _agent_basename(command) == "codex":
             return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -1252,10 +1282,14 @@ def test_live_codex_auth_probe_runs_ambient_no_store_override(
 
     assert result.status is Status.INVALID
     assert "not authenticated" in result.detail
-    assert "CODEX_HOME" not in seen[("codex", "login", "status")]
+    assert "CODEX_HOME" not in seen[tuple(_resolved_agent_command("codex", "login", "status"))]
     assert "CODEX_HOME=" not in result.detail
     assert "codex login" in result.detail
-    assert calls == [["codex", "login", "status"]]
+    assert calls == [
+        _resolved_agent_command("codex", "--version"),
+        _resolved_agent_command("claude-code", "--version"),
+        _resolved_agent_command("codex", "login", "status"),
+    ]
 
 
 def test_live_claude_auth_probe_runs_ambient_no_store_override(
@@ -1267,9 +1301,10 @@ def test_live_claude_auth_probe_runs_ambient_no_store_override(
     def fake_spawn(command, cwd, env):
         calls.append(list(command))
         seen[tuple(command)] = dict(env)
-        if command == ["codex", "--version"]:
-            return SimpleNamespace(returncode=0, stdout="0.144.1", stderr="")
-        if command == ["claude", "auth", "status"]:
+        if command[1:] == ["--version"]:
+            version = "2.1.210" if _agent_basename(command) == "claude" else "0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command[1:] == ["auth", "status"] and _agent_basename(command) == "claude":
             return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -1281,14 +1316,15 @@ def test_live_claude_auth_probe_runs_ambient_no_store_override(
 
     assert result.status is Status.INVALID
     assert "not authenticated" in result.detail
-    assert "CODEX_HOME" not in seen[("codex", "--version")]
-    assert "CLAUDE_CONFIG_DIR" not in seen[("claude", "auth", "status")]
+    assert "CODEX_HOME" not in seen[tuple(_resolved_agent_command("codex", "--version"))]
+    assert "CLAUDE_CONFIG_DIR" not in seen[tuple(_resolved_agent_command("claude-code", "auth", "status"))]
     assert "CLAUDE_CONFIG_DIR=" not in result.detail
     assert "claude auth login" in result.detail
     assert calls == [
-        ["codex", "login", "status"],
-        ["codex", "--version"],
-        ["claude", "auth", "status"],
+        _resolved_agent_command("codex", "--version"),
+        _resolved_agent_command("claude-code", "--version"),
+        _resolved_agent_command("codex", "login", "status"),
+        _resolved_agent_command("claude-code", "auth", "status"),
     ]
 
 
@@ -1346,6 +1382,15 @@ def _by_id(agents):
     return {agent["id"]: agent for agent in agents}
 
 
+def _agent_basename(command):
+    return Path(command[0]).name
+
+
+def _resolved_agent_command(agent_id, *args):
+    executable = "claude" if agent_id == "claude-code" else agent_id
+    return [e3.shutil.which(executable) or executable, *args]
+
+
 def test_live_leg_env_construction_has_no_store_override():
     for agent in _host2_agents():
         assert e3._agent_env(agent, Path("/anything"), live=True) == {}
@@ -1367,12 +1412,18 @@ def test_live_login_instruction_is_ambient():
     agents = _by_id(_host2_agents())
 
     assert (
-        e3._login_instruction(agents["claude-code"], Path("/x"), live=True)
-        == "claude auth login"
+        e3._login_instruction(
+            agents["claude-code"], Path("/x"), live=True,
+            resolved_binary="/opt/agents/claude-real",
+        )
+        == "/opt/agents/claude-real auth login"
     )
     assert (
-        e3._login_instruction(agents["codex"], Path("/x"), live=True)
-        == "codex login"
+        e3._login_instruction(
+            agents["codex"], Path("/x"), live=True,
+            resolved_binary="/opt/agents/codex-real",
+        )
+        == "/opt/agents/codex-real login"
     )
 
 
@@ -1382,7 +1433,10 @@ def test_live_seed_boundary_receives_ambient_env_for_both_agents(
     seen = {}
     version_envs = {}
 
-    def fake_seed(agent, live_profile, seed_ws, spec, env, spawn, candidates, owned):
+    def fake_seed(
+        agent, live_profile, seed_ws, spec, env, spawn, candidates, owned,
+        resolved_binary=None,
+    ):
         seen[agent["id"]] = dict(env)
         if len(seen) == 2:
             raise ValueError("stop-after-seed-loop")
@@ -1390,8 +1444,8 @@ def test_live_seed_boundary_receives_ambient_env_for_both_agents(
 
     def fake_spawn(command, cwd, env):
         if command[-1] == "--version":
-            version_envs[command[0]] = dict(env)
-            version = "2.1.210" if command[0] == "claude" else "0.144.1"
+            version_envs[_agent_basename(command)] = dict(env)
+            version = "2.1.210" if _agent_basename(command) == "claude" else "0.144.1"
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -1465,7 +1519,14 @@ def test_seed_agent_forwards_received_env_to_every_model_spawn(
 
 
 def _host2_version_output(command):
-    return "2.1.202" if command[0] == "claude" else "0.142.5"
+    return "2.1.202" if _agent_basename(command) == "claude" else "0.142.5"
+
+
+def _host2_binaries():
+    return {
+        "claude-code": e3.shutil.which("claude"),
+        "codex": e3.shutil.which("codex"),
+    }
 
 
 def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path):
@@ -1482,14 +1543,14 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path)
         )
 
     envs = e3.setup_host2_credentials(
-        {"agents": _host2_agents()}, host2, profile_root, fake_spawn
+        {"agents": _host2_agents()}, host2, profile_root, _host2_binaries(), fake_spawn
     )
 
     assert (host2 / "home").is_dir()
     assert (profile_root / "claude").is_dir()
     assert (profile_root / "codex").is_dir()
     assert set(envs) == {"claude-code", "codex"}
-    assert calls[-1][0] == "claude"
+    assert _agent_basename(calls[-1]) == "claude"
     assert "--no-session-persistence" in calls[-1]
     assert "-p" in calls[-1]
 
@@ -1509,9 +1570,11 @@ def test_setup_host2_credentials_probes_all_agents_before_rejecting(
     tmp_path, failed, expected_error
 ):
     auth_seen = []
+    calls = []
 
     def fake_spawn(command, cwd, env):
-        agent = "claude-code" if command[0] == "claude" else "codex"
+        calls.append(list(command))
+        agent = "claude-code" if _agent_basename(command) == "claude" else "codex"
         if command[-1] == "status":
             auth_seen.append(agent)
             return SimpleNamespace(
@@ -1519,22 +1582,27 @@ def test_setup_host2_credentials_probes_all_agents_before_rejecting(
                 stdout="sensitive-auth-stdout",
                 stderr="sensitive-auth-stderr",
             )
-        return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
+        return SimpleNamespace(returncode=0, stdout=_host2_version_output(command), stderr="")
 
     with pytest.raises(ValueError) as exc_info:
         e3.setup_host2_credentials(
             {"agents": _host2_agents()},
             tmp_path / "host2",
             tmp_path / "profiles",
+            _host2_binaries(),
             fake_spawn,
         )
     assert str(exc_info.value) == expected_error
     assert auth_seen == ["claude-code", "codex"]
+    assert [command[1:] for command in calls[:2]] == [["--version"], ["--version"]]
+    assert [command[1:] for command in calls[2:]] == [
+        ["auth", "status"], ["login", "status"],
+    ]
 
 
 def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
-        if command[0] == "claude" and "-p" in command:
+        if _agent_basename(command) == "claude" and "-p" in command:
             return SimpleNamespace(returncode=1, stdout="", stderr="offline")
         return SimpleNamespace(
             returncode=0,
@@ -1544,7 +1612,8 @@ def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
 
     with pytest.raises(ValueError, match="liveness"):
         e3.setup_host2_credentials(
-            {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+            {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
+            _host2_binaries(), fake_spawn
         )
 
 
@@ -1552,14 +1621,15 @@ def test_setup_host2_credentials_rejects_multi_token_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
         output = (
             "too many tokens"
-            if command[0] == "claude" and "-p" in command
+            if _agent_basename(command) == "claude" and "-p" in command
             else _host2_version_output(command)
         )
         return SimpleNamespace(returncode=0, stdout=output, stderr="")
 
     with pytest.raises(ValueError, match="one token"):
         e3.setup_host2_credentials(
-            {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+            {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
+            _host2_binaries(), fake_spawn
         )
 
 
@@ -1568,7 +1638,7 @@ def test_setup_host2_credentials_retries_claude_liveness_once(tmp_path):
 
     def fake_spawn(command, cwd, env):
         nonlocal liveness_calls
-        if command[0] == "claude" and "-p" in command:
+        if _agent_basename(command) == "claude" and "-p" in command:
             liveness_calls += 1
             return SimpleNamespace(
                 returncode=1 if liveness_calls == 1 else 0,
@@ -1582,7 +1652,8 @@ def test_setup_host2_credentials_retries_claude_liveness_once(tmp_path):
         )
 
     e3.setup_host2_credentials(
-        {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+        {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
+        _host2_binaries(), fake_spawn
     )
     assert liveness_calls == 2
 
@@ -1593,7 +1664,7 @@ def test_setup_host2_credentials_retries_invalid_or_exceptional_liveness_once(tm
 
     def fake_spawn(command, cwd, env):
         nonlocal liveness_calls
-        if command[0] == "claude" and "-p" in command:
+        if _agent_basename(command) == "claude" and "-p" in command:
             liveness_calls += 1
             if liveness_calls == 1 and first_failure == "timeout":
                 raise e3.subprocess.TimeoutExpired(command, 120)
@@ -1608,7 +1679,8 @@ def test_setup_host2_credentials_retries_invalid_or_exceptional_liveness_once(tm
         )
 
     e3.setup_host2_credentials(
-        {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
+        {"agents": _host2_agents()}, tmp_path / "host2", tmp_path / "profiles",
+        _host2_binaries(), fake_spawn
     )
     assert liveness_calls == 2
 
@@ -2203,14 +2275,11 @@ def test_e3_spec_rejects_control_characters_in_credential_sentinels():
 def _credential_order_fake_spawn(seen):
     def fake_spawn(command, cwd, env):
         seen.append(tuple(command))
-        if command in (
-            ["claude", "auth", "status"],
-            ["codex", "login", "status"],
-        ):
+        if command[1:] in (["auth", "status"], ["login", "status"]):
             return SimpleNamespace(returncode=0, stdout="", stderr="")
-        if command == ["claude", "--version"]:
+        if command[1:] == ["--version"] and _agent_basename(command) == "claude":
             return SimpleNamespace(returncode=0, stdout="2.1.0", stderr="")
-        if command == ["codex", "--version"]:
+        if command[1:] == ["--version"] and _agent_basename(command) == "codex":
             return SimpleNamespace(returncode=0, stdout="0.144.1", stderr="")
         raise AssertionError(f"unexpected spawn command: {command}")
 
@@ -2239,7 +2308,7 @@ def test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up(monkeypatch):
         assert result.status is Status.INVALID
         assert result.detail == "decoy root rejected"
         assert seeded == ["claude-code", "codex"]
-        assert all(command[0] in {"claude", "codex"} for command in seen)
+        assert all(_agent_basename(command) in {"claude", "codex"} for command in seen)
         assert not (scratch / "seed-ws").exists()
         assert not (scratch / "host2").exists()
     finally:
@@ -2276,6 +2345,7 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
         spawn,
         capture_candidates,
         owned_paths,
+        resolved_binary=None,
     ):
         reached.append(f"seed:{agent['id']}")
         blob = "".join(
@@ -2348,7 +2418,8 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
         "terminal",
     ]
     assert all(
-        command[0] in {"claude", "codex", str(stub_biv)} for command in seen
+        _agent_basename(command) in {"claude", "codex"} or command[0] == str(stub_biv)
+        for command in seen
     )
     assert not (scratch / "seed-ws").exists()
     assert not (scratch / "host2").exists()
@@ -2361,7 +2432,7 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
     opened = []
     restored_workspaces = []
 
-    monkeypatch.setattr(e3, "_seed_agent", lambda *args: None)
+    monkeypatch.setattr(e3, "_seed_agent", lambda *args, **kwargs: None)
     monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
     real_class_j_failures = e3.class_j_failures
 
@@ -2372,10 +2443,10 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
     monkeypatch.setattr(e3, "class_j_failures", capture_class_j)
 
     def fake_spawn(command, cwd, env):
-        if command in (["claude", "--version"], ["codex", "--version"]):
-            version = "2.1.207" if command[0] == "claude" else "0.142.5"
+        if command[1:] == ["--version"]:
+            version = "2.1.207" if _agent_basename(command) == "claude" else "0.142.5"
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
-        if command[:2] == ["claude", "--model"]:
+        if _agent_basename(command) == "claude" and command[1] == "--model":
             return SimpleNamespace(returncode=0, stdout="OK", stderr="")
         if len(command) > 1 and command[1] == "pack":
             return _successful_pack()
@@ -2937,9 +3008,10 @@ def _run_prerun_with_codex_version(monkeypatch, tmp_path, stable_test_root, vers
 
     def fake_spawn(command, cwd, env):
         calls.append(command)
-        if command == ["codex", "--version"]:
-            return SimpleNamespace(returncode=0, stdout=version, stderr="")
-        if command == ["claude", "auth", "status"]:
+        if command[1:] == ["--version"]:
+            output = version if _agent_basename(command) == "codex" else "2.1.210"
+            return SimpleNamespace(returncode=0, stdout=output, stderr="")
+        if command[1:] == ["auth", "status"] and _agent_basename(command) == "claude":
             return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -2958,7 +3030,7 @@ def test_prerun_version_gate_enforces_the_enumerated_set(
         monkeypatch, tmp_path, stable_test_root, version
     )
     assert result.status is Status.INVALID
-    assert ["codex", "--version"] in calls
+    assert _resolved_agent_command("codex", "--version") in calls
     if accepted:
         assert "version is outside the validated range" not in result.detail
         assert "not authenticated" in result.detail
@@ -2982,13 +3054,16 @@ def test_prerun_version_gate_rejects_ambiguous_multi_token_output(
 
     assert result.status is Status.INVALID
     assert "version is outside the validated range" in result.detail
-    assert calls == [["codex", "login", "status"], ["codex", "--version"]]
+    assert calls == [
+        _resolved_agent_command("codex", "--version"),
+        _resolved_agent_command("claude-code", "--version"),
+    ]
 
 
 @pytest.mark.parametrize("version,accepted", CX_MATRIX)
 def test_host2_version_gate_enforces_the_enumerated_set(tmp_path, version, accepted):
     def fake_spawn(command, cwd, env):
-        if command[0] == "claude":
+        if _agent_basename(command) == "claude":
             if "-p" in command:
                 return SimpleNamespace(returncode=0, stdout="OK", stderr="")
             return SimpleNamespace(returncode=0, stdout="2.1.202", stderr="")
@@ -2999,6 +3074,7 @@ def test_host2_version_gate_enforces_the_enumerated_set(tmp_path, version, accep
         {"agents": _host2_agents()},
         host2,
         host2 / "profiles",
+        _host2_binaries(),
         fake_spawn,
     )
     if accepted:
@@ -4171,7 +4247,7 @@ def test_runner_proceeds_past_tempdir_noise_to_pack(
     def fake_spawn(command, cwd, env):
         calls.append(command)
         if "--version" in command:
-            version = "claude 2.1.202" if command[0] == "claude" else "codex-cli 0.144.1"
+            version = "claude 2.1.202" if _agent_basename(command) == "claude" else "codex-cli 0.144.1"
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
         if command[:2] == ["biv", "pack"]:
             return SimpleNamespace(returncode=1, stdout="", stderr="stop after negative control")
@@ -4186,6 +4262,7 @@ def test_runner_proceeds_past_tempdir_noise_to_pack(
         spawn,
         capture_candidates,
         owned_paths,
+        resolved_binary=None,
     ):
         payload = (
             b'{"output":"FileNotFoundError: No usable temporary directory found in '
@@ -4218,7 +4295,7 @@ def test_runner_voids_pre_pack_when_a_run_root_alias_spelling_appears(
     def fake_spawn(command, cwd, env):
         calls.append(command)
         if "--version" in command:
-            version = "claude 2.1.202" if command[0] == "claude" else "codex-cli 0.144.1"
+            version = "claude 2.1.202" if _agent_basename(command) == "claude" else "codex-cli 0.144.1"
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -4231,6 +4308,7 @@ def test_runner_voids_pre_pack_when_a_run_root_alias_spelling_appears(
         spawn,
         capture_candidates,
         owned_paths,
+        resolved_binary=None,
     ):
         transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
         transcript.write_bytes(b'{"cwd":"E3-ALIAS-CANARY/seed-ws"}\n')
@@ -4275,7 +4353,7 @@ def test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack(
         if "--version" in command:
             version = (
                 "claude 2.1.202"
-                if command[0] == "claude"
+                if _agent_basename(command) == "claude"
                 else "codex-cli 0.144.1"
             )
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
@@ -4296,6 +4374,7 @@ def test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack(
         spawn,
         capture_candidates,
         owned_paths,
+        resolved_binary=None,
     ):
         transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
         cwd = (
@@ -4926,10 +5005,12 @@ def test_negative_control_skips_malformed_lines_without_voiding(tmp_path):
 
 def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_path):
     calls = []
+    binaries = {"first": "/opt/first", "second": "/opt/second"}
+    monkeypatch.setattr(e3.shutil, "which", binaries.get)
 
     def fake_spawn(command, cwd, env):
         calls.append(command)
-        if command == ["second", "auth"]:
+        if command[1] == "auth" and command[0] == binaries["second"]:
             return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
         return SimpleNamespace(returncode=0, stdout="tool 1.0.0", stderr="")
 
@@ -4950,7 +5031,217 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
         shutil.rmtree(scratch, ignore_errors=True)
 
     assert result.status is Status.INVALID
-    assert calls == [["first", "auth"], ["first", "version"], ["second", "auth"]]
+    assert calls == [
+        [binaries["first"], "version"],
+        [binaries["second"], "version"],
+        [binaries["first"], "auth"],
+        [binaries["second"], "auth"],
+    ]
+
+
+def _argv_barrier_spec(stable_test_root):
+    spec = _valid_two_agent_spec()
+    spec["live_store_roots"] = []
+    for agent in spec["agents"]:
+        live_root = stable_test_root / f"live-{agent['id']}"
+        agent["live_profile"] = str(live_root)
+        spec["live_store_roots"].append(str(live_root))
+    spec["host2_profile_root"] = "host2/profiles"
+    spec["workspace_name"] = "argv-barrier"
+    return spec
+
+
+def _run_argv_barrier_flow(monkeypatch, tmp_path, stable_test_root, *, wrong_version=None):
+    spec = _argv_barrier_spec(stable_test_root)
+    binaries = {
+        "codex": "/opt/agents/codex-real",
+        "claude": "/opt/agents/claude-real",
+    }
+    monkeypatch.setattr(e3.shutil, "which", lambda name: binaries.get(name))
+    spec_path = tmp_path / "argv-barrier.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    biv = tmp_path / "fake-biv"
+    scratch = stable_test_root / "scratch"
+    ledger = []
+    seed_attempts = {agent["id"]: 0 for agent in spec["agents"]}
+    resume_attempts = {agent["id"]: 0 for agent in spec["agents"]}
+
+    def write_seed_transcript(agent, command, cwd, attempt):
+        token = next(
+            part for part in command
+            if part.startswith(agent["run_token_prefix"] + "_")
+        )
+        session_id = "aaaaaaaa-1111-4111-8111-111111111111" if agent["id"] == "codex" else "bbbbbbbb-2222-4222-8222-222222222222"
+        if agent["id"] == "codex":
+            transcript = Path(agent["live_profile"]) / f"rollout-2026-07-22-{session_id}.jsonl"
+        else:
+            transcript = (
+                Path(agent["live_profile"])
+                / "projects"
+                / e3._project_key(cwd)
+                / f"{session_id}.jsonl"
+            )
+        transcript.parent.mkdir(parents=True, exist_ok=True)
+        is_continue = command[1] == "continue" or "resume" in command
+        turns = ["one"] if not is_continue else ["one", "two"]
+        transcript.write_text(
+            "\n".join([token, *turns, f"attempt-{attempt}"]) + "\n",
+            encoding="utf-8",
+        )
+
+    def fake_spawn(command, cwd, env):
+        command = list(command)
+        ledger.append((command, Path(cwd), dict(env)))
+        if command[0] == str(biv):
+            if command[1] == "pack":
+                return _successful_pack()
+            if command[1] == "open":
+                destination = Path(command[command.index("--dest") + 1])
+                return _open_process_result(destination)
+        agent = next(
+            agent for agent in spec["agents"]
+            if command[0] in (agent["auth_status"][0], binaries[agent["auth_status"][0]])
+        )
+        agent_name = agent["id"]
+        if command[1:] == ["--version"]:
+            version = {
+                "codex": "0.144.1",
+                "claude-code": "2.1.210",
+            }[agent_name]
+            if wrong_version == agent_name:
+                version = "9.9.9"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command[1:] in (["login", "status"], ["auth", "status"]):
+            return SimpleNamespace(returncode=0, stdout="authenticated", stderr="")
+        if "-p" in command:
+            attempt = sum(
+                1 for item, _, _ in ledger
+                if item[0] == command[0] and "-p" in item
+            )
+            return SimpleNamespace(
+                returncode=1 if attempt == 1 else 0,
+                stdout="" if attempt == 1 else "OK",
+                stderr="transient" if attempt == 1 else "",
+            )
+        if cwd == scratch / "seed-ws" / spec["workspace_name"]:
+            if command[1] == "continue" or "resume" in command:
+                seed_attempts[agent_name] += 1
+                write_seed_transcript(agent, command, cwd, seed_attempts[agent_name])
+                return SimpleNamespace(
+                    returncode=1 if seed_attempts[agent_name] == 2 else 0,
+                    stdout="" if seed_attempts[agent_name] == 2 else "reply",
+                    stderr="transient" if seed_attempts[agent_name] == 2 else "",
+                )
+            seed_attempts[agent_name] += 1
+            write_seed_transcript(agent, command, cwd, seed_attempts[agent_name])
+            return SimpleNamespace(returncode=0, stdout="reply", stderr="")
+        resume_attempts[agent_name] += 1
+        return SimpleNamespace(
+            returncode=1 if resume_attempts[agent_name] == 1 else 0,
+            stdout="" if resume_attempts[agent_name] == 1 else "reply",
+            stderr="transient" if resume_attempts[agent_name] == 1 else "",
+        )
+
+    def fake_install_delta(agent_id, profile, *args):
+        path = Path(profile) / f"{agent_id}-installed.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("one\ntwo\n", encoding="utf-8")
+        return [path]
+
+    setup_calls = []
+    real_setup = e3.setup_host2_credentials
+
+    def recording_setup(*args):
+        setup_calls.append(args)
+        return real_setup(*args)
+
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
+    monkeypatch.setattr(e3, "assert_exact_install_delta", fake_install_delta)
+    monkeypatch.setattr(e3, "assert_resume_containment", lambda *args, **kwargs: None)
+    monkeypatch.setattr(e3, "setup_host2_credentials", recording_setup)
+    result = e3.run_e3(spec_path, biv, scratch)
+    return result, spec, binaries, ledger, setup_calls, scratch
+
+
+def _agent_ledger(ledger, binaries):
+    result = []
+    for command, cwd, _ in ledger:
+        raw_name = next(
+            (agent_id for agent_id, binary in binaries.items()
+             if binary == command[0] or agent_id == command[0]),
+            None,
+        )
+        if raw_name is None:
+            continue
+        result.append(("claude-code" if raw_name == "claude" else raw_name, command, cwd))
+    return result
+
+
+def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_barrier(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, spec, binaries, ledger, setup_calls, scratch = _run_argv_barrier_flow(
+        monkeypatch, tmp_path, stable_test_root
+    )
+
+    assert result.status is Status.PASS
+    assert setup_calls
+    agent_ledger = _agent_ledger(ledger, binaries)
+    assert all(
+        command[0] == binaries["claude" if agent_id == "claude-code" else agent_id]
+        for agent_id, command, _ in agent_ledger
+    )
+    events = []
+    seed_workspace = scratch / "seed-ws" / spec["workspace_name"]
+    restored_workspace = scratch / "host2" / "work"
+    for agent_id, command, cwd in agent_ledger:
+        if command[1:] == ["--version"]:
+            event = "version"
+        elif command[1:] in (["login", "status"], ["auth", "status"]):
+            event = "auth"
+        elif "-p" in command:
+            event = "liveness"
+        elif cwd == seed_workspace:
+            event = "seed-continue" if command[1] == "continue" or "resume" in command else "seed-start"
+        elif cwd == restored_workspace:
+            event = "resume"
+        else:
+            raise AssertionError((agent_id, command, cwd))
+        events.append((agent_id, event))
+    assert events == [
+        ("codex", "version"), ("claude-code", "version"),
+        ("codex", "auth"), ("claude-code", "auth"),
+        ("codex", "seed-start"), ("codex", "seed-continue"),
+        ("codex", "seed-continue"), ("claude-code", "seed-start"),
+        ("claude-code", "seed-continue"), ("claude-code", "seed-continue"),
+        ("codex", "version"), ("claude-code", "version"),
+        ("codex", "auth"), ("claude-code", "auth"),
+        ("claude-code", "liveness"), ("claude-code", "liveness"),
+        ("codex", "resume"), ("codex", "resume"),
+        ("claude-code", "resume"), ("claude-code", "resume"),
+    ]
+    first_auth = events.index(("codex", "auth"))
+    assert all(event == "version" for _, event in events[:first_auth])
+    assert agent_ledger[5][1] == agent_ledger[6][1]
+    assert agent_ledger[8][1] == agent_ledger[9][1]
+    assert agent_ledger[14][1] == agent_ledger[15][1]
+    assert agent_ledger[16][1] == agent_ledger[17][1]
+    assert agent_ledger[18][1] == agent_ledger[19][1]
+
+
+@pytest.mark.parametrize("wrong_version", ["claude-code", "codex"])
+def test_run_e3_wrong_agent_version_is_invalid_before_any_auth_or_setup(
+    monkeypatch, tmp_path, stable_test_root, wrong_version
+):
+    result, _, _, ledger, setup_calls, _ = _run_argv_barrier_flow(
+        monkeypatch, tmp_path, stable_test_root, wrong_version=wrong_version
+    )
+
+    assert result.status is Status.INVALID
+    assert "version is outside the validated range" in result.detail
+    assert setup_calls == []
+    assert not any(command[1:] in (["login", "status"], ["auth", "status"]) for command, _, _ in ledger)
 
 
 def test_e3_spec_validation_rejects_dead_or_wrong_resume_shape():

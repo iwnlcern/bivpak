@@ -283,6 +283,13 @@ def _require_retryable_capture(candidates: list[Path], owned: list[Path]) -> Non
         raise CaptureAmbiguity(candidates)
 
 
+def _rewrite_agent_command(command: list[str], resolved_binary: str | None) -> list[str]:
+    rewritten = list(command)
+    if resolved_binary is not None:
+        rewritten[0] = resolved_binary
+    return rewritten
+
+
 def _seed_agent(
     agent: dict[str, Any],
     live_profile: Path,
@@ -292,15 +299,16 @@ def _seed_agent(
     spawn: Callable[[list[str], Path, dict[str, str]], Any],
     capture_candidates: list[Path],
     owned_paths: list[Path],
+    resolved_binary: str | None = None,
 ) -> Path:
     path_proof = lambda path: _capture_path_proof(
         agent["id"], path, live_profile, seed_workspace
     )
     format_values = {**spec, "workspace": str(seed_workspace), "run_token": agent["run_token"]}
-    start_command = [
+    start_command = _rewrite_agent_command([
         part.format(**format_values)
         for part in agent["seed_start_command"]
-    ]
+    ], resolved_binary)
     seeded, start_error, candidates, owned = _capture_attempt(
         live_profile, agent["ownership_glob"], agent["run_token"],
         lambda: spawn(start_command, seed_workspace, env),
@@ -318,10 +326,10 @@ def _seed_agent(
         if first is not None:
             owned_paths.append(first)
             retry_id = _session_id_from_path(agent["id"], first)
-            retry_command = [
+            retry_command = _rewrite_agent_command([
                 part.format(**{**format_values, "id": retry_id})
                 for part in agent["seed_retry_resume_command"]
-            ]
+            ], resolved_binary)
         else:
             retry_command = start_command
         try:
@@ -343,10 +351,10 @@ def _seed_agent(
     if first not in owned_paths:
         owned_paths.append(first)
     seed_id = _session_id_from_path(agent["id"], first)
-    continue_command = [
+    continue_command = _rewrite_agent_command([
         part.format(**{**format_values, "id": seed_id})
         for part in agent["seed_continue_command"]
-    ]
+    ], resolved_binary)
     continued, continue_error, candidates, continued_owned = _capture_attempt(
         live_profile, agent["ownership_glob"], agent["run_token"],
         lambda: spawn(continue_command, seed_workspace, env),
@@ -567,6 +575,48 @@ def _spawn_retry_with(
     raise ValueError("model-call retry produced no result")
 
 
+def _resolve_agent_binaries(spec: dict[str, Any]) -> dict[str, str]:
+    resolved: dict[str, str] = {}
+    for agent in spec["agents"]:
+        executable = agent["auth_status"][0]
+        path = shutil.which(executable)
+        if not isinstance(path, str) or not Path(path).is_absolute():
+            raise ValueError(
+                f"{agent['id']} executable could not be resolved to an absolute path"
+            )
+        resolved[agent["id"]] = path
+    return resolved
+
+
+def _version_gate_agents(
+    contexts: list[tuple[dict[str, Any], Path, dict[str, str]]],
+    resolved_binaries: dict[str, str],
+    cwd: Path,
+    spawn: Callable[[list[str], Path, dict[str, str]], Any],
+    scope: str = "",
+) -> None:
+    failures: list[str] = []
+    for agent, _, env in contexts:
+        command = _rewrite_agent_command(
+            agent["version_command"], resolved_binaries[agent["id"]]
+        )
+        try:
+            version = spawn(command, cwd, env)
+            valid = version.returncode == 0 and version_in_validated_range(
+                version.stdout + version.stderr,
+                agent["validated_version_prefixes"],
+            )
+        except (OSError, subprocess.TimeoutExpired, TypeError, ValueError):
+            valid = False
+        if not valid:
+            failures.append(agent["id"])
+    if failures:
+        label = f"{failures[0]} " if failures else ""
+        if scope:
+            label += f"{scope} "
+        raise ValueError(f"{label}version is outside the validated range")
+
+
 def _agent_profile(agent: dict[str, Any], profile_root: Path, *, live: bool) -> Path:
     if live:
         return Path(agent["live_profile"]).expanduser().resolve(strict=False)
@@ -580,10 +630,17 @@ def _agent_env(agent: dict[str, Any], profile: Path, *, live: bool) -> dict[str,
     return {key: str(value).format(profile=str(profile)) for key, value in agent.get("env", {}).items()}
 
 
-def _login_instruction(agent: dict[str, Any], profile: Path, *, live: bool) -> str:
-    command = [agent["auth_status"][0], "auth", "login"]
+def _login_instruction(
+    agent: dict[str, Any],
+    profile: Path,
+    *,
+    live: bool,
+    resolved_binary: str | None = None,
+) -> str:
+    binary = resolved_binary or agent["auth_status"][0]
+    command = [binary, "auth", "login"]
     if agent["id"] == "codex":
-        command = [agent["auth_status"][0], "login"]
+        command = [binary, "login"]
     assignments = " ".join(
         f"{key}={shlex.quote(value)}"
         for key, value in _agent_env(agent, profile, live=live).items()
@@ -595,6 +652,7 @@ def setup_host2_credentials(
     spec: dict[str, Any],
     host2: Path,
     profile_root: Path,
+    resolved_binaries: dict[str, str],
     spawn: Callable[[list[str], Path, dict[str, str]], Any],
 ) -> dict[str, dict[str, str]]:
     home = host2 / "home"
@@ -607,25 +665,26 @@ def setup_host2_credentials(
         env["HOME"] = str(home)
         contexts.append((agent, profile, env))
 
+    _version_gate_agents(contexts, resolved_binaries, host2, spawn, "host2")
+
     auth_failures: list[str] = []
     for agent, _, env in contexts:
-        if spawn(agent["auth_status"], host2, env).returncode != 0:
+        command = _rewrite_agent_command(
+            agent["auth_status"], resolved_binaries[agent["id"]]
+        )
+        if spawn(command, host2, env).returncode != 0:
             auth_failures.append(agent["id"])
     if auth_failures:
         raise ValueError("host2 credential unavailable: " + ", ".join(auth_failures))
-
-    for agent, _, env in contexts:
-        version = spawn(agent["version_command"], host2, env)
-        if version.returncode != 0 or not version_in_validated_range(
-            version.stdout + version.stderr, agent["validated_version_prefixes"]
-        ):
-            raise ValueError(f"{agent['id']} host2 version is outside the validated range")
 
     claude = next((item for item in contexts if item[0]["id"] == "claude-code"), None)
     if claude is None:
         raise ValueError("Claude liveness ping requires a claude-code agent")
     liveness = _spawn_retry_with(
-        claude[0]["liveness_command"], host2, claude[2], spawn,
+        _rewrite_agent_command(
+            claude[0]["liveness_command"], resolved_binaries[claude[0]["id"]]
+        ),
+        host2, claude[2], spawn,
         lambda result: result.returncode == 0 and len(result.stdout.split()) == 1,
     )
     if liveness.returncode != 0 or len(liveness.stdout.split()) != 1:
@@ -1375,6 +1434,7 @@ def run_e3(
     seed_parent_created = False
     host2_created = False
     try:
+        resolved_binaries = _resolve_agent_binaries(spec)
         if seed_parent.is_symlink() or seed_parent.exists() or seed_ws.is_symlink() or seed_ws.exists():
             raise ValueError("seed workspace must be fresh and contained by scratch")
         if host2.is_symlink() or host2.exists():
@@ -1389,27 +1449,33 @@ def run_e3(
         for agent in spec["agents"]:
             live_profile = _agent_profile(agent, profile_root, live=True)
             env = _agent_env(agent, live_profile, live=True)
-            auth = _spawn(agent["auth_status"], seed_ws, env)
+            live_contexts.append((agent, live_profile, env))
+
+        _version_gate_agents(live_contexts, resolved_binaries, seed_ws, _spawn)
+        for agent, live_profile, env in live_contexts:
+            auth = _spawn(
+                _rewrite_agent_command(
+                    agent["auth_status"], resolved_binaries[agent["id"]]
+                ),
+                seed_ws,
+                env,
+            )
             if auth.returncode != 0:
-                instruction = _login_instruction(agent, live_profile, live=True)
+                instruction = _login_instruction(
+                    agent,
+                    live_profile,
+                    live=True,
+                    resolved_binary=resolved_binaries[agent["id"]],
+                )
                 return _run_result(
                     Status.INVALID,
                     f"{agent['id']} is not authenticated; run: {instruction}",
                 )
-            version = _spawn(agent["version_command"], seed_ws, env)
-            if version.returncode != 0 or not version_in_validated_range(
-                version.stdout + version.stderr, agent["validated_version_prefixes"]
-            ):
-                return _run_result(
-                    Status.INVALID,
-                    f"{agent['id']} version is outside the validated range",
-                )
-            live_contexts.append((agent, live_profile, env))
-
         for agent, live_profile, env in live_contexts:
             _seed_agent(
                 agent, live_profile, seed_ws, spec, env, _spawn,
                 capture_candidates, owned_paths,
+                resolved_binary=resolved_binaries[agent["id"]],
             )
 
         negative_control = _negative_control_failures(owned_paths, scratch)
@@ -1434,7 +1500,9 @@ def run_e3(
         if image_secret_hits:
             raise ValueError("credential sentinel found in image: " + ", ".join(image_secret_hits))
 
-        host2_agent_envs = setup_host2_credentials(spec, host2, profile_root, _spawn)
+        host2_agent_envs = setup_host2_credentials(
+            spec, host2, profile_root, resolved_binaries, _spawn
+        )
         for env in host2_agent_envs.values():
             host2_env.update(env)
         pre_open_stores = {
@@ -1512,8 +1580,11 @@ def run_e3(
                     Status.FAIL,
                     f"{agent['id']} installed id missing",
                 )
-            command = [part.format(id=session_id, probe=spec["resume_probe"])
-                       for part in agent["resume_command"]]
+            command = _rewrite_agent_command(
+                [part.format(id=session_id, probe=spec["resume_probe"])
+                 for part in agent["resume_command"]],
+                resolved_binaries[agent["id"]],
+            )
             profile = _agent_profile(agent, profile_root, live=False)
             env = host2_agent_envs[agent["id"]]
             resumed = _spawn_retry(
