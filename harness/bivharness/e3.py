@@ -31,6 +31,9 @@ CLAUDE_RESUME_MUTATION = "appends-same-file"
 CODEX_RESUME_SHAPE = "appends-same-rollout"
 E3_CLASS = "E3 (real CLI resume in isolated profile)"
 COMMAND_TIMEOUT_S = 120
+_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
+_DIRECTORY_NOFOLLOW_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | _CLOEXEC
+_REGULAR_NOFOLLOW_FLAGS = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | _CLOEXEC
 LIVE_STORE_SELECTORS: dict[str, tuple[str, ...]] = {
     "claude-code": ("CLAUDE_CONFIG_DIR",),
     "codex": ("CODEX_HOME",),
@@ -42,13 +45,13 @@ SESSION_LOCATIONS: dict[str, tuple[str, ...]] = {
 _ADAPTER_SOURCE_ANCHORS = {
     "claude_inventory": (
         "src/adapters/claude_code/claude_code.cpp",
-        "const Inventory& claude_inventory()",
-        "c7cb5b7cb6fd84b3eab9b738b5f1403ef590757832aca850d83634fa1a901341",
+        '.collect = {ArtifactClass{.name = "project-transcripts"',
+        "b63ee9afd60b27ac5eccb557c551fd7e71b0028c1d40629be4727ba92fc70b62",
     ),
     "codex_inventory": (
         "src/adapters/codex/codex.cpp",
-        "const Inventory& codex_inventory()",
-        "8c08bbf14f03ed111ee0a016f0c94445a728af1f48135f9b6bebd59986d156fa",
+        '.collect = {ArtifactClass{.name = "rollouts"',
+        "313f9d70fc3baa5110271c418dc13ffd7fcb83829f732f0a0dd5b0851a1bacc8",
     ),
     "codex_discover_archived": (
         "src/adapters/codex/codex.cpp",
@@ -70,6 +73,13 @@ class _OpenResultOutcome(NamedTuple):
     output_dir: str
     groups: list[dict[str, Any]]
     detail: str
+
+
+class _NofollowParent(NamedTuple):
+    descriptor: int
+    name: str
+    checks: tuple[tuple[int, str, os.stat_result], ...]
+    descriptors: tuple[int, ...]
 
 
 def rejected_credential_names(env: dict[str, str]) -> list[str]:
@@ -421,12 +431,199 @@ def format_cleanup_report(candidates: list[Path], owned: list[Path]) -> str:
     )
 
 
+def _same_entry(left: os.stat_result, right: os.stat_result) -> bool:
+    return (
+        left.st_dev,
+        left.st_ino,
+        stat.S_IFMT(left.st_mode),
+    ) == (
+        right.st_dev,
+        right.st_ino,
+        stat.S_IFMT(right.st_mode),
+    )
+
+
+def _close_nofollow_parent(opened: _NofollowParent) -> None:
+    for descriptor in reversed(opened.descriptors):
+        os.close(descriptor)
+
+
+def _open_parent_directory_nofollow(path: Path) -> _NofollowParent | None:
+    path = Path(path)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    parts = path.parts
+    current = os.open(path.anchor, _DIRECTORY_NOFOLLOW_FLAGS)
+    descriptors = [current]
+    checks: list[tuple[int, str, os.stat_result]] = []
+    try:
+        for component in parts[1:-1]:
+            status = _entry_status(current, component)
+            if status is None:
+                for descriptor in reversed(descriptors):
+                    os.close(descriptor)
+                return None
+            if not stat.S_ISDIR(status.st_mode):
+                raise ValueError(
+                    f"nofollow parent component {component!r} is nonregular"
+                )
+            next_descriptor = _open_verified_directory(
+                current,
+                component,
+                status,
+                f"nofollow parent component {component!r}",
+            )
+            checks.append((current, component, status))
+            descriptors.append(next_descriptor)
+            current = next_descriptor
+    except BaseException:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+        raise
+    return _NofollowParent(
+        current,
+        parts[-1] if len(parts) > 1 else ".",
+        tuple(checks),
+        tuple(descriptors),
+    )
+
+
+def _entry_status(parent_descriptor: int, name: str) -> os.stat_result | None:
+    try:
+        return os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
+    except FileNotFoundError:
+        return None
+
+
+def _open_verified_directory(
+    parent_descriptor: int,
+    name: str,
+    expected: os.stat_result,
+    label: str,
+) -> int:
+    descriptor = os.open(
+        name,
+        _DIRECTORY_NOFOLLOW_FLAGS,
+        dir_fd=parent_descriptor,
+    )
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISDIR(opened.st_mode) or not _same_entry(expected, opened):
+            raise ValueError(f"{label} changed during nofollow inspection")
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _verify_entry_unchanged(
+    parent_descriptor: int,
+    name: str,
+    expected: os.stat_result,
+    label: str,
+) -> os.stat_result:
+    current = _entry_status(parent_descriptor, name)
+    if current is None or not _same_entry(expected, current):
+        raise ValueError(f"{label} changed during nofollow inspection")
+    return current
+
+
+def _verify_parent_unchanged(opened: _NofollowParent, label: str) -> None:
+    for parent_descriptor, name, expected in reversed(opened.checks):
+        _verify_entry_unchanged(parent_descriptor, name, expected, label)
+
+
+def _read_regular_file_nofollow(
+    parent_descriptor: int,
+    name: str,
+    expected: os.stat_result,
+    label: str,
+) -> bytes:
+    descriptor = os.open(
+        name,
+        _REGULAR_NOFOLLOW_FLAGS,
+        dir_fd=parent_descriptor,
+    )
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or not _same_entry(expected, opened):
+            raise ValueError(f"{label} changed during nofollow inspection")
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        final = os.fstat(descriptor)
+        if not stat.S_ISREG(final.st_mode) or not _same_entry(opened, final):
+            raise ValueError(f"{label} changed during nofollow inspection")
+    finally:
+        os.close(descriptor)
+    _verify_entry_unchanged(parent_descriptor, name, expected, label)
+    return b"".join(chunks)
+
+
+def _snapshot_directory_nofollow(
+    descriptor: int,
+    relative: Path,
+    snapshot: StoreSnapshot,
+) -> None:
+    with os.scandir(descriptor) as entries:
+        for entry in entries:
+            path = relative / entry.name
+            label = f"snapshot store entry {path}"
+            status = entry.stat(follow_symlinks=False)
+            if stat.S_ISREG(status.st_mode):
+                snapshot[path] = _read_regular_file_nofollow(
+                    descriptor, entry.name, status, label
+                )
+                continue
+            if not stat.S_ISDIR(status.st_mode):
+                raise ValueError(f"{label} is nonregular")
+            child = _open_verified_directory(
+                descriptor, entry.name, status, label
+            )
+            try:
+                _snapshot_directory_nofollow(child, path, snapshot)
+            finally:
+                os.close(child)
+            _verify_entry_unchanged(descriptor, entry.name, status, label)
+
+
 def snapshot_store(root: Path) -> StoreSnapshot:
-    return {
-        path.relative_to(root): path.read_bytes()
-        for path in root.rglob("*")
-        if path.is_file()
-    }
+    opened_parent = _open_parent_directory_nofollow(root)
+    if opened_parent is None:
+        return {}
+    parent_descriptor = opened_parent.descriptor
+    name = opened_parent.name
+    try:
+        status = _entry_status(parent_descriptor, name)
+        if status is None:
+            _verify_parent_unchanged(opened_parent, f"snapshot store root {root}")
+            return {}
+        if not stat.S_ISDIR(status.st_mode):
+            raise ValueError(f"snapshot store root {root} is nonregular")
+        descriptor = _open_verified_directory(
+            parent_descriptor,
+            name,
+            status,
+            f"snapshot store root {root}",
+        )
+        try:
+            snapshot: StoreSnapshot = {}
+            _snapshot_directory_nofollow(descriptor, Path(), snapshot)
+        finally:
+            os.close(descriptor)
+        _verify_entry_unchanged(
+            parent_descriptor,
+            name,
+            status,
+            f"snapshot store root {root}",
+        )
+        _verify_parent_unchanged(opened_parent, f"snapshot store root {root}")
+        return snapshot
+    finally:
+        _close_nofollow_parent(opened_parent)
 
 
 def assert_exact_install_delta(
@@ -980,81 +1177,130 @@ def _is_string_list(value: object, *, non_empty: bool = True) -> bool:
     )
 
 
-def _c1_nofollow_lstat(path: Path) -> os.stat_result | None:
-    """Stat a path and every parent lexically, refusing symlink traversal."""
-    path = Path(path)
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    current = Path(path.anchor)
-    if path == current:
-        try:
-            return os.lstat(path)
-        except FileNotFoundError:
-            return None
-        except OSError as exc:
-            raise OSError(f"cannot stat {path}: {exc}") from exc
-    status: os.stat_result | None = None
-    for part in path.parts[1:]:
-        current /= part
-        try:
-            status = os.lstat(current)
-        except FileNotFoundError:
-            return None
-        except OSError as exc:
-            raise OSError(f"cannot stat {current}: {exc}") from exc
-        if stat.S_ISLNK(status.st_mode):
-            raise ValueError(f"symlink in session path: {current}")
-        if current != path and not stat.S_ISDIR(status.st_mode):
-            raise ValueError(f"non-directory traversal in session path: {current}")
-    return status
-
-
-def _c1_probe_readable(path: Path) -> None:
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
-    try:
-        descriptor = os.open(path, flags)
-    except OSError as exc:
-        raise OSError(f"cannot read {path}: {exc}") from exc
-    try:
-        status = os.fstat(descriptor)
-    finally:
-        os.close(descriptor)
-    if not stat.S_ISREG(status.st_mode):
-        raise ValueError(f"nonregular session entry at {path}")
-
-
-def _c1_scan_session_path(path: Path, label: str, *, allow_empty_file: bool) -> list[str]:
+def _c1_scan_directory(
+    descriptor: int,
+    label: str,
+) -> list[str]:
     failures: list[str] = []
     try:
-        status = _c1_nofollow_lstat(path)
+        with os.scandir(descriptor) as entries:
+            for entry in entries:
+                entry_label = f"{label}/{entry.name}"
+                try:
+                    status = entry.stat(follow_symlinks=False)
+                except (OSError, ValueError, RuntimeError) as exc:
+                    failures.append(f"{entry_label}: cannot stat: {exc}")
+                    continue
+                if stat.S_ISREG(status.st_mode):
+                    failures.append(f"{entry_label}: recorded regular file")
+                    continue
+                if not stat.S_ISDIR(status.st_mode):
+                    failures.append(f"{entry_label}: nonregular session entry")
+                    continue
+                try:
+                    child = _open_verified_directory(
+                        descriptor,
+                        entry.name,
+                        status,
+                        entry_label,
+                    )
+                except (OSError, ValueError, RuntimeError) as exc:
+                    failures.append(f"{entry_label}: {exc}")
+                    continue
+                try:
+                    failures.extend(_c1_scan_directory(child, entry_label))
+                finally:
+                    os.close(child)
+                try:
+                    _verify_entry_unchanged(
+                        descriptor,
+                        entry.name,
+                        status,
+                        entry_label,
+                    )
+                except (OSError, ValueError, RuntimeError) as exc:
+                    failures.append(f"{entry_label}: {exc}")
     except (OSError, ValueError, RuntimeError) as exc:
-        return [f"{label}: {exc}"]
-    if status is None:
-        return failures
-    mode = status.st_mode
-    if stat.S_ISREG(mode):
-        if allow_empty_file and status.st_size == 0:
-            try:
-                _c1_probe_readable(path)
-            except (OSError, ValueError, RuntimeError) as exc:
-                failures.append(f"{label}: {exc}")
-        else:
-            failures.append(f"{label}: recorded regular file at {path}")
-        return failures
-    if not stat.S_ISDIR(mode):
-        return [f"{label}: nonregular session entry at {path}"]
+        failures.append(f"{label}: cannot traverse: {exc}")
+    return failures
+
+
+def _c1_scan_session_path(
+    path: Path,
+    label: str,
+    *,
+    allow_empty_file: bool,
+) -> list[str]:
+    try:
+        opened_parent = _open_parent_directory_nofollow(path)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return [f"{label}: cannot traverse: {exc}"]
+    if opened_parent is None:
+        return []
+    parent_descriptor = opened_parent.descriptor
+    name = opened_parent.name
+
+    def parent_failures() -> list[str]:
+        try:
+            _verify_parent_unchanged(opened_parent, label)
+        except (OSError, ValueError, RuntimeError) as exc:
+            return [f"{label}: {exc}"]
+        return []
 
     try:
-        with os.scandir(path) as entries:
-            for entry in entries:
-                failures.extend(
-                    _c1_scan_session_path(
-                        Path(entry.path), label, allow_empty_file=False
-                    )
+        try:
+            status = _entry_status(parent_descriptor, name)
+        except (OSError, ValueError, RuntimeError) as exc:
+            return [f"{label}: cannot stat: {exc}"]
+        if status is None:
+            return parent_failures()
+        if stat.S_ISREG(status.st_mode):
+            if not allow_empty_file or status.st_size != 0:
+                return [
+                    f"{label}: recorded regular file at {path}",
+                    *parent_failures(),
+                ]
+            try:
+                content = _read_regular_file_nofollow(
+                    parent_descriptor,
+                    name,
+                    status,
+                    label,
                 )
-    except (OSError, ValueError, RuntimeError) as exc:
-        failures.append(f"{label}: cannot traverse {path}: {exc}")
-    return failures
+            except (OSError, ValueError, RuntimeError) as exc:
+                return [f"{label}: {exc}"]
+            if content:
+                return [
+                    f"{label}: session index non-empty at {path}",
+                    *parent_failures(),
+                ]
+            return parent_failures()
+        if not stat.S_ISDIR(status.st_mode):
+            return [
+                f"{label}: nonregular session entry at {path}",
+                *parent_failures(),
+            ]
+        try:
+            descriptor = _open_verified_directory(
+                parent_descriptor,
+                name,
+                status,
+                label,
+            )
+        except (OSError, ValueError, RuntimeError) as exc:
+            return [f"{label}: {exc}"]
+        try:
+            failures = _c1_scan_directory(descriptor, label)
+        finally:
+            os.close(descriptor)
+        try:
+            _verify_entry_unchanged(parent_descriptor, name, status, label)
+        except (OSError, ValueError, RuntimeError) as exc:
+            failures.append(f"{label}: {exc}")
+        failures.extend(parent_failures())
+        return failures
+    finally:
+        _close_nofollow_parent(opened_parent)
 
 
 def _c1_zero_session_failures(profile_root: Path, spec: dict[str, Any]) -> list[str]:

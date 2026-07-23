@@ -1308,16 +1308,92 @@ def test_c1_zero_session_control_reds_on_unreadable_empty_index_and_continues(
     index.write_bytes(b"")
     real_open = e3.os.open
 
-    def deny_index(path, flags, *args):
-        if Path(path) == index:
+    def deny_index(path, flags, mode=0o777, *, dir_fd=None):
+        if Path(path) == index or (path == index.name and dir_fd is not None):
             raise PermissionError("denied")
-        return real_open(path, flags, *args)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
 
     monkeypatch.setattr(e3.os, "open", deny_index)
 
     failures = e3._c1_zero_session_failures(profile_root, _valid_two_agent_spec())
 
     assert any("session_index.jsonl" in failure for failure in failures)
+
+
+def test_c1_zero_session_control_rejects_directory_swap_before_scan(
+    monkeypatch, tmp_path
+):
+    profile_root = tmp_path / "profiles"
+    projects = profile_root / "claude-code" / "projects"
+    projects.mkdir(parents=True)
+    (profile_root / "codex").mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    real_scandir = e3.os.scandir
+    swapped = False
+
+    def swap_to_symlink(path):
+        nonlocal swapped
+        if not swapped:
+            projects.rmdir()
+            projects.symlink_to(outside, target_is_directory=True)
+            swapped = True
+        return real_scandir(path)
+
+    monkeypatch.setattr(e3.os, "scandir", swap_to_symlink)
+
+    failures = e3._c1_zero_session_failures(profile_root, _valid_two_agent_spec())
+
+    assert swapped
+    assert failures
+    assert any("projects" in failure for failure in failures)
+
+
+def test_c1_zero_session_control_rejects_profile_ancestor_swap(
+    monkeypatch, tmp_path
+):
+    profile_root = tmp_path / "profiles"
+    store = profile_root / "claude-code"
+    projects = store / "projects"
+    projects.mkdir(parents=True)
+    (profile_root / "codex").mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    moved = tmp_path / "detached-claude-profile"
+    real_scandir = e3.os.scandir
+    swapped = False
+
+    def swap_profile_to_symlink(path):
+        nonlocal swapped
+        if not swapped:
+            store.rename(moved)
+            store.symlink_to(outside, target_is_directory=True)
+            swapped = True
+        return real_scandir(path)
+
+    monkeypatch.setattr(e3.os, "scandir", swap_profile_to_symlink)
+
+    failures = e3._c1_zero_session_failures(profile_root, _valid_two_agent_spec())
+
+    assert swapped
+    assert failures
+    assert any("changed during nofollow inspection" in failure for failure in failures)
+
+
+@pytest.mark.parametrize("kind", ("symlink", "fifo"))
+def test_snapshot_store_rejects_nonregular_entries_without_reading(tmp_path, kind):
+    root = tmp_path / "store"
+    root.mkdir()
+    target = root / "entry"
+    if kind == "symlink":
+        outside = tmp_path / "outside"
+        outside.write_bytes(b"must-not-be-read")
+        target.symlink_to(outside)
+    else:
+        os.mkfifo(target)
+
+    with pytest.raises(ValueError, match="snapshot store"):
+        snapshot_store(root)
 
 
 def test_drift_tripwire_is_green_at_pinned_source():
@@ -1369,6 +1445,40 @@ def test_drift_tripwire_ignores_out_of_region_edit(tmp_path):
     shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
     source = repo / "src/adapters/codex/codex.cpp"
     source.write_text("// unrelated\n" + source.read_text(encoding="utf-8"), encoding="utf-8")
+
+    assert e3._c1_drift_tripwire_failures(repo) == []
+
+
+@pytest.mark.parametrize(
+    ("rel", "old", "new"),
+    (
+        (
+            "src/adapters/claude_code/claude_code.cpp",
+            '.globs = {"agents/claude-code/**/*.jsonl"}',
+            '.globs = {"agents/claude-code/**/*.jsonl", "unrelated/**"}',
+        ),
+        (
+            "src/adapters/codex/codex.cpp",
+            '"goals_1.sqlite", "logs_2.sqlite", "memories_1.sqlite"},',
+            '"goals_1.sqlite", "logs_2.sqlite", "memories_1.sqlite", "unrelated"},',
+        ),
+        (
+            "src/adapters/claude_code/claude_code.cpp",
+            '.login_flow_owner = "claude-code",',
+            '.login_flow_owner = "claude-code-v2",',
+        ),
+    ),
+    ids=("rewrite", "never-collect", "caveat"),
+)
+def test_drift_tripwire_ignores_inventory_fields_outside_collect(
+    tmp_path, rel, old, new
+):
+    repo = tmp_path / "repo"
+    shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+    source = repo / rel
+    text = source.read_text(encoding="utf-8")
+    assert text.count(old) == 1
+    source.write_text(text.replace(old, new, 1), encoding="utf-8")
 
     assert e3._c1_drift_tripwire_failures(repo) == []
 
@@ -1425,6 +1535,103 @@ def test_run_e3_liveness_without_persistence_flag_reds_c1_before_open(
     assert "claude-code" in result.detail
     assert "recorded regular file" in result.detail
     assert open_calls == []
+
+
+def test_run_e3_origin_session_isolation_mutation_stops_before_open(
+    monkeypatch, tmp_path, stable_test_root
+):
+    real_snapshot_store = e3.snapshot_store
+    spec_path, seen = _configure_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        pack_result=_successful_pack(),
+    )
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    spec["host2_profile_root"] = "host2/profiles"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    origin = tmp_path / "origin-session.jsonl"
+    origin.write_bytes(b"origin-session")
+
+    def expose_origin_session(value, host2, profile_root, resolved_binaries, spawn):
+        claude_project = profile_root / "claude-code" / "projects" / "origin"
+        claude_project.mkdir(parents=True)
+        os.link(origin, claude_project / "session.jsonl")
+        (profile_root / "codex").mkdir()
+        return {agent["id"]: {} for agent in value["agents"]}
+
+    monkeypatch.setattr(e3, "snapshot_store", real_snapshot_store)
+    monkeypatch.setattr(e3, "setup_host2_credentials", expose_origin_session)
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "recorded regular file" in result.detail
+    assert seen == ["pack"]
+
+
+def test_run_e3_tripwire_red_stops_before_open(
+    monkeypatch, tmp_path, stable_test_root
+):
+    spec_path, seen = _configure_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        pack_result=_successful_pack(),
+    )
+    monkeypatch.setattr(
+        e3,
+        "_c1_drift_tripwire_failures",
+        lambda: ["C1 drift tripwire RED: injected source drift"],
+    )
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "C1 drift tripwire RED" in result.detail
+    assert seen == ["pack"]
+
+
+def test_run_e3_c1_is_final_operation_immediately_before_open(
+    monkeypatch, tmp_path, stable_test_root
+):
+    spec_path, _ = _configure_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        pack_result=_successful_pack(),
+    )
+    events = []
+    configured_spawn = e3._spawn
+
+    def record_snapshot(*args):
+        events.append("snapshot")
+        return {}
+
+    def record_tripwire():
+        events.append("tripwire")
+        return []
+
+    def record_zero_session(*args):
+        events.append("zero-session")
+        return []
+
+    def record_spawn(command, cwd, env):
+        if len(command) > 1 and command[1] == "open":
+            events.append("open")
+        return configured_spawn(command, cwd, env)
+
+    monkeypatch.setattr(e3, "snapshot_store", record_snapshot)
+    monkeypatch.setattr(e3, "_c1_drift_tripwire_failures", record_tripwire)
+    monkeypatch.setattr(e3, "_c1_zero_session_failures", record_zero_session)
+    monkeypatch.setattr(e3, "_spawn", record_spawn)
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.PASS
+    zero_index = events.index("zero-session")
+    assert events[zero_index - 1 : zero_index + 2] == [
+        "tripwire",
+        "zero-session",
+        "open",
+    ]
 
 
 @pytest.mark.parametrize("env_mode", ("empty", "absent"))
