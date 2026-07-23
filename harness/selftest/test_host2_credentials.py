@@ -1,0 +1,308 @@
+import errno
+import hashlib
+import json
+import os
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from bivharness import host2_credentials as credentials
+from bivharness.host2_credentials import (
+    CredentialStatus,
+    claude_shape_ok,
+    codex_shape_ok,
+    materialize_file_credential,
+    materialize_keychain_credential,
+    snapshot_identity,
+)
+
+
+CLAUDE_OK = json.dumps(
+    {"claudeAiOauth": {"accessToken": "CLAUDE_TEST_VALUE", "refreshToken": "REFRESH_TEST_VALUE"}}
+).encode()
+CODEX_OK = json.dumps(
+    {"tokens": {"access_token": "CODEX_TEST_VALUE"}, "OPENAI_API_KEY": "API_TEST_VALUE"}
+).encode()
+
+
+def test_file_copies_bytes_0600_and_sets_identity(tmp_path):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    dest = tmp_path / "store" / "auth.json"
+
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert result.status is CredentialStatus.OK
+    assert dest.read_bytes() == CODEX_OK
+    assert dest.stat().st_mode & 0o777 == 0o600
+    assert result.identity is not None
+    assert result.identity.digest == snapshot_identity(src).digest
+    assert result.identity.size == len(CODEX_OK)
+
+
+def test_file_refuses_symlink_nonregular_missing_empty_oversize_and_wrong_shape(tmp_path):
+    real = tmp_path / "real"
+    real.write_bytes(CODEX_OK)
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    assert materialize_file_credential(
+        link, tmp_path / "a" / "auth.json", max_bytes=1_000_000, shape_ok=codex_shape_ok
+    ).status is CredentialStatus.SOURCE_UNREADABLE
+
+    source_parent = tmp_path / "source-parent"
+    source_parent.mkdir()
+    (source_parent / "auth.json").write_bytes(CODEX_OK)
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(source_parent, target_is_directory=True)
+    assert materialize_file_credential(
+        linked_parent / "auth.json", tmp_path / "a" / "parent-link.json", max_bytes=1_000_000, shape_ok=codex_shape_ok
+    ).status is CredentialStatus.SOURCE_UNREADABLE
+
+    assert materialize_file_credential(
+        tmp_path, tmp_path / "directory-copy", max_bytes=1_000_000, shape_ok=codex_shape_ok
+    ).status is CredentialStatus.SOURCE_UNREADABLE
+    assert materialize_file_credential(
+        tmp_path / "nope", tmp_path / "b", max_bytes=10, shape_ok=codex_shape_ok
+    ).status is CredentialStatus.SOURCE_MISSING
+
+    empty = tmp_path / "empty"
+    empty.write_bytes(b"")
+    assert materialize_file_credential(
+        empty, tmp_path / "c", max_bytes=10, shape_ok=codex_shape_ok
+    ).status is CredentialStatus.SOURCE_EMPTY
+
+    big = tmp_path / "big"
+    big.write_bytes(b"x" * 100)
+    assert materialize_file_credential(
+        big, tmp_path / "d", max_bytes=10, shape_ok=codex_shape_ok
+    ).status is CredentialStatus.SOURCE_OVERSIZE
+
+    invalid = tmp_path / "invalid"
+    invalid.write_bytes(b'{"nope": 1}')
+    assert materialize_file_credential(
+        invalid, tmp_path / "e", max_bytes=1_000_000, shape_ok=codex_shape_ok
+    ).status is CredentialStatus.INVALID_SHAPE
+
+
+def test_file_refuses_symlink_destination(tmp_path):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    target = tmp_path / "target"
+    target.write_bytes(b"unchanged")
+    dest = tmp_path / "dest"
+    dest.symlink_to(target)
+
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert result.status is CredentialStatus.DEST_UNSAFE
+    assert target.read_bytes() == b"unchanged"
+
+
+def test_file_reads_to_eof_when_reads_are_short(tmp_path, monkeypatch):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    dest = tmp_path / "dest"
+    real_read = os.read
+
+    def short_read(fd, size):
+        return real_read(fd, min(size, 3))
+
+    monkeypatch.setattr(credentials.os, "read", short_read)
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert result.status is CredentialStatus.OK
+    assert dest.read_bytes() == CODEX_OK
+    assert result.identity.digest == hashlib.sha256(CODEX_OK).hexdigest()
+
+
+def test_file_rejects_short_read_before_fstat_size(tmp_path, monkeypatch):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    real_read = os.read
+    calls = 0
+
+    def early_eof(fd, size):
+        nonlocal calls
+        calls += 1
+        return real_read(fd, min(size, 3)) if calls == 1 else b""
+
+    monkeypatch.setattr(credentials.os, "read", early_eof)
+    result = materialize_file_credential(src, tmp_path / "dest", max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert result.status is CredentialStatus.SOURCE_UNREADABLE
+
+
+def test_shape_validators_only_require_source_specific_keys():
+    assert claude_shape_ok(CLAUDE_OK)
+    assert not claude_shape_ok(CODEX_OK)
+    assert codex_shape_ok(CODEX_OK)
+    assert not codex_shape_ok(CLAUDE_OK)
+    assert claude_shape_ok(b'{"claudeAiOauth": {"accessToken": null, "refreshToken": null}}')
+    assert codex_shape_ok(b'{"tokens": {"access_token": null}}')
+    assert codex_shape_ok(b'{"OPENAI_API_KEY": null}')
+    assert not claude_shape_ok(b"not json")
+
+
+def test_snapshot_identity_uses_safe_reader_and_detects_change(tmp_path):
+    path = tmp_path / "auth.json"
+    path.write_bytes(CODEX_OK)
+    original = snapshot_identity(path)
+
+    assert snapshot_identity(path) == original
+    assert snapshot_identity(tmp_path / "missing") is None
+    path.write_bytes(CODEX_OK + b" ")
+    assert snapshot_identity(path) != original
+
+
+def _keychain_runner(list_out, per_keychain, value=CLAUDE_OK, *, list_returncode=0, read_returncode=0):
+    def run(command):
+        if command[:2] == ["security", "list-keychains"]:
+            return SimpleNamespace(returncode=list_returncode, stdout=list_out, stderr=b"")
+        if "-w" in command:
+            return SimpleNamespace(returncode=read_returncode, stdout=value + b"\n", stderr=b"")
+        keychain = command[-1]
+        return SimpleNamespace(returncode=per_keychain.get(keychain, 44), stdout=b"", stderr=b"")
+
+    return run
+
+
+def test_keychain_single_match_ok(tmp_path):
+    dest = tmp_path / "cfg" / ".credentials.json"
+    runner = _keychain_runner(
+        b'"/Users/jack/Library/Keychains/login.keychain-db"\n',
+        {"/Users/jack/Library/Keychains/login.keychain-db": 0},
+    )
+
+    result = materialize_keychain_credential(
+        "Claude Code-credentials", "jack", dest, max_bytes=1_000_000, shape_ok=claude_shape_ok, runner=runner
+    )
+
+    assert result.status is CredentialStatus.OK
+    assert result.identity is None
+    assert dest.read_bytes() == CLAUDE_OK
+    assert dest.stat().st_mode & 0o777 == 0o600
+
+
+def test_keychain_list_failure_is_unreadable_before_cardinality(tmp_path):
+    calls = []
+
+    def runner(command):
+        calls.append(command)
+        return SimpleNamespace(returncode=51, stdout=b'"/a.keychain-db"\n', stderr=b"unavailable")
+
+    result = materialize_keychain_credential(
+        "S", "jack", tmp_path / "dest", max_bytes=10, shape_ok=claude_shape_ok, runner=runner
+    )
+
+    assert result.status is CredentialStatus.SOURCE_UNREADABLE
+    assert calls == [["security", "list-keychains", "-d", "user"]]
+
+
+def test_keychain_runner_exception_is_typed_without_value_in_error(tmp_path):
+    secret = "RUNNER_EXCEPTION_CREDENTIAL_VALUE"
+
+    def runner(_command):
+        raise RuntimeError(secret)
+
+    result = materialize_keychain_credential(
+        "S", "jack", tmp_path / "dest", max_bytes=10, shape_ok=claude_shape_ok, runner=runner
+    )
+
+    assert result.status is CredentialStatus.SOURCE_UNREADABLE
+    assert secret not in repr(result)
+
+
+def test_keychain_probe_error_overrides_one_match(tmp_path):
+    calls = []
+    runner = _keychain_runner(b'"/a.keychain-db"\n"/b.keychain-db"\n', {"/a.keychain-db": 0, "/b.keychain-db": 51})
+
+    def recording_runner(command):
+        calls.append(command)
+        return runner(command)
+
+    result = materialize_keychain_credential(
+        "S", "jack", tmp_path / "dest", max_bytes=1_000_000, shape_ok=claude_shape_ok, runner=recording_runner
+    )
+
+    assert result.status is CredentialStatus.SOURCE_UNREADABLE
+    assert not any("-w" in command for command in calls)
+
+
+def test_keychain_zero_multiple_read_failure_and_invalid_values(tmp_path):
+    two = b'"/a.keychain-db"\n"/b.keychain-db"\n'
+    missing = materialize_keychain_credential(
+        "S", "jack", tmp_path / "missing", max_bytes=1_000_000, shape_ok=claude_shape_ok,
+        runner=_keychain_runner(two, {}),
+    )
+    ambiguous = materialize_keychain_credential(
+        "S", "jack", tmp_path / "ambiguous", max_bytes=1_000_000, shape_ok=claude_shape_ok,
+        runner=_keychain_runner(two, {"/a.keychain-db": 0, "/b.keychain-db": 0}),
+    )
+    read_failure = materialize_keychain_credential(
+        "S", "jack", tmp_path / "read-failure", max_bytes=1_000_000, shape_ok=claude_shape_ok,
+        runner=_keychain_runner(b'"/a.keychain-db"\n', {"/a.keychain-db": 0}, read_returncode=51),
+    )
+    empty = materialize_keychain_credential(
+        "S", "jack", tmp_path / "empty", max_bytes=1_000_000, shape_ok=claude_shape_ok,
+        runner=_keychain_runner(b'"/a.keychain-db"\n', {"/a.keychain-db": 0}, value=b""),
+    )
+    oversized = materialize_keychain_credential(
+        "S", "jack", tmp_path / "oversized", max_bytes=4, shape_ok=claude_shape_ok,
+        runner=_keychain_runner(b'"/a.keychain-db"\n', {"/a.keychain-db": 0}),
+    )
+    invalid = materialize_keychain_credential(
+        "S", "jack", tmp_path / "invalid", max_bytes=1_000_000, shape_ok=claude_shape_ok,
+        runner=_keychain_runner(b'"/a.keychain-db"\n', {"/a.keychain-db": 0}, value=b'{"nope": 1}'),
+    )
+
+    assert missing.status is CredentialStatus.SOURCE_MISSING
+    assert ambiguous.status is CredentialStatus.SOURCE_AMBIGUOUS
+    assert read_failure.status is CredentialStatus.SOURCE_UNREADABLE
+    assert empty.status is CredentialStatus.SOURCE_EMPTY
+    assert oversized.status is CredentialStatus.SOURCE_OVERSIZE
+    assert invalid.status is CredentialStatus.INVALID_SHAPE
+
+
+@pytest.mark.parametrize("operation", ["mkdir", "mkstemp", "write", "replace", "chmod"])
+def test_destination_operation_failures_are_typed_and_clean_temp(tmp_path, monkeypatch, operation):
+    src = tmp_path / "auth.json"
+    src.write_bytes(CODEX_OK)
+    dest = tmp_path / "dest" / "auth.json"
+
+    def fail(*_args, **_kwargs):
+        raise OSError(errno.EIO, operation)
+
+    if operation == "mkdir":
+        monkeypatch.setattr(Path, "mkdir", fail)
+    elif operation == "mkstemp":
+        monkeypatch.setattr(credentials.tempfile, "mkstemp", fail)
+    elif operation == "write":
+        monkeypatch.setattr(credentials.os, "write", fail)
+    elif operation == "replace":
+        monkeypatch.setattr(credentials.os, "replace", fail)
+    else:
+        monkeypatch.setattr(credentials.os, "chmod", fail)
+
+    result = materialize_file_credential(src, dest, max_bytes=1_000_000, shape_ok=codex_shape_ok)
+
+    assert result.status is CredentialStatus.DEST_UNSAFE
+    if dest.parent.exists():
+        assert not list(dest.parent.glob(".host2-credential-*"))
+
+
+def test_secret_never_escapes_result_owners_or_error_text(tmp_path):
+    secret = "DO_NOT_EXPOSE_CREDENTIAL_VALUE"
+    raw = json.dumps({"tokens": {"access_token": secret}}).encode()
+    src = tmp_path / "auth.json"
+    src.write_bytes(raw)
+
+    result = materialize_file_credential(src, tmp_path / "dest", max_bytes=1_000_000, shape_ok=codex_shape_ok)
+    invalid = materialize_file_credential(src, tmp_path / "invalid", max_bytes=1_000_000, shape_ok=lambda _raw: False)
+
+    assert result.status is CredentialStatus.OK
+    assert invalid.status is CredentialStatus.INVALID_SHAPE
+    assert secret not in repr(result)
+    assert secret not in repr(invalid)
+    assert secret not in repr(vars(result))
+    assert secret not in repr(vars(invalid))
