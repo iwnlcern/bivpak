@@ -4,9 +4,12 @@ import json
 import os
 import re
 import shutil
+import socket
 import stat
 import sys
 import tarfile
+import tempfile
+import time
 import unicodedata
 from pathlib import Path
 from types import SimpleNamespace
@@ -36,7 +39,7 @@ from bivharness.e3 import (
     version_in_validated_range,
 )
 from bivharness.precheck import profile_root_failures
-from bivharness.report import Report, Status
+from bivharness.report import Report, ScenarioResult, Status, serialize_report
 
 
 @pytest.fixture
@@ -3406,6 +3409,183 @@ def test_codex_resume_rejects_unreadable_same_id_fork(tmp_path):
 def test_value_aware_secret_scan_has_red_and_green_controls():
     assert scan_secret_values(b"prefix planted-secret suffix", ["planted-secret"]) == ["secret[0]"]
     assert scan_secret_values(b"ANTHROPIC_API_KEY is only a variable name", ["planted-secret"]) == []
+
+
+def test_credential_scanner_excludes_only_the_exact_regular_path(tmp_path):
+    secret = b"scanner-owner-secret"
+    scanner = e3._CredentialScanner()
+    scanner.add_value(secret)
+    excluded = tmp_path / "credential"
+    excluded.write_bytes(secret)
+    (tmp_path / "unexpected-copy").write_bytes(secret)
+
+    assert scanner.scan_tree(tmp_path, {excluded})
+
+    (tmp_path / "unexpected-copy").unlink()
+    assert not scanner.scan_tree(tmp_path, {excluded})
+
+
+def test_credential_scanner_ignores_empty_values():
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"")
+    scanner.add_value("")
+    scanner.add_value(bytearray())
+
+    assert not scanner.scan_bytes(b"ordinary content")
+
+
+def test_credential_scanner_rejects_symlink_and_hardlink_aliases(tmp_path):
+    secret = b"scanner-alias-secret"
+    scanner = e3._CredentialScanner()
+    scanner.add_value(secret)
+    excluded = tmp_path / "credential"
+    excluded.write_bytes(secret)
+    (tmp_path / "symlink-alias").symlink_to(excluded)
+    os.link(excluded, tmp_path / "hardlink-alias")
+
+    assert scanner.scan_tree(tmp_path, {excluded})
+
+
+@pytest.mark.parametrize("kind", ["file", "directory"])
+def test_credential_scanner_fails_closed_on_unreadable_entries(tmp_path, kind):
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"scanner-unreadable-secret")
+    blocked = tmp_path / "blocked"
+    if kind == "file":
+        blocked.write_bytes(b"ordinary")
+    else:
+        blocked.mkdir()
+        (blocked / "inside").write_bytes(b"ordinary")
+    blocked.chmod(0)
+    try:
+        assert scanner.scan_tree(tmp_path, set())
+    finally:
+        blocked.chmod(0o700)
+
+
+@pytest.mark.parametrize("kind", ["fifo", "device", "socket"])
+def test_credential_scanner_rejects_special_entries_without_blocking(
+    monkeypatch, kind
+):
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"scanner-special-secret")
+    short_temp_root = (
+        "/private/tmp" if Path("/private/tmp").is_dir() else tempfile.gettempdir()
+    )
+    root = Path(tempfile.mkdtemp(prefix="e3s-", dir=short_temp_root))
+    try:
+        if kind == "fifo":
+            os.mkfifo(root / "fifo")
+        elif kind == "socket":
+            server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            server.bind(str(root / "socket"))
+        else:
+            (root / "device").write_bytes(b"ordinary")
+            real_stat = e3.os.stat
+
+            def special_stat(path, *args, **kwargs):
+                status = real_stat(path, *args, **kwargs)
+                if path == "device" and kwargs.get("dir_fd") is not None:
+                    return os.stat_result((stat.S_IFCHR | 0o600, *status[1:]))
+                return status
+
+            monkeypatch.setattr(e3.os, "stat", special_stat)
+        started = time.monotonic()
+        assert scanner.scan_tree(root, set())
+        assert time.monotonic() - started < 1
+    finally:
+        if "server" in locals():
+            server.close()
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_credential_scanner_detects_values_split_across_read_chunks(tmp_path):
+    scanner = e3._CredentialScanner()
+    secret = b"scanner-boundary-secret"
+    scanner.add_value(secret)
+    (tmp_path / "boundary").write_bytes(
+        b"x" * (e3._CREDENTIAL_SCAN_CHUNK_SIZE - 3) + secret
+    )
+
+    assert scanner.scan_tree(tmp_path, set())
+
+
+def test_credential_scanner_drop_zeroes_owned_bytearray_without_revealing_it():
+    scanner = e3._CredentialScanner()
+    observed = bytearray(b"scanner-drop-secret")
+    scanner.add_value(observed)
+
+    scanner.drop()
+
+    assert observed == bytearray(len(observed))
+    assert "scanner-drop-secret" not in repr(scanner)
+
+
+def test_finalize_report_replaces_all_secret_bearing_fields(tmp_path):
+    secret = "scanner-report-secret"
+    scanner = e3._CredentialScanner()
+    scanner.add_value(secret)
+    result = ScenarioResult(
+        id=secret,
+        tier=secret,
+        status=Status.FAIL,
+        classes=[secret],
+        held_asserts=[secret],
+        detail=secret,
+        warnings=[secret],
+    )
+
+    final = e3._finalize_report(result, scanner)
+
+    assert final.status is Status.INVALID
+    assert final.classes == []
+    assert final.held_asserts == []
+    assert final.warnings == []
+    assert secret not in serialize_report([final])
+
+
+def test_finalize_report_handles_serializer_failure_without_raising(monkeypatch):
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"scanner-finalize-secret")
+    monkeypatch.setattr(
+        e3,
+        "serialize_report",
+        lambda results: (_ for _ in ()).throw(RuntimeError("broken serializer")),
+    )
+
+    final = e3._finalize_report(
+        ScenarioResult("id", "E3", Status.FAIL, [], detail="scanner-finalize-secret"),
+        scanner,
+    )
+
+    assert final.status is Status.INVALID
+    assert final.classes == []
+    assert final.held_asserts == []
+    assert final.warnings == []
+
+
+def test_finalize_report_swallows_a_rescan_failure_after_sanitizing():
+    class BrokenRescan:
+        def __init__(self):
+            self.calls = 0
+
+        def scan_bytes(self, blob):
+            self.calls += 1
+            if self.calls == 1:
+                return True
+            raise RuntimeError("rescan failed")
+
+    scanner = BrokenRescan()
+    final = e3._finalize_report(
+        ScenarioResult("id", "E3", Status.FAIL, [], detail="unsafe"),
+        scanner,
+    )
+
+    assert scanner.calls == 2
+    assert final.status is Status.INVALID
+    assert final.classes == []
+    assert final.held_asserts == []
+    assert final.warnings == []
 
 
 def test_class_j_workspace_memoryless_and_version_predicates(tmp_path):

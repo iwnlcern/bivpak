@@ -16,7 +16,7 @@ from typing import Any, Callable, NamedTuple
 
 from bivharness.artifact import extract_member, list_members
 from bivharness.precheck import pin_env, probe, profile_root_failures
-from bivharness.report import ScenarioResult, Status
+from bivharness.report import ScenarioResult, Status, serialize_report
 
 
 CREDENTIAL_ENV_NAMES = (
@@ -34,6 +34,10 @@ COMMAND_TIMEOUT_S = 120
 _CLOEXEC = getattr(os, "O_CLOEXEC", 0)
 _DIRECTORY_NOFOLLOW_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | _CLOEXEC
 _REGULAR_NOFOLLOW_FLAGS = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | _CLOEXEC
+_CREDENTIAL_SCAN_CHUNK_SIZE = 64 * 1024
+_SANITIZED_REPORT_ID = "e3-report-sanitized"
+_SANITIZED_REPORT_TIER = "E3"
+_SANITIZED_REPORT_DETAIL = "credential value detected; report invalidated"
 LIVE_STORE_SELECTORS: dict[str, tuple[str, ...]] = {
     "claude-code": ("CLAUDE_CONFIG_DIR",),
     "codex": ("CODEX_HOME",),
@@ -80,6 +84,221 @@ class _NofollowParent(NamedTuple):
     name: str
     checks: tuple[tuple[int, str, os.stat_result], ...]
     descriptors: tuple[int, ...]
+
+
+class _CredentialScanner:
+    """Fail closed while searching private credential values in untrusted trees."""
+
+    __slots__ = ("_values",)
+
+    def __init__(self) -> None:
+        self._values: list[bytearray] = []
+
+    def __repr__(self) -> str:
+        return "_CredentialScanner()"
+
+    def add_value(self, value: str | bytes | bytearray) -> None:
+        if isinstance(value, str):
+            encoded = value.encode("utf-8")
+            if encoded:
+                self._values.append(bytearray(encoded))
+            return
+        if isinstance(value, bytearray):
+            if value:
+                self._values.append(value)
+            return
+        if isinstance(value, bytes):
+            if value:
+                self._values.append(bytearray(value))
+            return
+        raise TypeError("credential value must be text or bytes")
+
+    def scan_bytes(self, blob: bytes | bytearray) -> bool:
+        return any(value in blob for value in self._values)
+
+    def scan_text(self, text: str) -> bool:
+        return self.scan_bytes(text.encode("utf-8"))
+
+    def _open_root(self, root: Path) -> tuple[int, tuple[int, ...], tuple[tuple[int, str, os.stat_result], ...]]:
+        descriptor = os.open(root.anchor, _DIRECTORY_NOFOLLOW_FLAGS)
+        descriptors = [descriptor]
+        checks: list[tuple[int, str, os.stat_result]] = []
+        try:
+            for name in root.parts[1:]:
+                expected = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+                if not stat.S_ISDIR(expected.st_mode):
+                    raise ValueError("scan root is not a directory")
+                child = os.open(name, _DIRECTORY_NOFOLLOW_FLAGS, dir_fd=descriptor)
+                opened = os.fstat(child)
+                if not stat.S_ISDIR(opened.st_mode) or not _same_entry(expected, opened):
+                    os.close(child)
+                    raise ValueError("scan root changed during inspection")
+                checks.append((descriptor, name, expected))
+                descriptors.append(child)
+                descriptor = child
+            return descriptor, tuple(descriptors), tuple(checks)
+        except BaseException:
+            for opened in reversed(descriptors):
+                os.close(opened)
+            raise
+
+    @staticmethod
+    def _entry_matches(
+        parent_descriptor: int,
+        name: str,
+        expected: os.stat_result,
+    ) -> bool:
+        current = os.stat(name, dir_fd=parent_descriptor, follow_symlinks=False)
+        return _same_entry(expected, current)
+
+    def _scan_regular(
+        self,
+        parent_descriptor: int,
+        name: str,
+        expected: os.stat_result,
+        *,
+        read_contents: bool,
+    ) -> bool:
+        descriptor = os.open(name, _REGULAR_NOFOLLOW_FLAGS, dir_fd=parent_descriptor)
+        try:
+            opened = os.fstat(descriptor)
+            if not stat.S_ISREG(opened.st_mode) or not _same_entry(expected, opened):
+                return True
+            if read_contents:
+                tail = b""
+                tail_size = max((len(value) - 1 for value in self._values), default=0)
+                while True:
+                    chunk = os.read(descriptor, _CREDENTIAL_SCAN_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    window = tail + chunk
+                    if self.scan_bytes(window):
+                        return True
+                    tail = window[-tail_size:] if tail_size else b""
+            final = os.fstat(descriptor)
+            if not stat.S_ISREG(final.st_mode) or not _same_entry(opened, final):
+                return True
+        finally:
+            os.close(descriptor)
+        return not self._entry_matches(parent_descriptor, name, expected)
+
+    def _scan_directory(
+        self,
+        descriptor: int,
+        lexical_path: Path,
+        excluded: set[Path],
+        unseen_exclusions: set[Path],
+    ) -> bool:
+        try:
+            with os.scandir(descriptor) as entries:
+                for entry in entries:
+                    name = entry.name
+                    path = lexical_path / name
+                    expected = os.stat(
+                        name,
+                        dir_fd=descriptor,
+                        follow_symlinks=False,
+                    )
+                    if path in excluded:
+                        unseen_exclusions.discard(path)
+                        if not stat.S_ISREG(expected.st_mode):
+                            return True
+                        if self._scan_regular(
+                            descriptor,
+                            name,
+                            expected,
+                            read_contents=False,
+                        ):
+                            return True
+                        continue
+                    if stat.S_ISREG(expected.st_mode):
+                        if self._scan_regular(
+                            descriptor,
+                            name,
+                            expected,
+                            read_contents=True,
+                        ):
+                            return True
+                        continue
+                    if not stat.S_ISDIR(expected.st_mode):
+                        return True
+                    child = os.open(name, _DIRECTORY_NOFOLLOW_FLAGS, dir_fd=descriptor)
+                    try:
+                        opened = os.fstat(child)
+                        if not stat.S_ISDIR(opened.st_mode) or not _same_entry(expected, opened):
+                            return True
+                        if self._scan_directory(child, path, excluded, unseen_exclusions):
+                            return True
+                    finally:
+                        os.close(child)
+                    if not self._entry_matches(descriptor, name, expected):
+                        return True
+        except (OSError, ValueError, RuntimeError):
+            return True
+        return False
+
+    def scan_tree(self, root: Path, exclude: set[Path]) -> bool:
+        """Return True for a secret or any unsafe traversal condition."""
+        try:
+            lexical_root = Path(root)
+            excluded = {Path(path) for path in exclude}
+            if not lexical_root.is_absolute() or any(not path.is_absolute() for path in excluded):
+                return True
+            descriptor, descriptors, checks = self._open_root(lexical_root)
+            try:
+                unseen_exclusions = set(excluded)
+                if self._scan_directory(
+                    descriptor,
+                    lexical_root,
+                    excluded,
+                    unseen_exclusions,
+                ):
+                    return True
+                for parent_descriptor, name, expected in reversed(checks):
+                    if not self._entry_matches(parent_descriptor, name, expected):
+                        return True
+                return bool(unseen_exclusions)
+            finally:
+                for opened in reversed(descriptors):
+                    os.close(opened)
+        except (OSError, ValueError, RuntimeError, TypeError):
+            return True
+
+    def drop(self) -> None:
+        try:
+            for value in self._values:
+                value[:] = b"\0" * len(value)
+        finally:
+            self._values.clear()
+
+
+def _sanitized_report_result() -> ScenarioResult:
+    return ScenarioResult(
+        id=_SANITIZED_REPORT_ID,
+        tier=_SANITIZED_REPORT_TIER,
+        status=Status.INVALID,
+        classes=[],
+        held_asserts=[],
+        detail=_SANITIZED_REPORT_DETAIL,
+        warnings=[],
+    )
+
+
+def _finalize_report(
+    result: ScenarioResult,
+    scanner: _CredentialScanner,
+) -> ScenarioResult:
+    try:
+        if not scanner.scan_bytes(serialize_report([result]).encode("utf-8")):
+            return result
+    except Exception:
+        pass
+    sanitized = _sanitized_report_result()
+    try:
+        scanner.scan_bytes(serialize_report([sanitized]).encode("utf-8"))
+    except Exception:
+        pass
+    return sanitized
 
 
 def rejected_credential_names(env: dict[str, str]) -> list[str]:

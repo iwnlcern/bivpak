@@ -1,4 +1,6 @@
-from bivharness.report import Report, ScenarioResult, Status
+import json
+
+from bivharness.report import Report, ScenarioResult, Status, serialize_report
 
 
 def _r(status, id="s", tier="E2", warnings=None):
@@ -45,3 +47,11 @@ def test_report_serializes_warned_and_clean_rows_distinctly():
 
     assert rows[0]["warnings"] == ["CodexDbEnrichmentSkipped"]
     assert rows[1]["warnings"] == []
+
+
+def test_serialize_report_is_the_canonical_byte_representation():
+    results = [_r(Status.PASS, id="first"), _r(Status.FAIL, id="second")]
+
+    assert serialize_report(results) == (
+        json.dumps(Report(results).to_json(), indent=2, sort_keys=True) + "\n"
+    )

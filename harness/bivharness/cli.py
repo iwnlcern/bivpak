@@ -1,10 +1,9 @@
 import argparse
-import json
 import tempfile
 from pathlib import Path
 
 from bivharness.e3 import run_e3
-from bivharness.report import Report
+from bivharness.report import Report, serialize_report
 from bivharness.scenario import run_scenario
 
 
@@ -33,9 +32,8 @@ def main(argv: list[str] | None = None) -> int:
                 run_scenario(path, biv, scratch / path.stem)
                 for path in sorted(scenarios.rglob("*.json"))
             ]
-    report = Report(results)
-    report_path.write_text(json.dumps(report.to_json(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return report.exit_code()
+    report_path.write_text(serialize_report(results), encoding="utf-8")
+    return Report(results).exit_code()
 
 
 if __name__ == "__main__":
