@@ -7,6 +7,7 @@ import re
 import secrets
 import shlex
 import shutil
+import stat
 import subprocess
 import unicodedata
 import uuid
@@ -33,6 +34,27 @@ COMMAND_TIMEOUT_S = 120
 LIVE_STORE_SELECTORS: dict[str, tuple[str, ...]] = {
     "claude-code": ("CLAUDE_CONFIG_DIR",),
     "codex": ("CODEX_HOME",),
+}
+SESSION_LOCATIONS: dict[str, tuple[str, ...]] = {
+    "claude-code": ("projects",),
+    "codex": ("sessions", "session_index.jsonl", "archived_sessions"),
+}
+_ADAPTER_SOURCE_ANCHORS = {
+    "claude_inventory": (
+        "src/adapters/claude_code/claude_code.cpp",
+        "const Inventory& claude_inventory()",
+        "c7cb5b7cb6fd84b3eab9b738b5f1403ef590757832aca850d83634fa1a901341",
+    ),
+    "codex_inventory": (
+        "src/adapters/codex/codex.cpp",
+        "const Inventory& codex_inventory()",
+        "8c08bbf14f03ed111ee0a016f0c94445a728af1f48135f9b6bebd59986d156fa",
+    ),
+    "codex_discover_archived": (
+        "src/adapters/codex/codex.cpp",
+        'if (fs::exists(root / "archived_sessions", ec))',
+        "98eb3f362d23dcb4dd39881cc7add622155505a802b697f404417c8b0fc51b72",
+    ),
 }
 
 
@@ -958,6 +980,141 @@ def _is_string_list(value: object, *, non_empty: bool = True) -> bool:
     )
 
 
+def _c1_nofollow_lstat(path: Path) -> os.stat_result | None:
+    """Stat a path and every parent lexically, refusing symlink traversal."""
+    path = Path(path)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    current = Path(path.anchor)
+    if path == current:
+        try:
+            return os.lstat(path)
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise OSError(f"cannot stat {path}: {exc}") from exc
+    status: os.stat_result | None = None
+    for part in path.parts[1:]:
+        current /= part
+        try:
+            status = os.lstat(current)
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise OSError(f"cannot stat {current}: {exc}") from exc
+        if stat.S_ISLNK(status.st_mode):
+            raise ValueError(f"symlink in session path: {current}")
+        if current != path and not stat.S_ISDIR(status.st_mode):
+            raise ValueError(f"non-directory traversal in session path: {current}")
+    return status
+
+
+def _c1_probe_readable(path: Path) -> None:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise OSError(f"cannot read {path}: {exc}") from exc
+    try:
+        status = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    if not stat.S_ISREG(status.st_mode):
+        raise ValueError(f"nonregular session entry at {path}")
+
+
+def _c1_scan_session_path(path: Path, label: str, *, allow_empty_file: bool) -> list[str]:
+    failures: list[str] = []
+    try:
+        status = _c1_nofollow_lstat(path)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return [f"{label}: {exc}"]
+    if status is None:
+        return failures
+    mode = status.st_mode
+    if stat.S_ISREG(mode):
+        if allow_empty_file and status.st_size == 0:
+            try:
+                _c1_probe_readable(path)
+            except (OSError, ValueError, RuntimeError) as exc:
+                failures.append(f"{label}: {exc}")
+        else:
+            failures.append(f"{label}: recorded regular file at {path}")
+        return failures
+    if not stat.S_ISDIR(mode):
+        return [f"{label}: nonregular session entry at {path}"]
+
+    try:
+        with os.scandir(path) as entries:
+            for entry in entries:
+                failures.extend(
+                    _c1_scan_session_path(
+                        Path(entry.path), label, allow_empty_file=False
+                    )
+                )
+    except (OSError, ValueError, RuntimeError) as exc:
+        failures.append(f"{label}: cannot traverse {path}: {exc}")
+    return failures
+
+
+def _c1_zero_session_failures(profile_root: Path, spec: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    for agent in spec.get("agents", []):
+        agent_id = agent.get("id", "agent")
+        suffix = agent.get("host2_profile", agent_id)
+        store = Path(profile_root) / suffix
+        for location in SESSION_LOCATIONS.get(agent_id, ()):
+            failures.extend(
+                _c1_scan_session_path(
+                    store / location,
+                    f"{agent_id} host2 session path {location}",
+                    allow_empty_file=location == "session_index.jsonl",
+                )
+            )
+    return failures
+
+
+def _extract_source_region(path: Path, anchor: str) -> str:
+    text = path.read_text(encoding="utf-8")
+    first = text.find(anchor)
+    if first < 0:
+        raise ValueError(f"drift anchor missing: {anchor!r} in {path.name}")
+    if text.find(anchor, first + 1) >= 0:
+        raise ValueError(f"drift anchor not unique: {anchor!r} in {path.name}")
+    try:
+        brace = text.index("{", first)
+    except ValueError as exc:
+        raise ValueError(f"drift anchor unbalanced: {anchor!r} in {path.name}") from exc
+    depth = 0
+    for index in range(brace, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[first : index + 1]
+            if depth < 0:
+                break
+    raise ValueError(f"drift anchor unbalanced: {anchor!r} in {path.name}")
+
+
+def _c1_drift_tripwire_failures(repo_root: Path | None = None) -> list[str]:
+    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
+    failures: list[str] = []
+    for key, (relative, anchor, pinned) in _ADAPTER_SOURCE_ANCHORS.items():
+        try:
+            region = _extract_source_region(root / relative, anchor)
+            digest = hashlib.sha256(region.encode("utf-8")).hexdigest()
+        except (OSError, UnicodeError, ValueError, RuntimeError) as exc:
+            failures.append(f"C1 drift tripwire RED: {key}: {exc}")
+            continue
+        if digest != pinned:
+            failures.append(
+                f"C1 drift tripwire RED: adapter session-location source changed ({key})"
+            )
+    return failures
+
+
 def _validate_spec(spec: object) -> list[str]:
     failures: list[str] = []
     if not isinstance(spec, dict):
@@ -1046,6 +1203,10 @@ def _validate_spec(spec: object) -> list[str]:
             if agent.get("id") == "claude-code":
                 if not _is_string_list(agent.get("liveness_command")):
                     failures.append("agent liveness_command must be a non-empty list of non-empty strings")
+                elif "--no-session-persistence" not in agent["liveness_command"]:
+                    failures.append(
+                        "claude liveness_command must include --no-session-persistence"
+                    )
                 if agent.get("resume_mutation") != CLAUDE_RESUME_MUTATION:
                     failures.append("Claude resume mutation must match the pinned shape")
             if agent.get("id") == "codex" and agent.get("resume_shape") != CODEX_RESUME_SHAPE:
@@ -1509,6 +1670,12 @@ def run_e3(
             agent["id"]: snapshot_store(_agent_profile(agent, profile_root, live=False))
             for agent in spec["agents"]
         }
+        drift_failures = _c1_drift_tripwire_failures()
+        if drift_failures:
+            return _run_result(Status.INVALID, "\n".join(drift_failures))
+        zero_session_failures = _c1_zero_session_failures(profile_root, spec)
+        if zero_session_failures:
+            return _run_result(Status.INVALID, "\n".join(zero_session_failures))
 
         # The remaining open/resume commands are deliberately data-driven and still
         # pass through _spawn, preserving the no-credential and isolated-profile gates.

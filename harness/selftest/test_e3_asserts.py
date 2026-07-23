@@ -1220,6 +1220,213 @@ def test_live_override_spec_is_valid():
     assert e3._validate_spec(_live_override_spec()) == []
 
 
+def test_validator_requires_no_session_persistence():
+    spec = _valid_two_agent_spec()
+    claude = next(agent for agent in spec["agents"] if agent["id"] == "claude-code")
+    claude["liveness_command"].remove("--no-session-persistence")
+
+    assert any("no-session-persistence" in failure for failure in e3._validate_spec(spec))
+
+
+def test_c1_zero_session_control_accepts_absent_and_empty_locations(tmp_path):
+    profile_root = tmp_path / "host2" / "profiles"
+    for agent in _valid_two_agent_spec()["agents"]:
+        store = profile_root / agent["id"]
+        store.mkdir(parents=True)
+        if agent["id"] == "claude-code":
+            (store / "projects").mkdir()
+        else:
+            (store / "sessions").mkdir()
+            (store / "archived_sessions").mkdir()
+            (store / "session_index.jsonl").write_bytes(b"")
+
+    assert e3._c1_zero_session_failures(profile_root, _valid_two_agent_spec()) == []
+
+
+@pytest.mark.parametrize(
+    ("agent_id", "location", "kind"),
+    (
+        ("claude-code", "projects", "regular"),
+        ("codex", "sessions", "regular"),
+        ("codex", "session_index.jsonl", "regular"),
+        ("codex", "archived_sessions", "regular"),
+        ("claude-code", "projects", "symlink"),
+        ("codex", "sessions", "fifo"),
+    ),
+)
+def test_c1_zero_session_control_reds_on_recorded_or_nonregular_entries(
+    tmp_path, agent_id, location, kind
+):
+    profile_root = tmp_path / "profiles"
+    store = profile_root / agent_id
+    store.mkdir(parents=True)
+    target = store / location
+    if kind == "regular":
+        if location.endswith(".jsonl"):
+            target.write_bytes(b"recorded")
+        else:
+            (target / "recorded.jsonl").parent.mkdir(parents=True)
+            (target / "recorded.jsonl").write_bytes(b"{}")
+    elif kind == "symlink":
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "recorded.jsonl").write_bytes(b"{}")
+        target.symlink_to(outside, target_is_directory=True)
+    else:
+        os.mkfifo(target)
+
+    failures = e3._c1_zero_session_failures(profile_root, _valid_two_agent_spec())
+
+    assert failures
+    assert agent_id in "\n".join(failures)
+
+
+def test_c1_zero_session_control_reds_when_profile_isolation_is_dropped(tmp_path):
+    profile_root = tmp_path / "profiles"
+    origin = tmp_path / "origin"
+    (origin / "projects" / "origin").mkdir(parents=True)
+    (origin / "projects" / "origin" / "session.jsonl").write_bytes(b"{}")
+    profile_root.mkdir()
+    (profile_root / "claude-code").symlink_to(origin, target_is_directory=True)
+    (profile_root / "codex").mkdir()
+
+    failures = e3._c1_zero_session_failures(profile_root, _valid_two_agent_spec())
+
+    assert failures
+    assert any("claude-code" in failure for failure in failures)
+
+
+def test_c1_zero_session_control_reds_on_unreadable_empty_index_and_continues(
+    monkeypatch, tmp_path
+):
+    profile_root = tmp_path / "profiles"
+    codex = profile_root / "codex"
+    codex.mkdir(parents=True)
+    (codex / "sessions").mkdir()
+    (codex / "archived_sessions").mkdir()
+    index = codex / "session_index.jsonl"
+    index.write_bytes(b"")
+    real_open = e3.os.open
+
+    def deny_index(path, flags, *args):
+        if Path(path) == index:
+            raise PermissionError("denied")
+        return real_open(path, flags, *args)
+
+    monkeypatch.setattr(e3.os, "open", deny_index)
+
+    failures = e3._c1_zero_session_failures(profile_root, _valid_two_agent_spec())
+
+    assert any("session_index.jsonl" in failure for failure in failures)
+
+
+def test_drift_tripwire_is_green_at_pinned_source():
+    assert e3._c1_drift_tripwire_failures() == []
+
+
+@pytest.mark.parametrize(
+    ("rel", "anchor_old", "anchor_new", "key"),
+    (
+        (
+            "src/adapters/claude_code/claude_code.cpp",
+            '.globs = {"projects/*/*.jsonl"}',
+            '.globs = {"projects/*/*.jsonl", "x/**"}',
+            "claude_inventory",
+        ),
+        (
+            "src/adapters/codex/codex.cpp",
+            '.globs = {"sessions/**/rollout-*.jsonl"}',
+            '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
+            "codex_inventory",
+        ),
+        (
+            "src/adapters/codex/codex.cpp",
+            'root / "archived_sessions"}}',
+            'root / "archived_sessions2"}}',
+            "codex_discover_archived",
+        ),
+    ),
+)
+def test_drift_tripwire_reds_each_session_location_region(
+    tmp_path, rel, anchor_old, anchor_new, key
+):
+    repo = tmp_path / "repo"
+    shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+    assert e3._c1_drift_tripwire_failures(repo) == []
+
+    source = repo / rel
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(anchor_old, anchor_new, 1),
+        encoding="utf-8",
+    )
+
+    failures = e3._c1_drift_tripwire_failures(repo)
+    assert any(key in failure for failure in failures)
+
+
+def test_drift_tripwire_ignores_out_of_region_edit(tmp_path):
+    repo = tmp_path / "repo"
+    shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+    source = repo / "src/adapters/codex/codex.cpp"
+    source.write_text("// unrelated\n" + source.read_text(encoding="utf-8"), encoding="utf-8")
+
+    assert e3._c1_drift_tripwire_failures(repo) == []
+
+
+def test_run_e3_liveness_without_persistence_flag_reds_c1_before_open(
+    monkeypatch, tmp_path, stable_test_root
+):
+    spec = _valid_two_agent_spec()
+    spec["agents"][0]["env"] = {"CODEX_HOME": "{profile}"}
+    spec["agents"][1]["env"] = {"CLAUDE_CONFIG_DIR": "{profile}"}
+    spec["host2_profile_root"] = "host2/profiles"
+    spec_path = tmp_path / "e3.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    open_calls = []
+
+    real_materialize = e3.materialize_run_tokens
+
+    def mutate_after_validation(value):
+        materialized = real_materialize(value)
+        claude = next(agent for agent in materialized["agents"] if agent["id"] == "claude-code")
+        claude["liveness_command"].remove("--no-session-persistence")
+        return materialized
+
+    def fake_seed(*args, **kwargs):
+        return None
+
+    def fake_spawn(command, cwd, env):
+        command = list(command)
+        if len(command) > 1 and command[1] == "pack":
+            return _successful_pack()
+        if len(command) > 1 and command[1] == "open":
+            open_calls.append(command)
+            raise AssertionError("biv open must not run after C1 RED")
+        if command[1:] == ["--version"]:
+            version = "2.1.210" if _agent_basename(command) == "claude" else "0.144.1"
+            return SimpleNamespace(returncode=0, stdout=version, stderr="")
+        if command[1:] in (["auth", "status"], ["login", "status"]):
+            return SimpleNamespace(returncode=0, stdout="authenticated", stderr="")
+        if "-p" in command:
+            projects = Path(env["CLAUDE_CONFIG_DIR"]) / "projects" / "liveness"
+            projects.mkdir(parents=True, exist_ok=True)
+            (projects / "transcript.jsonl").write_bytes(b"liveness")
+            return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+        return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+
+    monkeypatch.setattr(e3, "materialize_run_tokens", mutate_after_validation)
+    monkeypatch.setattr(e3, "_seed_agent", fake_seed)
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
+
+    result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+
+    assert result.status is Status.INVALID
+    assert "claude-code" in result.detail
+    assert "recorded regular file" in result.detail
+    assert open_calls == []
+
+
 @pytest.mark.parametrize("env_mode", ("empty", "absent"))
 def test_e3_rejects_divergent_ambient_store_selector_pre_spend(
     monkeypatch, tmp_path, stable_test_root, env_mode
