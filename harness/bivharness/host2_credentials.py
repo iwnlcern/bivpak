@@ -8,11 +8,11 @@ import errno
 import hashlib
 import json
 import os
-import re
 import secrets
 import stat
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -44,8 +44,16 @@ class CredentialResult:
     identity: SourceIdentity | None = None
 
 
+@dataclass(frozen=True)
+class _KeychainCommandResult:
+    returncode: int
+    stdout: bytes
+
+
 _ERRSEC_ITEM_NOT_FOUND = 44
 _READ_CHUNK = 16 * 1024
+_SECURITY_EXECUTABLE = "/usr/bin/security"
+_KEYCHAIN_OPERATION_TIMEOUT_SECONDS = 5.0
 _CLOEXEC = getattr(os, "O_CLOEXEC", 0)
 _NONBLOCK = getattr(os, "O_NONBLOCK", 0)
 _DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | _CLOEXEC
@@ -202,7 +210,19 @@ def _read_via_nofollow_fd(
     finally:
         _close_fd(fd)
 
-    if (first.st_dev, first.st_ino, first.st_size) != (second.st_dev, second.st_ino, second.st_size):
+    if (
+        first.st_dev,
+        first.st_ino,
+        first.st_size,
+        first.st_mtime_ns,
+        first.st_ctime_ns,
+    ) != (
+        second.st_dev,
+        second.st_ino,
+        second.st_size,
+        second.st_mtime_ns,
+        second.st_ctime_ns,
+    ):
         return CredentialStatus.SOURCE_UNREADABLE, None, None
     if oversized:
         return CredentialStatus.SOURCE_OVERSIZE, None, None
@@ -344,30 +364,91 @@ def materialize_file_credential(
     return CredentialResult(CredentialStatus.OK, written.dest, identity)
 
 
-def _result_output(value: object) -> str:
-    if isinstance(value, bytes):
-        return value.decode(errors="ignore")
-    if isinstance(value, bytearray):
-        return bytes(value).decode(errors="ignore")
-    return str(value or "")
-
-
-def _run_keychain(runner: Callable[[list[str]], object], command: list[str]) -> object | None:
+def _run_keychain(
+    runner: Callable[[list[str]], object] | None,
+    command: list[str],
+    deadline: float,
+) -> object | None:
     try:
-        result = runner(command)
-        int(getattr(result, "returncode"))
-        getattr(result, "stdout")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        if runner is None:
+            result = subprocess.run(
+                [_SECURITY_EXECUTABLE, *command[1:]],
+                capture_output=True,
+                check=False,
+                timeout=remaining,
+            )
+        else:
+            result = runner(command)
+        returncode = int(getattr(result, "returncode"))
+        stdout = _keychain_bytes(getattr(result, "stdout"))
+        if stdout is None:
+            return None
+        if time.monotonic() >= deadline:
+            return None
     except Exception:
         return None
-    return result
+    return _KeychainCommandResult(returncode, stdout)
 
 
-def _keychain_bytes(value: object) -> bytes:
-    if isinstance(value, bytes):
+def _keychain_bytes(value: object) -> bytes | None:
+    if type(value) is bytes:
         return value
-    if isinstance(value, bytearray):
+    if type(value) is bytearray:
         return bytes(value)
-    return str(value or "").encode()
+    if type(value) is str:
+        return value.encode()
+    return None
+
+
+def _parse_keychain_list(value: object) -> list[str] | None:
+    raw = _keychain_bytes(value)
+    if raw is None:
+        return None
+    if b"\0" in raw:
+        return None
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    if not text:
+        return []
+    if any(
+        (ord(character) < 0x20 and character not in "\n\r\t")
+        or 0x7F <= ord(character) <= 0x9F
+        for character in text
+    ):
+        return None
+    if "\r" in text.replace("\r\n", ""):
+        return None
+    text = text.replace("\r\n", "\n")
+    if text.endswith("\n"):
+        text = text[:-1]
+    if not text:
+        return None
+
+    keychains: list[str] = []
+    for line in text.split("\n"):
+        if not line.strip():
+            return None
+        try:
+            keychain = json.loads(line)
+        except (json.JSONDecodeError, RecursionError):
+            return None
+        if (
+            not isinstance(keychain, str)
+            or not keychain
+            or any(
+                ord(character) < 0x20
+                or 0x7F <= ord(character) <= 0x9F
+                for character in keychain
+            )
+        ):
+            return None
+        keychains.append(keychain)
+    return keychains
 
 
 def materialize_keychain_credential(
@@ -380,17 +461,33 @@ def materialize_keychain_credential(
     runner: Callable[[list[str]], object] | None = None,
 ) -> CredentialResult:
     """Read one exact Keychain item only after fail-closed user-list cardinality proof."""
-    run = runner or (lambda command: subprocess.run(command, capture_output=True, check=False))
-    listed = _run_keychain(run, ["security", "list-keychains", "-d", "user"])
+    deadline = time.monotonic() + _KEYCHAIN_OPERATION_TIMEOUT_SECONDS
+    listed = _run_keychain(
+        runner,
+        ["security", "list-keychains", "-d", "user"],
+        deadline,
+    )
     if listed is None or getattr(listed, "returncode") != 0:
         return CredentialResult(CredentialStatus.SOURCE_UNREADABLE)
 
-    keychains = re.findall(r'"([^\"]+)"', _result_output(getattr(listed, "stdout")))
+    keychains = _parse_keychain_list(getattr(listed, "stdout"))
+    if keychains is None:
+        return CredentialResult(CredentialStatus.SOURCE_UNREADABLE)
     matches: list[str] = []
     probe_error = False
     for keychain in keychains:
         probe = _run_keychain(
-            run, ["security", "find-generic-password", "-s", service, "-a", account, keychain]
+            runner,
+            [
+                "security",
+                "find-generic-password",
+                "-s",
+                service,
+                "-a",
+                account,
+                keychain,
+            ],
+            deadline,
         )
         if probe is None:
             probe_error = True
@@ -409,13 +506,25 @@ def materialize_keychain_credential(
         return CredentialResult(CredentialStatus.SOURCE_AMBIGUOUS)
 
     retrieved = _run_keychain(
-        run,
-        ["security", "find-generic-password", "-s", service, "-a", account, "-w", matches[0]],
+        runner,
+        [
+            "security",
+            "find-generic-password",
+            "-s",
+            service,
+            "-a",
+            account,
+            "-w",
+            matches[0],
+        ],
+        deadline,
     )
     if retrieved is None or retrieved.returncode != 0:
         return CredentialResult(CredentialStatus.SOURCE_UNREADABLE)
 
     raw = _keychain_bytes(retrieved.stdout)
+    if raw is None:
+        return CredentialResult(CredentialStatus.SOURCE_UNREADABLE)
     if raw.endswith(b"\n"):
         raw = raw[:-1]
     if not raw:

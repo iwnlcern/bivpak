@@ -18,7 +18,7 @@ from types import SimpleNamespace
 import pytest
 import zstandard
 
-from bivharness import cli, e3
+from bivharness import cli, e3, host2_credentials
 from bivharness.e3 import (
     CLAUDE_RESUME_MUTATION,
     CODEX_RESUME_SHAPE,
@@ -298,6 +298,261 @@ def test_setup_host2_credentials_replaces_checkpoint_helper():
     assert hasattr(e3, "setup_host2_credentials")
     assert not hasattr(e3, "perform_oauth_checkpoint")
     assert not hasattr(e3, "assert_one_checkpoint")
+
+
+def test_keychain_default_adapter_uses_absolute_security_and_remaining_timeout(
+    monkeypatch, tmp_path
+):
+    calls = []
+
+    def fake_run(command, *, capture_output, check, timeout):
+        calls.append((list(command), capture_output, check, timeout))
+        return SimpleNamespace(returncode=51, stdout=b"", stderr=b"ignored")
+
+    monkeypatch.setattr(host2_credentials.subprocess, "run", fake_run)
+
+    result = host2_credentials.materialize_keychain_credential(
+        "service",
+        "account",
+        tmp_path / "dest",
+        max_bytes=1024,
+        shape_ok=lambda _raw: True,
+    )
+
+    assert result.status is host2_credentials.CredentialStatus.SOURCE_UNREADABLE
+    assert len(calls) == 1
+    command, capture_output, check, timeout = calls[0]
+    assert command == [
+        "/usr/bin/security",
+        "list-keychains",
+        "-d",
+        "user",
+    ]
+    assert capture_output is True
+    assert check is False
+    assert 0 < timeout <= 5.0
+
+
+def test_keychain_operation_uses_one_monotonic_deadline_across_commands(
+    monkeypatch, tmp_path
+):
+    clock = [100.0]
+    calls = []
+    keychain = "/Users/test/Library/Keychains/login.keychain-db"
+
+    monkeypatch.setattr(
+        host2_credentials,
+        "_KEYCHAIN_OPERATION_TIMEOUT_SECONDS",
+        5.0,
+        raising=False,
+    )
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+
+    def runner(command):
+        calls.append(list(command))
+        clock[0] += 3.0
+        if command[1] == "list-keychains":
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(keychain).encode() + b"\n",
+                stderr=b"",
+            )
+        if "-w" in command:
+            pytest.fail("retrieval ran after the operation deadline")
+        return SimpleNamespace(returncode=44, stdout=b"", stderr=b"")
+
+    result = host2_credentials.materialize_keychain_credential(
+        "service",
+        "account",
+        tmp_path / "dest",
+        max_bytes=1024,
+        shape_ok=lambda _raw: True,
+        runner=runner,
+    )
+
+    assert result.status is host2_credentials.CredentialStatus.SOURCE_UNREADABLE
+    assert calls == [
+        ["security", "list-keychains", "-d", "user"],
+        [
+            "security",
+            "find-generic-password",
+            "-s",
+            "service",
+            "-a",
+            "account",
+            keychain,
+        ],
+    ]
+
+
+@pytest.mark.parametrize(
+    "listed",
+    (
+        b'prefix \"/a.keychain-db\"\n',
+        b'\"/a.keychain-db\" trailing\n',
+        b'\"/a.keychain-db\"\nresidue\n',
+        b'\"/a.keychain-db\"\\x00\n',
+        b'\"/a.keychain-db\"\n\\xff\n',
+        b'\"/a.keychain-db\"\v\"/b.keychain-db\"\n',
+        b'\"/a.keychain-db\"\f\"/b.keychain-db\"\n',
+        b'\"/a.keychain-db\"\xc2\x85\"/b.keychain-db\"\n',
+        b'\"/a\\u007f.keychain-db\"\n',
+        b'\"/a\\u0085.keychain-db\"\n',
+        b'\"/a\\u009f.keychain-db\"\n',
+        b'42\n',
+        b'\"/a.keychain-db\"\n\n\"/b.keychain-db\"\n',
+    ),
+)
+def test_keychain_list_requires_complete_enumerated_json_string_lines(
+    tmp_path, listed
+):
+    calls = []
+
+    def runner(command):
+        calls.append(list(command))
+        return SimpleNamespace(returncode=0, stdout=listed, stderr=b"")
+
+    result = host2_credentials.materialize_keychain_credential(
+        "service",
+        "account",
+        tmp_path / "dest",
+        max_bytes=1024,
+        shape_ok=lambda _raw: True,
+        runner=runner,
+    )
+
+    assert result.status is host2_credentials.CredentialStatus.SOURCE_UNREADABLE
+    assert calls == [["security", "list-keychains", "-d", "user"]]
+
+
+@pytest.mark.parametrize("malformed_phase", ("list", "retrieval"))
+@pytest.mark.parametrize("string_behavior", ("raises", "coerces"))
+def test_keychain_malformed_stdout_is_typed_and_not_echoed(
+    tmp_path, malformed_phase, string_behavior
+):
+    marker = "dynamic-output-marker"
+    keychain = "/a.keychain-db"
+
+    class MalformedOutput:
+        def __init__(self, text):
+            self.text = text
+
+        def __str__(self):
+            if string_behavior == "raises":
+                raise RuntimeError(marker)
+            return self.text
+
+    def runner(command):
+        if command[1] == "list-keychains":
+            stdout = (
+                MalformedOutput(json.dumps(keychain) + "\n")
+                if malformed_phase == "list"
+                else json.dumps(keychain).encode() + b"\n"
+            )
+            return SimpleNamespace(returncode=0, stdout=stdout, stderr=b"")
+        if "-w" in command:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=MalformedOutput('{"credential":"coerced"}'),
+                stderr=b"",
+            )
+        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+    result = host2_credentials.materialize_keychain_credential(
+        "service",
+        "account",
+        tmp_path / "dest",
+        max_bytes=1024,
+        shape_ok=lambda _raw: True,
+        runner=runner,
+    )
+
+    assert result.status is host2_credentials.CredentialStatus.SOURCE_UNREADABLE
+    assert marker not in repr(result)
+
+
+@pytest.mark.parametrize("malformed_phase", ("list", "retrieval"))
+def test_keychain_bytes_subclass_stdout_is_typed_and_not_echoed(
+    tmp_path, malformed_phase
+):
+    marker = "bytes-subclass-marker"
+    keychain = "/a.keychain-db"
+
+    class HostileBytes(bytes):
+        def decode(self, *_args, **_kwargs):
+            raise RuntimeError(marker)
+
+        def endswith(self, *_args, **_kwargs):
+            raise RuntimeError(marker)
+
+    def runner(command):
+        if command[1] == "list-keychains":
+            stdout = (
+                HostileBytes(json.dumps(keychain).encode() + b"\n")
+                if malformed_phase == "list"
+                else json.dumps(keychain).encode() + b"\n"
+            )
+            return SimpleNamespace(returncode=0, stdout=stdout, stderr=b"")
+        if "-w" in command:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=HostileBytes(b'{"credential":"subclass"}'),
+                stderr=b"",
+            )
+        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+    result = host2_credentials.materialize_keychain_credential(
+        "service",
+        "account",
+        tmp_path / "dest",
+        max_bytes=1024,
+        shape_ok=lambda _raw: True,
+        runner=runner,
+    )
+
+    assert result.status is host2_credentials.CredentialStatus.SOURCE_UNREADABLE
+    assert marker not in repr(result)
+
+
+def test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite(
+    monkeypatch, tmp_path
+):
+    padding = "x" * (host2_credentials._READ_CHUNK * 2)
+    raw = json.dumps(
+        {"tokens": {"access_token": "fixture"}, "padding": padding},
+        separators=(",", ":"),
+    ).encode()
+    src = tmp_path / "auth.json"
+    dest = tmp_path / "dest" / "auth.json"
+    src.write_bytes(raw)
+    mutation_offset = host2_credentials._READ_CHUNK + 100
+    assert raw[mutation_offset : mutation_offset + 1] == b"x"
+    real_read = host2_credentials.os.read
+    mutated = []
+
+    def mutate_after_first_chunk(fd, size):
+        piece = real_read(fd, size)
+        if piece and not mutated:
+            rewrite_fd = os.open(src, os.O_WRONLY)
+            try:
+                os.pwrite(rewrite_fd, b"y", mutation_offset)
+            finally:
+                os.close(rewrite_fd)
+            mutated.append(True)
+        return piece
+
+    monkeypatch.setattr(host2_credentials.os, "read", mutate_after_first_chunk)
+
+    result = host2_credentials.materialize_file_credential(
+        src,
+        dest,
+        max_bytes=len(raw) + 1,
+        shape_ok=host2_credentials.codex_shape_ok,
+    )
+
+    assert mutated == [True]
+    assert result.status is host2_credentials.CredentialStatus.SOURCE_UNREADABLE
+    assert not dest.exists()
 
 
 @pytest.mark.parametrize(
