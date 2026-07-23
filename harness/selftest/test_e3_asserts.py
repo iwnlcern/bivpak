@@ -2062,9 +2062,16 @@ def test_host2_binary_fixtures_are_explicit_absolute_and_path_independent(monkey
     assert all(Path(binary).is_absolute() for binary in _host2_binaries().values())
 
 
-def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path):
+@pytest.mark.parametrize("profile_topology", ("sibling", "nested"))
+def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(
+    tmp_path, profile_topology
+):
     host2 = tmp_path / "host two"
-    profile_root = host2 / "profiles"
+    profile_root = (
+        tmp_path / "host2-profile"
+        if profile_topology == "sibling"
+        else host2 / "profiles"
+    )
     calls = []
 
     def fake_spawn(command, cwd, env):
@@ -2098,6 +2105,57 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path)
     assert _agent_basename(calls[-1]) == "claude"
     assert "--no-session-persistence" in calls[-1]
     assert "-p" in calls[-1]
+
+
+@pytest.mark.parametrize("symlink_case", ("leaf", "ancestor"))
+def test_setup_host2_credentials_refuses_symlinked_profile_topology_before_spawn(
+    monkeypatch, tmp_path, symlink_case
+):
+    host2 = tmp_path / "host2"
+    outside = tmp_path / "outside-profile"
+    outside.mkdir()
+    canary = outside / "canary"
+    canary.write_text("outside-unchanged", encoding="utf-8")
+    if symlink_case == "leaf":
+        profile_root = tmp_path / "host2-profile"
+        profile_root.symlink_to(outside, target_is_directory=True)
+    else:
+        ancestor = tmp_path / "profile-parent"
+        ancestor.symlink_to(outside, target_is_directory=True)
+        profile_root = ancestor / "profiles"
+    spawn_calls = []
+    materializer_calls = []
+
+    def unavailable_materializer(*args, **kwargs):
+        materializer_calls.append((args, kwargs))
+        return e3.CredentialResult(e3.CredentialStatus.SOURCE_MISSING)
+
+    monkeypatch.setattr(e3, "materialize_keychain_credential", unavailable_materializer)
+    monkeypatch.setattr(e3, "materialize_file_credential", unavailable_materializer)
+
+    with pytest.raises(ValueError, match="host2 profile topology unavailable"):
+        e3.setup_host2_credentials(
+            {"agents": _host2_agents()},
+            host2,
+            profile_root,
+            _host2_binaries(),
+            lambda command, *_args: (
+                spawn_calls.append(list(command))
+                or SimpleNamespace(
+                    returncode=0,
+                    stdout=_host2_version_output(command),
+                    stderr="",
+                )
+            ),
+            e3._CredentialScanner(),
+            [],
+            {},
+        )
+
+    assert spawn_calls == []
+    assert materializer_calls == []
+    assert canary.read_text(encoding="utf-8") == "outside-unchanged"
+    assert list(outside.iterdir()) == [canary]
 
 
 def test_setup_host2_credentials_materializes_both_credentials_and_seeds_scanner(
@@ -5221,7 +5279,8 @@ def _matrix_root_case(stable_test_root, tmp_path, field, column):
 
     if field in ROOT_RELATIVE_FIELDS:
         root = _root_relative_root(scratch, field)
-        root.mkdir(parents=True, exist_ok=True)
+        if not (field == "host2_profile" and column == "E"):
+            root.mkdir(parents=True, exist_ok=True)
         if column == "E":
             value = f"safe-{suffix}"
         elif column == "K":
@@ -6788,8 +6847,14 @@ def _run_argv_barrier_flow(
     leak_payload=CODEX_ACCESS_LEAF,
     exception_leak_payload=CODEX_ACCESS_LEAF,
     scratch_leak_payload=None,
+    profile_topology="nested",
+    preexisting_profile_symlink=None,
 ):
     spec = _argv_barrier_spec(stable_test_root)
+    if profile_topology == "sibling":
+        spec.pop("host2_profile_root")
+    elif profile_topology != "nested":
+        raise AssertionError(f"unsupported profile topology: {profile_topology}")
     binaries = {
         "codex": "/opt/agents/codex-real",
         "claude": "/opt/agents/claude-real",
@@ -6799,6 +6864,37 @@ def _run_argv_barrier_flow(
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
     biv = tmp_path / "fake-biv"
     scratch = stable_test_root / "scratch"
+    if preexisting_profile_symlink is not None:
+        outside = stable_test_root / "outside-profile-topology"
+        outside.mkdir()
+        (outside / "canary").write_text("outside-unchanged", encoding="utf-8")
+        if profile_topology == "sibling" and preexisting_profile_symlink == "leaf":
+            scratch.mkdir()
+            (scratch / "host2-profile").symlink_to(
+                outside,
+                target_is_directory=True,
+            )
+        elif (
+            profile_topology == "sibling"
+            and preexisting_profile_symlink == "ancestor"
+        ):
+            scratch.symlink_to(outside, target_is_directory=True)
+        elif profile_topology == "nested" and preexisting_profile_symlink == "leaf":
+            (scratch / "host2").mkdir(parents=True)
+            (scratch / "host2" / "profiles").symlink_to(
+                outside,
+                target_is_directory=True,
+            )
+        elif (
+            profile_topology == "nested"
+            and preexisting_profile_symlink == "ancestor"
+        ):
+            scratch.mkdir()
+            (scratch / "host2").symlink_to(outside, target_is_directory=True)
+        else:
+            raise AssertionError(
+                (profile_topology, preexisting_profile_symlink)
+            )
     ledger = []
     lifecycle_events = []
     exceptional_phases = set()
@@ -7408,6 +7504,41 @@ def test_run_e3_wrong_host2_version_materializes_no_credentials(
         )
         with pytest.raises(FileNotFoundError):
             os.lstat(destination)
+
+
+@pytest.mark.parametrize("profile_topology", ("sibling", "nested"))
+@pytest.mark.parametrize("symlink_case", ("leaf", "ancestor"))
+def test_run_e3_refuses_preexisting_profile_symlink_before_host2_credential_work(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    profile_topology,
+    symlink_case,
+):
+    result, _, _, ledger, _, _, lifecycle_events = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        profile_topology=profile_topology,
+        preexisting_profile_symlink=symlink_case,
+    )
+
+    outside = stable_test_root / "outside-profile-topology"
+    canary = outside / "canary"
+    host2 = stable_test_root / "scratch" / "host2"
+    assert result.status is Status.INVALID
+    assert lifecycle_events == []
+    assert not any(
+        Path(cwd) == host2
+        and command[1:] in (
+            ["--version"],
+            ["login", "status"],
+            ["auth", "status"],
+        )
+        for command, cwd, _ in ledger
+    )
+    assert canary.read_text(encoding="utf-8") == "outside-unchanged"
+    assert list(outside.iterdir()) == [canary]
 
 
 def test_e3_spec_validation_rejects_dead_or_wrong_resume_shape():

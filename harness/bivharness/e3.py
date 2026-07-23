@@ -1016,6 +1016,72 @@ def _open_verified_directory(
     return descriptor
 
 
+def _require_fresh_path_nofollow(path: Path) -> None:
+    path = Path(path)
+    if not path.is_absolute() or any(part == ".." for part in path.parts):
+        raise ValueError("path must be absolute and lexically contained")
+    current = os.open(path.anchor, _DIRECTORY_NOFOLLOW_FLAGS)
+    descriptors = [current]
+    try:
+        components = path.parts[1:]
+        if not components:
+            raise ValueError("filesystem root cannot be a fresh path")
+        for index, component in enumerate(components):
+            status = _entry_status(current, component)
+            if status is None:
+                return
+            if index == len(components) - 1:
+                raise ValueError("path must be fresh")
+            if not stat.S_ISDIR(status.st_mode):
+                raise ValueError("path ancestor is not a directory")
+            child = _open_verified_directory(
+                current,
+                component,
+                status,
+                "fresh path ancestor",
+            )
+            descriptors.append(child)
+            current = child
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
+def _mkdirs_nofollow(path: Path, *, fresh_leaf: bool) -> None:
+    path = Path(path)
+    if not path.is_absolute() or any(part == ".." for part in path.parts):
+        raise ValueError("path must be absolute and lexically contained")
+    current = os.open(path.anchor, _DIRECTORY_NOFOLLOW_FLAGS)
+    descriptors = [current]
+    try:
+        components = path.parts[1:]
+        if not components:
+            raise ValueError("filesystem root cannot be created")
+        for index, component in enumerate(components):
+            status = _entry_status(current, component)
+            is_leaf = index == len(components) - 1
+            if status is None:
+                os.mkdir(component, mode=0o700, dir_fd=current)
+                status = _entry_status(current, component)
+                if status is None:
+                    raise ValueError("created directory is unavailable")
+            elif is_leaf and fresh_leaf:
+                raise ValueError("directory leaf must be fresh")
+            if not stat.S_ISDIR(status.st_mode):
+                raise ValueError("directory component is not a directory")
+            child = _open_verified_directory(
+                current,
+                component,
+                status,
+                "created directory topology",
+            )
+            descriptors.append(child)
+            current = child
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
 def _directory_topology_is_nofollow(path: Path) -> bool:
     """Prove that every lexical component and the target are stable directories."""
     opened = None
@@ -1490,7 +1556,50 @@ def _agent_profile(agent: dict[str, Any], profile_root: Path, *, live: bool) -> 
     if live:
         return Path(agent["live_profile"]).expanduser().resolve(strict=False)
     suffix = agent.get("host2_profile", agent["id"])
-    return (profile_root / suffix).resolve(strict=False)
+    return Path(profile_root) / suffix
+
+
+def _host2_profile_paths(
+    spec: dict[str, Any],
+    profile_root: Path,
+) -> list[tuple[dict[str, Any], Path]]:
+    root = Path(profile_root)
+    if not root.is_absolute() or any(part == ".." for part in root.parts):
+        raise ValueError("host2 profile topology unavailable")
+    agents = spec.get("agents")
+    if not isinstance(agents, list):
+        raise ValueError("host2 profile topology unavailable")
+    profiles: list[tuple[dict[str, Any], Path]] = []
+    seen: set[Path] = set()
+    for agent in agents:
+        if not isinstance(agent, dict):
+            raise ValueError("host2 profile topology unavailable")
+        suffix = agent.get("host2_profile", agent.get("id"))
+        if not isinstance(suffix, str) or not suffix or suffix.startswith("~"):
+            raise ValueError("host2 profile topology unavailable")
+        components = suffix.split("/")
+        if any(component in ("", ".", "..") for component in components):
+            raise ValueError("host2 profile topology unavailable")
+        relative = Path(*components)
+        if relative.is_absolute():
+            raise ValueError("host2 profile topology unavailable")
+        profile = root / relative
+        if root not in profile.parents or profile in seen:
+            raise ValueError("host2 profile topology unavailable")
+        seen.add(profile)
+        profiles.append((agent, profile))
+    return profiles
+
+
+def _validate_fresh_host2_profile_topology(
+    spec: dict[str, Any],
+    profile_root: Path,
+) -> list[tuple[dict[str, Any], Path]]:
+    profiles = _host2_profile_paths(spec, profile_root)
+    _require_fresh_path_nofollow(Path(profile_root))
+    for _, profile in profiles:
+        _require_fresh_path_nofollow(profile)
+    return profiles
 
 
 def _agent_env(agent: dict[str, Any], profile: Path, *, live: bool) -> dict[str, str]:
@@ -1527,15 +1636,21 @@ def setup_host2_credentials(
     child_outputs: list[bytes],
     ambient_snapshots: dict[str, SourceIdentity],
 ) -> dict[str, dict[str, str]]:
-    home = host2 / "home"
-    home.mkdir(parents=True, exist_ok=True)
-    contexts: list[tuple[dict[str, Any], Path, dict[str, str]]] = []
-    for agent in spec["agents"]:
-        profile = _agent_profile(agent, profile_root, live=False)
-        profile.mkdir(parents=True, exist_ok=True)
-        env = _agent_env(agent, profile, live=False)
-        env["HOME"] = str(home)
-        contexts.append((agent, profile, env))
+    try:
+        profiles = _validate_fresh_host2_profile_topology(spec, profile_root)
+        host2 = Path(host2)
+        home = host2 / "home"
+        _mkdirs_nofollow(host2, fresh_leaf=False)
+        _mkdirs_nofollow(home, fresh_leaf=True)
+        _mkdirs_nofollow(Path(profile_root), fresh_leaf=True)
+        contexts: list[tuple[dict[str, Any], Path, dict[str, str]]] = []
+        for agent, profile in profiles:
+            _mkdirs_nofollow(profile, fresh_leaf=True)
+            env = _agent_env(agent, profile, live=False)
+            env["HOME"] = str(home)
+            contexts.append((agent, profile, env))
+    except (OSError, TypeError, ValueError):
+        raise ValueError("host2 profile topology unavailable") from None
 
     _version_gate_agents(contexts, resolved_binaries, host2, spawn, "host2")
 
@@ -2318,6 +2433,12 @@ def _path_field_failures(spec: object, scratch: Path) -> list[str]:
                     failures.append(failure)
     else:
         failures.append("agents must be a list")
+    try:
+        _validate_fresh_host2_profile_topology(spec, profile_root)
+    except (OSError, TypeError, ValueError):
+        failures.append(
+            "host2 profile topology must be fresh, contained, and nofollow-safe"
+        )
     if "workspace_name" in spec:
         failure = _child_failure("workspace_name", scratch / "seed-ws", spec["workspace_name"])
         if failure is not None:
@@ -2637,6 +2758,10 @@ def run_e3(
         if image_secret_hits:
             raise ValueError("credential sentinel found in image: " + ", ".join(image_secret_hits))
 
+        try:
+            _validate_fresh_host2_profile_topology(spec, profile_root)
+        except (OSError, TypeError, ValueError):
+            raise ValueError("host2 profile topology unavailable") from None
         host2_agent_envs = setup_host2_credentials(
             spec,
             host2,
