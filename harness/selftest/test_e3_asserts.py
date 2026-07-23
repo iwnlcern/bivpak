@@ -4401,6 +4401,306 @@ def test_finalize_report_replaces_all_secret_bearing_fields(tmp_path):
     assert secret not in serialize_report([final])
 
 
+def _current_credential_guards(claude_dest, codex_dest):
+    return {
+        "claude-code": e3._credential_guard(claude_dest),
+        "codex": e3._credential_guard(codex_dest),
+    }
+
+
+def _guarded_teardown_paths(tmp_path):
+    scratch = tmp_path / "scratch"
+    seed_parent = scratch / "seed-ws"
+    host2 = scratch / "host2"
+    profile_root = scratch / "host2-profile"
+    claude_dest = profile_root / "claude" / ".credentials.json"
+    codex_dest = profile_root / "codex" / "auth.json"
+    for path in (claude_dest, codex_dest):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"guarded-teardown-secret")
+    host2.mkdir(parents=True)
+    seed_parent.mkdir(parents=True)
+    guards = _current_credential_guards(claude_dest, codex_dest)
+    return (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    )
+
+
+@pytest.mark.parametrize("credential_id", ("claude-code", "codex"))
+@pytest.mark.parametrize("mutation", ("missing", "replaced"))
+def test_scan_and_teardown_rejects_each_changed_credential_guard_during_tree_scan(
+    tmp_path, credential_id, mutation
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+    target = claude_dest if credential_id == "claude-code" else codex_dest
+    target.unlink()
+    if mutation == "replaced":
+        target.write_bytes(b"replacement-object")
+
+    class RecordingScanner(e3._CredentialScanner):
+        def scan_tree_guarded(self, *args):
+            scan_calls.append(args)
+            return e3._CredentialScanOutcome(False, False)
+
+    scan_calls = []
+    scanner = RecordingScanner()
+    scanner.add_value(b"guarded-teardown-secret")
+
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.FAIL, [], detail="primary failure"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.INVALID
+    assert "credential-exclusion-integrity-failed" in final.warnings
+    assert scan_calls == []
+    for cleanup_target in (
+        claude_dest,
+        codex_dest,
+        profile_root,
+        host2,
+        seed_parent,
+    ):
+        with pytest.raises(FileNotFoundError):
+            os.lstat(cleanup_target)
+
+
+@pytest.mark.parametrize("mutation", ("nonregular", "multiply-linked", "colliding"))
+def test_scan_and_teardown_rejects_unsafe_or_colliding_credential_guards(
+    tmp_path, mutation
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+    if mutation == "nonregular":
+        codex_dest.unlink()
+        codex_dest.mkdir()
+    elif mutation == "multiply-linked":
+        os.link(codex_dest, profile_root / "codex-auth-alias")
+    else:
+        guards["codex"] = guards["claude-code"]
+
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"guarded-teardown-secret")
+
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, [], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.INVALID
+    assert "credential-exclusion-integrity-failed" in final.warnings
+
+
+def test_scan_and_teardown_binds_guard_identity_inside_exclusion_traversal(
+    tmp_path,
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+
+    class ReplacingScanner(e3._CredentialScanner):
+        def scan_tree_guarded(self, root, exclusion_guards):
+            codex_dest.unlink()
+            codex_dest.write_bytes(b"replacement-object")
+            return super().scan_tree_guarded(root, exclusion_guards)
+
+    scanner = ReplacingScanner()
+    scanner.add_value(b"guarded-teardown-secret")
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, [], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.INVALID
+    assert "credential-exclusion-integrity-failed" in final.warnings
+
+
+def test_scan_and_teardown_attempts_every_cleanup_after_guard_failure(
+    monkeypatch,
+    tmp_path,
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+    guards.pop("codex")
+    unlink_calls = []
+    rmtree_calls = []
+    real_unlink = e3.Path.unlink
+    real_rmtree = e3.shutil.rmtree
+
+    def recording_unlink(path, *args, **kwargs):
+        unlink_calls.append(Path(path))
+        if Path(path) == claude_dest:
+            raise RuntimeError("injected unlink failure")
+        return real_unlink(path, *args, **kwargs)
+
+    def recording_rmtree(path, *args, **kwargs):
+        rmtree_calls.append(Path(path))
+        if Path(path) == profile_root:
+            raise RuntimeError("injected rmtree failure")
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(e3.Path, "unlink", recording_unlink)
+    monkeypatch.setattr(e3.shutil, "rmtree", recording_rmtree)
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"guarded-teardown-secret")
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.FAIL, [], detail="primary failure"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.INVALID
+    assert "credential-exclusion-integrity-failed" in final.warnings
+    assert unlink_calls == [claude_dest, codex_dest]
+    assert rmtree_calls == [profile_root, host2, seed_parent]
+
+
+def test_scan_and_teardown_tree_hit_invalidates_preexisting_fail_and_stays_clean(
+    tmp_path,
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+    (seed_parent / "credential-copy").write_bytes(b"guarded-teardown-secret")
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"guarded-teardown-secret")
+
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.FAIL, ["failed"], detail="primary failure"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    report_scanner = e3._CredentialScanner()
+    report_scanner.add_value(b"guarded-teardown-secret")
+    serialized = serialize_report([final]).encode()
+    assert final.status is Status.INVALID
+    assert final.classes == []
+    assert final.held_asserts == []
+    assert "credential-scan-detected" in final.warnings
+    assert not report_scanner.scan_bytes(serialized)
+
+
+def test_scan_and_teardown_child_hit_keeps_preexisting_invalid_and_stays_clean(
+    tmp_path,
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+    scanner = e3._CredentialScanner()
+    scanner.add_value(b"guarded-teardown-secret")
+
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.INVALID, [], detail="primary invalid"),
+        scanner,
+        scratch,
+        child_outputs=[b"guarded-teardown-secret"],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    report_scanner = e3._CredentialScanner()
+    report_scanner.add_value(b"guarded-teardown-secret")
+    serialized = serialize_report([final]).encode()
+    assert final.status is Status.INVALID
+    assert "credential-child-output-detected" in final.warnings
+    assert not report_scanner.scan_bytes(serialized)
+
+
 def test_scan_and_teardown_scans_seed_tree_before_removing_all_targets(tmp_path):
     scratch = tmp_path / "scratch"
     seed_parent = scratch / "seed-ws"
@@ -4425,6 +4725,7 @@ def test_scan_and_teardown_scans_seed_tree_before_removing_all_targets(tmp_path)
         scratch,
         child_outputs=[],
         ambient_snapshots={},
+        credential_guards=_current_credential_guards(claude_dest, codex_dest),
         claude_dest=claude_dest,
         codex_dest=codex_dest,
         profile_root=profile_root,
@@ -4469,6 +4770,7 @@ def test_scan_and_teardown_clears_pass_evidence_and_continues_after_cleanup_erro
         scratch,
         child_outputs=[b"teardown-helper-secret"],
         ambient_snapshots={},
+        credential_guards=_current_credential_guards(claude_dest, codex_dest),
         claude_dest=claude_dest,
         codex_dest=codex_dest,
         profile_root=profile_root,
@@ -4507,6 +4809,7 @@ def test_scan_and_teardown_drop_failure_returns_a_fresh_scanned_constant(tmp_pat
         scratch,
         child_outputs=[],
         ambient_snapshots={},
+        credential_guards={},
         claude_dest=scratch / "profile" / ".credentials.json",
         codex_dest=scratch / "profile" / "auth.json",
         profile_root=scratch / "profile",
@@ -4541,6 +4844,7 @@ def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path
         scratch,
         child_outputs=[],
         ambient_snapshots={},
+        credential_guards={},
         claude_dest=scratch / "profile" / ".credentials.json",
         codex_dest=scratch / "profile" / "auth.json",
         profile_root=scratch / "profile",
@@ -4581,6 +4885,7 @@ def test_scan_and_teardown_internal_finalizer_failure_rescans_constant_ladder(
         scratch,
         child_outputs=[],
         ambient_snapshots={},
+        credential_guards={},
         claude_dest=scratch / "profile" / ".credentials.json",
         codex_dest=scratch / "profile" / "auth.json",
         profile_root=scratch / "profile",
@@ -4621,6 +4926,7 @@ def test_scan_and_teardown_invalidates_each_codex_ambient_drift(
         scratch,
         child_outputs=[],
         ambient_snapshots={"codex-auth.json": expected},
+        credential_guards={},
         claude_dest=scratch / "profile" / ".credentials.json",
         codex_dest=scratch / "profile" / "auth.json",
         profile_root=scratch / "profile",
@@ -4662,6 +4968,7 @@ def test_scan_and_teardown_removes_all_targets_in_both_profile_topologies(
         scratch,
         child_outputs=[],
         ambient_snapshots={},
+        credential_guards=_current_credential_guards(claude_dest, codex_dest),
         claude_dest=claude_dest,
         codex_dest=codex_dest,
         profile_root=profile_root,
@@ -4711,6 +5018,7 @@ def test_scan_and_teardown_attempts_all_targets_after_non_oserror_stat_failure(
         scratch,
         child_outputs=[],
         ambient_snapshots={},
+        credential_guards=_current_credential_guards(claude_dest, codex_dest),
         claude_dest=claude_dest,
         codex_dest=codex_dest,
         profile_root=profile_root,
@@ -4755,6 +5063,7 @@ def test_scan_and_teardown_folds_unlink_failure_and_preserves_primary(
         scratch,
         child_outputs=[],
         ambient_snapshots={},
+        credential_guards=_current_credential_guards(claude_dest, codex_dest),
         claude_dest=claude_dest,
         codex_dest=codex_dest,
         profile_root=profile_root,
@@ -4806,6 +5115,7 @@ def test_scan_and_teardown_folds_absence_stat_failure_after_all_removals(
         scratch,
         child_outputs=[],
         ambient_snapshots={},
+        credential_guards=_current_credential_guards(claude_dest, codex_dest),
         claude_dest=claude_dest,
         codex_dest=codex_dest,
         profile_root=profile_root,
@@ -7097,6 +7407,7 @@ def _run_argv_barrier_flow(
     leak_payload=CODEX_ACCESS_LEAF,
     exception_leak_payload=CODEX_ACCESS_LEAF,
     scratch_leak_payload=None,
+    credential_guard_mutation=None,
     profile_topology="nested",
     preexisting_profile_symlink=None,
 ):
@@ -7306,7 +7617,23 @@ def _run_argv_barrier_flow(
 
     def recording_setup(*args):
         setup_calls.append(args)
-        return real_setup(*args)
+        envs = real_setup(*args)
+        if credential_guard_mutation is not None:
+            credential_id, mutation = credential_guard_mutation
+            profile_root = Path(args[2])
+            agent = next(
+                item for item in args[0]["agents"] if item["id"] == credential_id
+            )
+            profile = e3._agent_profile(agent, profile_root, live=False)
+            target = (
+                profile / ".credentials.json"
+                if credential_id == "claude-code"
+                else profile / "auth.json"
+            )
+            target.unlink()
+            if mutation == "replaced":
+                target.write_bytes(b"replacement-object")
+        return envs
 
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
     monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
@@ -7515,6 +7842,23 @@ def test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization
     assert CODEX_ACCESS_LEAF not in serialize_report([result])
 
 
+@pytest.mark.parametrize("mutation", ("missing", "replaced"))
+def test_run_e3_invalidates_changed_credential_guard_after_materialization(
+    monkeypatch, tmp_path, stable_test_root, mutation
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        credential_guard_mutation=("codex", mutation),
+    )
+
+    serialized = serialize_report([result])
+    assert result.status is Status.INVALID
+    assert "credential-exclusion-integrity-failed" in result.warnings
+    assert CODEX_ACCESS_LEAF not in serialized
+
+
 def test_run_e3_invalidates_json_escaped_leaf_in_child_output(
     monkeypatch, tmp_path, stable_test_root
 ):
@@ -7605,7 +7949,7 @@ def test_run_e3_rejects_restored_workspace_symlink_before_any_resume_spawn(
         restored_symlink=True,
     )
 
-    assert result.status is Status.FAIL
+    assert result.status is Status.INVALID
     restored_workspace = scratch / "host2" / "work"
     resume_calls = [
         command

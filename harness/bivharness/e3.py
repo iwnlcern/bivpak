@@ -106,6 +106,16 @@ class _NofollowParent(NamedTuple):
     descriptors: tuple[int, ...]
 
 
+class _CredentialGuard(NamedTuple):
+    path: Path
+    status: os.stat_result
+
+
+class _CredentialScanOutcome(NamedTuple):
+    unsafe: bool
+    exclusion_integrity_failed: bool
+
+
 class _CredentialScanner:
     """Fail closed while searching private credential values in untrusted trees."""
 
@@ -265,6 +275,8 @@ class _CredentialScanner:
         lexical_path: Path,
         excluded: set[Path],
         unseen_exclusions: set[Path],
+        guarded_exclusions: dict[Path, os.stat_result] | None,
+        invalid_exclusions: set[Path],
     ) -> bool:
         try:
             before = os.fstat(descriptor)
@@ -281,7 +293,22 @@ class _CredentialScanner:
                     )
                     if path in excluded:
                         unseen_exclusions.discard(path)
-                        if not stat.S_ISREG(expected.st_mode):
+                        guard = (
+                            guarded_exclusions.get(path)
+                            if guarded_exclusions is not None
+                            else None
+                        )
+                        if guarded_exclusions is not None and (
+                            guard is None or not _same_entry(guard, expected)
+                        ):
+                            invalid_exclusions.add(path)
+                            return True
+                        if (
+                            not stat.S_ISREG(expected.st_mode)
+                            or expected.st_nlink != 1
+                        ):
+                            if guarded_exclusions is not None:
+                                invalid_exclusions.add(path)
                             return True
                         if self._scan_regular(
                             descriptor,
@@ -290,6 +317,8 @@ class _CredentialScanner:
                             read_contents=False,
                             require_single_link=True,
                         ):
+                            if guarded_exclusions is not None:
+                                invalid_exclusions.add(path)
                             return True
                         continue
                     if stat.S_ISREG(expected.st_mode):
@@ -308,7 +337,14 @@ class _CredentialScanner:
                         opened = os.fstat(child)
                         if not stat.S_ISDIR(opened.st_mode) or not _same_entry(expected, opened):
                             return True
-                        if self._scan_directory(child, path, excluded, unseen_exclusions):
+                        if self._scan_directory(
+                            child,
+                            path,
+                            excluded,
+                            unseen_exclusions,
+                            guarded_exclusions,
+                            invalid_exclusions,
+                        ):
                             return True
                     finally:
                         os.close(child)
@@ -324,32 +360,66 @@ class _CredentialScanner:
             return True
         return False
 
-    def scan_tree(self, root: Path, exclude: set[Path]) -> bool:
-        """Return True for a secret or any unsafe traversal condition."""
+    def _scan_tree_outcome(
+        self,
+        root: Path,
+        exclude: set[Path],
+        guarded_exclusions: dict[Path, os.stat_result] | None = None,
+    ) -> _CredentialScanOutcome:
         try:
             lexical_root = Path(root)
             excluded = {Path(path) for path in exclude}
-            if not lexical_root.is_absolute() or any(not path.is_absolute() for path in excluded):
-                return True
+            if (
+                not lexical_root.is_absolute()
+                or any(not path.is_absolute() for path in excluded)
+                or (
+                    guarded_exclusions is not None
+                    and set(guarded_exclusions) != excluded
+                )
+            ):
+                return _CredentialScanOutcome(True, guarded_exclusions is not None)
             descriptor, descriptors, checks = self._open_root(lexical_root)
             try:
                 unseen_exclusions = set(excluded)
+                invalid_exclusions: set[Path] = set()
                 if self._scan_directory(
                     descriptor,
                     lexical_root,
                     excluded,
                     unseen_exclusions,
+                    guarded_exclusions,
+                    invalid_exclusions,
                 ):
-                    return True
+                    return _CredentialScanOutcome(
+                        True,
+                        bool(invalid_exclusions),
+                    )
                 for parent_descriptor, name, expected in reversed(checks):
                     if not self._entry_matches(parent_descriptor, name, expected):
-                        return True
-                return bool(unseen_exclusions)
+                        return _CredentialScanOutcome(True, False)
+                if unseen_exclusions:
+                    return _CredentialScanOutcome(
+                        True,
+                        guarded_exclusions is not None,
+                    )
+                return _CredentialScanOutcome(False, False)
             finally:
                 for opened in reversed(descriptors):
                     os.close(opened)
         except (OSError, ValueError, RuntimeError, TypeError):
-            return True
+            return _CredentialScanOutcome(True, False)
+
+    def scan_tree(self, root: Path, exclude: set[Path]) -> bool:
+        """Return True for a secret or any unsafe traversal condition."""
+        return self._scan_tree_outcome(root, exclude).unsafe
+
+    def scan_tree_guarded(
+        self,
+        root: Path,
+        guards: dict[Path, os.stat_result],
+    ) -> _CredentialScanOutcome:
+        """Scan while proving every excluded entry still matches its guard."""
+        return self._scan_tree_outcome(root, set(guards), guards)
 
     def drop(self) -> None:
         try:
@@ -413,6 +483,7 @@ def _scan_and_teardown(
     *,
     child_outputs: list[bytes],
     ambient_snapshots: dict[str, SourceIdentity],
+    credential_guards: dict[str, _CredentialGuard],
     claude_dest: Path,
     codex_dest: Path,
     profile_root: Path,
@@ -422,11 +493,16 @@ def _scan_and_teardown(
 ) -> ScenarioResult:
     """Settle one result, scan all captured state, then remove every private target."""
 
-    notes: list[str] = []
+    integrity_notes: list[str] = []
+    cleanup_notes: list[str] = []
 
-    def note(value: str) -> None:
-        if value not in notes:
-            notes.append(value)
+    def integrity_note(value: str) -> None:
+        if value not in integrity_notes:
+            integrity_notes.append(value)
+
+    def cleanup_note(value: str) -> None:
+        if value not in cleanup_notes:
+            cleanup_notes.append(value)
 
     def remove_file(path: Path) -> None:
         try:
@@ -434,12 +510,12 @@ def _scan_and_teardown(
         except FileNotFoundError:
             return
         except BaseException:
-            note("cleanup-stat-failed")
+            cleanup_note("cleanup-stat-failed")
             return
         try:
             path.unlink()
         except BaseException:
-            note("cleanup-unlink-failed")
+            cleanup_note("cleanup-unlink-failed")
 
     def remove_tree(path: Path) -> None:
         try:
@@ -447,40 +523,55 @@ def _scan_and_teardown(
         except FileNotFoundError:
             return
         except BaseException:
-            note("cleanup-stat-failed")
+            cleanup_note("cleanup-stat-failed")
             return
 
         def onerror(_function: Callable[..., Any], _path: str, _exc: Any) -> None:
-            note("cleanup-rmtree-failed")
+            cleanup_note("cleanup-rmtree-failed")
 
         try:
             shutil.rmtree(path, onerror=onerror)
         except BaseException:
-            note("cleanup-rmtree-failed")
+            cleanup_note("cleanup-rmtree-failed")
 
-    def exact_exclusion(path: Path) -> Path | None:
-        opened: _NofollowParent | None = None
+    def exact_exclusion_guards() -> dict[Path, os.stat_result] | None:
+        expected_paths = {
+            "claude-code": claude_dest,
+            "codex": codex_dest,
+        }
+        if set(credential_guards) != set(expected_paths) or len(credential_guards) != 2:
+            return None
+        exclusions: dict[Path, os.stat_result] = {}
         try:
-            opened = _open_parent_directory_nofollow(path)
-            if opened is None:
-                return None
-            expected = _entry_status(opened.descriptor, opened.name)
-            if (
-                expected is None
-                or not stat.S_ISREG(expected.st_mode)
-                or expected.st_nlink != 1
-            ):
-                return None
-            _verify_parent_unchanged(opened, "credential exclusion")
-            return path
+            for credential_id, path in expected_paths.items():
+                guard = credential_guards[credential_id]
+                if (
+                    not isinstance(guard, _CredentialGuard)
+                    or guard.path != path
+                    or path in exclusions
+                    or not stat.S_ISREG(guard.status.st_mode)
+                    or guard.status.st_nlink != 1
+                ):
+                    return None
+                opened = _open_parent_directory_nofollow(path)
+                if opened is None:
+                    return None
+                try:
+                    current = _entry_status(opened.descriptor, opened.name)
+                    if (
+                        current is None
+                        or not stat.S_ISREG(current.st_mode)
+                        or current.st_nlink != 1
+                        or not _same_entry(guard.status, current)
+                    ):
+                        return None
+                    _verify_parent_unchanged(opened, "credential exclusion")
+                finally:
+                    _close_nofollow_parent(opened)
+                exclusions[path] = guard.status
+            return exclusions if len(exclusions) == 2 else None
         except BaseException:
             return None
-        finally:
-            if opened is not None:
-                try:
-                    _close_nofollow_parent(opened)
-                except BaseException:
-                    note("credential-scan-failed")
 
     def scanned_constant() -> ScenarioResult:
         candidates = (
@@ -502,24 +593,29 @@ def _scan_and_teardown(
         try:
             active = scanner.active
         except BaseException:
-            note("credential-scan-failed")
+            integrity_note("credential-scan-failed")
         if active:
             try:
-                exclusions = {
-                    path
-                    for path in (exact_exclusion(claude_dest), exact_exclusion(codex_dest))
-                    if path is not None
-                }
-                if scanner.scan_tree(scratch.resolve(strict=False), exclusions):
-                    note("credential-scan-detected")
+                exclusion_guards = exact_exclusion_guards()
+                if exclusion_guards is None:
+                    integrity_note("credential-exclusion-integrity-failed")
+                else:
+                    scan = scanner.scan_tree_guarded(
+                        scratch.resolve(strict=False),
+                        exclusion_guards,
+                    )
+                    if scan.exclusion_integrity_failed:
+                        integrity_note("credential-exclusion-integrity-failed")
+                    elif scan.unsafe:
+                        integrity_note("credential-scan-detected")
             except BaseException:
-                note("credential-scan-failed")
+                integrity_note("credential-scan-failed")
             for output in child_outputs:
                 try:
                     if scanner.scan_bytes(output):
-                        note("credential-child-output-detected")
+                        integrity_note("credential-child-output-detected")
                 except BaseException:
-                    note("credential-child-output-scan-failed")
+                    integrity_note("credential-child-output-scan-failed")
             expected = ambient_snapshots.get("codex-auth.json")
             if expected is not None:
                 try:
@@ -528,9 +624,9 @@ def _scan_and_teardown(
                         max_bytes=CREDENTIAL_MAX_BYTES,
                     )
                     if current != expected:
-                        note("codex-ambient-credential-drift")
+                        integrity_note("codex-ambient-credential-drift")
                 except BaseException:
-                    note("codex-ambient-credential-drift")
+                    integrity_note("codex-ambient-credential-drift")
 
         if remove_targets:
             remove_file(claude_dest)
@@ -543,13 +639,14 @@ def _scan_and_teardown(
             except FileNotFoundError:
                 continue
             except BaseException:
-                note("cleanup-absence-stat-failed")
+                cleanup_note("cleanup-absence-stat-failed")
             else:
-                note("cleanup-target-present")
+                cleanup_note("cleanup-target-present")
 
         settled = primary
+        notes = [*integrity_notes, *cleanup_notes]
         if notes:
-            if primary.status is Status.PASS:
+            if integrity_notes or primary.status is Status.PASS:
                 settled = ScenarioResult(
                     primary.id,
                     primary.tier,
@@ -1172,7 +1269,29 @@ def _read_regular_file_nofollow(
     return b"".join(chunks)
 
 
-def _read_credential_destination_nofollow(path: Path) -> bytes:
+def _credential_guard(path: Path) -> _CredentialGuard:
+    """Capture one regular, single-link destination without following path components."""
+    path = Path(path)
+    opened = _open_parent_directory_nofollow(path)
+    if opened is None:
+        raise ValueError("credential destination unavailable")
+    try:
+        expected = _entry_status(opened.descriptor, opened.name)
+        if (
+            expected is None
+            or not stat.S_ISREG(expected.st_mode)
+            or expected.st_nlink != 1
+        ):
+            raise ValueError("credential destination unavailable")
+        _verify_parent_unchanged(opened, "credential destination")
+        return _CredentialGuard(path, expected)
+    finally:
+        _close_nofollow_parent(opened)
+
+
+def _read_credential_destination_nofollow(
+    path: Path,
+) -> tuple[bytes, _CredentialGuard]:
     """Read one private credential destination without following a path component."""
     opened = _open_parent_directory_nofollow(path)
     if opened is None:
@@ -1194,8 +1313,16 @@ def _read_credential_destination_nofollow(path: Path) -> bytes:
         )
         if not data or len(data) > CREDENTIAL_MAX_BYTES:
             raise ValueError("credential destination unavailable")
+        current = _entry_status(opened.descriptor, opened.name)
+        if (
+            current is None
+            or not stat.S_ISREG(current.st_mode)
+            or current.st_nlink != 1
+            or not _same_entry(expected, current)
+        ):
+            raise ValueError("credential destination unavailable")
         _verify_parent_unchanged(opened, "credential destination")
-        return data
+        return data, _CredentialGuard(Path(path), current)
     finally:
         _close_nofollow_parent(opened)
 
@@ -1661,7 +1788,10 @@ def setup_host2_credentials(
     scanner: _CredentialScanner,
     child_outputs: list[bytes],
     ambient_snapshots: dict[str, SourceIdentity],
+    credential_guards: dict[str, _CredentialGuard] | None = None,
 ) -> dict[str, dict[str, str]]:
+    if credential_guards is None:
+        credential_guards = {}
     try:
         profiles = _validate_fresh_host2_profile_topology(spec, profile_root)
         host2 = Path(host2)
@@ -1695,8 +1825,9 @@ def setup_host2_credentials(
     if claude_result.status is not CredentialStatus.OK or claude_result.dest is None:
         raise ValueError("host2 credential unavailable: claude-code")
     try:
-        raw = _read_credential_destination_nofollow(claude_result.dest)
+        raw, guard = _read_credential_destination_nofollow(claude_result.dest)
         _seed_credential_scanner(scanner, raw, "claude-code")
+        credential_guards["claude-code"] = guard
     except (OSError, ValueError, TypeError):
         raise ValueError("host2 credential unavailable: claude-code") from None
 
@@ -1713,8 +1844,9 @@ def setup_host2_credentials(
     ):
         raise ValueError("host2 credential unavailable: codex")
     try:
-        raw = _read_credential_destination_nofollow(codex_result.dest)
+        raw, guard = _read_credential_destination_nofollow(codex_result.dest)
         _seed_credential_scanner(scanner, raw, "codex")
+        credential_guards["codex"] = guard
     except (OSError, ValueError, TypeError):
         raise ValueError("host2 credential unavailable: codex") from None
     ambient_snapshots["codex-auth.json"] = codex_result.identity
@@ -2696,6 +2828,7 @@ def run_e3(
     scanner: _CredentialScanner | None = None
     child_outputs: list[bytes] = []
     ambient_snapshots: dict[str, SourceIdentity] = {}
+    credential_guards: dict[str, _CredentialGuard] = {}
     seed_parent: Path | None = None
     host2: Path | None = None
     claude_dest: Path | None = None
@@ -2806,6 +2939,7 @@ def run_e3(
             scanner,
             child_outputs,
             ambient_snapshots,
+            credential_guards,
         )
         capture_spawn = _spawn_with_capture(_spawn, child_outputs)
         for env in host2_agent_envs.values():
@@ -2955,6 +3089,7 @@ def run_e3(
         scratch,
         child_outputs=child_outputs,
         ambient_snapshots=ambient_snapshots,
+        credential_guards=credential_guards,
         claude_dest=claude_dest,
         codex_dest=codex_dest,
         profile_root=profile_root,
