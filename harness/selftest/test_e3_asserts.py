@@ -21,13 +21,11 @@ from bivharness.e3 import (
     CREDENTIAL_ENV_NAMES,
     assert_exact_install_delta,
     assert_resume_containment,
-    assert_one_checkpoint,
     capture_inventory,
     class_j_failures,
     classify_capture,
     format_cleanup_report,
     ordered_turns_present,
-    perform_oauth_checkpoint,
     plant_credential_decoys,
     rejected_credential_names,
     scan_secret_values,
@@ -160,19 +158,43 @@ def _valid_two_agent_spec():
         "seed_retry_resume_command": ["claude", "retry", "{run_token}", "--model", "cheap"],
         "seed_continue_command": ["claude", "continue", "{run_token}", "--model", "cheap"],
         "resume_command": ["claude", "resume", "--model", "cheap"],
-        "liveness_command": ["claude", "--model", "cheap", "-p", "Reply with one token: OK"],
+        "liveness_command": [
+            "claude", "--model", "cheap", "--no-session-persistence", "-p",
+            "Reply with one token: OK",
+        ],
         "resume_mutation": CLAUDE_RESUME_MUTATION,
     }
     claude.pop("resume_shape", None)
     return {
         "id": "cx-range",
         "tier": "E3",
-        "checkpoint_count": 1,
         "seed_turns": ["one", "two"],
         "resume_probe": "probe",
         "credential_scan_sentinels": ["synthetic-secret"],
         "agents": [codex, claude],
     }
+
+
+def test_run_e3_has_no_input_callback_param():
+    import inspect
+
+    assert "input_callback" not in inspect.signature(e3.run_e3).parameters
+
+
+def test_setup_host2_credentials_replaces_checkpoint_helper():
+    assert hasattr(e3, "setup_host2_credentials")
+    assert not hasattr(e3, "perform_oauth_checkpoint")
+    assert not hasattr(e3, "assert_one_checkpoint")
+
+
+def test_validate_spec_rejects_checkpoint_fields():
+    spec = _valid_two_agent_spec()
+    spec["checkpoint_count"] = 1
+    assert any("checkpoint" in failure for failure in e3._validate_spec(spec))
+
+    spec = _valid_two_agent_spec()
+    spec["checkpoint_prompt"] = "x"
+    assert any("checkpoint" in failure for failure in e3._validate_spec(spec))
 
 
 def _live_override_spec():
@@ -284,7 +306,6 @@ def _run_exit_contract_case(
         spec_path,
         Path("/fake/biv"),
         stable_test_root / "scratch",
-        input_callback=lambda prompt: "",
     )
     return result, seen
 
@@ -351,7 +372,7 @@ def _configure_exit_contract_case(
         monkeypatch.setattr(e3, "scan_image_secret_values", raise_post_pack)
     monkeypatch.setattr(
         e3,
-        "perform_oauth_checkpoint",
+        "setup_host2_credentials",
         lambda spec, *args: {agent["id"]: {} for agent in spec["agents"]},
     )
     monkeypatch.setattr(e3, "snapshot_store", lambda *args: {})
@@ -1432,11 +1453,10 @@ def _checkpoint_version_output(command):
     return "2.1.202" if command[0] == "claude" else "0.142.5"
 
 
-def test_oauth_checkpoint_constructs_profiles_and_prints_real_login_commands(tmp_path):
+def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(tmp_path):
     host2 = tmp_path / "host two"
     profile_root = host2 / "profiles"
     calls = []
-    pauses = []
 
     def fake_spawn(command, cwd, env):
         calls.append(command)
@@ -1446,27 +1466,20 @@ def test_oauth_checkpoint_constructs_profiles_and_prints_real_login_commands(tmp
             stderr="",
         )
 
-    def pause(prompt):
-        pauses.append(prompt)
-        assert (host2 / "home").is_dir()
-        assert (profile_root / "claude").is_dir()
-        assert (profile_root / "codex").is_dir()
-        assert f"CLAUDE_CONFIG_DIR='{profile_root / 'claude'}' claude auth login" in prompt
-        assert f"CODEX_HOME='{profile_root / 'codex'}' codex login" in prompt
-        return ""
-
-    envs = perform_oauth_checkpoint(
-        {"agents": _checkpoint_agents()}, host2, profile_root, pause, fake_spawn
+    envs = e3.setup_host2_credentials(
+        {"agents": _checkpoint_agents()}, host2, profile_root, fake_spawn
     )
 
-    assert len(pauses) == 1
+    assert (host2 / "home").is_dir()
+    assert (profile_root / "claude").is_dir()
+    assert (profile_root / "codex").is_dir()
     assert set(envs) == {"claude-code", "codex"}
     assert calls[-1][0] == "claude"
     assert "-p" in calls[-1]
 
 
 @pytest.mark.parametrize("failed", [{"claude-code", "codex"}, {"claude-code"}, {"codex"}])
-def test_oauth_checkpoint_rejects_neither_or_one_authenticated_agent(tmp_path, failed):
+def test_setup_host2_credentials_rejects_neither_or_one_authenticated_agent(tmp_path, failed):
     auth_seen = []
 
     def fake_spawn(command, cwd, env):
@@ -1476,15 +1489,17 @@ def test_oauth_checkpoint_rejects_neither_or_one_authenticated_agent(tmp_path, f
             return SimpleNamespace(returncode=1 if agent in failed else 0, stdout="", stderr="")
         return SimpleNamespace(returncode=0, stdout="2.1.202 0.142.5", stderr="")
 
-    with pytest.raises(ValueError, match="host2 authentication missing"):
-        perform_oauth_checkpoint(
-            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
-            lambda prompt: "", fake_spawn,
+    with pytest.raises(ValueError, match="host2 credential unavailable"):
+        e3.setup_host2_credentials(
+            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
         )
-    assert auth_seen == ["claude-code", "codex"]
+    expected_seen = ["claude-code"]
+    if "claude-code" not in failed:
+        expected_seen.append("codex")
+    assert auth_seen == expected_seen
 
 
-def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
+def test_setup_host2_credentials_rejects_failed_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
         if command[0] == "claude" and "-p" in command:
             return SimpleNamespace(returncode=1, stdout="", stderr="offline")
@@ -1495,13 +1510,12 @@ def test_oauth_checkpoint_rejects_failed_claude_liveness(tmp_path):
         )
 
     with pytest.raises(ValueError, match="liveness"):
-        perform_oauth_checkpoint(
-            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
-            lambda prompt: "", fake_spawn,
+        e3.setup_host2_credentials(
+            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
         )
 
 
-def test_oauth_checkpoint_rejects_multi_token_claude_liveness(tmp_path):
+def test_setup_host2_credentials_rejects_multi_token_claude_liveness(tmp_path):
     def fake_spawn(command, cwd, env):
         output = (
             "too many tokens"
@@ -1511,13 +1525,12 @@ def test_oauth_checkpoint_rejects_multi_token_claude_liveness(tmp_path):
         return SimpleNamespace(returncode=0, stdout=output, stderr="")
 
     with pytest.raises(ValueError, match="one token"):
-        perform_oauth_checkpoint(
-            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
-            lambda prompt: "", fake_spawn,
+        e3.setup_host2_credentials(
+            {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
         )
 
 
-def test_oauth_checkpoint_retries_claude_liveness_once(tmp_path):
+def test_setup_host2_credentials_retries_claude_liveness_once(tmp_path):
     liveness_calls = 0
 
     def fake_spawn(command, cwd, env):
@@ -1535,15 +1548,14 @@ def test_oauth_checkpoint_retries_claude_liveness_once(tmp_path):
             stderr="",
         )
 
-    perform_oauth_checkpoint(
-        {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
-        lambda prompt: "", fake_spawn,
+    e3.setup_host2_credentials(
+        {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
     )
     assert liveness_calls == 2
 
 
 @pytest.mark.parametrize("first_failure", ["multi-token", "timeout", "oserror"])
-def test_oauth_checkpoint_retries_invalid_or_exceptional_liveness_once(tmp_path, first_failure):
+def test_setup_host2_credentials_retries_invalid_or_exceptional_liveness_once(tmp_path, first_failure):
     liveness_calls = 0
 
     def fake_spawn(command, cwd, env):
@@ -1562,9 +1574,8 @@ def test_oauth_checkpoint_retries_invalid_or_exceptional_liveness_once(tmp_path,
             stderr="",
         )
 
-    perform_oauth_checkpoint(
-        {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles",
-        lambda prompt: "", fake_spawn,
+    e3.setup_host2_credentials(
+        {"agents": _checkpoint_agents()}, tmp_path / "host2", tmp_path / "profiles", fake_spawn
     )
     assert liveness_calls == 2
 
@@ -2278,13 +2289,12 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
     monkeypatch.setattr(e3, "_seed_agent", fake_seed)
     monkeypatch.setattr(e3, "scan_image_secret_values", capturing_scan)
-    monkeypatch.setattr(e3, "perform_oauth_checkpoint", stop_after_scan)
+    monkeypatch.setattr(e3, "setup_host2_credentials", stop_after_scan)
 
     result = e3.run_e3(
         scenario,
         stub_biv,
         scratch,
-        input_callback=lambda prompt: "",
     )
 
     assert result.status is Status.INVALID
@@ -2365,7 +2375,7 @@ def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
 
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
     try:
-        result = e3.run_e3(scenario, Path("biv"), scratch, input_callback=lambda prompt: "")
+        result = e3.run_e3(scenario, Path("biv"), scratch)
         expected = scratch / "host2" / "work"
         assert result.status is Status.FAIL
         assert result.detail == (
@@ -2956,14 +2966,13 @@ def test_checkpoint_version_gate_enforces_the_enumerated_set(tmp_path, version, 
         {"agents": _checkpoint_agents()},
         host2,
         host2 / "profiles",
-        lambda prompt: "",
         fake_spawn,
     )
     if accepted:
-        perform_oauth_checkpoint(*args)
+        e3.setup_host2_credentials(*args)
     else:
         with pytest.raises(ValueError, match="host2 version is outside the validated range"):
-            perform_oauth_checkpoint(*args)
+            e3.setup_host2_credentials(*args)
 
 
 def _symlinked_ancestor(tmp_path):
@@ -3653,7 +3662,6 @@ def _schema_shape_cases():
         cases.extend((f"{label}-{kind}", value, mutate) for kind, value in values)
 
     add("id", scalar, lambda spec, value: spec.__setitem__("id", value))
-    add("checkpoint_prompt", scalar, lambda spec, value: spec.__setitem__("checkpoint_prompt", value))
     add("workspace_name", scalar, lambda spec, value: spec.__setitem__("workspace_name", value))
     add("host2_profile_root", scalar, lambda spec, value: spec.__setitem__("host2_profile_root", value))
     add("resume_probe", scalar, lambda spec, value: spec.__setitem__("resume_probe", value))
@@ -4927,7 +4935,6 @@ def test_e3_spec_validation_rejects_dead_or_wrong_resume_shape():
     }
     spec = {
         "tier": "E3",
-        "checkpoint_count": 1,
         "seed_turns": ["one", "two"],
         "resume_probe": "probe",
         "agents": [
@@ -4936,14 +4943,6 @@ def test_e3_spec_validation_rejects_dead_or_wrong_resume_shape():
         ],
     }
     assert "Claude resume mutation must match the pinned shape" in e3._validate_spec(spec)
-
-
-def test_checkpoint_cardinality_is_exactly_one():
-    assert_one_checkpoint(["oauth"])
-    with pytest.raises(ValueError, match="exactly one"):
-        assert_one_checkpoint([])
-    with pytest.raises(ValueError, match="exactly one"):
-        assert_one_checkpoint(["oauth", "oauth-again"])
 
 
 @pytest.mark.parametrize("name", CREDENTIAL_ENV_NAMES)

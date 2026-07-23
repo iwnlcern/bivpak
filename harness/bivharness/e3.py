@@ -508,11 +508,6 @@ def verify_credential_decoys(workspace: Path, paths: list[Path], sentinels: list
         raise ValueError("controlled credential-shaped decoy format invalid")
 
 
-def assert_one_checkpoint(checkpoints: list[str]) -> None:
-    if len(checkpoints) != 1:
-        raise ValueError(f"expected exactly one OAuth checkpoint, got {len(checkpoints)}")
-
-
 def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -596,37 +591,25 @@ def _login_instruction(agent: dict[str, Any], profile: Path, *, live: bool) -> s
     return " ".join(part for part in (assignments, shlex.join(command)) if part)
 
 
-def perform_oauth_checkpoint(
+def setup_host2_credentials(
     spec: dict[str, Any],
     host2: Path,
     profile_root: Path,
-    input_callback: Callable[[str], str],
     spawn: Callable[[list[str], Path, dict[str, str]], Any],
 ) -> dict[str, dict[str, str]]:
     home = host2 / "home"
     home.mkdir(parents=True, exist_ok=True)
     contexts: list[tuple[dict[str, Any], Path, dict[str, str]]] = []
-    instructions: list[str] = []
     for agent in spec["agents"]:
         profile = _agent_profile(agent, profile_root, live=False)
         profile.mkdir(parents=True, exist_ok=True)
         env = _agent_env(agent, profile, live=False)
         env["HOME"] = str(home)
         contexts.append((agent, profile, env))
-        instructions.append(_login_instruction(agent, profile, live=False))
 
-    checkpoints = ["host2-oauth"]
-    assert_one_checkpoint(checkpoints)
-    prompt = spec.get("checkpoint_prompt", "Authenticate both isolated CLIs, then press Enter.")
-    input_callback(prompt + "\n" + "\n".join(instructions) + "\n")
-
-    auth_failures: list[str] = []
     for agent, _, env in contexts:
-        result = spawn(agent["auth_status"], host2, env)
-        if result.returncode != 0:
-            auth_failures.append(agent["id"])
-    if auth_failures:
-        raise ValueError("host2 authentication missing: " + ", ".join(auth_failures))
+        if spawn(agent["auth_status"], host2, env).returncode != 0:
+            raise ValueError(f"host2 credential unavailable: {agent['id']}")
 
     for agent, _, env in contexts:
         version = spawn(agent["version_command"], host2, env)
@@ -942,9 +925,10 @@ def _validate_spec(spec: object) -> list[str]:
     require_string(spec, "id", "scenario id")
     if spec.get("tier") != "E3":
         failures.append("scenario tier must be E3")
-    if spec.get("checkpoint_count") != 1:
-        failures.append("scenario must declare exactly one checkpoint")
-    optional_string(spec, "checkpoint_prompt", "checkpoint_prompt")
+    if "checkpoint_count" in spec:
+        failures.append("checkpoint_count must not be declared (run is non-interactive)")
+    if "checkpoint_prompt" in spec:
+        failures.append("checkpoint_prompt must not be declared (run is non-interactive)")
     optional_string(spec, "workspace_name", "workspace_name")
     optional_string(spec, "host2_profile_root", "host2_profile_root")
     optional_string_list(spec, "live_store_roots", "live_store_roots")
@@ -1316,7 +1300,6 @@ def run_e3(
     scratch: Path,
     *,
     dry_run: bool = False,
-    input_callback: Callable[[str], str] = input,
 ) -> ScenarioResult:
     try:
         spec = json.loads(spec_path.read_text(encoding="utf-8"))
@@ -1370,9 +1353,9 @@ def run_e3(
     def _run_result(status: Status, detail: str) -> ScenarioResult:
         return _result(spec, status, detail, warnings=list(run_warnings))
 
-    # Live execution is intentionally explicit: this path owns real API calls and one
-    # operator OAuth checkpoint. The scenario supplies commands so CLI surface changes
-    # cannot silently alter the safety predicates in this runner.
+    # Live execution is intentionally explicit: this path owns real API calls. The
+    # scenario supplies commands so CLI surface changes cannot silently alter the
+    # safety predicates in this runner.
     seed_parent = scratch / "seed-ws"
     seed_ws = scratch / "seed-ws" / spec.get("workspace_name", "resume-e3")
     host2 = scratch / "host2"
@@ -1444,9 +1427,7 @@ def run_e3(
         if image_secret_hits:
             raise ValueError("credential sentinel found in image: " + ", ".join(image_secret_hits))
 
-        host2_agent_envs = perform_oauth_checkpoint(
-            spec, host2, profile_root, input_callback, _spawn
-        )
+        host2_agent_envs = setup_host2_credentials(spec, host2, profile_root, _spawn)
         for env in host2_agent_envs.values():
             host2_env.update(env)
         pre_open_stores = {
