@@ -316,7 +316,8 @@ class _CredentialScanner:
                             else None
                         )
                         if guarded_exclusions is not None and (
-                            guard is None or not _same_entry(guard, expected)
+                            guard is None
+                            or not self._regular_snapshot_matches(guard, expected)
                         ):
                             invalid_exclusions.add(path)
                             return True
@@ -625,7 +626,10 @@ def _scan_and_teardown(
                         current is None
                         or not stat.S_ISREG(current.st_mode)
                         or current.st_nlink != 1
-                        or not _same_entry(guard.status, current)
+                        or not _CredentialScanner._regular_snapshot_matches(
+                            guard.status,
+                            current,
+                        )
                     ):
                         return None
                     _verify_parent_unchanged(opened, "credential exclusion")

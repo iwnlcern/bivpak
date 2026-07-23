@@ -4691,6 +4691,18 @@ def _current_credential_guards(claude_dest, codex_dest):
     }
 
 
+def _same_entry_changed_metadata(status):
+    return SimpleNamespace(
+        st_dev=status.st_dev,
+        st_ino=status.st_ino,
+        st_mode=status.st_mode,
+        st_nlink=status.st_nlink,
+        st_size=status.st_size + 1,
+        st_mtime_ns=status.st_mtime_ns + 1,
+        st_ctime_ns=status.st_ctime_ns + 1,
+    )
+
+
 def _guarded_teardown_paths(tmp_path):
     scratch = tmp_path / "scratch"
     seed_parent = scratch / "seed-ws"
@@ -4971,6 +4983,95 @@ def test_scan_and_teardown_binds_guard_identity_inside_exclusion_traversal(
             return super().scan_tree_guarded(root, exclusion_guards)
 
     scanner = ReplacingScanner()
+    scanner.add_value(b"guarded-teardown-secret")
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, [], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.INVALID
+    assert "credential-exclusion-integrity-failed" in final.warnings
+
+
+def test_scan_and_teardown_rejects_changed_guard_metadata_before_scan(
+    monkeypatch,
+    tmp_path,
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+    real_entry_status = e3._entry_status
+
+    def changed_entry_status(parent_descriptor, name):
+        current = real_entry_status(parent_descriptor, name)
+        if current is not None and name == codex_dest.name:
+            return _same_entry_changed_metadata(current)
+        return current
+
+    class RecordingScanner(e3._CredentialScanner):
+        def scan_tree_guarded(self, *args):
+            scan_calls.append(args)
+            return e3._CredentialScanOutcome(False, False)
+
+    monkeypatch.setattr(e3, "_entry_status", changed_entry_status)
+    scan_calls = []
+    scanner = RecordingScanner()
+    scanner.add_value(b"guarded-teardown-secret")
+
+    final = e3._scan_and_teardown(
+        ScenarioResult("e3", "E3", Status.PASS, [], detail="passed"),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards=guards,
+        claude_dest=claude_dest,
+        codex_dest=codex_dest,
+        profile_root=profile_root,
+        host2=host2,
+        seed_parent=seed_parent,
+    )
+
+    assert final.status is Status.INVALID
+    assert "credential-exclusion-integrity-failed" in final.warnings
+    assert scan_calls == []
+
+
+def test_scan_and_teardown_rejects_changed_guard_metadata_during_traversal(
+    tmp_path,
+):
+    (
+        scratch,
+        seed_parent,
+        host2,
+        profile_root,
+        claude_dest,
+        codex_dest,
+        guards,
+    ) = _guarded_teardown_paths(tmp_path)
+
+    class MetadataDriftScanner(e3._CredentialScanner):
+        def scan_tree_guarded(self, root, exclusion_guards):
+            changed = dict(exclusion_guards)
+            changed[codex_dest] = _same_entry_changed_metadata(changed[codex_dest])
+            return super().scan_tree_guarded(root, changed)
+
+    scanner = MetadataDriftScanner()
     scanner.add_value(b"guarded-teardown-secret")
     final = e3._scan_and_teardown(
         ScenarioResult("e3", "E3", Status.PASS, [], detail="passed"),
