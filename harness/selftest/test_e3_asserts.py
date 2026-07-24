@@ -1,5 +1,7 @@
+import ast
 import hashlib
 import io
+import inspect
 import json
 import multiprocessing
 import os
@@ -10,8 +12,11 @@ import stat
 import sys
 import tarfile
 import tempfile
+import textwrap
 import time
 import unicodedata
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9446,3 +9451,366 @@ def test_e3_adversary_seed_fake_captures_roots_and_owns_transcript(tmp_path):
     assert captured == {"content": "SEEDEXTRA", "notes": []}
     assert transcript == seed_workspace / "seen-codex.jsonl"
     assert owned_paths == [transcript]
+
+
+@dataclass(frozen=True)
+class GuardCheck:
+    name: str
+    run: Callable[["_A4SyntheticState"], tuple[str, str]]
+
+
+@dataclass(frozen=True)
+class _A4GuardVerdict:
+    name: str
+    status: str
+    reason_token: str
+
+    def render(self) -> str:
+        return f"{self.name}={self.status}({self.reason_token})"
+
+
+@dataclass
+class _A4SyntheticState:
+    owned: tuple[Path, ...]
+    scratch: Path
+    pack: Callable[[], object]
+    image: Path
+    sentinels: tuple[str, ...]
+    profile_root: Path
+    spec: dict
+    pack_ran: bool = False
+    pack_result: object | None = None
+    before_pack: dict[Path, str] = field(default_factory=dict)
+    after_pack: dict[Path, str] = field(default_factory=dict)
+
+
+_A4_ALLOWED_VERDICTS = {
+    "negative-control": frozenset(
+        {("PASS", "ok"), ("INVALID", "negative-control")}
+    ),
+    "pack-exit-contract": frozenset(
+        {("PASS", "ok"), ("FAIL", "pack-exit-contract")}
+    ),
+    "pack-mutation": frozenset(
+        {("PASS", "ok"), ("INVALID", "pack-mutation")}
+    ),
+    "credential-scan": frozenset(
+        {
+            ("PASS", "ok"),
+            ("FAIL", "credential-scan"),
+            ("FAIL", "member[i]:secret"),
+            ("NOT_EVALUABLE", "no-image"),
+        }
+    ),
+    "c1-drift": frozenset({("PASS", "ok"), ("INVALID", "c1-drift")}),
+    "c1-zero-session": frozenset(
+        {("PASS", "ok"), ("INVALID", "c1-zero-session")}
+    ),
+}
+
+
+def _a4_synthetic_state(**kwargs) -> _A4SyntheticState:
+    return _A4SyntheticState(**kwargs)
+
+
+def _a4_empty_host2_profile(root: Path) -> Path:
+    (root / "claude-code" / "projects").mkdir(parents=True)
+    codex = root / "codex"
+    (codex / "sessions").mkdir(parents=True)
+    (codex / "archived_sessions").mkdir()
+    (codex / "session_index.jsonl").write_bytes(b"")
+    return root
+
+
+def _a4_image_with_secret(image: Path, member_name: str, sentinel: str) -> Path:
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode="w") as archive:
+        content = sentinel.encode()
+        member = tarfile.TarInfo(member_name)
+        member.size = len(content)
+        archive.addfile(member, io.BytesIO(content))
+    image.write_bytes(zstandard.ZstdCompressor().compress(raw.getvalue()))
+    return image
+
+
+def _a4_ensure_pack(state: _A4SyntheticState) -> None:
+    if state.pack_ran:
+        return
+    state.before_pack = {path: e3._hash(path) for path in state.owned}
+    state.pack_result = state.pack()
+    state.after_pack = {path: e3._hash(path) for path in state.owned}
+    state.pack_ran = True
+
+
+def _a4_negative_control(state: _A4SyntheticState) -> tuple[str, str]:
+    failures = e3._negative_control_failures(list(state.owned), state.scratch)
+    return ("INVALID", "negative-control") if failures else ("PASS", "ok")
+
+
+def _a4_pack_exit_contract(state: _A4SyntheticState) -> tuple[str, str]:
+    _a4_ensure_pack(state)
+    outcome = e3._biv_envelope_outcome(state.pack_result, "pack")
+    return ("PASS", "ok") if outcome.ok else ("FAIL", "pack-exit-contract")
+
+
+def _a4_pack_mutation(state: _A4SyntheticState) -> tuple[str, str]:
+    _a4_ensure_pack(state)
+    if state.after_pack != state.before_pack:
+        return ("INVALID", "pack-mutation")
+    return ("PASS", "ok")
+
+
+def _a4_readable_image(image: Path) -> bool:
+    try:
+        if not image.is_file():
+            return False
+        with image.open("rb") as stream:
+            stream.read(1)
+    except OSError:
+        return False
+    return True
+
+
+def _a4_credential_scan(state: _A4SyntheticState) -> tuple[str, str]:
+    if not _a4_readable_image(state.image):
+        return ("NOT_EVALUABLE", "no-image")
+    try:
+        hits = e3.scan_image_secret_values(state.image, list(state.sentinels))
+    except Exception:
+        return ("FAIL", "credential-scan")
+    if hits:
+        return ("FAIL", "member[i]:secret")
+    return ("PASS", "ok")
+
+
+def _a4_c1_drift(state: _A4SyntheticState) -> tuple[str, str]:
+    del state
+    failures = e3._c1_drift_tripwire_failures()
+    return ("INVALID", "c1-drift") if failures else ("PASS", "ok")
+
+
+def _a4_c1_zero_session(state: _A4SyntheticState) -> tuple[str, str]:
+    failures = e3._c1_zero_session_failures(state.profile_root, state.spec)
+    return ("INVALID", "c1-zero-session") if failures else ("PASS", "ok")
+
+
+# This registry is the six-check offline inventory. The governed-region digest
+# below is the drift backstop: any pin change is a hard STOP-and-review, never
+# an automatic registry update.
+A4_OFFLINE_GUARD_REGISTRY = (
+    GuardCheck("negative-control", _a4_negative_control),
+    GuardCheck("pack-exit-contract", _a4_pack_exit_contract),
+    GuardCheck("pack-mutation", _a4_pack_mutation),
+    GuardCheck("credential-scan", _a4_credential_scan),
+    GuardCheck("c1-drift", _a4_c1_drift),
+    GuardCheck("c1-zero-session", _a4_c1_zero_session),
+)
+
+
+def collect_a4_offline_guards(
+    state: _A4SyntheticState,
+) -> tuple[_A4GuardVerdict, ...]:
+    verdicts = []
+    for check in A4_OFFLINE_GUARD_REGISTRY:
+        status, reason_token = check.run(state)
+        assert (status, reason_token) in _A4_ALLOWED_VERDICTS[check.name]
+        verdicts.append(_A4GuardVerdict(check.name, status, reason_token))
+    return tuple(verdicts)
+
+
+def _a4_assigned_call_name(statement: ast.stmt) -> str | None:
+    if not isinstance(statement, ast.Assign):
+        return None
+    call = statement.value
+    if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name):
+        return None
+    return call.func.id
+
+
+def _a4_guard_region_source(source: str | None = None) -> str:
+    normalized = textwrap.dedent(source or inspect.getsource(e3.run_e3))
+    tree = ast.parse(normalized)
+    matches = []
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(body, list):
+            continue
+        start_indexes = [
+            index
+            for index, statement in enumerate(body)
+            if _a4_assigned_call_name(statement) == "_negative_control_failures"
+        ]
+        end_indexes = [
+            index
+            for index, statement in enumerate(body)
+            if _a4_assigned_call_name(statement) == "_c1_zero_session_failures"
+        ]
+        for start_index in start_indexes:
+            for end_index in end_indexes:
+                if start_index < end_index:
+                    matches.append((body, start_index, end_index))
+    if len(matches) != 1:
+        raise AssertionError("run_e3 pre-open guard region anchors are not unique")
+    body, start_index, end_index = matches[0]
+    final_guard_index = end_index + 1
+    if final_guard_index >= len(body):
+        raise AssertionError("run_e3 zero-session guard is missing")
+    final_guard = body[final_guard_index]
+    if not (
+        isinstance(final_guard, ast.If)
+        and isinstance(final_guard.test, ast.Name)
+        and final_guard.test.id == "zero_session_failures"
+    ):
+        raise AssertionError("run_e3 zero-session guard shape changed")
+    lines = normalized.splitlines(keepends=True)
+    first = body[start_index]
+    return "".join(lines[first.lineno - 1 : final_guard.end_lineno])
+
+
+def e3_guard_region_signature(source: str | None = None) -> str:
+    region = _a4_guard_region_source(source)
+    complete_region = ast.dump(ast.parse(textwrap.dedent(region)))
+    return hashlib.sha256(complete_region.encode()).hexdigest()
+
+
+_EXPECTED_GUARD_REGION_SIG = (
+    "90604557fd3f1d6f15d3298bf10f6cb56936179f85137dc009fb361015258c24"
+)
+
+
+def test_a4_offline_collector_registry_is_exact_and_multi_failure_is_value_free(
+    tmp_path,
+    monkeypatch,
+):
+    scratch = tmp_path / "synthetic-scratch"
+    scratch.mkdir()
+    owned = tmp_path / "owned.jsonl"
+    scratch_alias = str(scratch).replace("/private/var/", "/var/", 1)
+    assert scratch_alias != str(scratch)
+    owned.write_text(json.dumps({"observed": scratch_alias}) + "\n", encoding="utf-8")
+    sentinel = "a4-private-sentinel-" + "7" * 48
+    raw_member = "payload/raw-private-member-name.env"
+    image = _a4_image_with_secret(tmp_path / "synthetic.bvpk", raw_member, sentinel)
+    profile_root = _a4_empty_host2_profile(tmp_path / "host2-profiles")
+
+    def mutating_pack():
+        owned.write_text(
+            json.dumps({"observed": scratch_alias, "changed": True}) + "\n",
+            encoding="utf-8",
+        )
+        return _successful_pack()
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=mutating_pack,
+        image=image,
+        sentinels=(sentinel,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+    observed_states = []
+
+    def observe_state(run):
+        def observed(state):
+            observed_states.append(state)
+            return run(state)
+
+        return observed
+
+    monkeypatch.setitem(
+        globals(),
+        "A4_OFFLINE_GUARD_REGISTRY",
+        tuple(
+            GuardCheck(check.name, observe_state(check.run))
+            for check in A4_OFFLINE_GUARD_REGISTRY
+        ),
+    )
+
+    verdicts = collect_a4_offline_guards(state)
+
+    assert tuple(check.name for check in A4_OFFLINE_GUARD_REGISTRY) == (
+        "negative-control",
+        "pack-exit-contract",
+        "pack-mutation",
+        "credential-scan",
+        "c1-drift",
+        "c1-zero-session",
+    )
+    assert observed_states == [state] * 6
+    assert tuple(verdict.render() for verdict in verdicts) == (
+        "negative-control=INVALID(negative-control)",
+        "pack-exit-contract=PASS(ok)",
+        "pack-mutation=INVALID(pack-mutation)",
+        "credential-scan=FAIL(member[i]:secret)",
+        "c1-drift=PASS(ok)",
+        "c1-zero-session=PASS(ok)",
+    )
+    assert sum(verdict.status != "PASS" for verdict in verdicts) >= 2
+    rendered = "\n".join(verdict.render() for verdict in verdicts)
+    assert sentinel not in rendered
+    assert raw_member not in rendered
+
+
+def test_a4_offline_collector_producer_chain_binds_simultaneous_verdicts(
+    tmp_path,
+    monkeypatch,
+):
+    scratch = tmp_path / "synthetic-scratch"
+    scratch.mkdir()
+    owned = tmp_path / "owned.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    missing_image = tmp_path / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(tmp_path / "host2-profiles")
+
+    def failed_mutating_pack():
+        owned.write_text('{"turn":"changed-during-failed-pack"}\n', encoding="utf-8")
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        e3,
+        "scan_image_secret_values",
+        lambda *_args: pytest.fail("credential scan evaluated without a readable image"),
+    )
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_mutating_pack,
+        image=missing_image,
+        sentinels=("a4-private-sentinel-" + "8" * 48,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    verdicts = collect_a4_offline_guards(state)
+    by_name = {verdict.name: verdict.render() for verdict in verdicts}
+
+    assert by_name["pack-exit-contract"] == (
+        "pack-exit-contract=FAIL(pack-exit-contract)"
+    )
+    assert by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)"
+    assert by_name["credential-scan"] == (
+        "credential-scan=NOT_EVALUABLE(no-image)"
+    )
+    assert len(verdicts) == 6
+
+
+def test_a4_offline_collector_guard_region_signature_is_pinned():
+    assert e3_guard_region_signature() == _EXPECTED_GUARD_REGION_SIG
+
+
+def test_a4_offline_collector_guard_region_copy_mutation_changes_signature():
+    source = __import__("inspect").getsource(e3.run_e3)
+    anchor = "        zero_session_failures = _c1_zero_session_failures("
+    seventh_guard = (
+        "        if synthetic_seventh_guard:\n"
+        '            raise RuntimeError("synthetic seventh pre-open guard")\n'
+    )
+    mutated = source.replace(anchor, seventh_guard + anchor, 1)
+    assert mutated != source
+
+    assert e3_guard_region_signature(mutated) != _EXPECTED_GUARD_REGION_SIG
