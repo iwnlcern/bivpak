@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -49,3 +50,7 @@ class Report:
                 for r in self.results
             ],
         }
+
+
+def serialize_report(results: list[ScenarioResult]) -> str:
+    return json.dumps(Report(results).to_json(), indent=2, sort_keys=True) + "\n"
