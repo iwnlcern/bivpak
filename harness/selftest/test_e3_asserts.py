@@ -1,4 +1,5 @@
 import ast
+import contextlib
 import hashlib
 import io
 import inspect
@@ -9744,6 +9745,7 @@ class _A4GuardVerdict:
 
 
 _A4_MISSING = object()
+_A4_HASH_CHUNK_BYTES = 64 * 1024
 
 
 @dataclass
@@ -9810,11 +9812,34 @@ def _a4_image_with_secret(image: Path, member_name: str, sentinel: str) -> Path:
     return image
 
 
+def _a4_hash_owned_path(path: Path) -> str | object:
+    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW
+    descriptor = os.open(path, flags)
+    try:
+        identity = os.fstat(descriptor)
+        if not stat.S_ISREG(identity.st_mode):
+            return _A4_MISSING
+
+        digest = hashlib.sha256()
+        remaining = identity.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(_A4_HASH_CHUNK_BYTES, remaining))
+            if not chunk:
+                return _A4_MISSING
+            digest.update(chunk)
+            remaining -= len(chunk)
+        if os.read(descriptor, 1):
+            return _A4_MISSING
+        return digest.hexdigest()
+    finally:
+        os.close(descriptor)
+
+
 def _a4_owned_snapshot(owned: tuple[Path, ...]) -> dict[Path, object]:
     snapshot = {}
     for path in owned:
         try:
-            snapshot[path] = e3._hash(path)
+            snapshot[path] = _a4_hash_owned_path(path)
         except OSError:
             snapshot[path] = _A4_MISSING
     return snapshot
@@ -10277,12 +10302,14 @@ def test_a4_offline_collector_unreadable_pack_returns_value_free_six_verdicts(
     missing_image = sensitive_root / "pack-never-produced.bvpk"
     profile_root = _a4_empty_host2_profile(sensitive_root / "host2-profiles")
     pack_calls = 0
-    real_hash = e3._hash
+    real_open = os.open
 
-    def mode_aware_hash(path):
-        if path == owned and not (path.stat().st_mode & 0o444):
+    def mode_aware_open(path, flags, *args, **kwargs):
+        if os.fspath(path) == os.fspath(owned) and not (
+            owned.stat().st_mode & 0o444
+        ):
             raise PermissionError("sensitive-path-must-not-render")
-        return real_hash(path)
+        return real_open(path, flags, *args, **kwargs)
 
     def successful_unreadable_pack():
         nonlocal pack_calls
@@ -10290,7 +10317,7 @@ def test_a4_offline_collector_unreadable_pack_returns_value_free_six_verdicts(
         owned.chmod(0)
         return _successful_pack()
 
-    monkeypatch.setattr(e3, "_hash", mode_aware_hash)
+    monkeypatch.setattr(os, "open", mode_aware_open)
     monkeypatch.setattr(
         e3,
         "scan_image_secret_values",
@@ -10323,6 +10350,192 @@ def test_a4_offline_collector_unreadable_pack_returns_value_free_six_verdicts(
         )
     finally:
         owned.chmod(0o600)
+
+
+def _a4_fifo_collector_worker(root_text: str, result_sender) -> None:
+    root = Path(root_text)
+    sensitive = root.name
+    scratch = root / "synthetic-scratch"
+    scratch.mkdir()
+    owned = root / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    missing_image = root / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(root / "host2-profiles")
+    pack_calls = 0
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+
+    def failed_fifo_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        owned.unlink()
+        os.mkfifo(owned)
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_fifo_pack,
+        image=missing_image,
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    try:
+        with (
+            contextlib.redirect_stdout(captured_out),
+            contextlib.redirect_stderr(captured_err),
+        ):
+            verdicts = collect_a4_offline_guards(state)
+    except Exception:
+        result_sender.send(("raised",))
+    else:
+        result_sender.send(
+            (
+                "ok",
+                tuple(verdict.render() for verdict in verdicts),
+                pack_calls,
+                state.pack_ran,
+                captured_out.getvalue(),
+                captured_err.getvalue(),
+            )
+        )
+    finally:
+        result_sender.close()
+
+
+def test_a4_offline_collector_fifo_pack_completes_with_value_free_six_verdicts(
+    tmp_path,
+):
+    sensitive = "bive3-sentinel-" + "f" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    context = multiprocessing.get_context("spawn")
+    result_receiver, result_sender = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_a4_fifo_collector_worker,
+        args=(str(sensitive_root), result_sender),
+    )
+
+    started = False
+    try:
+        process.start()
+        started = True
+        result_sender.close()
+        process.join(3.0)
+        if process.is_alive():
+            pytest.fail("a4-fifo-collector-timeout", pytrace=False)
+        _assert_fixed(process.exitcode == 0, "a4-fifo-collector-process-failed")
+        _assert_fixed(result_receiver.poll(1.0), "a4-fifo-collector-result-missing")
+        result = result_receiver.recv()
+    finally:
+        result_receiver.close()
+        result_sender.close()
+        if started and process.is_alive():
+            with contextlib.suppress(OSError):
+                process.terminate()
+            process.join(1.0)
+            if process.is_alive():
+                with contextlib.suppress(OSError):
+                    process.kill()
+                process.join(1.0)
+
+    _assert_fixed(result[0] == "ok", "a4-fifo-collector-raised")
+    _, rendered, pack_calls, pack_ran, captured_out, captured_err = result
+    by_name = {row.partition("=")[0]: row for row in rendered}
+    _assert_fixed(
+        len(rendered) == 6,
+        "a4-fifo-collector-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-fifo-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-fifo-pack-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-fifo-scan-verdict-mismatch",
+    )
+    _assert_fixed(pack_calls == 1, "a4-fifo-pack-call-count-mismatch")
+    _assert_fixed(pack_ran, "a4-fifo-pack-not-recorded")
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured_out, captured_err),
+        "a4-fifo-rendered-sensitive-value",
+    )
+
+
+def test_a4_hash_owned_path_rejects_fifo_before_read(tmp_path, monkeypatch):
+    fifo = tmp_path / "owned.fifo"
+    os.mkfifo(fifo)
+
+    def fail_read(_descriptor, _size):
+        raise RuntimeError("a4-fifo-content-read-attempted")
+
+    monkeypatch.setattr(os, "read", fail_read)
+
+    _assert_fixed(
+        _a4_hash_owned_path(fifo) is _A4_MISSING,
+        "a4-fifo-not-classified-as-missing",
+    )
+
+
+def test_a4_owned_snapshot_propagates_non_oserror_failure(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "owned.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+
+    def fail_with_non_oserror(_path):
+        raise RuntimeError("a4-fixed-non-oserror-snapshot-failure")
+
+    monkeypatch.setitem(
+        globals(),
+        "_a4_hash_owned_path",
+        fail_with_non_oserror,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="^a4-fixed-non-oserror-snapshot-failure$",
+    ):
+        _a4_owned_snapshot((owned,))
+
+
+def test_a4_ensure_pack_propagates_non_oserror_pack_failure(tmp_path):
+    owned = tmp_path / "owned.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+
+    def fail_pack():
+        raise RuntimeError("a4-fixed-non-oserror-pack-failure")
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=tmp_path,
+        pack=fail_pack,
+        image=tmp_path / "missing.bvpk",
+        sentinels=("a4-private-sentinel-" + "n" * 48,),
+        profile_root=tmp_path,
+        spec=_valid_two_agent_spec(),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="^a4-fixed-non-oserror-pack-failure$",
+    ):
+        _a4_ensure_pack(state)
+    _assert_fixed(not state.pack_ran, "a4-failed-pack-recorded-as-run")
 
 
 def test_a4_offline_collector_rejects_unbounded_verdict_with_fixed_message(
