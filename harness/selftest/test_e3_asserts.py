@@ -9973,14 +9973,18 @@ def _a4_guard_region_source(source: str | None = None) -> str:
     return "".join(lines[first.lineno - 1 : first_open.end_lineno])
 
 
-def e3_guard_region_signature(source: str | None = None) -> str:
+def _a4_normalized_guard_region_source(source: str | None = None) -> str:
     region = _a4_guard_region_source(source)
-    complete_region = ast.dump(ast.parse(textwrap.dedent(region)))
-    return hashlib.sha256(complete_region.encode()).hexdigest()
+    return "\n".join(region.splitlines()) + "\n"
+
+
+def e3_guard_region_signature(source: str | None = None) -> str:
+    normalized_region = _a4_normalized_guard_region_source(source)
+    return hashlib.sha256(normalized_region.encode("utf-8")).hexdigest()
 
 
 _EXPECTED_GUARD_REGION_SIG = (
-    "ac98c9f6d35f3fd8a385b52cf67e364e588f286b2ee4528b1f8b16a8fcc0d0dd"
+    "99365470b020868145c484fca727c7444f4075118cead56a588de19088823e4a"
 )
 
 
@@ -10179,6 +10183,22 @@ def test_a4_offline_collector_rejects_unbounded_verdict_with_fixed_message(
 
 def test_a4_offline_collector_guard_region_signature_is_pinned():
     assert e3_guard_region_signature() == _EXPECTED_GUARD_REGION_SIG
+
+
+def test_a4_offline_collector_guard_region_source_normalization_is_explicit():
+    source = inspect.getsource(e3.run_e3)
+    crlf_source_without_terminal_newline = source.replace("\n", "\r\n").rstrip(
+        "\r\n"
+    )
+
+    normalized = _a4_normalized_guard_region_source(
+        crlf_source_without_terminal_newline
+    )
+
+    assert normalized == _a4_normalized_guard_region_source(source)
+    assert "\r" not in normalized
+    assert normalized.endswith("\n")
+    assert not normalized.endswith("\n\n")
 
 
 def test_a4_offline_collector_guard_region_copy_mutation_changes_signature():
