@@ -8850,3 +8850,308 @@ def test_profile_root_accepts_isolated_native_path(tmp_path):
     live = tmp_path / "live-store"
 
     assert profile_root_failures(root, [live]) == []
+
+
+def _adv():
+    from selftest import _e3_adversary as adv
+
+    return adv
+
+
+def test_e3_adversary_reads_explicit_roots_regular_files_only(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    (root / "z-dir").mkdir(parents=True)
+    (root / "a-dir").mkdir()
+    (root / "z.txt").write_bytes(b"ROOT-Z")
+    (root / "a.txt").write_bytes(b"ROOT-A")
+    (root / "z-dir" / "entry.txt").write_bytes(b"DIR-Z")
+    (root / "a-dir" / "entry.txt").write_bytes(b"DIR-A")
+    real_fwalk = os.fwalk
+
+    def reverse_order_fwalk(*args, **kwargs):
+        for dirpath, dirnames, filenames, dirfd in real_fwalk(*args, **kwargs):
+            dirnames[:] = sorted(dirnames, reverse=True)
+            filenames[:] = sorted(filenames, reverse=True)
+            yield dirpath, dirnames, filenames, dirfd
+
+    monkeypatch.setattr(os, "fwalk", reverse_order_fwalk)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert content == "ROOT-AROOT-ZDIR-ADIR-Z"
+    assert _adv().read_bounded_roots([root]) == (content, notes)
+
+
+def test_e3_adversary_no_symlink_follow_no_out_of_root(tmp_path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "s").write_bytes(b"OUTSIDE")
+    (root / "flink").symlink_to(outside / "s")
+    (root / "dlink").symlink_to(outside)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert "OUTSIDE" not in content
+    assert "skip-open-error" in notes or "skip-nonregular" in notes
+
+
+def test_e3_adversary_per_file_and_total_byte_budget(tmp_path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "big.bin").write_bytes(b"X" * 100)
+
+    content, _ = _adv().read_bounded_roots([root], per_file_bytes=10)
+
+    assert content == "X" * 10
+    (root / "b2.bin").write_bytes(b"Y" * 100)
+    content2, notes2 = _adv().read_bounded_roots(
+        [root],
+        per_file_bytes=100,
+        total_bytes=150,
+    )
+    assert content2 == "Y" * 100 + "X" * 50
+    assert notes2 == ["budget-exhausted"]
+
+
+def test_e3_adversary_loops_over_short_reads(tmp_path, monkeypatch):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "short.txt").write_bytes(b"SHORT-READ")
+    real_read = os.read
+
+    def short_read(fd, count):
+        return real_read(fd, min(count, 2))
+
+    monkeypatch.setattr(os, "read", short_read)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert content == "SHORT-READ"
+    assert notes == []
+
+
+def test_e3_adversary_skips_nonregular_and_injected_read_error(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    root.mkdir()
+    if hasattr(os, "mkfifo"):
+        os.mkfifo(root / "fifo")
+    (root / "ok.txt").write_bytes(b"OK")
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert content == "OK"
+    if hasattr(os, "mkfifo"):
+        assert "skip-nonregular" in notes
+
+    monkeypatch.setattr(
+        os,
+        "read",
+        lambda _fd, _count: (_ for _ in ()).throw(OSError("injected")),
+    )
+    _, error_notes = _adv().read_bounded_roots([root])
+    assert "skip-read-error" in error_notes
+
+
+def test_e3_adversary_rejects_symlink_root(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "s").write_bytes(b"SECRET")
+    link = tmp_path / "linkroot"
+    link.symlink_to(real)
+
+    content, notes = _adv().read_bounded_roots([link])
+
+    assert "SECRET" not in content
+    assert notes == ["skip-symlink-root"]
+
+
+def test_e3_adversary_reports_traversal_error(tmp_path, monkeypatch):
+    root = tmp_path / "ws"
+    root.mkdir()
+
+    def failing_fwalk(_root, *, topdown, onerror, follow_symlinks):
+        assert topdown
+        assert not follow_symlinks
+        onerror(OSError("injected"))
+        return ()
+
+    monkeypatch.setattr(os, "fwalk", failing_fwalk)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert content == ""
+    assert notes == ["traversal-error"]
+
+
+def test_e3_adversary_no_out_of_root_via_ancestor(tmp_path):
+    root = tmp_path / "ws"
+    (root / "a").mkdir(parents=True)
+    outside = tmp_path / "out"
+    outside.mkdir()
+    (outside / "s").write_bytes(b"OUTSIDE")
+    (root / "a" / "mid").symlink_to(outside)
+
+    content, _ = _adv().read_bounded_roots([root])
+
+    assert "OUTSIDE" not in content
+
+
+def test_e3_adversary_file_open_remains_bound_to_walked_ancestor(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    ancestor = root / "a"
+    ancestor.mkdir(parents=True)
+    (ancestor / "payload.txt").write_bytes(b"INSIDE")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "payload.txt").write_bytes(b"OUTSIDE")
+    parked = root / "a-parked"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_file_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if Path(path).name == "payload.txt" and not swapped:
+            ancestor.rename(parked)
+            ancestor.symlink_to(outside, target_is_directory=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_file_open)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert swapped
+    assert content == "INSIDE"
+    assert "OUTSIDE" not in content
+    assert notes == []
+
+
+@pytest.mark.parametrize("bad", ["/abs", "../esc", "a/../../esc"])
+def test_e3_corpus_builder_rejects_unsafe_names(tmp_path, bad):
+    with pytest.raises(ValueError):
+        _adv().build_durable_corpus(tmp_path / "c", {bad: "x"})
+
+
+def test_e3_corpus_builder_writes_nested_content(tmp_path):
+    root = tmp_path / "corpus"
+
+    result = _adv().build_durable_corpus(
+        root,
+        {"b/two.txt": "TWO", "a/one.txt": b"ONE"},
+    )
+
+    assert result == root
+    assert (root / "a" / "one.txt").read_bytes() == b"ONE"
+    assert (root / "b" / "two.txt").read_bytes() == b"TWO"
+
+
+def test_e3_corpus_builder_rejects_symlink_root(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = tmp_path / "corpus"
+    root.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises((ValueError, OSError, FileExistsError)):
+        _adv().build_durable_corpus(root, {"entry": "blocked"})
+
+    assert list(outside.iterdir()) == []
+
+
+def test_e3_corpus_builder_rejects_symlinked_parent(tmp_path):
+    root = tmp_path / "corpus"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (root / "p").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises((ValueError, OSError, FileExistsError)):
+        _adv().build_durable_corpus(root, {"p/x": "blocked"})
+
+    assert list(outside.iterdir()) == []
+
+
+def test_e3_corpus_builder_file_creation_stays_bound_to_open_parent(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "corpus"
+    parent = root / "p"
+    parent.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    parked = root / "p-parked"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_file_create(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if Path(path).name == "entry.txt" and flags & os.O_CREAT and not swapped:
+            parent.rename(parked)
+            parent.symlink_to(outside, target_is_directory=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_file_create)
+
+    _adv().build_durable_corpus(root, {"p/entry.txt": "INSIDE"})
+
+    assert swapped
+    assert (parked / "entry.txt").read_text(encoding="utf-8") == "INSIDE"
+    assert list(outside.iterdir()) == []
+
+
+def test_e3_corpus_builder_rejects_symlinked_final_target(tmp_path):
+    root = tmp_path / "corpus"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "target"
+    target.write_text("unchanged", encoding="utf-8")
+    (root / "entry").symlink_to(target)
+
+    with pytest.raises((ValueError, OSError, FileExistsError)):
+        _adv().build_durable_corpus(root, {"entry": "blocked"})
+
+    assert target.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_e3_adversary_seed_fake_captures_roots_and_owns_transcript(tmp_path):
+    import inspect
+
+    seed_workspace = tmp_path / "seed"
+    seed_workspace.mkdir()
+    (seed_workspace / "seed.txt").write_text("SEED", encoding="utf-8")
+    extra = tmp_path / "extra"
+    extra.mkdir()
+    (extra / "extra.txt").write_text("EXTRA", encoding="utf-8")
+    owned_paths = []
+    fake = _adv().adversarial_seed_fake(extra_roots=[extra])
+    assert inspect.signature(fake) == inspect.signature(e3._seed_agent)
+
+    transcript = fake(
+        {"id": "codex"},
+        tmp_path / "profile",
+        seed_workspace,
+        {},
+        {},
+        lambda *_args: None,
+        [],
+        owned_paths,
+        resolved_binary="/unused/codex",
+    )
+
+    captured = json.loads(transcript.read_text(encoding="utf-8"))
+    assert captured == {"content": "SEEDEXTRA", "notes": []}
+    assert transcript == seed_workspace / "seen-codex.jsonl"
+    assert owned_paths == [transcript]
