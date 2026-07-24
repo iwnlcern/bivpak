@@ -2,6 +2,7 @@ import json
 import os
 import stat
 from collections.abc import Iterable, Mapping
+from contextlib import ExitStack
 from pathlib import Path, PurePath
 from typing import Any, Callable
 
@@ -31,62 +32,86 @@ def read_bounded_roots(
             notes.append("skip-symlink-root")
             continue
 
+        try:
+            root_fd = os.open(root, _DIRECTORY_FLAGS)
+        except OSError:
+            notes.append("traversal-error")
+            continue
+
         def traversal_error(_error):
             notes.append("traversal-error")
 
-        for _dirpath, dirnames, filenames, dirfd in os.fwalk(
-            root,
-            topdown=True,
-            onerror=traversal_error,
-            follow_symlinks=False,
-        ):
-            dirnames.sort()
-            filenames.sort()
-            for name in filenames:
-                if remaining == 0:
-                    notes.append("budget-exhausted")
-                    return "".join(content), notes
+        try:
+            try:
+                opened_root_stat = os.fstat(root_fd)
+            except OSError:
+                notes.append("traversal-error")
+                continue
+            validated_identity = (root_stat.st_dev, root_stat.st_ino)
+            opened_identity = (opened_root_stat.st_dev, opened_root_stat.st_ino)
+            if opened_identity != validated_identity:
+                notes.append("traversal-error")
+                continue
 
-                flags = os.O_RDONLY | os.O_NOFOLLOW
-                if hasattr(os, "O_NONBLOCK"):
-                    flags |= os.O_NONBLOCK
-                try:
-                    fd = os.open(name, flags, dir_fd=dirfd)
-                except OSError:
-                    notes.append("skip-open-error")
-                    continue
-
-                try:
-                    try:
-                        file_stat = os.fstat(fd)
-                    except OSError:
-                        notes.append("skip-open-error")
-                        continue
-                    if not stat.S_ISREG(file_stat.st_mode):
-                        notes.append("skip-nonregular")
-                        continue
-
-                    chunks = []
-                    file_remaining = min(max(0, per_file_bytes), remaining)
-                    while file_remaining:
-                        try:
-                            chunk = os.read(fd, min(_READ_SIZE, file_remaining))
-                        except OSError:
-                            notes.append("skip-read-error")
-                            chunks.clear()
-                            break
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-                        size = len(chunk)
-                        file_remaining -= size
-                        remaining -= size
-                    content.append(b"".join(chunks).decode("utf-8", "replace"))
+            for _dirpath, dirnames, filenames, dirfd in os.fwalk(
+                ".",
+                topdown=True,
+                onerror=traversal_error,
+                follow_symlinks=False,
+                dir_fd=root_fd,
+            ):
+                dirnames.sort()
+                filenames.sort()
+                for name in filenames:
                     if remaining == 0:
                         notes.append("budget-exhausted")
                         return "".join(content), notes
-                finally:
-                    os.close(fd)
+
+                    flags = os.O_RDONLY | os.O_NOFOLLOW
+                    if hasattr(os, "O_NONBLOCK"):
+                        flags |= os.O_NONBLOCK
+                    try:
+                        fd = os.open(name, flags, dir_fd=dirfd)
+                    except OSError:
+                        notes.append("skip-open-error")
+                        continue
+
+                    try:
+                        try:
+                            file_stat = os.fstat(fd)
+                        except OSError:
+                            notes.append("skip-open-error")
+                            continue
+                        if not stat.S_ISREG(file_stat.st_mode):
+                            notes.append("skip-nonregular")
+                            continue
+
+                        chunks = []
+                        file_remaining = min(max(0, per_file_bytes), remaining)
+                        while file_remaining:
+                            try:
+                                chunk = os.read(
+                                    fd,
+                                    min(_READ_SIZE, file_remaining),
+                                )
+                            except OSError:
+                                notes.append("skip-read-error")
+                                chunks.clear()
+                                break
+                            if not chunk:
+                                break
+                            chunks.append(chunk)
+                            size = len(chunk)
+                            file_remaining -= size
+                            remaining -= size
+                        content.append(b"".join(chunks).decode("utf-8", "replace"))
+                        if remaining == 0:
+                            notes.append("budget-exhausted")
+                            return "".join(content), notes
+                    finally:
+                        os.close(fd)
+        finally:
+            os.close(root_fd)
 
     return "".join(content), notes
 
@@ -125,11 +150,13 @@ def build_durable_corpus(
     if stat.S_ISLNK(root_stat.st_mode):
         raise ValueError("corpus root must not be a symlink")
 
-    root_fd = os.open(root, _DIRECTORY_FLAGS)
-    try:
+    with ExitStack() as root_descriptors:
+        root_fd = os.open(root, _DIRECTORY_FLAGS)
+        root_descriptors.callback(os.close, root_fd)
         for parts, value in entries:
-            parent_fd = os.dup(root_fd)
-            try:
+            with ExitStack() as entry_descriptors:
+                parent_fd = os.dup(root_fd)
+                entry_descriptors.callback(os.close, parent_fd)
                 for component in parts[:-1]:
                     try:
                         os.mkdir(component, dir_fd=parent_fd)
@@ -140,8 +167,8 @@ def build_durable_corpus(
                         _DIRECTORY_FLAGS,
                         dir_fd=parent_fd,
                     )
-                    os.close(parent_fd)
                     parent_fd = next_fd
+                    entry_descriptors.callback(os.close, parent_fd)
 
                 data = value.encode("utf-8") if isinstance(value, str) else bytes(value)
                 file_fd = os.open(
@@ -150,15 +177,9 @@ def build_durable_corpus(
                     0o600,
                     dir_fd=parent_fd,
                 )
-                try:
-                    _write_all(file_fd, data)
-                    os.fsync(file_fd)
-                finally:
-                    os.close(file_fd)
-            finally:
-                os.close(parent_fd)
-    finally:
-        os.close(root_fd)
+                entry_descriptors.callback(os.close, file_fd)
+                _write_all(file_fd, data)
+                os.fsync(file_fd)
 
     return root
 

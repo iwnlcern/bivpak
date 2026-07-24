@@ -8973,13 +8973,77 @@ def test_e3_adversary_rejects_symlink_root(tmp_path):
     assert notes == ["skip-symlink-root"]
 
 
+def test_e3_adversary_root_replacement_before_fwalk_cannot_redirect(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "payload.txt").write_bytes(b"INSIDE")
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    (replacement / "payload.txt").write_bytes(b"OUTSIDE")
+    parked = tmp_path / "ws-parked"
+    real_fwalk = os.fwalk
+    swapped = False
+
+    def swap_before_fwalk(*args, **kwargs):
+        nonlocal swapped
+        if not swapped:
+            root.rename(parked)
+            replacement.rename(root)
+            swapped = True
+        return real_fwalk(*args, **kwargs)
+
+    monkeypatch.setattr(os, "fwalk", swap_before_fwalk)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert swapped
+    assert content == "INSIDE"
+    assert "OUTSIDE" not in content
+    assert notes == []
+
+
+def test_e3_adversary_root_replacement_before_open_fails_identity(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "payload.txt").write_bytes(b"INSIDE")
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    (replacement / "payload.txt").write_bytes(b"OUTSIDE")
+    parked = tmp_path / "ws-parked"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_root_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if Path(path) == root and dir_fd is None and not swapped:
+            root.rename(parked)
+            replacement.rename(root)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_root_open)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert swapped
+    assert content == ""
+    assert notes == ["traversal-error"]
+
+
 def test_e3_adversary_reports_traversal_error(tmp_path, monkeypatch):
     root = tmp_path / "ws"
     root.mkdir()
 
-    def failing_fwalk(_root, *, topdown, onerror, follow_symlinks):
+    def failing_fwalk(_root, *, topdown, onerror, follow_symlinks, dir_fd=None):
         assert topdown
         assert not follow_symlinks
+        assert dir_fd is not None
         onerror(OSError("injected"))
         return ()
 
@@ -9109,6 +9173,58 @@ def test_e3_corpus_builder_file_creation_stays_bound_to_open_parent(
     assert swapped
     assert (parked / "entry.txt").read_text(encoding="utf-8") == "INSIDE"
     assert list(outside.iterdir()) == []
+
+
+def test_e3_corpus_builder_close_error_still_attempts_every_descriptor(
+    tmp_path,
+    monkeypatch,
+):
+    real_open = os.open
+    real_dup = os.dup
+    real_close = os.close
+    tracked = set()
+    attempted = set()
+    closed = set()
+    injected = False
+
+    def tracking_open(*args, **kwargs):
+        fd = real_open(*args, **kwargs)
+        tracked.add(fd)
+        return fd
+
+    def tracking_dup(fd):
+        duplicate = real_dup(fd)
+        tracked.add(duplicate)
+        return duplicate
+
+    def fail_first_close(fd):
+        nonlocal injected
+        attempted.add(fd)
+        real_close(fd)
+        closed.add(fd)
+        if not injected:
+            injected = True
+            raise OSError("injected close failure")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "dup", tracking_dup)
+    monkeypatch.setattr(os, "close", fail_first_close)
+
+    try:
+        with pytest.raises(OSError):
+            _adv().build_durable_corpus(
+                tmp_path / "corpus",
+                {"parent/entry.txt": "content"},
+            )
+
+        assert injected
+        assert tracked <= attempted
+    finally:
+        for fd in tracked - closed:
+            try:
+                real_close(fd)
+            except OSError:
+                pass
 
 
 def test_e3_corpus_builder_rejects_symlinked_final_target(tmp_path):
