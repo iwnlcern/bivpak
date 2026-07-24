@@ -9743,6 +9743,9 @@ class _A4GuardVerdict:
         return f"{self.name}={self.status}({self.reason_token})"
 
 
+_A4_MISSING = object()
+
+
 @dataclass
 class _A4SyntheticState:
     owned: tuple[Path, ...]
@@ -9754,8 +9757,8 @@ class _A4SyntheticState:
     spec: dict
     pack_ran: bool = False
     pack_result: object | None = None
-    before_pack: dict[Path, str] = field(default_factory=dict)
-    after_pack: dict[Path, str] = field(default_factory=dict)
+    before_pack: dict[Path, object] = field(default_factory=dict)
+    after_pack: dict[Path, object] = field(default_factory=dict)
 
 
 _A4_ALLOWED_VERDICTS = {
@@ -9807,13 +9810,23 @@ def _a4_image_with_secret(image: Path, member_name: str, sentinel: str) -> Path:
     return image
 
 
+def _a4_owned_snapshot(owned: tuple[Path, ...]) -> dict[Path, object]:
+    snapshot = {}
+    for path in owned:
+        try:
+            snapshot[path] = e3._hash(path)
+        except OSError:
+            snapshot[path] = _A4_MISSING
+    return snapshot
+
+
 def _a4_ensure_pack(state: _A4SyntheticState) -> None:
     if state.pack_ran:
         return
-    state.before_pack = {path: e3._hash(path) for path in state.owned}
+    state.before_pack = _a4_owned_snapshot(state.owned)
     state.pack_result = state.pack()
-    state.after_pack = {path: e3._hash(path) for path in state.owned}
     state.pack_ran = True
+    state.after_pack = _a4_owned_snapshot(state.owned)
 
 
 def _a4_negative_control(state: _A4SyntheticState) -> tuple[str, str]:
@@ -10150,6 +10163,166 @@ def test_a4_offline_collector_producer_chain_binds_simultaneous_verdicts(
         len(verdicts) == 6,
         "a4-producer-verdict-count-mismatch",
     )
+
+
+def _collect_a4_destructive_pack_without_exception(
+    state: _A4SyntheticState,
+) -> tuple[_A4GuardVerdict, ...]:
+    try:
+        return collect_a4_offline_guards(state)
+    except Exception:
+        raise pytest.fail.Exception(
+            "a4-destructive-pack-raised",
+            pytrace=False,
+        ) from None
+
+
+def _assert_a4_destructive_pack_verdicts(
+    verdicts: tuple[_A4GuardVerdict, ...],
+    *,
+    pack_exit: str,
+) -> tuple[str, ...]:
+    rendered = tuple(verdict.render() for verdict in verdicts)
+    by_name = {verdict.name: verdict.render() for verdict in verdicts}
+    _assert_fixed(
+        tuple(verdict.name for verdict in verdicts)
+        == tuple(check.name for check in A4_OFFLINE_GUARD_REGISTRY),
+        "a4-destructive-pack-verdict-inventory-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"] == pack_exit,
+        "a4-destructive-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-destructive-pack-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-destructive-pack-scan-verdict-mismatch",
+    )
+    return rendered
+
+
+def test_a4_offline_collector_deleting_pack_returns_value_free_six_verdicts(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    sensitive = "bive3-sentinel-" + "d" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    scratch = sensitive_root / "synthetic-scratch"
+    scratch.mkdir()
+    owned = sensitive_root / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    missing_image = sensitive_root / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(sensitive_root / "host2-profiles")
+    pack_calls = 0
+
+    def failed_deleting_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        owned.unlink()
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        e3,
+        "scan_image_secret_values",
+        lambda *_args: pytest.fail("credential scan evaluated without a readable image"),
+    )
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_deleting_pack,
+        image=missing_image,
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    verdicts = _collect_a4_destructive_pack_without_exception(state)
+    rendered = _assert_a4_destructive_pack_verdicts(
+        verdicts,
+        pack_exit="pack-exit-contract=FAIL(pack-exit-contract)",
+    )
+    captured = capsys.readouterr()
+
+    _assert_fixed(state.pack_ran, "a4-deleting-pack-not-recorded")
+    _assert_fixed(pack_calls == 1, "a4-deleting-pack-call-count-mismatch")
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured.out, captured.err),
+        "a4-deleting-pack-rendered-sensitive-value",
+    )
+
+
+def test_a4_offline_collector_unreadable_pack_returns_value_free_six_verdicts(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    sensitive = "bive3-sentinel-" + "u" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    scratch = sensitive_root / "synthetic-scratch"
+    scratch.mkdir()
+    owned = sensitive_root / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    missing_image = sensitive_root / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(sensitive_root / "host2-profiles")
+    pack_calls = 0
+    real_hash = e3._hash
+
+    def mode_aware_hash(path):
+        if path == owned and not (path.stat().st_mode & 0o444):
+            raise PermissionError("sensitive-path-must-not-render")
+        return real_hash(path)
+
+    def successful_unreadable_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        owned.chmod(0)
+        return _successful_pack()
+
+    monkeypatch.setattr(e3, "_hash", mode_aware_hash)
+    monkeypatch.setattr(
+        e3,
+        "scan_image_secret_values",
+        lambda *_args: pytest.fail("credential scan evaluated without a readable image"),
+    )
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=successful_unreadable_pack,
+        image=missing_image,
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    try:
+        verdicts = _collect_a4_destructive_pack_without_exception(state)
+        rendered = _assert_a4_destructive_pack_verdicts(
+            verdicts,
+            pack_exit="pack-exit-contract=PASS(ok)",
+        )
+        captured = capsys.readouterr()
+
+        _assert_fixed(state.pack_ran, "a4-unreadable-pack-not-recorded")
+        _assert_fixed(pack_calls == 1, "a4-unreadable-pack-call-count-mismatch")
+        _assert_sensitive_values_absent(
+            _sentinel_text_representations(sensitive),
+            (*rendered, captured.out, captured.err),
+            "a4-unreadable-pack-rendered-sensitive-value",
+        )
+    finally:
+        owned.chmod(0o600)
 
 
 def test_a4_offline_collector_rejects_unbounded_verdict_with_fixed_message(
