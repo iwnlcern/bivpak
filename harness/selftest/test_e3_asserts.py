@@ -3807,6 +3807,181 @@ def _credential_order_fake_spawn(seen):
     return fake_spawn
 
 
+def _run_adversarial_credential_scan_case(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    capsys,
+    *,
+    sentinel,
+    corpus_content,
+):
+    corpus = _adv().build_durable_corpus(
+        tmp_path / "attempt-3-corpus",
+        {"captured.txt": corpus_content},
+    )
+    source_scenario = (
+        Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    )
+    spec = json.loads(source_scenario.read_text(encoding="utf-8"))
+    spec["credential_scan_sentinel_count"] = 1
+    scenario = tmp_path / "adversarial-credential-scan.json"
+    scenario.write_text(json.dumps(spec), encoding="utf-8")
+    scratch = stable_test_root / "scratch"
+    stub_biv = Path(__file__).with_name("stub_biv.py")
+
+    reached = []
+    captured_hits = []
+    captured_transcripts = {}
+    generated_counts = []
+    scanner_checks = []
+    real_scan = e3.scan_image_secret_values
+
+    def capturing_scan(image, secret_values):
+        reached.append("scan")
+        members = e3.list_members(image)
+        for member in (
+            "payload/seen-claude-code.jsonl",
+            "payload/seen-codex.jsonl",
+        ):
+            if member in members:
+                captured_transcripts[member] = e3.extract_member(
+                    image,
+                    member,
+                ).decode("utf-8")
+        captured_hits[:] = real_scan(image, secret_values)
+        return captured_hits
+
+    real_spawn = e3._spawn
+    fake_agent_spawn = _credential_order_fake_spawn([])
+
+    def fake_spawn(command, cwd, env):
+        if len(command) > 1 and command[0] == str(stub_biv) and command[1] == "pack":
+            reached.append("pack")
+            return real_spawn([sys.executable, *command], cwd, env)
+        return fake_agent_spawn(command, cwd, env)
+
+    def controlled_runtime_sentinels(count):
+        generated_counts.append(count)
+        return [sentinel] if count == 1 else pytest.fail(count)
+
+    def stop_after_scan(*args):
+        reached.append("terminal")
+        scanner_checks.append(args[5].scan_text(sentinel))
+        raise ValueError("stop after credential scan")
+
+    monkeypatch.setenv("STUB_BIV_MODE", "ok")
+    monkeypatch.setattr(
+        e3,
+        "_runtime_credential_sentinels",
+        controlled_runtime_sentinels,
+    )
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(
+        e3,
+        "_seed_agent",
+        _adv().adversarial_seed_fake(extra_roots=[corpus]),
+    )
+    monkeypatch.setattr(e3, "scan_image_secret_values", capturing_scan)
+    monkeypatch.setattr(e3, "setup_host2_credentials", stop_after_scan)
+
+    result = e3.run_e3(scenario, stub_biv, scratch)
+    return SimpleNamespace(
+        result=result,
+        console=capsys.readouterr(),
+        captured_hits=captured_hits,
+        captured_transcripts=captured_transcripts,
+        generated_counts=generated_counts,
+        reached=reached,
+        scanner_checks=scanner_checks,
+    )
+
+
+def test_e3_adversarial_seed_is_airtight_before_runtime_sentinel(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    capsys,
+):
+    configured = "BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR"
+    sentinel = "bive3-sentinel-" + "a" * 64
+
+    case = _run_adversarial_credential_scan_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        capsys,
+        sentinel=sentinel,
+        corpus_content=configured,
+    )
+    serialized = serialize_report([case.result])
+
+    assert case.result.status is Status.INVALID
+    assert case.generated_counts == [1]
+    assert case.captured_hits == []
+    assert case.reached == ["pack", "scan", "terminal"]
+    assert case.scanner_checks == [True]
+    assert set(case.captured_transcripts) == {
+        "payload/seen-claude-code.jsonl",
+        "payload/seen-codex.jsonl",
+    }
+    assert all(
+        configured in content for content in case.captured_transcripts.values()
+    )
+    assert all(
+        sentinel not in content for content in case.captured_transcripts.values()
+    )
+    for value in (sentinel, configured):
+        assert value not in case.console.out
+        assert value not in case.console.err
+        assert value not in serialized
+
+
+def test_e3_adversarial_scan_captures_exact_multi_member_hits_value_free(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    capsys,
+):
+    sentinel = "bive3-sentinel-" + "b" * 64
+    captured_content = "captured-transcript-content-" + "c" * 32
+
+    case = _run_adversarial_credential_scan_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        capsys,
+        sentinel=sentinel,
+        corpus_content=f"{sentinel}\n{captured_content}",
+    )
+    serialized = serialize_report([case.result])
+
+    assert case.captured_hits == [
+        "payload/seen-claude-code.jsonl:secret[0]",
+        "payload/seen-codex.jsonl:secret[0]",
+    ]
+    assert set(case.captured_transcripts) == {
+        "payload/seen-claude-code.jsonl",
+        "payload/seen-codex.jsonl",
+    }
+    assert all(
+        sentinel in content and captured_content in content
+        for content in case.captured_transcripts.values()
+    )
+    assert case.result.status is Status.INVALID
+    assert case.generated_counts == [1]
+    assert case.reached == ["pack", "scan"]
+    assert case.scanner_checks == []
+    assert sentinel not in serialized
+    assert captured_content not in serialized
+    assert all(
+        content not in serialized for content in case.captured_transcripts.values()
+    )
+    assert sentinel not in case.console.out
+    assert sentinel not in case.console.err
+    _assert_report_refused(case.result)
+
+
 def test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up(monkeypatch):
     scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     scratch = Path.home() / ".cache" / f"biv-e3-decoy-plant-failure-{os.getpid()}"
