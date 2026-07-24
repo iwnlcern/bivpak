@@ -10108,6 +10108,12 @@ def _a4_pack_exit_contract(state: _A4SyntheticState) -> tuple[str, str]:
 
 def _a4_pack_mutation(state: _A4SyntheticState) -> tuple[str, str]:
     _a4_ensure_pack(state)
+    if any(
+        state.before_pack[path] is _A4_MISSING
+        or state.after_pack[path] is _A4_MISSING
+        for path in state.owned
+    ):
+        return ("INVALID", "pack-mutation")
     if state.after_pack != state.before_pack:
         return ("INVALID", "pack-mutation")
     return ("PASS", "ok")
@@ -10428,6 +10434,264 @@ def test_a4_offline_collector_producer_chain_binds_simultaneous_verdicts(
     _assert_fixed(
         len(verdicts) == 6,
         "a4-producer-verdict-count-mismatch",
+    )
+
+
+def _a4_missing_baseline_mutation_collector_worker(
+    root_text: str,
+    result_sender,
+) -> None:
+    root = Path(root_text)
+    sensitive = root.name
+    real_parent = root / "real-parent"
+    real_parent.mkdir()
+    real_target = real_parent / "owned-sensitive-transcript.jsonl"
+    real_target.write_text('{"turn":"before"}\n', encoding="utf-8")
+    linked_parent = root / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    owned = linked_parent / real_target.name
+    scratch = root / "synthetic-scratch"
+    scratch.mkdir()
+    profile_root = _a4_empty_host2_profile(root / "host2-profiles")
+    pack_calls = 0
+    pack_ran_at_call = None
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+    state = None
+
+    def failed_mutating_pack():
+        nonlocal pack_calls, pack_ran_at_call
+        pack_calls += 1
+        pack_ran_at_call = state.pack_ran
+        owned.write_text('{"turn":"after"}\n', encoding="utf-8")
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_mutating_pack,
+        image=root / "pack-never-produced.bvpk",
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    try:
+        with (
+            contextlib.redirect_stdout(captured_out),
+            contextlib.redirect_stderr(captured_err),
+        ):
+            verdicts = collect_a4_offline_guards(state)
+    except Exception:
+        result_sender.send(("raised",))
+    else:
+        result_sender.send(
+            (
+                "ok",
+                tuple(verdict.render() for verdict in verdicts),
+                pack_calls,
+                pack_ran_at_call,
+                state.pack_ran,
+                state.before_pack[owned] is _A4_MISSING,
+                state.after_pack[owned] is _A4_MISSING,
+                real_target.read_text(encoding="utf-8")
+                == '{"turn":"after"}\n',
+                captured_out.getvalue(),
+                captured_err.getvalue(),
+            )
+        )
+    finally:
+        result_sender.close()
+
+
+def test_a4_offline_collector_missing_baseline_mutation_fails_closed(
+    tmp_path,
+):
+    sensitive = "bive3-sentinel-" + "m" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    context = multiprocessing.get_context("spawn")
+    result_receiver, result_sender = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_a4_missing_baseline_mutation_collector_worker,
+        args=(str(sensitive_root), result_sender),
+    )
+
+    started = False
+    try:
+        process.start()
+        started = True
+        result_sender.close()
+        process.join(3.0)
+        if process.is_alive():
+            pytest.fail("a4-missing-baseline-mutation-timeout", pytrace=False)
+        _assert_fixed(
+            process.exitcode == 0,
+            "a4-missing-baseline-mutation-process-failed",
+        )
+        _assert_fixed(
+            result_receiver.poll(1.0),
+            "a4-missing-baseline-mutation-result-missing",
+        )
+        result = result_receiver.recv()
+    finally:
+        result_receiver.close()
+        result_sender.close()
+        if started and process.is_alive():
+            with contextlib.suppress(OSError):
+                process.terminate()
+            process.join(1.0)
+            if process.is_alive():
+                with contextlib.suppress(OSError):
+                    process.kill()
+                process.join(1.0)
+
+    _assert_fixed(result[0] == "ok", "a4-missing-baseline-mutation-raised")
+    (
+        _,
+        rendered,
+        pack_calls,
+        pack_ran_at_call,
+        pack_ran,
+        before_missing,
+        after_missing,
+        target_changed,
+        captured_out,
+        captured_err,
+    ) = result
+    by_name = {row.partition("=")[0]: row for row in rendered}
+    _assert_fixed(
+        len(rendered) == 6,
+        "a4-missing-baseline-mutation-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["negative-control"] == "negative-control=PASS(ok)",
+        "a4-missing-baseline-mutation-negative-control-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-missing-baseline-mutation-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-missing-baseline-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-missing-baseline-mutation-scan-verdict-mismatch",
+    )
+    _assert_fixed(
+        before_missing and after_missing,
+        "a4-missing-baseline-mutation-snapshot-established",
+    )
+    _assert_fixed(
+        target_changed,
+        "a4-missing-baseline-mutation-target-unchanged",
+    )
+    _assert_fixed(
+        pack_calls == 1,
+        "a4-missing-baseline-mutation-pack-call-count-mismatch",
+    )
+    _assert_fixed(
+        pack_ran_at_call is False and pack_ran,
+        "a4-missing-baseline-mutation-pack-state-nonmonotonic",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured_out, captured_err),
+        "a4-missing-baseline-mutation-rendered-sensitive-value",
+    )
+
+
+def test_a4_offline_collector_missing_baseline_without_mutation_fails_closed(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    sensitive = "bive3-sentinel-" + "n" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    real_parent = sensitive_root / "real-parent"
+    real_parent.mkdir()
+    real_target = real_parent / "owned-sensitive-transcript.jsonl"
+    initial_content = '{"turn":"unchanged"}\n'
+    real_target.write_text(initial_content, encoding="utf-8")
+    linked_parent = sensitive_root / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    owned = linked_parent / real_target.name
+    scratch = sensitive_root / "synthetic-scratch"
+    scratch.mkdir()
+    profile_root = _a4_empty_host2_profile(
+        sensitive_root / "host2-profiles"
+    )
+    pack_calls = 0
+
+    def failed_nonmutating_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        e3,
+        "scan_image_secret_values",
+        lambda *_args: pytest.fail(
+            "credential scan evaluated without a readable image"
+        ),
+    )
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_nonmutating_pack,
+        image=sensitive_root / "pack-never-produced.bvpk",
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    verdicts = collect_a4_offline_guards(state)
+    rendered = tuple(verdict.render() for verdict in verdicts)
+    by_name = {verdict.name: verdict.render() for verdict in verdicts}
+    captured = capsys.readouterr()
+
+    _assert_fixed(
+        len(verdicts) == 6,
+        "a4-missing-baseline-control-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["negative-control"] == "negative-control=PASS(ok)",
+        "a4-missing-baseline-control-negative-control-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-missing-baseline-control-verdict-mismatch",
+    )
+    _assert_fixed(
+        state.before_pack[owned] is _A4_MISSING
+        and state.after_pack[owned] is _A4_MISSING,
+        "a4-missing-baseline-control-snapshot-established",
+    )
+    _assert_fixed(
+        real_target.read_text(encoding="utf-8") == initial_content,
+        "a4-missing-baseline-control-target-changed",
+    )
+    _assert_fixed(
+        pack_calls == 1 and state.pack_ran,
+        "a4-missing-baseline-control-pack-state-mismatch",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured.out, captured.err),
+        "a4-missing-baseline-control-rendered-sensitive-value",
     )
 
 
