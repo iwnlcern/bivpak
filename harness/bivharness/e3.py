@@ -39,7 +39,6 @@ CREDENTIAL_DECOY_NAMES = (".credentials.json", "auth.json", ".env")
 CREDENTIAL_DECOY_ROOT = ".biv-e3-credential-decoys"
 CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
 CREDENTIAL_MAX_BYTES = 64 * 1024
-DOTENV_SAFE_SENTINEL = re.compile(r"[A-Za-z0-9_.:@/+\-=]+")
 CLAUDE_RESUME_MUTATION = "appends-same-file"
 CODEX_RESUME_SHAPE = "appends-same-rollout"
 E3_CLASS = "E3 (real CLI resume in isolated profile)"
@@ -2415,11 +2414,9 @@ def _validate_spec(spec: object) -> list[str]:
                 index = command.index("--model")
                 if index + 1 >= len(command) or command[index + 1] != model:
                     failures.append(f"{agent_id} {field} cheapest-model mismatch")
-    sentinels = spec.get("credential_scan_sentinels")
-    if not _is_string_list(sentinels):
-        failures.append("scenario missing non-empty credential_scan_sentinels")
-    elif any(DOTENV_SAFE_SENTINEL.fullmatch(value) is None for value in sentinels):
-        failures.append("credential_scan_sentinels values must be dotenv-safe")
+    count = spec.get("credential_scan_sentinel_count")
+    if type(count) is not int or count < 1:  # type() is int excludes bool (an int subclass)
+        failures.append("credential_scan_sentinel_count must be a positive integer")
     return failures
 
 
@@ -2823,7 +2820,7 @@ def run_e3(
         ) / "auth.json"
         spec = materialize_run_tokens(spec)
         seed_ws = seed_parent / spec.get("workspace_name", "resume-e3")
-        credential_sentinel_count = len(spec.get("credential_scan_sentinels", []))
+        credential_sentinel_count = spec["credential_scan_sentinel_count"]
         resolved_binaries = _resolve_agent_binaries(spec)
         if seed_parent.is_symlink() or seed_parent.exists() or seed_ws.is_symlink() or seed_ws.exists():
             raise ValueError("seed workspace must be fresh and contained by scratch")

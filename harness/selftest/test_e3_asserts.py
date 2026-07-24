@@ -1,5 +1,8 @@
+import ast
+import contextlib
 import hashlib
 import io
+import inspect
 import json
 import multiprocessing
 import os
@@ -10,8 +13,11 @@ import stat
 import sys
 import tarfile
 import tempfile
+import textwrap
 import time
 import unicodedata
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -64,15 +70,45 @@ CONTROLLED_RUNTIME_SENTINEL = "bive3-sentinel-" + "e" * 64
 CONTROLLED_SLASH_SENTINEL = "bive3-sentinel-" + "f" * 63 + "/"
 
 
+def _assert_fixed(condition, message):
+    if not condition:
+        pytest.fail(message, pytrace=False)
+
+
+def _assert_sensitive_values_absent(values, surfaces, message):
+    for value in values:
+        for surface in surfaces:
+            if value in surface:
+                pytest.fail(message, pytrace=False)
+
+
+def _sentinel_text_representations(sentinel):
+    return tuple(
+        dict.fromkeys(
+            (
+                sentinel,
+                *(
+                    representation.decode("ascii")
+                    for representation in e3._sentinel_representations(sentinel)
+                ),
+            )
+        )
+    )
+
+
 def _assert_report_refused(result):
-    assert result == ScenarioResult(
-        id="e3-report-refused",
-        tier="E3",
-        status=Status.INVALID,
-        classes=[],
-        held_asserts=[],
-        detail="report refused: result could not be sanitized",
-        warnings=[],
+    _assert_fixed(
+        result
+        == ScenarioResult(
+            id="e3-report-refused",
+            tier="E3",
+            status=Status.INVALID,
+            classes=[],
+            held_asserts=[],
+            detail="report refused: result could not be sanitized",
+            warnings=[],
+        ),
+        "report-refusal-shape-mismatch",
     )
 
 
@@ -269,7 +305,7 @@ def _valid_two_agent_spec():
         "tier": "E3",
         "seed_turns": ["one", "two"],
         "resume_probe": "probe",
-        "credential_scan_sentinels": ["synthetic-secret"],
+        "credential_scan_sentinel_count": 1,
         "agents": [codex, claude],
     }
 
@@ -2618,16 +2654,27 @@ def test_runtime_credential_sentinels_are_fresh_prefixed_and_cardinality_only(
     first = e3._runtime_credential_sentinels(len(configured))
     second = e3._runtime_credential_sentinels(len(configured))
 
-    assert first == [
-        "bive3-sentinel-" + "1" * 64,
-        "bive3-sentinel-" + "2" * 64,
-    ]
-    assert second == [
-        "bive3-sentinel-" + "3" * 64,
-        "bive3-sentinel-" + "4" * 64,
-    ]
-    assert first != second
-    assert not set(first + second).intersection(configured)
+    _assert_fixed(
+        first
+        == [
+            "bive3-sentinel-" + "1" * 64,
+            "bive3-sentinel-" + "2" * 64,
+        ],
+        "runtime-sentinel-first-batch-mismatch",
+    )
+    _assert_fixed(
+        second
+        == [
+            "bive3-sentinel-" + "3" * 64,
+            "bive3-sentinel-" + "4" * 64,
+        ],
+        "runtime-sentinel-second-batch-mismatch",
+    )
+    _assert_fixed(first != second, "runtime-sentinel-batches-not-fresh")
+    _assert_fixed(
+        not set(first + second).intersection(configured),
+        "runtime-sentinel-used-configured-value",
+    )
 
 
 def test_credential_scanner_adds_only_bounded_sentinel_representations():
@@ -2638,11 +2685,17 @@ def test_credential_scanner_adds_only_bounded_sentinel_representations():
 
     representations = e3._sentinel_representations(sentinel)
     canonical, solidus, ascii_u = representations[:3]
-    assert canonical != solidus
-    assert canonical != ascii_u
-    assert solidus != ascii_u
-    assert all(scanner.scan_bytes(value) for value in representations)
-    assert len(scanner._values) == len(representations)
+    _assert_fixed(canonical != solidus, "sentinel-canonical-solidus-not-distinct")
+    _assert_fixed(canonical != ascii_u, "sentinel-canonical-unicode-not-distinct")
+    _assert_fixed(solidus != ascii_u, "sentinel-solidus-unicode-not-distinct")
+    _assert_fixed(
+        all(scanner.scan_bytes(value) for value in representations),
+        "sentinel-representation-not-scannable",
+    )
+    _assert_fixed(
+        len(scanner._values) == len(representations),
+        "sentinel-representation-count-mismatch",
+    )
 
 
 def test_setup_host2_credentials_materializes_both_credentials_without_seeding_scanner(
@@ -3776,12 +3829,21 @@ def test_workspace_credential_decoy_verify_rejects_root_outside_workspace(tmp_pa
         verify_credential_decoys(workspace, paths, ["synthetic-secret"])
 
 
-def test_e3_spec_rejects_control_characters_in_credential_sentinels():
+def test_e3_spec_requires_positive_int_sentinel_count():
     scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     spec = json.loads(scenario.read_text(encoding="utf-8"))
-    spec["credential_scan_sentinels"] = ["one\nOPENAI_API_KEY=two"]
-
-    assert "credential_scan_sentinels values must be dotenv-safe" in e3._validate_spec(spec)
+    spec["credential_scan_sentinel_count"] = 1
+    assert not any("credential_scan_sentinel_count" in f for f in e3._validate_spec(spec))
+    for bad in [None, 0, -1, "1", 1.0, True, False]:
+        s = dict(spec)
+        s["credential_scan_sentinel_count"] = bad
+        assert any(
+            "credential_scan_sentinel_count must be a positive integer" in f
+            for f in e3._validate_spec(s)
+        ), bad
+    s = dict(spec)
+    s.pop("credential_scan_sentinel_count", None)
+    assert any("credential_scan_sentinel_count" in f for f in e3._validate_spec(s))
 
 
 def _credential_order_fake_spawn(seen):
@@ -3796,6 +3858,228 @@ def _credential_order_fake_spawn(seen):
         raise AssertionError(f"unexpected spawn command: {command}")
 
     return fake_spawn
+
+
+def _run_adversarial_credential_scan_case(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    capsys,
+    *,
+    sentinel,
+    corpus_content,
+):
+    corpus = _adv().build_durable_corpus(
+        tmp_path / "attempt-3-corpus",
+        {"captured.txt": corpus_content},
+    )
+    source_scenario = (
+        Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+    )
+    spec = json.loads(source_scenario.read_text(encoding="utf-8"))
+    spec["credential_scan_sentinel_count"] = 1
+    scenario = tmp_path / "adversarial-credential-scan.json"
+    scenario.write_text(json.dumps(spec), encoding="utf-8")
+    scratch = stable_test_root / "scratch"
+    stub_biv = Path(__file__).with_name("stub_biv.py")
+
+    reached = []
+    captured_hits = []
+    captured_transcripts = {}
+    generated_counts = []
+    scanner_checks = []
+    real_scan = e3.scan_image_secret_values
+
+    def capturing_scan(image, secret_values):
+        reached.append("scan")
+        members = e3.list_members(image)
+        for member in (
+            "payload/seen-claude-code.jsonl",
+            "payload/seen-codex.jsonl",
+        ):
+            if member in members:
+                captured_transcripts[member] = e3.extract_member(
+                    image,
+                    member,
+                ).decode("utf-8")
+        captured_hits[:] = real_scan(image, secret_values)
+        return captured_hits
+
+    real_spawn = e3._spawn
+    fake_agent_spawn = _credential_order_fake_spawn([])
+
+    def fake_spawn(command, cwd, env):
+        if len(command) > 1 and command[0] == str(stub_biv) and command[1] == "pack":
+            reached.append("pack")
+            return real_spawn([sys.executable, *command], cwd, env)
+        return fake_agent_spawn(command, cwd, env)
+
+    def controlled_runtime_sentinels(count):
+        generated_counts.append(count)
+        if count != 1:
+            pytest.fail("runtime-sentinel-count-mismatch", pytrace=False)
+        return [sentinel]
+
+    def stop_after_scan(*args):
+        reached.append("terminal")
+        scanner_checks.append(args[5].scan_text(sentinel))
+        raise ValueError("stop after credential scan")
+
+    monkeypatch.setenv("STUB_BIV_MODE", "ok")
+    monkeypatch.setattr(
+        e3,
+        "_runtime_credential_sentinels",
+        controlled_runtime_sentinels,
+    )
+    monkeypatch.setattr(e3, "_spawn", fake_spawn)
+    monkeypatch.setattr(
+        e3,
+        "_seed_agent",
+        _adv().adversarial_seed_fake(extra_roots=[corpus]),
+    )
+    monkeypatch.setattr(e3, "scan_image_secret_values", capturing_scan)
+    monkeypatch.setattr(e3, "setup_host2_credentials", stop_after_scan)
+
+    result = e3.run_e3(scenario, stub_biv, scratch)
+    return SimpleNamespace(
+        result=result,
+        console=capsys.readouterr(),
+        captured_hits=captured_hits,
+        captured_transcripts=captured_transcripts,
+        generated_counts=generated_counts,
+        reached=reached,
+        scanner_checks=scanner_checks,
+    )
+
+
+def test_e3_adversarial_seed_is_airtight_before_runtime_sentinel(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    capsys,
+):
+    configured = "BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR"
+    sentinel = "bive3-sentinel-" + "a" * 64
+
+    case = _run_adversarial_credential_scan_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        capsys,
+        sentinel=sentinel,
+        corpus_content=configured,
+    )
+    serialized = serialize_report([case.result])
+
+    _assert_fixed(
+        case.result.status is Status.INVALID,
+        "adversarial-seed-status-mismatch",
+    )
+    _assert_fixed(
+        case.generated_counts == [1],
+        "adversarial-seed-sentinel-count-mismatch",
+    )
+    _assert_fixed(not case.captured_hits, "adversarial-seed-unexpected-image-hit")
+    _assert_fixed(
+        case.reached == ["pack", "scan", "terminal"],
+        "adversarial-seed-phase-order-mismatch",
+    )
+    _assert_fixed(
+        case.scanner_checks == [True],
+        "adversarial-seed-scanner-check-mismatch",
+    )
+    _assert_fixed(
+        set(case.captured_transcripts)
+        == {
+            "payload/seen-claude-code.jsonl",
+            "payload/seen-codex.jsonl",
+        },
+        "adversarial-seed-member-set-mismatch",
+    )
+    _assert_fixed(
+        all(configured in content for content in case.captured_transcripts.values()),
+        "adversarial-seed-captured-content-missing",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sentinel),
+        tuple(case.captured_transcripts.values()),
+        "adversarial-seed-captured-runtime-sentinel",
+    )
+    _assert_sensitive_values_absent(
+        (*_sentinel_text_representations(sentinel), configured),
+        (case.console.out, case.console.err, serialized),
+        "adversarial-seed-output-not-value-free",
+    )
+
+
+def test_e3_adversarial_scan_captures_exact_multi_member_hits_value_free(
+    monkeypatch,
+    tmp_path,
+    stable_test_root,
+    capsys,
+):
+    sentinel = "bive3-sentinel-" + "b" * 64
+    captured_content = "captured-transcript-content-" + "c" * 32
+
+    case = _run_adversarial_credential_scan_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        capsys,
+        sentinel=sentinel,
+        corpus_content=f"{sentinel}\n{captured_content}",
+    )
+    serialized = serialize_report([case.result])
+
+    _assert_fixed(
+        case.captured_hits
+        == [
+            "payload/seen-claude-code.jsonl:secret[0]",
+            "payload/seen-codex.jsonl:secret[0]",
+        ],
+        "adversarial-scan-hit-set-mismatch",
+    )
+    _assert_fixed(
+        set(case.captured_transcripts)
+        == {
+            "payload/seen-claude-code.jsonl",
+            "payload/seen-codex.jsonl",
+        },
+        "adversarial-scan-member-set-mismatch",
+    )
+    _assert_fixed(
+        all(
+            sentinel in content and captured_content in content
+            for content in case.captured_transcripts.values()
+        ),
+        "adversarial-scan-captured-content-mismatch",
+    )
+    _assert_fixed(
+        case.result.status is Status.INVALID,
+        "adversarial-scan-status-mismatch",
+    )
+    _assert_fixed(
+        case.generated_counts == [1],
+        "adversarial-scan-sentinel-count-mismatch",
+    )
+    _assert_fixed(
+        case.reached == ["pack", "scan"],
+        "adversarial-scan-phase-order-mismatch",
+    )
+    _assert_fixed(
+        not case.scanner_checks,
+        "adversarial-scan-unexpected-scanner-check",
+    )
+    _assert_sensitive_values_absent(
+        (
+            *_sentinel_text_representations(sentinel),
+            captured_content,
+            *case.captured_transcripts.values(),
+        ),
+        (case.console.out, case.console.err, serialized),
+        "adversarial-scan-output-not-value-free",
+    )
+    _assert_report_refused(case.result)
 
 
 def test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up(monkeypatch):
@@ -3835,7 +4119,7 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
         Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     )
     spec = json.loads(source_scenario.read_text(encoding="utf-8"))
-    spec["credential_scan_sentinels"] = [configured]
+    spec["credential_scan_sentinel_count"] = 1
     scenario = tmp_path / "credential-fixture-order.json"
     scenario.write_text(json.dumps(spec), encoding="utf-8")
     scratch = stable_test_root / "scratch"
@@ -3900,21 +4184,29 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
     def stop_after_scan(*args):
         reached.append("terminal")
         scanner = args[5]
-        assert scanner.scan_text(sentinel)
-        assert not scanner.scan_text(configured)
-        assert not (
-            scratch
-            / "seed-ws"
-            / spec["workspace_name"]
-            / e3.CREDENTIAL_DECOY_ROOT
-        ).exists()
+        _assert_fixed(scanner.scan_text(sentinel), "decoy-order-sentinel-not-active")
+        _assert_fixed(
+            not scanner.scan_text(configured),
+            "decoy-order-configured-value-active",
+        )
+        _assert_fixed(
+            not (
+                scratch
+                / "seed-ws"
+                / spec["workspace_name"]
+                / e3.CREDENTIAL_DECOY_ROOT
+            ).exists(),
+            "decoy-order-root-not-removed",
+        )
         raise ValueError("stop after credential scan")
 
     monkeypatch.setenv("STUB_BIV_MODE", "ok")
 
     def controlled_runtime_sentinels(count):
         generated_counts.append(count)
-        return [sentinel] if count == 1 else pytest.fail(count)
+        if count != 1:
+            pytest.fail("decoy-order-sentinel-count-mismatch", pytrace=False)
+        return [sentinel]
 
     monkeypatch.setattr(
         e3,
@@ -3932,20 +4224,30 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
         scratch,
     )
     captured_console = capsys.readouterr()
+    serialized = serialize_report([result])
 
     assert result.status is Status.INVALID
     assert result.detail == "e3-post-materialization-invalid"
     assert generated_counts == [1]
-    assert sentinel not in captured_console.out
-    assert sentinel not in captured_console.err
-    assert len(captured_reads) == 2
-    assert all(sentinel not in blob for blob in captured_reads)
-    assert all(configured not in blob for blob in captured_reads)
-    assert not any(
-        member.startswith(f"payload/{e3.CREDENTIAL_DECOY_ROOT}/")
-        for member in captured_members
+    _assert_sensitive_values_absent(
+        (*_sentinel_text_representations(sentinel), configured),
+        (captured_console.out, captured_console.err, serialized),
+        "decoy-order-output-not-value-free",
     )
-    assert captured_hits == []
+    _assert_fixed(len(captured_reads) == 2, "decoy-order-captured-read-count-mismatch")
+    _assert_sensitive_values_absent(
+        (*_sentinel_text_representations(sentinel), configured),
+        tuple(captured_reads),
+        "decoy-order-seed-capture-not-airtight",
+    )
+    _assert_fixed(
+        not any(
+            member.startswith(f"payload/{e3.CREDENTIAL_DECOY_ROOT}/")
+            for member in captured_members
+        ),
+        "decoy-order-decoy-member-captured",
+    )
+    _assert_fixed(not captured_hits, "decoy-order-unexpected-image-hit")
     assert pack_time == {"decoys": True, "bivignore": True}
     assert reached == [
         "seed:claude-code",
@@ -3976,7 +4278,11 @@ def test_e3_controlled_sentinel_image_hit_stops_before_credential_materializatio
     monkeypatch.setattr(
         e3,
         "_runtime_credential_sentinels",
-        lambda count: [sentinel] if count == 1 else pytest.fail(count),
+        lambda count: (
+            [sentinel]
+            if count == 1
+            else pytest.fail("controlled-image-hit-sentinel-count", pytrace=False)
+        ),
     )
 
     def controlled_hit(_image, values):
@@ -3997,8 +4303,12 @@ def test_e3_controlled_sentinel_image_hit_stops_before_credential_materializatio
     )
 
     _assert_report_refused(result)
-    assert sentinel not in serialize_report([result])
-    assert scanned == [[sentinel]]
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sentinel),
+        (serialize_report([result]),),
+        "controlled-image-hit-report-not-value-free",
+    )
+    _assert_fixed(scanned == [[sentinel]], "controlled-image-hit-scan-input-mismatch")
     assert seen == ["pack"]
 
 
@@ -4015,7 +4325,11 @@ def test_e3_pack_warning_before_sentinel_population_is_not_written(
     )
 
     _assert_report_refused(result)
-    assert secret not in serialize_report([result])
+    _assert_sensitive_values_absent(
+        (secret,),
+        (serialize_report([result]),),
+        "pack-warning-report-retained-sensitive-value",
+    )
     assert seen == ["pack"]
 
 
@@ -4157,13 +4471,17 @@ def test_e3_rejects_preexisting_run_trees_without_deleting_them(monkeypatch, sta
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def test_e3_dry_run_rejects_missing_credential_sentinel_inventory(tmp_path):
+def test_e3_dry_run_rejects_missing_credential_sentinel_count(tmp_path):
     scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     spec = json.loads(scenario.read_text(encoding="utf-8"))
-    spec.pop("credential_scan_sentinels")
-    spec_path = tmp_path / "missing-sentinels.json"
+    spec.pop("credential_scan_sentinel_count")
+    spec_path = tmp_path / "missing-sentinel-count.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
-    scratch = Path.home() / ".cache" / f"biv-e3-missing-sentinels-{os.getpid()}"
+    scratch = (
+        Path.home()
+        / ".cache"
+        / f"biv-e3-missing-sentinel-count-{os.getpid()}"
+    )
     shutil.rmtree(scratch, ignore_errors=True)
     try:
         result = e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
@@ -4171,7 +4489,7 @@ def test_e3_dry_run_rejects_missing_credential_sentinel_inventory(tmp_path):
         shutil.rmtree(scratch, ignore_errors=True)
 
     assert result.status is Status.INVALID
-    assert "credential_scan_sentinels" in result.detail
+    assert "credential_scan_sentinel_count" in result.detail
 
 
 def test_secret_scan_reads_decompressed_archive_members(tmp_path):
@@ -4185,8 +4503,15 @@ def test_secret_scan_reads_decompressed_archive_members(tmp_path):
     image = tmp_path / "leak.bvpk"
     image.write_bytes(zstandard.ZstdCompressor().compress(raw.getvalue()))
 
-    assert scan_secret_values(image.read_bytes(), [sentinel]) == []
-    assert scan_image_secret_values(image, [sentinel]) == ["payload/leak.env:secret[0]"]
+    _assert_fixed(
+        scan_secret_values(image.read_bytes(), [sentinel]) == [],
+        "compressed-member-raw-scan-unexpected-hit",
+    )
+    _assert_fixed(
+        scan_image_secret_values(image, [sentinel])
+        == ["payload/leak.env:secret[0]"],
+        "compressed-member-scan-hit-mismatch",
+    )
 
 
 @pytest.mark.parametrize("agent_id", ["claude-code", "codex"])
@@ -4752,7 +5077,11 @@ def test_finalize_report_replaces_all_secret_bearing_fields(tmp_path):
     assert final.classes == []
     assert final.held_asserts == []
     assert final.warnings == []
-    assert secret not in serialize_report([final])
+    _assert_sensitive_values_absent(
+        (secret,),
+        (serialize_report([final]),),
+        "finalized-report-retained-sensitive-field",
+    )
 
 
 def _current_credential_guards(claude_dest, codex_dest):
@@ -4835,16 +5164,24 @@ def test_scan_and_teardown_builds_typed_post_materialization_result(tmp_path):
     )
 
     serialized = serialize_report([final])
-    assert final == ScenarioResult(
-        id="e3",
-        tier="E3",
-        status=Status.FAIL,
-        classes=[],
-        held_asserts=[],
-        detail="e3-post-materialization-fail",
-        warnings=["biv-warning-present"],
+    _assert_fixed(
+        final
+        == ScenarioResult(
+            id="e3",
+            tier="E3",
+            status=Status.FAIL,
+            classes=[],
+            held_asserts=[],
+            detail="e3-post-materialization-fail",
+            warnings=["biv-warning-present"],
+        ),
+        "post-materialization-result-shape-mismatch",
     )
-    assert dynamic not in serialized
+    _assert_sensitive_values_absent(
+        (dynamic,),
+        (serialized,),
+        "post-materialization-report-retained-sensitive-value",
+    )
 
 
 @pytest.mark.parametrize("representation_index", (0, 1, 2))
@@ -4901,7 +5238,10 @@ def test_controlled_sentinel_forms_in_capture_surfaces_invalidate_cleanly(
     )
     assert final.status is Status.INVALID
     assert expected_warning in final.warnings
-    assert representation not in serialized
+    _assert_fixed(
+        representation not in serialized,
+        "capture-surface-report-retained-sentinel-form",
+    )
 
 
 @pytest.mark.parametrize("representation_index", (0, 1, 2))
@@ -4932,8 +5272,14 @@ def test_controlled_sentinel_forms_in_final_candidate_are_discarded(
 
     serialized = serialize_report([final]).encode()
     assert final.status is Status.INVALID
-    assert representation not in serialized
-    assert not scanner.scan_bytes(serialized)
+    _assert_fixed(
+        representation not in serialized,
+        "final-candidate-report-retained-sentinel-form",
+    )
+    _assert_fixed(
+        not scanner.scan_bytes(serialized),
+        "final-candidate-report-scanner-detected-sentinel-form",
+    )
 
 
 @pytest.mark.parametrize("credential_id", ("claude-code", "codex"))
@@ -5254,7 +5600,10 @@ def test_scan_and_teardown_tree_hit_invalidates_preexisting_fail_and_stays_clean
     assert final.classes == []
     assert final.held_asserts == []
     assert "credential-scan-detected" in final.warnings
-    assert not report_scanner.scan_bytes(serialized)
+    _assert_fixed(
+        not report_scanner.scan_bytes(serialized),
+        "tree-hit-report-retained-sensitive-value",
+    )
 
 
 def test_scan_and_teardown_child_hit_keeps_preexisting_invalid_and_stays_clean(
@@ -5291,7 +5640,10 @@ def test_scan_and_teardown_child_hit_keeps_preexisting_invalid_and_stays_clean(
     serialized = serialize_report([final]).encode()
     assert final.status is Status.INVALID
     assert "credential-child-output-detected" in final.warnings
-    assert not report_scanner.scan_bytes(serialized)
+    _assert_fixed(
+        not report_scanner.scan_bytes(serialized),
+        "child-hit-report-retained-sensitive-value",
+    )
 
 
 def test_scan_and_teardown_scans_seed_tree_before_removing_all_targets(tmp_path):
@@ -5327,7 +5679,11 @@ def test_scan_and_teardown_scans_seed_tree_before_removing_all_targets(tmp_path)
     )
 
     assert final.status is Status.INVALID
-    assert secret.decode() not in serialize_report([final])
+    _assert_sensitive_values_absent(
+        (secret.decode(),),
+        (serialize_report([final]),),
+        "teardown-report-retained-sensitive-value",
+    )
     assert not any(path.exists() for path in (claude_dest, codex_dest, profile_root, host2, seed_parent))
 
 
@@ -5450,16 +5806,12 @@ def test_scan_and_teardown_activation_failure_returns_only_typed_constant_invali
         remove_targets=False,
     )
 
-    assert final == ScenarioResult(
-        id="e3-report-refused",
-        tier="E3",
-        status=Status.INVALID,
-        classes=[],
-        held_asserts=[],
-        detail="report refused: result could not be sanitized",
-        warnings=[],
+    _assert_report_refused(final)
+    _assert_sensitive_values_absent(
+        (secret,),
+        (serialize_report([final]),),
+        "activation-failure-report-retained-sensitive-value",
     )
-    assert secret not in serialize_report([final])
 
 
 def test_scan_and_teardown_empty_scanner_returns_only_typed_constant_invalid(
@@ -5492,16 +5844,12 @@ def test_scan_and_teardown_empty_scanner_returns_only_typed_constant_invalid(
         remove_targets=False,
     )
 
-    assert final == ScenarioResult(
-        id="e3-report-refused",
-        tier="E3",
-        status=Status.INVALID,
-        classes=[],
-        held_asserts=[],
-        detail="report refused: result could not be sanitized",
-        warnings=[],
+    _assert_report_refused(final)
+    _assert_sensitive_values_absent(
+        (secret,),
+        (serialize_report([final]),),
+        "empty-scanner-report-retained-sensitive-value",
     )
-    assert secret not in serialize_report([final])
 
 
 def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path):
@@ -6794,6 +7142,15 @@ def _schema_shape_cases():
     scalar = ("none", None), ("scalar", 42), ("container", []), ("bad-element", [None])
     list_of_strings = ("none", None), ("scalar", "value"), ("container", {}), ("bad-element", [None])
     mapping = ("none", None), ("scalar", "value"), ("container", []), ("bad-element", {"KEY": None})
+    sentinel_counts = (
+        ("none", None),
+        ("zero", 0),
+        ("negative", -1),
+        ("string", "1"),
+        ("float", 1.0),
+        ("true", True),
+        ("false", False),
+    )
     cases = []
 
     def add(label, values, mutate):
@@ -6806,7 +7163,11 @@ def _schema_shape_cases():
     add("seed_turns", list_of_strings, lambda spec, value: spec.__setitem__("seed_turns", value))
     add("live_store_roots", list_of_strings, lambda spec, value: spec.__setitem__("live_store_roots", value))
     add("forbidden_bivpak_state", list_of_strings, lambda spec, value: spec.__setitem__("forbidden_bivpak_state", value))
-    add("credential_scan_sentinels", list_of_strings, lambda spec, value: spec.__setitem__("credential_scan_sentinels", value))
+    add(
+        "credential_scan_sentinel_count",
+        sentinel_counts,
+        lambda spec, value: spec.__setitem__("credential_scan_sentinel_count", value),
+    )
     add("agents", list_of_strings, lambda spec, value: spec.__setitem__("agents", value))
 
     def mutate_agent(field):
@@ -8331,7 +8692,11 @@ def _run_argv_barrier_flow(
     monkeypatch.setattr(
         e3,
         "_runtime_credential_sentinels",
-        lambda count: [controlled_sentinel] if count == 1 else pytest.fail(count),
+        lambda count: (
+            [controlled_sentinel]
+            if count == 1
+            else pytest.fail("argv-flow-sentinel-count-mismatch", pytrace=False)
+        ),
     )
     monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
     monkeypatch.setattr(e3, "assert_exact_install_delta", fake_install_delta)
@@ -8484,7 +8849,7 @@ def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_b
 
 @pytest.mark.parametrize("leak_phase", ("auth", "liveness", "open", "resume"))
 def test_run_e3_invalidates_each_post_materialization_output_leak(
-    monkeypatch, tmp_path, stable_test_root, leak_phase
+    monkeypatch, tmp_path, stable_test_root, capsys, leak_phase
 ):
     result, *_ = _run_argv_barrier_flow(
         monkeypatch,
@@ -8493,9 +8858,20 @@ def test_run_e3_invalidates_each_post_materialization_output_leak(
         leak_phase=leak_phase,
     )
 
-    assert result.status is Status.INVALID
-    assert "credential-child-output-detected" in result.warnings
-    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
+    console = capsys.readouterr()
+    _assert_fixed(
+        result.status is Status.INVALID,
+        "post-materialization-output-leak-status-mismatch",
+    )
+    _assert_fixed(
+        "credential-child-output-detected" in result.warnings,
+        "post-materialization-output-leak-warning-missing",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(CONTROLLED_RUNTIME_SENTINEL),
+        (console.out, console.err, serialize_report([result])),
+        "post-materialization-output-leak-rendered-sentinel",
+    )
 
 
 @pytest.mark.parametrize(
@@ -8503,7 +8879,7 @@ def test_run_e3_invalidates_each_post_materialization_output_leak(
     ("auth", "liveness", "open", "resume"),
 )
 def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
-    monkeypatch, tmp_path, stable_test_root, exception_leak_phase
+    monkeypatch, tmp_path, stable_test_root, capsys, exception_leak_phase
 ):
     result, _, _, ledger, _, _, _ = _run_argv_barrier_flow(
         monkeypatch,
@@ -8512,9 +8888,20 @@ def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
         exception_leak_phase=exception_leak_phase,
     )
 
-    assert result.status is Status.INVALID
-    assert "credential-child-output-detected" in result.warnings
-    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
+    console = capsys.readouterr()
+    _assert_fixed(
+        result.status is Status.INVALID,
+        "exceptional-output-leak-status-mismatch",
+    )
+    _assert_fixed(
+        "credential-child-output-detected" in result.warnings,
+        "exceptional-output-leak-warning-missing",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(CONTROLLED_RUNTIME_SENTINEL),
+        (console.out, console.err, serialize_report([result])),
+        "exceptional-output-leak-rendered-sentinel",
+    )
     if exception_leak_phase == "auth":
         auth_calls = [
             command
@@ -8525,7 +8912,7 @@ def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
 
 
 def test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization(
-    monkeypatch, tmp_path, stable_test_root
+    monkeypatch, tmp_path, stable_test_root, capsys
 ):
     result, *_ = _run_argv_barrier_flow(
         monkeypatch,
@@ -8534,9 +8921,20 @@ def test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization
         scratch_leak_payload=CONTROLLED_RUNTIME_SENTINEL,
     )
 
-    assert result.status is Status.INVALID
-    assert "credential-scan-detected" in result.warnings
-    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
+    console = capsys.readouterr()
+    _assert_fixed(
+        result.status is Status.INVALID,
+        "scratch-token-leak-status-mismatch",
+    )
+    _assert_fixed(
+        "credential-scan-detected" in result.warnings,
+        "scratch-token-leak-warning-missing",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(CONTROLLED_RUNTIME_SENTINEL),
+        (console.out, console.err, serialize_report([result])),
+        "scratch-token-leak-rendered-sentinel",
+    )
 
 
 @pytest.mark.parametrize("mutation", ("missing", "replaced"))
@@ -8553,7 +8951,11 @@ def test_run_e3_invalidates_changed_credential_guard_after_materialization(
     serialized = serialize_report([result])
     assert result.status is Status.INVALID
     assert "credential-exclusion-integrity-failed" in result.warnings
-    assert CODEX_ACCESS_LEAF not in serialized
+    _assert_sensitive_values_absent(
+        (CODEX_ACCESS_LEAF,),
+        (serialized,),
+        "credential-guard-report-retained-access-leaf",
+    )
 
 
 def test_run_e3_rejects_restored_workspace_symlink_before_any_resume_spawn(
@@ -8828,3 +9230,2984 @@ def test_profile_root_accepts_isolated_native_path(tmp_path):
     live = tmp_path / "live-store"
 
     assert profile_root_failures(root, [live]) == []
+
+
+def _adv():
+    from selftest import _e3_adversary as adv
+
+    return adv
+
+
+def test_e3_adversary_reads_explicit_roots_regular_files_only(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    (root / "z-dir").mkdir(parents=True)
+    (root / "a-dir").mkdir()
+    (root / "z.txt").write_bytes(b"ROOT-Z")
+    (root / "a.txt").write_bytes(b"ROOT-A")
+    (root / "z-dir" / "entry.txt").write_bytes(b"DIR-Z")
+    (root / "a-dir" / "entry.txt").write_bytes(b"DIR-A")
+    real_fwalk = os.fwalk
+
+    def reverse_order_fwalk(*args, **kwargs):
+        for dirpath, dirnames, filenames, dirfd in real_fwalk(*args, **kwargs):
+            dirnames[:] = sorted(dirnames, reverse=True)
+            filenames[:] = sorted(filenames, reverse=True)
+            yield dirpath, dirnames, filenames, dirfd
+
+    monkeypatch.setattr(os, "fwalk", reverse_order_fwalk)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert content == "ROOT-AROOT-ZDIR-ADIR-Z"
+    assert _adv().read_bounded_roots([root]) == (content, notes)
+
+
+def test_e3_adversary_no_symlink_follow_no_out_of_root(tmp_path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "s").write_bytes(b"OUTSIDE")
+    (root / "flink").symlink_to(outside / "s")
+    (root / "dlink").symlink_to(outside)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert "OUTSIDE" not in content
+    assert "skip-open-error" in notes or "skip-nonregular" in notes
+
+
+def test_e3_adversary_per_file_and_total_byte_budget(tmp_path):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "big.bin").write_bytes(b"X" * 100)
+
+    content, _ = _adv().read_bounded_roots([root], per_file_bytes=10)
+
+    assert content == "X" * 10
+    (root / "b2.bin").write_bytes(b"Y" * 100)
+    content2, notes2 = _adv().read_bounded_roots(
+        [root],
+        per_file_bytes=100,
+        total_bytes=150,
+    )
+    assert content2 == "Y" * 100 + "X" * 50
+    assert notes2 == ["budget-exhausted"]
+
+
+def test_e3_adversary_loops_over_short_reads(tmp_path, monkeypatch):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "short.txt").write_bytes(b"SHORT-READ")
+    real_read = os.read
+
+    def short_read(fd, count):
+        return real_read(fd, min(count, 2))
+
+    monkeypatch.setattr(os, "read", short_read)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert content == "SHORT-READ"
+    assert notes == []
+
+
+def test_e3_adversary_skips_nonregular_and_injected_read_error(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    root.mkdir()
+    if hasattr(os, "mkfifo"):
+        os.mkfifo(root / "fifo")
+    (root / "ok.txt").write_bytes(b"OK")
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert content == "OK"
+    if hasattr(os, "mkfifo"):
+        assert "skip-nonregular" in notes
+
+    monkeypatch.setattr(
+        os,
+        "read",
+        lambda _fd, _count: (_ for _ in ()).throw(OSError("injected")),
+    )
+    _, error_notes = _adv().read_bounded_roots([root])
+    assert "skip-read-error" in error_notes
+
+
+def test_e3_adversary_rejects_symlink_root(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "s").write_bytes(b"SECRET")
+    link = tmp_path / "linkroot"
+    link.symlink_to(real)
+
+    content, notes = _adv().read_bounded_roots([link])
+
+    assert "SECRET" not in content
+    assert notes == ["skip-symlink-root"]
+
+
+def test_e3_adversary_root_replacement_before_fwalk_cannot_redirect(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "payload.txt").write_bytes(b"INSIDE")
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    (replacement / "payload.txt").write_bytes(b"OUTSIDE")
+    parked = tmp_path / "ws-parked"
+    real_fwalk = os.fwalk
+    swapped = False
+
+    def swap_before_fwalk(*args, **kwargs):
+        nonlocal swapped
+        if not swapped:
+            root.rename(parked)
+            replacement.rename(root)
+            swapped = True
+        return real_fwalk(*args, **kwargs)
+
+    monkeypatch.setattr(os, "fwalk", swap_before_fwalk)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert swapped
+    assert content == "INSIDE"
+    assert "OUTSIDE" not in content
+    assert notes == []
+
+
+def test_e3_adversary_root_replacement_before_open_fails_identity(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    root.mkdir()
+    (root / "payload.txt").write_bytes(b"INSIDE")
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    (replacement / "payload.txt").write_bytes(b"OUTSIDE")
+    parked = tmp_path / "ws-parked"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_root_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if Path(path) == root and dir_fd is None and not swapped:
+            root.rename(parked)
+            replacement.rename(root)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_root_open)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert swapped
+    assert content == ""
+    assert notes == ["traversal-error"]
+
+
+def test_e3_adversary_reports_traversal_error(tmp_path, monkeypatch):
+    root = tmp_path / "ws"
+    root.mkdir()
+
+    def failing_fwalk(_root, *, topdown, onerror, follow_symlinks, dir_fd=None):
+        assert topdown
+        assert not follow_symlinks
+        assert dir_fd is not None
+        onerror(OSError("injected"))
+        return ()
+
+    monkeypatch.setattr(os, "fwalk", failing_fwalk)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert content == ""
+    assert notes == ["traversal-error"]
+
+
+def test_e3_adversary_no_out_of_root_via_ancestor(tmp_path):
+    root = tmp_path / "ws"
+    (root / "a").mkdir(parents=True)
+    outside = tmp_path / "out"
+    outside.mkdir()
+    (outside / "s").write_bytes(b"OUTSIDE")
+    (root / "a" / "mid").symlink_to(outside)
+
+    content, _ = _adv().read_bounded_roots([root])
+
+    assert "OUTSIDE" not in content
+
+
+def test_e3_adversary_file_open_remains_bound_to_walked_ancestor(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "ws"
+    ancestor = root / "a"
+    ancestor.mkdir(parents=True)
+    (ancestor / "payload.txt").write_bytes(b"INSIDE")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "payload.txt").write_bytes(b"OUTSIDE")
+    parked = root / "a-parked"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_file_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if Path(path).name == "payload.txt" and not swapped:
+            ancestor.rename(parked)
+            ancestor.symlink_to(outside, target_is_directory=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_file_open)
+
+    content, notes = _adv().read_bounded_roots([root])
+
+    assert swapped
+    assert content == "INSIDE"
+    assert "OUTSIDE" not in content
+    assert notes == []
+
+
+@pytest.mark.parametrize("bad", ["/abs", "../esc", "a/../../esc"])
+def test_e3_corpus_builder_rejects_unsafe_names(tmp_path, bad):
+    with pytest.raises(ValueError):
+        _adv().build_durable_corpus(tmp_path / "c", {bad: "x"})
+
+
+def test_e3_corpus_builder_writes_nested_content(tmp_path):
+    root = tmp_path / "corpus"
+
+    result = _adv().build_durable_corpus(
+        root,
+        {"b/two.txt": "TWO", "a/one.txt": b"ONE"},
+    )
+
+    assert result == root
+    assert (root / "a" / "one.txt").read_bytes() == b"ONE"
+    assert (root / "b" / "two.txt").read_bytes() == b"TWO"
+
+
+def test_e3_corpus_builder_rejects_symlink_root(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = tmp_path / "corpus"
+    root.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises((ValueError, OSError, FileExistsError)):
+        _adv().build_durable_corpus(root, {"entry": "blocked"})
+
+    assert list(outside.iterdir()) == []
+
+
+def test_e3_corpus_builder_rejects_symlinked_parent(tmp_path):
+    root = tmp_path / "corpus"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (root / "p").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises((ValueError, OSError, FileExistsError)):
+        _adv().build_durable_corpus(root, {"p/x": "blocked"})
+
+    assert list(outside.iterdir()) == []
+
+
+def test_e3_corpus_builder_rejects_existing_root_swap_before_open(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "corpus"
+    root.mkdir()
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    parked = tmp_path / "corpus-parked"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_root_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        opens_root = (
+            dir_fd is None
+            and Path(path) == root
+            or dir_fd is not None
+            and os.fspath(path) == root.name
+        )
+        if opens_root and not swapped:
+            root.rename(parked)
+            replacement.rename(root)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_root_open)
+
+    with pytest.raises(ValueError):
+        _adv().build_durable_corpus(root, {"entry.txt": "blocked"})
+
+    assert swapped
+    assert list(root.iterdir()) == []
+    assert list(parked.iterdir()) == []
+
+
+def test_e3_corpus_builder_missing_root_creation_stays_bound_to_open_parent(
+    tmp_path,
+    monkeypatch,
+):
+    parent = tmp_path / "validated-parent"
+    parent.mkdir()
+    replacement = tmp_path / "replacement-parent"
+    replacement.mkdir()
+    parked = tmp_path / "validated-parent-parked"
+    root = parent / "corpus"
+    real_mkdir = os.mkdir
+    swapped = False
+
+    def swap_before_root_mkdir(path, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        creates_root = (
+            dir_fd is None
+            and Path(path) == root
+            or dir_fd is not None
+            and os.fspath(path) == root.name
+        )
+        if creates_root and not swapped:
+            parent.rename(parked)
+            replacement.rename(parent)
+            swapped = True
+        return real_mkdir(path, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "mkdir", swap_before_root_mkdir)
+
+    _adv().build_durable_corpus(root, {"entry.txt": "INSIDE"})
+
+    assert swapped
+    assert (parked / "corpus" / "entry.txt").read_text(encoding="utf-8") == "INSIDE"
+    assert list(parent.iterdir()) == []
+
+
+def test_e3_corpus_builder_file_creation_stays_bound_to_open_parent(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "corpus"
+    parent = root / "p"
+    parent.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    parked = root / "p-parked"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_file_create(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if Path(path).name == "entry.txt" and flags & os.O_CREAT and not swapped:
+            parent.rename(parked)
+            parent.symlink_to(outside, target_is_directory=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_file_create)
+
+    _adv().build_durable_corpus(root, {"p/entry.txt": "INSIDE"})
+
+    assert swapped
+    assert (parked / "entry.txt").read_text(encoding="utf-8") == "INSIDE"
+    assert list(outside.iterdir()) == []
+
+
+def test_e3_corpus_builder_close_error_still_attempts_every_descriptor(
+    tmp_path,
+    monkeypatch,
+):
+    real_open = os.open
+    real_dup = os.dup
+    real_close = os.close
+    tracked = set()
+    attempted = set()
+    closed = set()
+    injected = False
+
+    def tracking_open(*args, **kwargs):
+        fd = real_open(*args, **kwargs)
+        tracked.add(fd)
+        return fd
+
+    def tracking_dup(fd):
+        duplicate = real_dup(fd)
+        tracked.add(duplicate)
+        return duplicate
+
+    def fail_first_close(fd):
+        nonlocal injected
+        attempted.add(fd)
+        real_close(fd)
+        closed.add(fd)
+        if not injected:
+            injected = True
+            raise OSError("injected close failure")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "dup", tracking_dup)
+    monkeypatch.setattr(os, "close", fail_first_close)
+
+    try:
+        with pytest.raises(OSError):
+            _adv().build_durable_corpus(
+                tmp_path / "corpus",
+                {"parent/entry.txt": "content"},
+            )
+
+        assert injected
+        assert tracked <= attempted
+    finally:
+        for fd in tracked - closed:
+            try:
+                real_close(fd)
+            except OSError:
+                pass
+
+
+def test_e3_corpus_builder_rejects_symlinked_final_target(tmp_path):
+    root = tmp_path / "corpus"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "target"
+    target.write_text("unchanged", encoding="utf-8")
+    (root / "entry").symlink_to(target)
+
+    with pytest.raises((ValueError, OSError, FileExistsError)):
+        _adv().build_durable_corpus(root, {"entry": "blocked"})
+
+    assert target.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_e3_adversary_seed_fake_captures_roots_and_owns_transcript(tmp_path):
+    import inspect
+
+    seed_workspace = tmp_path / "seed"
+    seed_workspace.mkdir()
+    (seed_workspace / "seed.txt").write_text("SEED", encoding="utf-8")
+    extra = tmp_path / "extra"
+    extra.mkdir()
+    (extra / "extra.txt").write_text("EXTRA", encoding="utf-8")
+    owned_paths = []
+    fake = _adv().adversarial_seed_fake(extra_roots=[extra])
+    assert inspect.signature(fake) == inspect.signature(e3._seed_agent)
+
+    transcript = fake(
+        {"id": "codex"},
+        tmp_path / "profile",
+        seed_workspace,
+        {},
+        {},
+        lambda *_args: None,
+        [],
+        owned_paths,
+        resolved_binary="/unused/codex",
+    )
+
+    captured = json.loads(transcript.read_text(encoding="utf-8"))
+    _assert_fixed(
+        captured == {"content": "SEEDEXTRA", "notes": []},
+        "adversarial-seed-captured-transcript-mismatch",
+    )
+    assert transcript == seed_workspace / "seen-codex.jsonl"
+    assert owned_paths == [transcript]
+
+
+@dataclass(frozen=True)
+class GuardCheck:
+    name: str
+    run: Callable[["_A4SyntheticState"], tuple[str, str]]
+
+
+@dataclass(frozen=True)
+class _A4GuardVerdict:
+    name: str
+    status: str
+    reason_token: str
+
+    def render(self) -> str:
+        return f"{self.name}={self.status}({self.reason_token})"
+
+
+_A4_MISSING = object()
+_A4_HASH_CHUNK_BYTES = 64 * 1024
+
+
+@dataclass(frozen=True)
+class _A4OwnedFileSnapshot:
+    path_identities: tuple[tuple[int, int], ...]
+    digest: str
+
+
+@dataclass
+class _A4SyntheticState:
+    owned: tuple[Path, ...]
+    scratch: Path
+    pack: Callable[[], object]
+    image: Path
+    sentinels: tuple[str, ...]
+    profile_root: Path
+    spec: dict
+    pack_ran: bool = False
+    pack_result: object | None = None
+    before_pack: dict[Path, object] = field(default_factory=dict)
+    after_pack: dict[Path, object] = field(default_factory=dict)
+
+
+_A4_ALLOWED_VERDICTS = {
+    "negative-control": frozenset(
+        {("PASS", "ok"), ("INVALID", "negative-control")}
+    ),
+    "pack-exit-contract": frozenset(
+        {("PASS", "ok"), ("FAIL", "pack-exit-contract")}
+    ),
+    "pack-mutation": frozenset(
+        {("PASS", "ok"), ("INVALID", "pack-mutation")}
+    ),
+    "credential-scan": frozenset(
+        {
+            ("PASS", "ok"),
+            ("FAIL", "credential-scan"),
+            ("FAIL", "member[i]:secret"),
+            ("NOT_EVALUABLE", "no-image"),
+        }
+    ),
+    "c1-drift": frozenset({("PASS", "ok"), ("INVALID", "c1-drift")}),
+    "c1-zero-session": frozenset(
+        {("PASS", "ok"), ("INVALID", "c1-zero-session")}
+    ),
+}
+
+
+def _a4_synthetic_state(**kwargs) -> _A4SyntheticState:
+    return _A4SyntheticState(**kwargs)
+
+
+def _a4_empty_host2_profile(root: Path) -> Path:
+    (root / "claude-code" / "projects").mkdir(parents=True)
+    codex = root / "codex"
+    (codex / "sessions").mkdir(parents=True)
+    (codex / "archived_sessions").mkdir()
+    (codex / "session_index.jsonl").write_bytes(b"")
+    return root
+
+
+def _a4_image_with_secret(image: Path, member_name: str, sentinel: str) -> Path:
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode="w") as archive:
+        content = sentinel.encode()
+        member = tarfile.TarInfo(member_name)
+        member.size = len(content)
+        archive.addfile(member, io.BytesIO(content))
+    image.write_bytes(zstandard.ZstdCompressor().compress(raw.getvalue()))
+    return image
+
+
+@contextlib.contextmanager
+def _a4_open_owned_descriptor(path: Path):
+    components = path.parts
+    if (
+        not path.is_absolute()
+        or len(components) < 2
+        or any(component in {".", ".."} for component in components[1:])
+    ):
+        raise OSError("a4-invalid-owned-path")
+
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    directory_descriptors = []
+    descriptor = None
+    path_identities = []
+    alias_edge = None
+    ancestor_edges = []
+    leaf_edge = None
+    body_failure = None
+    try:
+        expected_root = os.lstat(path.anchor)
+        root_descriptor = os.open(path.anchor, directory_flags)
+        directory_descriptors.append(root_descriptor)
+        opened_root = os.fstat(root_descriptor)
+        root_identity = (opened_root.st_dev, opened_root.st_ino)
+        if (
+            not stat.S_ISDIR(expected_root.st_mode)
+            or not stat.S_ISDIR(opened_root.st_mode)
+            or (expected_root.st_dev, expected_root.st_ino)
+            != root_identity
+        ):
+            raise OSError("a4-owned-root-changed")
+        path_identities.append(root_identity)
+
+        if len(components) > 2:
+            first_ancestor = os.stat(
+                components[1],
+                dir_fd=root_descriptor,
+                follow_symlinks=False,
+            )
+            if stat.S_ISLNK(first_ancestor.st_mode):
+                if first_ancestor.st_uid != opened_root.st_uid:
+                    raise OSError("a4-owned-root-alias-untrusted")
+                alias_target = Path(
+                    os.readlink(components[1], dir_fd=root_descriptor)
+                )
+                current_alias = os.stat(
+                    components[1],
+                    dir_fd=root_descriptor,
+                    follow_symlinks=False,
+                )
+                alias_identity = (first_ancestor.st_dev, first_ancestor.st_ino)
+                if (
+                    not stat.S_ISLNK(current_alias.st_mode)
+                    or (current_alias.st_dev, current_alias.st_ino)
+                    != alias_identity
+                ):
+                    raise OSError("a4-owned-root-alias-changed")
+                if alias_target.is_absolute():
+                    if alias_target.anchor != path.anchor:
+                        raise OSError("a4-owned-root-alias-invalid")
+                    alias_components = alias_target.parts[1:]
+                else:
+                    alias_components = alias_target.parts
+                if not alias_components or any(
+                    component in {".", ".."} for component in alias_components
+                ):
+                    raise OSError("a4-owned-root-alias-invalid")
+                components = (
+                    path.anchor,
+                    *alias_components,
+                    *components[2:],
+                )
+                path_identities.append(alias_identity)
+                alias_edge = (
+                    root_descriptor,
+                    path.parts[1],
+                    alias_identity,
+                    opened_root.st_uid,
+                )
+
+        for component in components[1:-1]:
+            parent_descriptor = directory_descriptors[-1]
+            expected = os.stat(
+                component,
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+            if not stat.S_ISDIR(expected.st_mode):
+                raise OSError("a4-owned-ancestor-not-directory")
+            next_descriptor = os.open(
+                component,
+                directory_flags,
+                dir_fd=parent_descriptor,
+            )
+            directory_descriptors.append(next_descriptor)
+            try:
+                opened = os.fstat(next_descriptor)
+                current = os.stat(
+                    component,
+                    dir_fd=parent_descriptor,
+                    follow_symlinks=False,
+                )
+                if (
+                    not stat.S_ISDIR(opened.st_mode)
+                    or (expected.st_dev, expected.st_ino)
+                    != (opened.st_dev, opened.st_ino)
+                    or (current.st_dev, current.st_ino)
+                    != (opened.st_dev, opened.st_ino)
+                ):
+                    raise OSError("a4-owned-ancestor-changed")
+            except BaseException:
+                raise
+            opened_identity = (opened.st_dev, opened.st_ino)
+            path_identities.append(opened_identity)
+            ancestor_edges.append(
+                (parent_descriptor, component, opened_identity)
+            )
+
+        parent_descriptor = directory_descriptors[-1]
+        expected_leaf = os.stat(
+            components[-1],
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+        descriptor = os.open(
+            components[-1],
+            os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW,
+            dir_fd=parent_descriptor,
+        )
+        opened_leaf = os.fstat(descriptor)
+        current_leaf = os.stat(
+            components[-1],
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+        opened_leaf_identity = (opened_leaf.st_dev, opened_leaf.st_ino)
+        if (
+            (expected_leaf.st_dev, expected_leaf.st_ino) != opened_leaf_identity
+            or (current_leaf.st_dev, current_leaf.st_ino) != opened_leaf_identity
+        ):
+            raise OSError("a4-owned-leaf-changed")
+        path_identities.append(opened_leaf_identity)
+        leaf_edge = (
+            parent_descriptor,
+            components[-1],
+            opened_leaf_identity,
+        )
+
+        def revalidate_path() -> bool:
+            try:
+                current_root = os.lstat(path.anchor)
+                if (
+                    not stat.S_ISDIR(current_root.st_mode)
+                    or (current_root.st_dev, current_root.st_ino)
+                    != root_identity
+                ):
+                    return False
+                if alias_edge is not None:
+                    (
+                        alias_parent,
+                        alias_component,
+                        alias_identity,
+                        alias_owner,
+                    ) = alias_edge
+                    current_alias = os.stat(
+                        alias_component,
+                        dir_fd=alias_parent,
+                        follow_symlinks=False,
+                    )
+                    if (
+                        not stat.S_ISLNK(current_alias.st_mode)
+                        or current_alias.st_uid != alias_owner
+                        or (current_alias.st_dev, current_alias.st_ino)
+                        != alias_identity
+                    ):
+                        return False
+                for (
+                    edge_parent,
+                    edge_component,
+                    edge_identity,
+                ) in ancestor_edges:
+                    current = os.stat(
+                        edge_component,
+                        dir_fd=edge_parent,
+                        follow_symlinks=False,
+                    )
+                    if (
+                        not stat.S_ISDIR(current.st_mode)
+                        or (current.st_dev, current.st_ino) != edge_identity
+                    ):
+                        return False
+                leaf_parent, leaf_component, leaf_identity = leaf_edge
+                current_leaf = os.stat(
+                    leaf_component,
+                    dir_fd=leaf_parent,
+                    follow_symlinks=False,
+                )
+                return (
+                    stat.S_ISREG(current_leaf.st_mode)
+                    and (current_leaf.st_dev, current_leaf.st_ino)
+                    == leaf_identity
+                )
+            except OSError:
+                return False
+
+        yield descriptor, tuple(path_identities), revalidate_path
+    except BaseException as failure:
+        body_failure = failure
+        raise
+    finally:
+        descriptors_to_close = list(directory_descriptors)
+        if descriptor is not None:
+            descriptors_to_close.append(descriptor)
+        first_oserror = None
+        first_non_oserror = None
+        while descriptors_to_close:
+            current_descriptor = descriptors_to_close.pop()
+            try:
+                os.close(current_descriptor)
+            except OSError as failure:
+                if first_oserror is None:
+                    first_oserror = failure
+            except BaseException as failure:
+                if first_non_oserror is None:
+                    first_non_oserror = failure
+        if first_non_oserror is not None and (
+            body_failure is None or isinstance(body_failure, OSError)
+        ):
+            raise first_non_oserror
+        if first_oserror is not None and body_failure is None:
+            raise first_oserror
+
+
+def _a4_hash_owned_path(path: Path) -> str | object:
+    with _a4_open_owned_descriptor(path) as (
+        descriptor,
+        path_identities,
+        revalidate_path,
+    ):
+        identity = os.fstat(descriptor)
+        if not stat.S_ISREG(identity.st_mode):
+            return _A4_MISSING
+
+        digest = hashlib.sha256()
+        remaining = identity.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(_A4_HASH_CHUNK_BYTES, remaining))
+            if not chunk:
+                return _A4_MISSING
+            digest.update(chunk)
+            remaining -= len(chunk)
+        if os.read(descriptor, 1):
+            return _A4_MISSING
+        if not revalidate_path():
+            return _A4_MISSING
+        return _A4OwnedFileSnapshot(path_identities, digest.hexdigest())
+
+
+def _a4_owned_snapshot(owned: tuple[Path, ...]) -> dict[Path, object]:
+    snapshot = {}
+    for path in owned:
+        try:
+            snapshot[path] = _a4_hash_owned_path(path)
+        except OSError:
+            snapshot[path] = _A4_MISSING
+    return snapshot
+
+
+def _a4_ensure_pack(state: _A4SyntheticState) -> None:
+    if state.pack_ran:
+        return
+    state.before_pack = _a4_owned_snapshot(state.owned)
+    state.pack_result = state.pack()
+    state.pack_ran = True
+    state.after_pack = _a4_owned_snapshot(state.owned)
+
+
+def _a4_negative_control(state: _A4SyntheticState) -> tuple[str, str]:
+    failures = e3._negative_control_failures(list(state.owned), state.scratch)
+    return ("INVALID", "negative-control") if failures else ("PASS", "ok")
+
+
+def _a4_pack_exit_contract(state: _A4SyntheticState) -> tuple[str, str]:
+    _a4_ensure_pack(state)
+    outcome = e3._biv_envelope_outcome(state.pack_result, "pack")
+    return ("PASS", "ok") if outcome.ok else ("FAIL", "pack-exit-contract")
+
+
+def _a4_pack_mutation(state: _A4SyntheticState) -> tuple[str, str]:
+    _a4_ensure_pack(state)
+    if any(
+        state.before_pack[path] is _A4_MISSING
+        or state.after_pack[path] is _A4_MISSING
+        for path in state.owned
+    ):
+        return ("INVALID", "pack-mutation")
+    if state.after_pack != state.before_pack:
+        return ("INVALID", "pack-mutation")
+    return ("PASS", "ok")
+
+
+def _a4_readable_image(image: Path) -> bool:
+    try:
+        if not image.is_file():
+            return False
+        with image.open("rb") as stream:
+            stream.read(1)
+    except OSError:
+        return False
+    return True
+
+
+def _a4_credential_scan(state: _A4SyntheticState) -> tuple[str, str]:
+    if not _a4_readable_image(state.image):
+        return ("NOT_EVALUABLE", "no-image")
+    try:
+        hits = e3.scan_image_secret_values(state.image, list(state.sentinels))
+    except Exception:
+        return ("FAIL", "credential-scan")
+    if hits:
+        return ("FAIL", "member[i]:secret")
+    return ("PASS", "ok")
+
+
+def _a4_c1_drift(state: _A4SyntheticState) -> tuple[str, str]:
+    del state
+    failures = e3._c1_drift_tripwire_failures()
+    return ("INVALID", "c1-drift") if failures else ("PASS", "ok")
+
+
+def _a4_c1_zero_session(state: _A4SyntheticState) -> tuple[str, str]:
+    failures = e3._c1_zero_session_failures(state.profile_root, state.spec)
+    return ("INVALID", "c1-zero-session") if failures else ("PASS", "ok")
+
+
+# This registry is the six-check offline inventory. The governed-region digest
+# below is the drift backstop: any pin change is a hard STOP-and-review, never
+# an automatic registry update.
+A4_OFFLINE_GUARD_REGISTRY = (
+    GuardCheck("negative-control", _a4_negative_control),
+    GuardCheck("pack-exit-contract", _a4_pack_exit_contract),
+    GuardCheck("pack-mutation", _a4_pack_mutation),
+    GuardCheck("credential-scan", _a4_credential_scan),
+    GuardCheck("c1-drift", _a4_c1_drift),
+    GuardCheck("c1-zero-session", _a4_c1_zero_session),
+)
+
+
+def collect_a4_offline_guards(
+    state: _A4SyntheticState,
+) -> tuple[_A4GuardVerdict, ...]:
+    verdicts = []
+    for check in A4_OFFLINE_GUARD_REGISTRY:
+        status, reason_token = check.run(state)
+        _assert_fixed(
+            (status, reason_token) in _A4_ALLOWED_VERDICTS[check.name],
+            "a4-verdict-vocabulary-invalid",
+        )
+        verdicts.append(_A4GuardVerdict(check.name, status, reason_token))
+    return tuple(verdicts)
+
+
+def _a4_assigned_call_name(statement: ast.stmt) -> str | None:
+    if not isinstance(statement, ast.Assign):
+        return None
+    call = statement.value
+    if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name):
+        return None
+    return call.func.id
+
+
+def _a4_is_first_open_boundary(statement: ast.stmt) -> bool:
+    if (
+        not isinstance(statement, ast.Assign)
+        or len(statement.targets) != 1
+        or not isinstance(statement.targets[0], ast.Name)
+        or statement.targets[0].id != "opened"
+        or not isinstance(statement.value, ast.Call)
+        or not isinstance(statement.value.func, ast.Name)
+        or statement.value.func.id != "capture_spawn"
+        or not statement.value.args
+        or not isinstance(statement.value.args[0], ast.List)
+    ):
+        return False
+    command = statement.value.args[0].elts
+    return (
+        len(command) >= 2
+        and isinstance(command[1], ast.Constant)
+        and command[1].value == "open"
+    )
+
+
+def _a4_guard_region_source(source: str | None = None) -> str:
+    normalized = textwrap.dedent(source or inspect.getsource(e3.run_e3))
+    tree = ast.parse(normalized)
+    matches = []
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(body, list):
+            continue
+        start_indexes = [
+            index
+            for index, statement in enumerate(body)
+            if _a4_assigned_call_name(statement) == "_negative_control_failures"
+        ]
+        end_indexes = [
+            index
+            for index, statement in enumerate(body)
+            if _a4_assigned_call_name(statement) == "_c1_zero_session_failures"
+        ]
+        for start_index in start_indexes:
+            for end_index in end_indexes:
+                if start_index < end_index:
+                    matches.append((body, start_index, end_index))
+    if len(matches) != 1:
+        raise AssertionError("run_e3 pre-open guard region anchors are not unique")
+    body, start_index, end_index = matches[0]
+    final_guard_index = end_index + 1
+    if final_guard_index >= len(body):
+        raise AssertionError("run_e3 zero-session guard is missing")
+    final_guard = body[final_guard_index]
+    if not (
+        isinstance(final_guard, ast.If)
+        and isinstance(final_guard.test, ast.Name)
+        and final_guard.test.id == "zero_session_failures"
+    ):
+        raise AssertionError("run_e3 zero-session guard shape changed")
+    open_indexes = [
+        index
+        for index, statement in enumerate(body)
+        if index > final_guard_index and _a4_is_first_open_boundary(statement)
+    ]
+    if len(open_indexes) != 1:
+        raise AssertionError("run_e3 first-open boundary anchor is not unique")
+    first_open = body[open_indexes[0]]
+    lines = normalized.splitlines(keepends=True)
+    first = body[start_index]
+    return "".join(lines[first.lineno - 1 : first_open.end_lineno])
+
+
+def _a4_normalized_guard_region_source(source: str | None = None) -> str:
+    region = _a4_guard_region_source(source)
+    return "\n".join(region.splitlines()) + "\n"
+
+
+def e3_guard_region_signature(source: str | None = None) -> str:
+    normalized_region = _a4_normalized_guard_region_source(source)
+    return hashlib.sha256(normalized_region.encode("utf-8")).hexdigest()
+
+
+_EXPECTED_GUARD_REGION_SIG = (
+    "99365470b020868145c484fca727c7444f4075118cead56a588de19088823e4a"
+)
+
+
+def _a4_platform_neutral_alias(scratch: Path) -> str:
+    canonical = unicodedata.normalize("NFC", str(scratch))
+    for spelling in e3._alias_spellings(scratch):
+        if spelling != canonical:
+            return spelling
+    raise AssertionError("A4 scratch has no noncanonical alias spelling")
+
+
+def test_a4_alias_fixture_supports_a_linux_shaped_scratch_path():
+    scratch = Path("/tmp/a4-linux-shaped/synthetic-scratch")
+
+    alias = _a4_platform_neutral_alias(scratch)
+
+    assert alias != str(scratch)
+    assert alias in e3._alias_spellings(scratch)
+
+
+def test_a4_offline_collector_registry_is_exact_and_multi_failure_is_value_free(
+    tmp_path,
+    monkeypatch,
+):
+    scratch = tmp_path / "synthetic-scratch"
+    scratch.mkdir()
+    owned = tmp_path / "owned.jsonl"
+    scratch_alias = _a4_platform_neutral_alias(scratch)
+    owned.write_text(json.dumps({"observed": scratch_alias}) + "\n", encoding="utf-8")
+    sentinel = "a4-private-sentinel-" + "7" * 48
+    raw_member = "payload/raw-private-member-name.env"
+    image = _a4_image_with_secret(tmp_path / "synthetic.bvpk", raw_member, sentinel)
+    profile_root = _a4_empty_host2_profile(tmp_path / "host2-profiles")
+
+    def mutating_pack():
+        owned.write_text(
+            json.dumps({"observed": scratch_alias, "changed": True}) + "\n",
+            encoding="utf-8",
+        )
+        return _successful_pack()
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=mutating_pack,
+        image=image,
+        sentinels=(sentinel,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+    observed_states = []
+
+    def observe_state(run):
+        def observed(state):
+            observed_states.append(state)
+            return run(state)
+
+        return observed
+
+    monkeypatch.setitem(
+        globals(),
+        "A4_OFFLINE_GUARD_REGISTRY",
+        tuple(
+            GuardCheck(check.name, observe_state(check.run))
+            for check in A4_OFFLINE_GUARD_REGISTRY
+        ),
+    )
+
+    verdicts = collect_a4_offline_guards(state)
+
+    _assert_fixed(
+        tuple(check.name for check in A4_OFFLINE_GUARD_REGISTRY)
+        == (
+            "negative-control",
+            "pack-exit-contract",
+            "pack-mutation",
+            "credential-scan",
+            "c1-drift",
+            "c1-zero-session",
+        ),
+        "a4-registry-shape-mismatch",
+    )
+    _assert_fixed(
+        observed_states == [state] * 6,
+        "a4-collector-state-forwarding-mismatch",
+    )
+    _assert_fixed(
+        tuple(verdict.render() for verdict in verdicts)
+        == (
+            "negative-control=INVALID(negative-control)",
+            "pack-exit-contract=PASS(ok)",
+            "pack-mutation=INVALID(pack-mutation)",
+            "credential-scan=FAIL(member[i]:secret)",
+            "c1-drift=PASS(ok)",
+            "c1-zero-session=PASS(ok)",
+        ),
+        "a4-collector-verdict-set-mismatch",
+    )
+    _assert_fixed(
+        sum(verdict.status != "PASS" for verdict in verdicts) >= 2,
+        "a4-collector-multi-failure-missing",
+    )
+    rendered = "\n".join(verdict.render() for verdict in verdicts)
+    _assert_sensitive_values_absent(
+        (*_sentinel_text_representations(sentinel), raw_member),
+        (rendered,),
+        "a4-collector-rendered-sensitive-value",
+    )
+
+
+def test_a4_offline_collector_producer_chain_binds_simultaneous_verdicts(
+    tmp_path,
+    monkeypatch,
+):
+    scratch = tmp_path / "synthetic-scratch"
+    scratch.mkdir()
+    owned = tmp_path / "owned.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    missing_image = tmp_path / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(tmp_path / "host2-profiles")
+
+    def failed_mutating_pack():
+        owned.write_text('{"turn":"changed-during-failed-pack"}\n', encoding="utf-8")
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        e3,
+        "scan_image_secret_values",
+        lambda *_args: pytest.fail("credential scan evaluated without a readable image"),
+    )
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_mutating_pack,
+        image=missing_image,
+        sentinels=("a4-private-sentinel-" + "8" * 48,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    verdicts = collect_a4_offline_guards(state)
+    by_name = {verdict.name: verdict.render() for verdict in verdicts}
+
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-producer-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-producer-pack-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-producer-credential-scan-verdict-mismatch",
+    )
+    _assert_fixed(
+        len(verdicts) == 6,
+        "a4-producer-verdict-count-mismatch",
+    )
+
+
+def _a4_missing_baseline_mutation_collector_worker(
+    root_text: str,
+    result_sender,
+) -> None:
+    root = Path(root_text)
+    sensitive = root.name
+    real_parent = root / "real-parent"
+    real_parent.mkdir()
+    real_target = real_parent / "owned-sensitive-transcript.jsonl"
+    real_target.write_text('{"turn":"before"}\n', encoding="utf-8")
+    linked_parent = root / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    owned = linked_parent / real_target.name
+    scratch = root / "synthetic-scratch"
+    scratch.mkdir()
+    profile_root = _a4_empty_host2_profile(root / "host2-profiles")
+    pack_calls = 0
+    pack_ran_at_call = None
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+    state = None
+
+    def failed_mutating_pack():
+        nonlocal pack_calls, pack_ran_at_call
+        pack_calls += 1
+        pack_ran_at_call = state.pack_ran
+        owned.write_text('{"turn":"after"}\n', encoding="utf-8")
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_mutating_pack,
+        image=root / "pack-never-produced.bvpk",
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    try:
+        with (
+            contextlib.redirect_stdout(captured_out),
+            contextlib.redirect_stderr(captured_err),
+        ):
+            verdicts = collect_a4_offline_guards(state)
+    except Exception:
+        result_sender.send(("raised",))
+    else:
+        result_sender.send(
+            (
+                "ok",
+                tuple(verdict.render() for verdict in verdicts),
+                pack_calls,
+                pack_ran_at_call,
+                state.pack_ran,
+                state.before_pack[owned] is _A4_MISSING,
+                state.after_pack[owned] is _A4_MISSING,
+                real_target.read_text(encoding="utf-8")
+                == '{"turn":"after"}\n',
+                captured_out.getvalue(),
+                captured_err.getvalue(),
+            )
+        )
+    finally:
+        result_sender.close()
+
+
+def test_a4_offline_collector_missing_baseline_mutation_fails_closed(
+    tmp_path,
+):
+    sensitive = "bive3-sentinel-" + "m" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    context = multiprocessing.get_context("spawn")
+    result_receiver, result_sender = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_a4_missing_baseline_mutation_collector_worker,
+        args=(str(sensitive_root), result_sender),
+    )
+
+    started = False
+    try:
+        process.start()
+        started = True
+        result_sender.close()
+        process.join(3.0)
+        if process.is_alive():
+            pytest.fail("a4-missing-baseline-mutation-timeout", pytrace=False)
+        _assert_fixed(
+            process.exitcode == 0,
+            "a4-missing-baseline-mutation-process-failed",
+        )
+        _assert_fixed(
+            result_receiver.poll(1.0),
+            "a4-missing-baseline-mutation-result-missing",
+        )
+        result = result_receiver.recv()
+    finally:
+        result_receiver.close()
+        result_sender.close()
+        if started and process.is_alive():
+            with contextlib.suppress(OSError):
+                process.terminate()
+            process.join(1.0)
+            if process.is_alive():
+                with contextlib.suppress(OSError):
+                    process.kill()
+                process.join(1.0)
+
+    _assert_fixed(result[0] == "ok", "a4-missing-baseline-mutation-raised")
+    (
+        _,
+        rendered,
+        pack_calls,
+        pack_ran_at_call,
+        pack_ran,
+        before_missing,
+        after_missing,
+        target_changed,
+        captured_out,
+        captured_err,
+    ) = result
+    by_name = {row.partition("=")[0]: row for row in rendered}
+    _assert_fixed(
+        len(rendered) == 6,
+        "a4-missing-baseline-mutation-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["negative-control"] == "negative-control=PASS(ok)",
+        "a4-missing-baseline-mutation-negative-control-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-missing-baseline-mutation-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-missing-baseline-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-missing-baseline-mutation-scan-verdict-mismatch",
+    )
+    _assert_fixed(
+        before_missing and after_missing,
+        "a4-missing-baseline-mutation-snapshot-established",
+    )
+    _assert_fixed(
+        target_changed,
+        "a4-missing-baseline-mutation-target-unchanged",
+    )
+    _assert_fixed(
+        pack_calls == 1,
+        "a4-missing-baseline-mutation-pack-call-count-mismatch",
+    )
+    _assert_fixed(
+        pack_ran_at_call is False and pack_ran,
+        "a4-missing-baseline-mutation-pack-state-nonmonotonic",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured_out, captured_err),
+        "a4-missing-baseline-mutation-rendered-sensitive-value",
+    )
+
+
+def test_a4_offline_collector_missing_baseline_without_mutation_fails_closed(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    sensitive = "bive3-sentinel-" + "n" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    real_parent = sensitive_root / "real-parent"
+    real_parent.mkdir()
+    real_target = real_parent / "owned-sensitive-transcript.jsonl"
+    initial_content = '{"turn":"unchanged"}\n'
+    real_target.write_text(initial_content, encoding="utf-8")
+    linked_parent = sensitive_root / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    owned = linked_parent / real_target.name
+    scratch = sensitive_root / "synthetic-scratch"
+    scratch.mkdir()
+    profile_root = _a4_empty_host2_profile(
+        sensitive_root / "host2-profiles"
+    )
+    pack_calls = 0
+
+    def failed_nonmutating_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        e3,
+        "scan_image_secret_values",
+        lambda *_args: pytest.fail(
+            "credential scan evaluated without a readable image"
+        ),
+    )
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_nonmutating_pack,
+        image=sensitive_root / "pack-never-produced.bvpk",
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    verdicts = collect_a4_offline_guards(state)
+    rendered = tuple(verdict.render() for verdict in verdicts)
+    by_name = {verdict.name: verdict.render() for verdict in verdicts}
+    captured = capsys.readouterr()
+
+    _assert_fixed(
+        len(verdicts) == 6,
+        "a4-missing-baseline-control-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["negative-control"] == "negative-control=PASS(ok)",
+        "a4-missing-baseline-control-negative-control-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-missing-baseline-control-verdict-mismatch",
+    )
+    _assert_fixed(
+        state.before_pack[owned] is _A4_MISSING
+        and state.after_pack[owned] is _A4_MISSING,
+        "a4-missing-baseline-control-snapshot-established",
+    )
+    _assert_fixed(
+        real_target.read_text(encoding="utf-8") == initial_content,
+        "a4-missing-baseline-control-target-changed",
+    )
+    _assert_fixed(
+        pack_calls == 1 and state.pack_ran,
+        "a4-missing-baseline-control-pack-state-mismatch",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured.out, captured.err),
+        "a4-missing-baseline-control-rendered-sensitive-value",
+    )
+
+
+def _collect_a4_destructive_pack_without_exception(
+    state: _A4SyntheticState,
+) -> tuple[_A4GuardVerdict, ...]:
+    try:
+        return collect_a4_offline_guards(state)
+    except Exception:
+        raise pytest.fail.Exception(
+            "a4-destructive-pack-raised",
+            pytrace=False,
+        ) from None
+
+
+def _assert_a4_destructive_pack_verdicts(
+    verdicts: tuple[_A4GuardVerdict, ...],
+    *,
+    pack_exit: str,
+) -> tuple[str, ...]:
+    rendered = tuple(verdict.render() for verdict in verdicts)
+    by_name = {verdict.name: verdict.render() for verdict in verdicts}
+    _assert_fixed(
+        tuple(verdict.name for verdict in verdicts)
+        == tuple(check.name for check in A4_OFFLINE_GUARD_REGISTRY),
+        "a4-destructive-pack-verdict-inventory-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"] == pack_exit,
+        "a4-destructive-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-destructive-pack-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-destructive-pack-scan-verdict-mismatch",
+    )
+    return rendered
+
+
+def test_a4_offline_collector_deleting_pack_returns_value_free_six_verdicts(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    sensitive = "bive3-sentinel-" + "d" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    scratch = sensitive_root / "synthetic-scratch"
+    scratch.mkdir()
+    owned = sensitive_root / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    missing_image = sensitive_root / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(sensitive_root / "host2-profiles")
+    pack_calls = 0
+
+    def failed_deleting_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        owned.unlink()
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        e3,
+        "scan_image_secret_values",
+        lambda *_args: pytest.fail("credential scan evaluated without a readable image"),
+    )
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_deleting_pack,
+        image=missing_image,
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    verdicts = _collect_a4_destructive_pack_without_exception(state)
+    rendered = _assert_a4_destructive_pack_verdicts(
+        verdicts,
+        pack_exit="pack-exit-contract=FAIL(pack-exit-contract)",
+    )
+    captured = capsys.readouterr()
+
+    _assert_fixed(state.pack_ran, "a4-deleting-pack-not-recorded")
+    _assert_fixed(pack_calls == 1, "a4-deleting-pack-call-count-mismatch")
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured.out, captured.err),
+        "a4-deleting-pack-rendered-sensitive-value",
+    )
+
+
+def test_a4_offline_collector_unreadable_pack_returns_value_free_six_verdicts(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    sensitive = "bive3-sentinel-" + "u" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    scratch = sensitive_root / "synthetic-scratch"
+    scratch.mkdir()
+    owned = sensitive_root / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    missing_image = sensitive_root / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(sensitive_root / "host2-profiles")
+    pack_calls = 0
+    real_open = os.open
+
+    def mode_aware_open(path, flags, *args, **kwargs):
+        is_owned_leaf = os.fspath(path) == os.fspath(owned) or (
+            os.fspath(path) == owned.name and kwargs.get("dir_fd") is not None
+        )
+        if is_owned_leaf and not (owned.stat().st_mode & 0o444):
+            raise PermissionError("sensitive-path-must-not-render")
+        return real_open(path, flags, *args, **kwargs)
+
+    def successful_unreadable_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        owned.chmod(0)
+        return _successful_pack()
+
+    monkeypatch.setattr(os, "open", mode_aware_open)
+    monkeypatch.setattr(
+        e3,
+        "scan_image_secret_values",
+        lambda *_args: pytest.fail("credential scan evaluated without a readable image"),
+    )
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=successful_unreadable_pack,
+        image=missing_image,
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    try:
+        verdicts = _collect_a4_destructive_pack_without_exception(state)
+        rendered = _assert_a4_destructive_pack_verdicts(
+            verdicts,
+            pack_exit="pack-exit-contract=PASS(ok)",
+        )
+        captured = capsys.readouterr()
+
+        _assert_fixed(state.pack_ran, "a4-unreadable-pack-not-recorded")
+        _assert_fixed(pack_calls == 1, "a4-unreadable-pack-call-count-mismatch")
+        _assert_sensitive_values_absent(
+            _sentinel_text_representations(sensitive),
+            (*rendered, captured.out, captured.err),
+            "a4-unreadable-pack-rendered-sensitive-value",
+        )
+    finally:
+        owned.chmod(0o600)
+
+
+def _a4_fifo_collector_worker(root_text: str, result_sender) -> None:
+    root = Path(root_text)
+    sensitive = root.name
+    scratch = root / "synthetic-scratch"
+    scratch.mkdir()
+    owned = root / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    missing_image = root / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(root / "host2-profiles")
+    pack_calls = 0
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+
+    def failed_fifo_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        owned.unlink()
+        os.mkfifo(owned)
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_fifo_pack,
+        image=missing_image,
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    try:
+        with (
+            contextlib.redirect_stdout(captured_out),
+            contextlib.redirect_stderr(captured_err),
+        ):
+            verdicts = collect_a4_offline_guards(state)
+    except Exception:
+        result_sender.send(("raised",))
+    else:
+        result_sender.send(
+            (
+                "ok",
+                tuple(verdict.render() for verdict in verdicts),
+                pack_calls,
+                state.pack_ran,
+                captured_out.getvalue(),
+                captured_err.getvalue(),
+            )
+        )
+    finally:
+        result_sender.close()
+
+
+def test_a4_offline_collector_fifo_pack_completes_with_value_free_six_verdicts(
+    tmp_path,
+):
+    sensitive = "bive3-sentinel-" + "f" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    context = multiprocessing.get_context("spawn")
+    result_receiver, result_sender = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_a4_fifo_collector_worker,
+        args=(str(sensitive_root), result_sender),
+    )
+
+    started = False
+    try:
+        process.start()
+        started = True
+        result_sender.close()
+        process.join(3.0)
+        if process.is_alive():
+            pytest.fail("a4-fifo-collector-timeout", pytrace=False)
+        _assert_fixed(process.exitcode == 0, "a4-fifo-collector-process-failed")
+        _assert_fixed(result_receiver.poll(1.0), "a4-fifo-collector-result-missing")
+        result = result_receiver.recv()
+    finally:
+        result_receiver.close()
+        result_sender.close()
+        if started and process.is_alive():
+            with contextlib.suppress(OSError):
+                process.terminate()
+            process.join(1.0)
+            if process.is_alive():
+                with contextlib.suppress(OSError):
+                    process.kill()
+                process.join(1.0)
+
+    _assert_fixed(result[0] == "ok", "a4-fifo-collector-raised")
+    _, rendered, pack_calls, pack_ran, captured_out, captured_err = result
+    by_name = {row.partition("=")[0]: row for row in rendered}
+    _assert_fixed(
+        len(rendered) == 6,
+        "a4-fifo-collector-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-fifo-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-fifo-pack-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-fifo-scan-verdict-mismatch",
+    )
+    _assert_fixed(pack_calls == 1, "a4-fifo-pack-call-count-mismatch")
+    _assert_fixed(pack_ran, "a4-fifo-pack-not-recorded")
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured_out, captured_err),
+        "a4-fifo-rendered-sensitive-value",
+    )
+
+
+def test_a4_hash_owned_path_rejects_fifo_before_read(tmp_path, monkeypatch):
+    fifo = tmp_path / "owned.fifo"
+    os.mkfifo(fifo)
+
+    def fail_read(_descriptor, _size):
+        raise RuntimeError("a4-fifo-content-read-attempted")
+
+    monkeypatch.setattr(os, "read", fail_read)
+
+    _assert_fixed(
+        _a4_hash_owned_path(fifo) is _A4_MISSING,
+        "a4-fifo-not-classified-as-missing",
+    )
+
+
+def _a4_ancestor_symlink_collector_worker(root_text: str, result_sender) -> None:
+    root = Path(root_text)
+    sensitive = root.name
+    parent = root / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    outside = root / "outside"
+    outside.mkdir()
+    (outside / owned.name).write_bytes(owned.read_bytes())
+    scratch = root / "synthetic-scratch"
+    scratch.mkdir()
+    missing_image = root / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(root / "host2-profiles")
+    pack_calls = 0
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+
+    def failed_ancestor_symlink_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        parent.rename(root / "owned-parent-before")
+        parent.symlink_to(outside, target_is_directory=True)
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_ancestor_symlink_pack,
+        image=missing_image,
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    try:
+        with (
+            contextlib.redirect_stdout(captured_out),
+            contextlib.redirect_stderr(captured_err),
+        ):
+            verdicts = collect_a4_offline_guards(state)
+    except Exception:
+        result_sender.send(("raised",))
+    else:
+        result_sender.send(
+            (
+                "ok",
+                tuple(verdict.render() for verdict in verdicts),
+                pack_calls,
+                state.pack_ran,
+                state.before_pack == state.after_pack,
+                captured_out.getvalue(),
+                captured_err.getvalue(),
+            )
+        )
+    finally:
+        result_sender.close()
+
+
+def test_a4_offline_collector_ancestor_symlink_pack_is_invalid_and_value_free(
+    tmp_path,
+):
+    sensitive = "bive3-sentinel-" + "a" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    context = multiprocessing.get_context("spawn")
+    result_receiver, result_sender = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_a4_ancestor_symlink_collector_worker,
+        args=(str(sensitive_root), result_sender),
+    )
+
+    started = False
+    try:
+        process.start()
+        started = True
+        result_sender.close()
+        process.join(3.0)
+        if process.is_alive():
+            pytest.fail("a4-ancestor-symlink-collector-timeout", pytrace=False)
+        _assert_fixed(
+            process.exitcode == 0,
+            "a4-ancestor-symlink-collector-process-failed",
+        )
+        _assert_fixed(
+            result_receiver.poll(1.0),
+            "a4-ancestor-symlink-collector-result-missing",
+        )
+        result = result_receiver.recv()
+    finally:
+        result_receiver.close()
+        result_sender.close()
+        if started and process.is_alive():
+            with contextlib.suppress(OSError):
+                process.terminate()
+            process.join(1.0)
+            if process.is_alive():
+                with contextlib.suppress(OSError):
+                    process.kill()
+                process.join(1.0)
+
+    _assert_fixed(result[0] == "ok", "a4-ancestor-symlink-collector-raised")
+    (
+        _,
+        rendered,
+        pack_calls,
+        pack_ran,
+        snapshots_equal,
+        captured_out,
+        captured_err,
+    ) = result
+    by_name = {row.partition("=")[0]: row for row in rendered}
+    _assert_fixed(
+        len(rendered) == 6,
+        "a4-ancestor-symlink-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-ancestor-symlink-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-ancestor-symlink-pack-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-ancestor-symlink-scan-verdict-mismatch",
+    )
+    _assert_fixed(
+        not snapshots_equal,
+        "a4-ancestor-symlink-snapshots-equal",
+    )
+    _assert_fixed(
+        pack_calls == 1,
+        "a4-ancestor-symlink-pack-call-count-mismatch",
+    )
+    _assert_fixed(pack_ran, "a4-ancestor-symlink-pack-not-recorded")
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured_out, captured_err),
+        "a4-ancestor-symlink-rendered-sensitive-value",
+    )
+
+
+def _a4_postread_replacement_collector_worker(
+    root_text: str,
+    replacement_shape: str,
+    result_sender,
+) -> None:
+    root = Path(root_text)
+    sensitive = root.name
+    parent = root / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    replacement = root / "replacement-parent"
+    replacement.mkdir()
+    replacement_leaf = replacement / owned.name
+    replacement_leaf.write_bytes(owned.read_bytes())
+    replacement_identity = replacement_leaf.stat()
+    scratch = root / "synthetic-scratch"
+    scratch.mkdir()
+    profile_root = _a4_empty_host2_profile(root / "host2-profiles")
+    pack_calls = 0
+    pack_armed = False
+    swapped = False
+    outside_read = False
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+    real_read = os.read
+
+    def failed_pack_arming_postread_replacement():
+        nonlocal pack_calls, pack_armed
+        pack_calls += 1
+        pack_armed = True
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    def swap_on_first_post_pack_read(descriptor, size):
+        nonlocal outside_read, swapped
+        identity = os.fstat(descriptor)
+        if (identity.st_dev, identity.st_ino) == (
+            replacement_identity.st_dev,
+            replacement_identity.st_ino,
+        ):
+            outside_read = True
+        if pack_armed and not swapped:
+            parent.rename(root / "owned-parent-before")
+            if replacement_shape == "symlink":
+                parent.symlink_to(replacement, target_is_directory=True)
+            elif replacement_shape == "real-directory":
+                replacement.rename(parent)
+            else:
+                raise RuntimeError("a4-fixed-unknown-replacement-shape")
+            swapped = True
+        return real_read(descriptor, size)
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_pack_arming_postread_replacement,
+        image=root / "pack-never-produced.bvpk",
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    os.read = swap_on_first_post_pack_read
+    try:
+        with (
+            contextlib.redirect_stdout(captured_out),
+            contextlib.redirect_stderr(captured_err),
+        ):
+            verdicts = collect_a4_offline_guards(state)
+    except Exception:
+        result_sender.send(("raised",))
+    else:
+        result_sender.send(
+            (
+                "ok",
+                tuple(verdict.render() for verdict in verdicts),
+                pack_calls,
+                state.pack_ran,
+                state.before_pack == state.after_pack,
+                swapped,
+                outside_read,
+                parent.is_symlink(),
+                captured_out.getvalue(),
+                captured_err.getvalue(),
+            )
+        )
+    finally:
+        os.read = real_read
+        result_sender.close()
+
+
+@pytest.mark.parametrize(
+    "replacement_shape",
+    ("symlink", "real-directory"),
+)
+def test_a4_offline_collector_postread_ancestor_replacement_is_invalid(
+    tmp_path,
+    replacement_shape,
+):
+    sensitive = "bive3-sentinel-" + "q" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    context = multiprocessing.get_context("spawn")
+    result_receiver, result_sender = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_a4_postread_replacement_collector_worker,
+        args=(str(sensitive_root), replacement_shape, result_sender),
+    )
+
+    started = False
+    try:
+        process.start()
+        started = True
+        result_sender.close()
+        process.join(3.0)
+        if process.is_alive():
+            pytest.fail("a4-postread-replacement-collector-timeout", pytrace=False)
+        _assert_fixed(
+            process.exitcode == 0,
+            "a4-postread-replacement-collector-process-failed",
+        )
+        _assert_fixed(
+            result_receiver.poll(1.0),
+            "a4-postread-replacement-collector-result-missing",
+        )
+        result = result_receiver.recv()
+    finally:
+        result_receiver.close()
+        result_sender.close()
+        if started and process.is_alive():
+            with contextlib.suppress(OSError):
+                process.terminate()
+            process.join(1.0)
+            if process.is_alive():
+                with contextlib.suppress(OSError):
+                    process.kill()
+                process.join(1.0)
+
+    _assert_fixed(result[0] == "ok", "a4-postread-replacement-collector-raised")
+    (
+        _,
+        rendered,
+        pack_calls,
+        pack_ran,
+        snapshots_equal,
+        swapped,
+        outside_read,
+        parent_is_symlink,
+        captured_out,
+        captured_err,
+    ) = result
+    by_name = {row.partition("=")[0]: row for row in rendered}
+    _assert_fixed(
+        len(rendered) == 6,
+        "a4-postread-replacement-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-postread-replacement-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-postread-replacement-pack-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-postread-replacement-scan-verdict-mismatch",
+    )
+    _assert_fixed(
+        not snapshots_equal,
+        "a4-postread-replacement-snapshots-equal",
+    )
+    _assert_fixed(swapped, "a4-postread-replacement-not-injected")
+    _assert_fixed(
+        parent_is_symlink == (replacement_shape == "symlink"),
+        "a4-postread-replacement-shape-mismatch",
+    )
+    _assert_fixed(
+        not outside_read,
+        "a4-postread-replacement-read-outside-descriptor",
+    )
+    _assert_fixed(
+        pack_calls == 1,
+        "a4-postread-replacement-pack-call-count-mismatch",
+    )
+    _assert_fixed(pack_ran, "a4-postread-replacement-pack-not-recorded")
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured_out, captured_err),
+        "a4-postread-replacement-rendered-sensitive-value",
+    )
+
+
+def test_a4_offline_collector_real_parent_replacement_is_invalid_and_value_free(
+    tmp_path,
+    capsys,
+):
+    sensitive = "bive3-sentinel-" + "r" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    parent = sensitive_root / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    replacement = sensitive_root / "replacement-parent"
+    replacement.mkdir()
+    (replacement / owned.name).write_bytes(owned.read_bytes())
+    scratch = sensitive_root / "synthetic-scratch"
+    scratch.mkdir()
+    profile_root = _a4_empty_host2_profile(sensitive_root / "host2-profiles")
+    pack_calls = 0
+
+    def failed_real_parent_replacement_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        parent.rename(sensitive_root / "owned-parent-before")
+        replacement.rename(parent)
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_real_parent_replacement_pack,
+        image=sensitive_root / "pack-never-produced.bvpk",
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    verdicts = _collect_a4_destructive_pack_without_exception(state)
+    rendered = _assert_a4_destructive_pack_verdicts(
+        verdicts,
+        pack_exit="pack-exit-contract=FAIL(pack-exit-contract)",
+    )
+    captured = capsys.readouterr()
+
+    _assert_fixed(
+        state.before_pack != state.after_pack,
+        "a4-real-parent-replacement-snapshots-equal",
+    )
+    _assert_fixed(
+        pack_calls == 1,
+        "a4-real-parent-replacement-pack-call-count-mismatch",
+    )
+    _assert_fixed(
+        state.pack_ran,
+        "a4-real-parent-replacement-pack-not-recorded",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured.out, captured.err),
+        "a4-real-parent-replacement-rendered-sensitive-value",
+    )
+
+
+def _a4_writable_platform_alias_roots() -> tuple[Path, ...]:
+    ambient_temp = Path(tempfile.gettempdir())
+    ambient_text = os.fspath(ambient_temp)
+    if ambient_text.startswith("/private/var/folders/"):
+        ambient_temp = Path(ambient_text.removeprefix("/private"))
+    roots = (Path("/tmp"), Path("/var/tmp"), ambient_temp)
+    return tuple(dict.fromkeys(roots))
+
+
+@pytest.mark.parametrize(
+    "alias_root",
+    _a4_writable_platform_alias_roots(),
+    ids=lambda path: os.fspath(path).replace("/", "-").strip("-") or "root",
+)
+def test_a4_owned_snapshot_tracks_replacement_through_platform_root_alias(
+    alias_root,
+):
+    first_component = Path(alias_root.anchor, alias_root.parts[1])
+    if not first_component.is_symlink():
+        pytest.skip("platform root alias unavailable")
+
+    root = Path(tempfile.mkdtemp(prefix="biv-a4-root-alias-", dir=alias_root))
+    try:
+        parent = root / "owned-parent"
+        parent.mkdir()
+        owned = parent / "owned.jsonl"
+        owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+        replacement = root / "replacement-parent"
+        replacement.mkdir()
+        (replacement / owned.name).write_bytes(owned.read_bytes())
+
+        before = _a4_owned_snapshot((owned,))
+        parent.rename(root / "owned-parent-before")
+        replacement.rename(parent)
+        after = _a4_owned_snapshot((owned,))
+
+        _assert_fixed(
+            before[owned] is not _A4_MISSING,
+            "a4-platform-root-alias-before-snapshot-missing",
+        )
+        _assert_fixed(
+            after[owned] is not _A4_MISSING,
+            "a4-platform-root-alias-after-snapshot-missing",
+        )
+        _assert_fixed(
+            before != after,
+            "a4-platform-root-alias-replacement-snapshots-equal",
+        )
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+@pytest.mark.parametrize("changed_edge", ("grandparent", "leaf"))
+def test_a4_postread_revalidation_rejects_changed_namespace_edge(
+    tmp_path,
+    monkeypatch,
+    changed_edge,
+):
+    grandparent = tmp_path / "owned-grandparent"
+    parent = grandparent / "owned-parent"
+    parent.mkdir(parents=True)
+    owned = parent / "owned.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    replacement_grandparent = tmp_path / "replacement-grandparent"
+    replacement_parent = replacement_grandparent / parent.name
+    replacement_parent.mkdir(parents=True)
+    (replacement_parent / owned.name).write_bytes(owned.read_bytes())
+    replacement_leaf = tmp_path / "replacement-owned.jsonl"
+    replacement_leaf.write_bytes(owned.read_bytes())
+    real_read = os.read
+    swapped = False
+
+    def swap_after_first_read(descriptor, size):
+        nonlocal swapped
+        chunk = real_read(descriptor, size)
+        if not swapped:
+            if changed_edge == "grandparent":
+                grandparent.rename(tmp_path / "owned-grandparent-before")
+                replacement_grandparent.rename(grandparent)
+            else:
+                owned.rename(parent / "owned-before.jsonl")
+                replacement_leaf.rename(owned)
+            swapped = True
+        return chunk
+
+    monkeypatch.setattr(os, "read", swap_after_first_read)
+
+    snapshot = _a4_owned_snapshot((owned,))
+
+    _assert_fixed(swapped, "a4-postread-namespace-edge-change-not-injected")
+    _assert_fixed(
+        snapshot[owned] is _A4_MISSING,
+        "a4-postread-namespace-edge-change-not-detected",
+    )
+
+
+def test_a4_postread_revalidation_rejects_changed_root_identity(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "owned.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    real_lstat = os.lstat
+    real_read = os.read
+    read_complete = False
+
+    def mark_read_complete(descriptor, size):
+        nonlocal read_complete
+        chunk = real_read(descriptor, size)
+        read_complete = True
+        return chunk
+
+    def changed_root_after_read(path, *args, **kwargs):
+        identity = real_lstat(path, *args, **kwargs)
+        if read_complete and os.fspath(path) == owned.anchor:
+            return SimpleNamespace(
+                st_mode=identity.st_mode,
+                st_dev=identity.st_dev,
+                st_ino=identity.st_ino + 1,
+            )
+        return identity
+
+    monkeypatch.setattr(os, "read", mark_read_complete)
+    monkeypatch.setattr(os, "lstat", changed_root_after_read)
+
+    _assert_fixed(
+        _a4_owned_snapshot((owned,))[owned] is _A4_MISSING,
+        "a4-postread-root-identity-change-not-detected",
+    )
+
+
+def test_a4_postread_revalidation_rejects_changed_platform_alias_identity(
+    monkeypatch,
+):
+    alias_root = Path("/tmp")
+    if not alias_root.is_symlink():
+        pytest.skip("platform root alias unavailable")
+    root = Path(tempfile.mkdtemp(prefix="biv-a4-alias-revalidation-", dir=alias_root))
+    try:
+        owned = root / "owned.jsonl"
+        owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+        real_stat = os.stat
+        real_read = os.read
+        read_complete = False
+
+        def mark_read_complete(descriptor, size):
+            nonlocal read_complete
+            chunk = real_read(descriptor, size)
+            read_complete = True
+            return chunk
+
+        def changed_alias_after_read(path, *args, **kwargs):
+            identity = real_stat(path, *args, **kwargs)
+            if (
+                read_complete
+                and os.fspath(path) == alias_root.parts[1]
+                and kwargs.get("follow_symlinks") is False
+            ):
+                return SimpleNamespace(
+                    st_mode=identity.st_mode,
+                    st_uid=identity.st_uid,
+                    st_dev=identity.st_dev,
+                    st_ino=identity.st_ino + 1,
+                )
+            return identity
+
+        monkeypatch.setattr(os, "read", mark_read_complete)
+        monkeypatch.setattr(os, "stat", changed_alias_after_read)
+
+        _assert_fixed(
+            _a4_owned_snapshot((owned,))[owned] is _A4_MISSING,
+            "a4-postread-platform-alias-change-not-detected",
+        )
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_a4_owned_snapshot_repeated_deep_paths_close_all_descriptors(
+    tmp_path,
+    monkeypatch,
+):
+    parent = tmp_path
+    for index in range(12):
+        parent /= f"depth-{index}"
+        parent.mkdir()
+    owned = parent / "owned.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    active_descriptors = set()
+
+    def tracking_open(*args, **kwargs):
+        descriptor = real_open(*args, **kwargs)
+        active_descriptors.add(descriptor)
+        return descriptor
+
+    def tracking_close(descriptor):
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", tracking_close)
+
+    try:
+        for _ in range(100):
+            snapshot = _a4_owned_snapshot((owned,))
+            _assert_fixed(
+                snapshot[owned] is not _A4_MISSING,
+                "a4-deep-path-snapshot-missing",
+            )
+            _assert_fixed(
+                not active_descriptors,
+                "a4-deep-path-descriptor-leak",
+            )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
+
+
+def test_a4_postread_revalidation_error_closes_all_descriptors(
+    tmp_path,
+    monkeypatch,
+):
+    parent = tmp_path / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    real_read = os.read
+    real_stat = os.stat
+    active_descriptors = set()
+    read_complete = False
+
+    def tracking_open(*args, **kwargs):
+        descriptor = real_open(*args, **kwargs)
+        active_descriptors.add(descriptor)
+        return descriptor
+
+    def tracking_close(descriptor):
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+
+    def mark_read_complete(descriptor, size):
+        nonlocal read_complete
+        chunk = real_read(descriptor, size)
+        read_complete = True
+        return chunk
+
+    def fail_postread_stat(path, *args, **kwargs):
+        if read_complete and os.fspath(path) == parent.name:
+            raise RuntimeError("a4-fixed-postread-revalidation-failure")
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", tracking_close)
+    monkeypatch.setattr(os, "read", mark_read_complete)
+    monkeypatch.setattr(os, "stat", fail_postread_stat)
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="^a4-fixed-postread-revalidation-failure$",
+        ):
+            _a4_owned_snapshot((owned,))
+        _assert_fixed(
+            not active_descriptors,
+            "a4-postread-revalidation-error-descriptor-leak",
+        )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
+
+
+def test_a4_owned_snapshot_rejects_ancestor_swap_between_stat_and_open(
+    tmp_path,
+    monkeypatch,
+):
+    parent = tmp_path / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    replacement = tmp_path / "replacement-parent"
+    replacement.mkdir()
+    (replacement / owned.name).write_bytes(owned.read_bytes())
+    parked = tmp_path / "owned-parent-before"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_ancestor_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if (
+            os.fspath(path) == parent.name
+            and flags & os.O_DIRECTORY
+            and not swapped
+        ):
+            parent.rename(parked)
+            replacement.rename(parent)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_ancestor_open)
+
+    snapshot = _a4_owned_snapshot((owned,))
+
+    _assert_fixed(swapped, "a4-ancestor-swap-not-injected")
+    _assert_fixed(
+        snapshot[owned] is _A4_MISSING,
+        "a4-ancestor-swap-not-classified-as-missing",
+    )
+
+
+def test_a4_owned_snapshot_rejects_ancestor_swap_immediately_after_open(
+    tmp_path,
+    monkeypatch,
+):
+    parent = tmp_path / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    replacement = tmp_path / "replacement-parent"
+    replacement.mkdir()
+    (replacement / owned.name).write_bytes(owned.read_bytes())
+    parked = tmp_path / "owned-parent-before"
+    real_open = os.open
+    swapped = False
+
+    def swap_after_ancestor_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        descriptor = real_open(path, flags, mode, dir_fd=dir_fd)
+        if (
+            os.fspath(path) == parent.name
+            and flags & os.O_DIRECTORY
+            and not swapped
+        ):
+            parent.rename(parked)
+            replacement.rename(parent)
+            swapped = True
+        return descriptor
+
+    monkeypatch.setattr(os, "open", swap_after_ancestor_open)
+
+    snapshot = _a4_owned_snapshot((owned,))
+
+    _assert_fixed(swapped, "a4-post-open-ancestor-swap-not-injected")
+    _assert_fixed(
+        snapshot[owned] is _A4_MISSING,
+        "a4-post-open-ancestor-swap-not-classified-as-missing",
+    )
+
+
+def test_a4_owned_snapshot_rejects_symlinked_ancestor_before_outside_read(
+    tmp_path,
+    monkeypatch,
+):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_file = outside / "owned.jsonl"
+    outside_file.write_text('{"turn":"outside"}\n', encoding="utf-8")
+    parent = tmp_path / "owned-parent"
+    parent.symlink_to(outside, target_is_directory=True)
+    owned = parent / outside_file.name
+    outside_identity = outside_file.stat()
+    real_read = os.read
+
+    def reject_outside_read(descriptor, size):
+        identity = os.fstat(descriptor)
+        if (identity.st_dev, identity.st_ino) == (
+            outside_identity.st_dev,
+            outside_identity.st_ino,
+        ):
+            raise RuntimeError("a4-outside-descriptor-read-attempted")
+        return real_read(descriptor, size)
+
+    monkeypatch.setattr(os, "read", reject_outside_read)
+
+    _assert_fixed(
+        _a4_owned_snapshot((owned,))[owned] is _A4_MISSING,
+        "a4-symlinked-ancestor-not-classified-as-missing",
+    )
+
+
+def test_a4_owned_descriptor_closes_all_fds_on_non_oserror_read_failure(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    active_descriptors = set()
+
+    def tracking_open(*args, **kwargs):
+        descriptor = real_open(*args, **kwargs)
+        active_descriptors.add(descriptor)
+        return descriptor
+
+    def tracking_close(descriptor):
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+
+    def fail_read(_descriptor, _size):
+        raise RuntimeError("a4-fixed-non-oserror-read-failure")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", tracking_close)
+    monkeypatch.setattr(os, "read", fail_read)
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="^a4-fixed-non-oserror-read-failure$",
+        ):
+            _a4_owned_snapshot((owned,))
+        _assert_fixed(
+            not active_descriptors,
+            "a4-owned-descriptor-leak",
+        )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
+
+
+def test_a4_owned_descriptor_preserves_non_oserror_close_failure(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    active_descriptors = set()
+    close_attempts = []
+    injected = False
+
+    def tracking_open(*args, **kwargs):
+        descriptor = real_open(*args, **kwargs)
+        active_descriptors.add(descriptor)
+        return descriptor
+
+    def fail_first_close_after_closing(descriptor):
+        nonlocal injected
+        close_attempts.append(descriptor)
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+        if not injected:
+            injected = True
+            raise RuntimeError("a4-fixed-non-oserror-close-failure")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", fail_first_close_after_closing)
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="^a4-fixed-non-oserror-close-failure$",
+        ):
+            _a4_owned_snapshot((owned,))
+        _assert_fixed(injected, "a4-close-failure-not-injected")
+        _assert_fixed(
+            not active_descriptors,
+            "a4-close-failure-descriptor-leak",
+        )
+        _assert_fixed(
+            len(close_attempts) == len(set(close_attempts)),
+            "a4-close-failure-descriptor-retried",
+        )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
+
+
+def test_a4_owned_descriptor_preserves_body_non_oserror_over_close_oserror(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    active_descriptors = set()
+    close_failure_raised = False
+
+    def tracking_open(*args, **kwargs):
+        descriptor = real_open(*args, **kwargs)
+        active_descriptors.add(descriptor)
+        return descriptor
+
+    def fail_first_close_after_closing(descriptor):
+        nonlocal close_failure_raised
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+        if not close_failure_raised:
+            close_failure_raised = True
+            raise OSError("a4-fixed-cleanup-oserror")
+
+    def fail_read(_descriptor, _size):
+        raise RuntimeError("a4-fixed-body-non-oserror")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", fail_first_close_after_closing)
+    monkeypatch.setattr(os, "read", fail_read)
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="^a4-fixed-body-non-oserror$",
+        ):
+            _a4_owned_snapshot((owned,))
+        _assert_fixed(
+            close_failure_raised,
+            "a4-cleanup-oserror-not-injected",
+        )
+        _assert_fixed(
+            not active_descriptors,
+            "a4-body-failure-cleanup-descriptor-leak",
+        )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
+
+
+@pytest.mark.parametrize(
+    ("cleanup_failure", "expected_missing"),
+    (
+        (RuntimeError("a4-fixed-ambient-cleanup-runtime"), False),
+        (OSError("a4-fixed-ambient-cleanup-oserror"), True),
+    ),
+    ids=("cleanup-runtime", "cleanup-oserror"),
+)
+def test_a4_owned_descriptor_ignores_ambient_exception_state_for_cleanup(
+    tmp_path,
+    monkeypatch,
+    cleanup_failure,
+    expected_missing,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_close = os.close
+    failure_raised = False
+
+    def fail_first_close_after_closing(descriptor):
+        nonlocal failure_raised
+        real_close(descriptor)
+        if not failure_raised:
+            failure_raised = True
+            raise cleanup_failure
+
+    monkeypatch.setattr(os, "close", fail_first_close_after_closing)
+
+    try:
+        raise RuntimeError("a4-fixed-unrelated-ambient-failure")
+    except RuntimeError:
+        if isinstance(cleanup_failure, RuntimeError):
+            with pytest.raises(
+                RuntimeError,
+                match=f"^{re.escape(str(cleanup_failure))}$",
+            ):
+                _a4_owned_snapshot((owned,))
+        else:
+            snapshot = _a4_owned_snapshot((owned,))
+            _assert_fixed(
+                (snapshot[owned] is _A4_MISSING) == expected_missing,
+                "a4-ambient-cleanup-oserror-not-totalized",
+            )
+
+    _assert_fixed(failure_raised, "a4-ambient-cleanup-failure-not-injected")
+
+
+def test_a4_owned_descriptor_cleanup_non_oserror_supersedes_body_oserror(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_close = os.close
+    cleanup_failure_raised = False
+
+    def fail_first_close_after_closing(descriptor):
+        nonlocal cleanup_failure_raised
+        real_close(descriptor)
+        if not cleanup_failure_raised:
+            cleanup_failure_raised = True
+            raise RuntimeError("a4-fixed-cleanup-non-oserror")
+
+    def fail_read_with_oserror(_descriptor, _size):
+        raise OSError("a4-fixed-body-oserror")
+
+    monkeypatch.setattr(os, "close", fail_first_close_after_closing)
+    monkeypatch.setattr(os, "read", fail_read_with_oserror)
+
+    with pytest.raises(
+        RuntimeError,
+        match="^a4-fixed-cleanup-non-oserror$",
+    ):
+        _a4_owned_snapshot((owned,))
+    _assert_fixed(
+        cleanup_failure_raised,
+        "a4-cleanup-non-oserror-not-injected",
+    )
+
+
+def test_a4_owned_descriptor_preserves_leaf_close_failure_over_parent_error(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    active_descriptors = set()
+    leaf_descriptor = None
+    leaf_failure_raised = False
+
+    def tracking_open(path, flags, *args, **kwargs):
+        nonlocal leaf_descriptor
+        descriptor = real_open(path, flags, *args, **kwargs)
+        active_descriptors.add(descriptor)
+        if flags & os.O_NONBLOCK and not flags & os.O_DIRECTORY:
+            leaf_descriptor = descriptor
+        return descriptor
+
+    def fail_leaf_then_parent_close(descriptor):
+        nonlocal leaf_failure_raised
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+        if descriptor == leaf_descriptor:
+            leaf_failure_raised = True
+            raise RuntimeError("a4-fixed-leaf-close-failure")
+        if leaf_failure_raised:
+            raise OSError("a4-fixed-parent-close-failure")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", fail_leaf_then_parent_close)
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="^a4-fixed-leaf-close-failure$",
+        ):
+            _a4_owned_snapshot((owned,))
+        _assert_fixed(
+            not active_descriptors,
+            "a4-final-close-descriptor-leak",
+        )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
+
+
+def test_a4_owned_snapshot_propagates_non_oserror_failure(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "owned.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+
+    def fail_with_non_oserror(_path):
+        raise RuntimeError("a4-fixed-non-oserror-snapshot-failure")
+
+    monkeypatch.setitem(
+        globals(),
+        "_a4_hash_owned_path",
+        fail_with_non_oserror,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="^a4-fixed-non-oserror-snapshot-failure$",
+    ):
+        _a4_owned_snapshot((owned,))
+
+
+def test_a4_ensure_pack_propagates_non_oserror_pack_failure(tmp_path):
+    owned = tmp_path / "owned.jsonl"
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+
+    def fail_pack():
+        raise RuntimeError("a4-fixed-non-oserror-pack-failure")
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=tmp_path,
+        pack=fail_pack,
+        image=tmp_path / "missing.bvpk",
+        sentinels=("a4-private-sentinel-" + "n" * 48,),
+        profile_root=tmp_path,
+        spec=_valid_two_agent_spec(),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="^a4-fixed-non-oserror-pack-failure$",
+    ):
+        _a4_ensure_pack(state)
+    _assert_fixed(not state.pack_ran, "a4-failed-pack-recorded-as-run")
+
+
+def test_a4_offline_collector_rejects_unbounded_verdict_with_fixed_message(
+    monkeypatch,
+):
+    attacker_text = "attacker-controlled-member-" + "6" * 48
+    monkeypatch.setitem(
+        globals(),
+        "A4_OFFLINE_GUARD_REGISTRY",
+        (
+            GuardCheck(
+                "credential-scan",
+                lambda _state: ("FAIL", attacker_text),
+            ),
+        ),
+    )
+
+    with pytest.raises(pytest.fail.Exception) as failure:
+        collect_a4_offline_guards(None)
+
+    _assert_fixed(
+        str(failure.value) == "a4-verdict-vocabulary-invalid",
+        "a4-verdict-failure-message-not-fixed",
+    )
+    _assert_sensitive_values_absent(
+        (attacker_text,),
+        (str(failure.value),),
+        "a4-verdict-failure-rendered-attacker-text",
+    )
+
+
+def test_a4_offline_collector_guard_region_signature_is_pinned():
+    assert e3_guard_region_signature() == _EXPECTED_GUARD_REGION_SIG
+
+
+def test_a4_offline_collector_guard_region_source_normalization_is_explicit():
+    source = inspect.getsource(e3.run_e3)
+    crlf_source_without_terminal_newline = source.replace("\n", "\r\n").rstrip(
+        "\r\n"
+    )
+
+    normalized = _a4_normalized_guard_region_source(
+        crlf_source_without_terminal_newline
+    )
+
+    assert normalized == _a4_normalized_guard_region_source(source)
+    assert "\r" not in normalized
+    assert normalized.endswith("\n")
+    assert not normalized.endswith("\n\n")
+
+
+def test_a4_offline_collector_guard_region_copy_mutation_changes_signature():
+    source = __import__("inspect").getsource(e3.run_e3)
+    anchor = "        zero_session_failures = _c1_zero_session_failures("
+    seventh_guard = (
+        "        if synthetic_seventh_guard:\n"
+        '            raise RuntimeError("synthetic seventh pre-open guard")\n'
+    )
+    mutated = source.replace(anchor, seventh_guard + anchor, 1)
+    assert mutated != source
+
+    assert e3_guard_region_signature(mutated) != _EXPECTED_GUARD_REGION_SIG
+
+
+def test_a4_offline_collector_post_zero_guard_copy_mutation_changes_signature():
+    source = inspect.getsource(e3.run_e3)
+    anchor = "        opened = capture_spawn("
+    seventh_guard = (
+        "        if synthetic_seventh_guard:\n"
+        '            raise RuntimeError("synthetic seventh pre-open guard")\n'
+    )
+    mutated = source.replace(anchor, seventh_guard + anchor, 1)
+    assert mutated != source
+
+    assert e3_guard_region_signature(mutated) != _EXPECTED_GUARD_REGION_SIG
+
+
+def test_value_free_assertion_uses_fixed_message_for_sensitive_output():
+    sensitive = "bive3-sentinel-" + "9" * 64
+    fixed_message = "credential-output-not-value-free"
+
+    with pytest.raises(pytest.fail.Exception) as failure:
+        _assert_sensitive_values_absent(
+            (sensitive,),
+            ("prefix-" + sensitive + "-suffix",),
+            fixed_message,
+        )
+
+    if str(failure.value) != fixed_message:
+        pytest.fail("value-free-helper-message-not-fixed", pytrace=False)
+    if sensitive in str(failure.value):
+        pytest.fail("value-free-helper-rendered-sensitive-value", pytrace=False)
