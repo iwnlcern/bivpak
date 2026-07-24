@@ -9748,6 +9748,12 @@ _A4_MISSING = object()
 _A4_HASH_CHUNK_BYTES = 64 * 1024
 
 
+@dataclass(frozen=True)
+class _A4OwnedFileSnapshot:
+    path_identities: tuple[tuple[int, int], ...]
+    digest: str
+
+
 @dataclass
 class _A4SyntheticState:
     owned: tuple[Path, ...]
@@ -9812,10 +9818,159 @@ def _a4_image_with_secret(image: Path, member_name: str, sentinel: str) -> Path:
     return image
 
 
-def _a4_hash_owned_path(path: Path) -> str | object:
-    flags = os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW
-    descriptor = os.open(path, flags)
+@contextlib.contextmanager
+def _a4_open_owned_descriptor(path: Path):
+    components = path.parts
+    if (
+        not path.is_absolute()
+        or len(components) < 2
+        or any(component in {".", ".."} for component in components[1:])
+    ):
+        raise OSError("a4-invalid-owned-path")
+
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    expected_root = os.lstat(path.anchor)
+    parent_descriptor = os.open(path.anchor, directory_flags)
+    descriptor = None
+    path_identities = []
     try:
+        opened_root = os.fstat(parent_descriptor)
+        if (
+            not stat.S_ISDIR(expected_root.st_mode)
+            or not stat.S_ISDIR(opened_root.st_mode)
+            or (expected_root.st_dev, expected_root.st_ino)
+            != (opened_root.st_dev, opened_root.st_ino)
+        ):
+            raise OSError("a4-owned-root-changed")
+        path_identities.append((opened_root.st_dev, opened_root.st_ino))
+
+        if len(components) > 2:
+            first_ancestor = os.stat(
+                components[1],
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+            if stat.S_ISLNK(first_ancestor.st_mode):
+                if first_ancestor.st_uid != opened_root.st_uid:
+                    raise OSError("a4-owned-root-alias-untrusted")
+                alias_target = Path(
+                    os.readlink(components[1], dir_fd=parent_descriptor)
+                )
+                current_alias = os.stat(
+                    components[1],
+                    dir_fd=parent_descriptor,
+                    follow_symlinks=False,
+                )
+                alias_identity = (first_ancestor.st_dev, first_ancestor.st_ino)
+                if (
+                    not stat.S_ISLNK(current_alias.st_mode)
+                    or (current_alias.st_dev, current_alias.st_ino)
+                    != alias_identity
+                ):
+                    raise OSError("a4-owned-root-alias-changed")
+                if alias_target.is_absolute():
+                    if alias_target.anchor != path.anchor:
+                        raise OSError("a4-owned-root-alias-invalid")
+                    alias_components = alias_target.parts[1:]
+                else:
+                    alias_components = alias_target.parts
+                if not alias_components or any(
+                    component in {".", ".."} for component in alias_components
+                ):
+                    raise OSError("a4-owned-root-alias-invalid")
+                components = (
+                    path.anchor,
+                    *alias_components,
+                    *components[2:],
+                )
+                path_identities.append(alias_identity)
+
+        for component in components[1:-1]:
+            expected = os.stat(
+                component,
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+            if not stat.S_ISDIR(expected.st_mode):
+                raise OSError("a4-owned-ancestor-not-directory")
+            next_descriptor = os.open(
+                component,
+                directory_flags,
+                dir_fd=parent_descriptor,
+            )
+            try:
+                opened = os.fstat(next_descriptor)
+                current = os.stat(
+                    component,
+                    dir_fd=parent_descriptor,
+                    follow_symlinks=False,
+                )
+                if (
+                    not stat.S_ISDIR(opened.st_mode)
+                    or (expected.st_dev, expected.st_ino)
+                    != (opened.st_dev, opened.st_ino)
+                    or (current.st_dev, current.st_ino)
+                    != (opened.st_dev, opened.st_ino)
+                ):
+                    raise OSError("a4-owned-ancestor-changed")
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    os.close(next_descriptor)
+                raise
+            path_identities.append((opened.st_dev, opened.st_ino))
+            previous_descriptor = parent_descriptor
+            parent_descriptor = None
+            try:
+                os.close(previous_descriptor)
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    os.close(next_descriptor)
+                raise
+            parent_descriptor = next_descriptor
+
+        expected_leaf = os.stat(
+            components[-1],
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+        descriptor = os.open(
+            components[-1],
+            os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW,
+            dir_fd=parent_descriptor,
+        )
+        opened_leaf = os.fstat(descriptor)
+        current_leaf = os.stat(
+            components[-1],
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+        opened_leaf_identity = (opened_leaf.st_dev, opened_leaf.st_ino)
+        if (
+            (expected_leaf.st_dev, expected_leaf.st_ino) != opened_leaf_identity
+            or (current_leaf.st_dev, current_leaf.st_ino) != opened_leaf_identity
+        ):
+            raise OSError("a4-owned-leaf-changed")
+        path_identities.append(opened_leaf_identity)
+        yield descriptor, tuple(path_identities)
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except BaseException:
+                if parent_descriptor is not None:
+                    with contextlib.suppress(BaseException):
+                        os.close(parent_descriptor)
+                    parent_descriptor = None
+                raise
+        if parent_descriptor is not None:
+            os.close(parent_descriptor)
+
+
+def _a4_hash_owned_path(path: Path) -> str | object:
+    with _a4_open_owned_descriptor(path) as (
+        descriptor,
+        path_identities,
+    ):
         identity = os.fstat(descriptor)
         if not stat.S_ISREG(identity.st_mode):
             return _A4_MISSING
@@ -9830,9 +9985,7 @@ def _a4_hash_owned_path(path: Path) -> str | object:
             remaining -= len(chunk)
         if os.read(descriptor, 1):
             return _A4_MISSING
-        return digest.hexdigest()
-    finally:
-        os.close(descriptor)
+        return _A4OwnedFileSnapshot(path_identities, digest.hexdigest())
 
 
 def _a4_owned_snapshot(owned: tuple[Path, ...]) -> dict[Path, object]:
@@ -10305,9 +10458,10 @@ def test_a4_offline_collector_unreadable_pack_returns_value_free_six_verdicts(
     real_open = os.open
 
     def mode_aware_open(path, flags, *args, **kwargs):
-        if os.fspath(path) == os.fspath(owned) and not (
-            owned.stat().st_mode & 0o444
-        ):
+        is_owned_leaf = os.fspath(path) == os.fspath(owned) or (
+            os.fspath(path) == owned.name and kwargs.get("dir_fd") is not None
+        )
+        if is_owned_leaf and not (owned.stat().st_mode & 0o444):
             raise PermissionError("sensitive-path-must-not-render")
         return real_open(path, flags, *args, **kwargs)
 
@@ -10488,6 +10642,510 @@ def test_a4_hash_owned_path_rejects_fifo_before_read(tmp_path, monkeypatch):
         _a4_hash_owned_path(fifo) is _A4_MISSING,
         "a4-fifo-not-classified-as-missing",
     )
+
+
+def _a4_ancestor_symlink_collector_worker(root_text: str, result_sender) -> None:
+    root = Path(root_text)
+    sensitive = root.name
+    parent = root / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    outside = root / "outside"
+    outside.mkdir()
+    (outside / owned.name).write_bytes(owned.read_bytes())
+    scratch = root / "synthetic-scratch"
+    scratch.mkdir()
+    missing_image = root / "pack-never-produced.bvpk"
+    profile_root = _a4_empty_host2_profile(root / "host2-profiles")
+    pack_calls = 0
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+
+    def failed_ancestor_symlink_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        parent.rename(root / "owned-parent-before")
+        parent.symlink_to(outside, target_is_directory=True)
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_ancestor_symlink_pack,
+        image=missing_image,
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    try:
+        with (
+            contextlib.redirect_stdout(captured_out),
+            contextlib.redirect_stderr(captured_err),
+        ):
+            verdicts = collect_a4_offline_guards(state)
+    except Exception:
+        result_sender.send(("raised",))
+    else:
+        result_sender.send(
+            (
+                "ok",
+                tuple(verdict.render() for verdict in verdicts),
+                pack_calls,
+                state.pack_ran,
+                state.before_pack == state.after_pack,
+                captured_out.getvalue(),
+                captured_err.getvalue(),
+            )
+        )
+    finally:
+        result_sender.close()
+
+
+def test_a4_offline_collector_ancestor_symlink_pack_is_invalid_and_value_free(
+    tmp_path,
+):
+    sensitive = "bive3-sentinel-" + "a" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    context = multiprocessing.get_context("spawn")
+    result_receiver, result_sender = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_a4_ancestor_symlink_collector_worker,
+        args=(str(sensitive_root), result_sender),
+    )
+
+    started = False
+    try:
+        process.start()
+        started = True
+        result_sender.close()
+        process.join(3.0)
+        if process.is_alive():
+            pytest.fail("a4-ancestor-symlink-collector-timeout", pytrace=False)
+        _assert_fixed(
+            process.exitcode == 0,
+            "a4-ancestor-symlink-collector-process-failed",
+        )
+        _assert_fixed(
+            result_receiver.poll(1.0),
+            "a4-ancestor-symlink-collector-result-missing",
+        )
+        result = result_receiver.recv()
+    finally:
+        result_receiver.close()
+        result_sender.close()
+        if started and process.is_alive():
+            with contextlib.suppress(OSError):
+                process.terminate()
+            process.join(1.0)
+            if process.is_alive():
+                with contextlib.suppress(OSError):
+                    process.kill()
+                process.join(1.0)
+
+    _assert_fixed(result[0] == "ok", "a4-ancestor-symlink-collector-raised")
+    (
+        _,
+        rendered,
+        pack_calls,
+        pack_ran,
+        snapshots_equal,
+        captured_out,
+        captured_err,
+    ) = result
+    by_name = {row.partition("=")[0]: row for row in rendered}
+    _assert_fixed(
+        len(rendered) == 6,
+        "a4-ancestor-symlink-verdict-count-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-ancestor-symlink-pack-exit-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-ancestor-symlink-pack-mutation-verdict-mismatch",
+    )
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-ancestor-symlink-scan-verdict-mismatch",
+    )
+    _assert_fixed(
+        not snapshots_equal,
+        "a4-ancestor-symlink-snapshots-equal",
+    )
+    _assert_fixed(
+        pack_calls == 1,
+        "a4-ancestor-symlink-pack-call-count-mismatch",
+    )
+    _assert_fixed(pack_ran, "a4-ancestor-symlink-pack-not-recorded")
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured_out, captured_err),
+        "a4-ancestor-symlink-rendered-sensitive-value",
+    )
+
+
+def test_a4_offline_collector_real_parent_replacement_is_invalid_and_value_free(
+    tmp_path,
+    capsys,
+):
+    sensitive = "bive3-sentinel-" + "r" * 64
+    sensitive_root = tmp_path / sensitive
+    sensitive_root.mkdir()
+    parent = sensitive_root / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned-sensitive-transcript.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    replacement = sensitive_root / "replacement-parent"
+    replacement.mkdir()
+    (replacement / owned.name).write_bytes(owned.read_bytes())
+    scratch = sensitive_root / "synthetic-scratch"
+    scratch.mkdir()
+    profile_root = _a4_empty_host2_profile(sensitive_root / "host2-profiles")
+    pack_calls = 0
+
+    def failed_real_parent_replacement_pack():
+        nonlocal pack_calls
+        pack_calls += 1
+        parent.rename(sensitive_root / "owned-parent-before")
+        replacement.rename(parent)
+        return SimpleNamespace(
+            returncode=23,
+            stdout='{"ok":"not-a-bool","exit_code":23}',
+            stderr="",
+        )
+
+    state = _a4_synthetic_state(
+        owned=(owned,),
+        scratch=scratch,
+        pack=failed_real_parent_replacement_pack,
+        image=sensitive_root / "pack-never-produced.bvpk",
+        sentinels=(sensitive,),
+        profile_root=profile_root,
+        spec=_valid_two_agent_spec(),
+    )
+
+    verdicts = _collect_a4_destructive_pack_without_exception(state)
+    rendered = _assert_a4_destructive_pack_verdicts(
+        verdicts,
+        pack_exit="pack-exit-contract=FAIL(pack-exit-contract)",
+    )
+    captured = capsys.readouterr()
+
+    _assert_fixed(
+        state.before_pack != state.after_pack,
+        "a4-real-parent-replacement-snapshots-equal",
+    )
+    _assert_fixed(
+        pack_calls == 1,
+        "a4-real-parent-replacement-pack-call-count-mismatch",
+    )
+    _assert_fixed(
+        state.pack_ran,
+        "a4-real-parent-replacement-pack-not-recorded",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sensitive),
+        (*rendered, captured.out, captured.err),
+        "a4-real-parent-replacement-rendered-sensitive-value",
+    )
+
+
+def test_a4_owned_snapshot_tracks_replacement_through_platform_root_alias():
+    alias_root = Path("/tmp")
+    if not alias_root.is_symlink():
+        pytest.skip("platform root alias unavailable")
+
+    root = Path(tempfile.mkdtemp(prefix="biv-a4-root-alias-", dir=alias_root))
+    try:
+        parent = root / "owned-parent"
+        parent.mkdir()
+        owned = parent / "owned.jsonl"
+        owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+        replacement = root / "replacement-parent"
+        replacement.mkdir()
+        (replacement / owned.name).write_bytes(owned.read_bytes())
+
+        before = _a4_owned_snapshot((owned,))
+        parent.rename(root / "owned-parent-before")
+        replacement.rename(parent)
+        after = _a4_owned_snapshot((owned,))
+
+        _assert_fixed(
+            before[owned] is not _A4_MISSING,
+            "a4-platform-root-alias-before-snapshot-missing",
+        )
+        _assert_fixed(
+            after[owned] is not _A4_MISSING,
+            "a4-platform-root-alias-after-snapshot-missing",
+        )
+        _assert_fixed(
+            before != after,
+            "a4-platform-root-alias-replacement-snapshots-equal",
+        )
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_a4_owned_snapshot_rejects_ancestor_swap_between_stat_and_open(
+    tmp_path,
+    monkeypatch,
+):
+    parent = tmp_path / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    replacement = tmp_path / "replacement-parent"
+    replacement.mkdir()
+    (replacement / owned.name).write_bytes(owned.read_bytes())
+    parked = tmp_path / "owned-parent-before"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_ancestor_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if (
+            os.fspath(path) == parent.name
+            and flags & os.O_DIRECTORY
+            and not swapped
+        ):
+            parent.rename(parked)
+            replacement.rename(parent)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_ancestor_open)
+
+    snapshot = _a4_owned_snapshot((owned,))
+
+    _assert_fixed(swapped, "a4-ancestor-swap-not-injected")
+    _assert_fixed(
+        snapshot[owned] is _A4_MISSING,
+        "a4-ancestor-swap-not-classified-as-missing",
+    )
+
+
+def test_a4_owned_snapshot_rejects_ancestor_swap_immediately_after_open(
+    tmp_path,
+    monkeypatch,
+):
+    parent = tmp_path / "owned-parent"
+    parent.mkdir()
+    owned = parent / "owned.jsonl"
+    owned.write_text('{"turn":"same"}\n', encoding="utf-8")
+    replacement = tmp_path / "replacement-parent"
+    replacement.mkdir()
+    (replacement / owned.name).write_bytes(owned.read_bytes())
+    parked = tmp_path / "owned-parent-before"
+    real_open = os.open
+    swapped = False
+
+    def swap_after_ancestor_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        descriptor = real_open(path, flags, mode, dir_fd=dir_fd)
+        if (
+            os.fspath(path) == parent.name
+            and flags & os.O_DIRECTORY
+            and not swapped
+        ):
+            parent.rename(parked)
+            replacement.rename(parent)
+            swapped = True
+        return descriptor
+
+    monkeypatch.setattr(os, "open", swap_after_ancestor_open)
+
+    snapshot = _a4_owned_snapshot((owned,))
+
+    _assert_fixed(swapped, "a4-post-open-ancestor-swap-not-injected")
+    _assert_fixed(
+        snapshot[owned] is _A4_MISSING,
+        "a4-post-open-ancestor-swap-not-classified-as-missing",
+    )
+
+
+def test_a4_owned_snapshot_rejects_symlinked_ancestor_before_outside_read(
+    tmp_path,
+    monkeypatch,
+):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_file = outside / "owned.jsonl"
+    outside_file.write_text('{"turn":"outside"}\n', encoding="utf-8")
+    parent = tmp_path / "owned-parent"
+    parent.symlink_to(outside, target_is_directory=True)
+    owned = parent / outside_file.name
+    outside_identity = outside_file.stat()
+    real_read = os.read
+
+    def reject_outside_read(descriptor, size):
+        identity = os.fstat(descriptor)
+        if (identity.st_dev, identity.st_ino) == (
+            outside_identity.st_dev,
+            outside_identity.st_ino,
+        ):
+            raise RuntimeError("a4-outside-descriptor-read-attempted")
+        return real_read(descriptor, size)
+
+    monkeypatch.setattr(os, "read", reject_outside_read)
+
+    _assert_fixed(
+        _a4_owned_snapshot((owned,))[owned] is _A4_MISSING,
+        "a4-symlinked-ancestor-not-classified-as-missing",
+    )
+
+
+def test_a4_owned_descriptor_closes_all_fds_on_non_oserror_read_failure(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    active_descriptors = set()
+
+    def tracking_open(*args, **kwargs):
+        descriptor = real_open(*args, **kwargs)
+        active_descriptors.add(descriptor)
+        return descriptor
+
+    def tracking_close(descriptor):
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+
+    def fail_read(_descriptor, _size):
+        raise RuntimeError("a4-fixed-non-oserror-read-failure")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", tracking_close)
+    monkeypatch.setattr(os, "read", fail_read)
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="^a4-fixed-non-oserror-read-failure$",
+        ):
+            _a4_owned_snapshot((owned,))
+        _assert_fixed(
+            not active_descriptors,
+            "a4-owned-descriptor-leak",
+        )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
+
+
+def test_a4_owned_descriptor_preserves_non_oserror_close_failure(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    active_descriptors = set()
+    close_attempts = []
+    injected = False
+
+    def tracking_open(*args, **kwargs):
+        descriptor = real_open(*args, **kwargs)
+        active_descriptors.add(descriptor)
+        return descriptor
+
+    def fail_first_close_after_closing(descriptor):
+        nonlocal injected
+        close_attempts.append(descriptor)
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+        if not injected:
+            injected = True
+            raise RuntimeError("a4-fixed-non-oserror-close-failure")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", fail_first_close_after_closing)
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="^a4-fixed-non-oserror-close-failure$",
+        ):
+            _a4_owned_snapshot((owned,))
+        _assert_fixed(injected, "a4-close-failure-not-injected")
+        _assert_fixed(
+            not active_descriptors,
+            "a4-close-failure-descriptor-leak",
+        )
+        _assert_fixed(
+            len(close_attempts) == len(set(close_attempts)),
+            "a4-close-failure-descriptor-retried",
+        )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
+
+
+def test_a4_owned_descriptor_preserves_leaf_close_failure_over_parent_error(
+    tmp_path,
+    monkeypatch,
+):
+    owned = tmp_path / "parent" / "owned.jsonl"
+    owned.parent.mkdir()
+    owned.write_text('{"turn":"before"}\n', encoding="utf-8")
+    real_open = os.open
+    real_close = os.close
+    active_descriptors = set()
+    leaf_descriptor = None
+    leaf_failure_raised = False
+
+    def tracking_open(path, flags, *args, **kwargs):
+        nonlocal leaf_descriptor
+        descriptor = real_open(path, flags, *args, **kwargs)
+        active_descriptors.add(descriptor)
+        if flags & os.O_NONBLOCK and not flags & os.O_DIRECTORY:
+            leaf_descriptor = descriptor
+        return descriptor
+
+    def fail_leaf_then_parent_close(descriptor):
+        nonlocal leaf_failure_raised
+        real_close(descriptor)
+        active_descriptors.discard(descriptor)
+        if descriptor == leaf_descriptor:
+            leaf_failure_raised = True
+            raise RuntimeError("a4-fixed-leaf-close-failure")
+        if leaf_failure_raised:
+            raise OSError("a4-fixed-parent-close-failure")
+
+    monkeypatch.setattr(os, "open", tracking_open)
+    monkeypatch.setattr(os, "close", fail_leaf_then_parent_close)
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="^a4-fixed-leaf-close-failure$",
+        ):
+            _a4_owned_snapshot((owned,))
+        _assert_fixed(
+            not active_descriptors,
+            "a4-final-close-descriptor-leak",
+        )
+    finally:
+        for descriptor in active_descriptors:
+            with contextlib.suppress(OSError):
+                real_close(descriptor)
 
 
 def test_a4_owned_snapshot_propagates_non_oserror_failure(
