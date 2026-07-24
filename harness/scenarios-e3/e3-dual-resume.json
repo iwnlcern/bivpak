@@ -10,7 +10,7 @@
     "BIV_E3_SEED_TURN_TWO_20260711"
   ],
   "resume_probe": "BIV_E3_RESUME_PROBE_20260711",
-  "credential_scan_sentinels": ["BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR"],
+  "credential_scan_sentinel_count": 1,
   "model_call_baseline": {"claude-code": 4, "codex": 3},
   "forbidden_bivpak_state": ["host2/.biv", "host2/work/.biv/agents"],
   "agents": [

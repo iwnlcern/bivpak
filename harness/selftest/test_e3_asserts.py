@@ -269,7 +269,7 @@ def _valid_two_agent_spec():
         "tier": "E3",
         "seed_turns": ["one", "two"],
         "resume_probe": "probe",
-        "credential_scan_sentinels": ["synthetic-secret"],
+        "credential_scan_sentinel_count": 1,
         "agents": [codex, claude],
     }
 
@@ -3776,12 +3776,21 @@ def test_workspace_credential_decoy_verify_rejects_root_outside_workspace(tmp_pa
         verify_credential_decoys(workspace, paths, ["synthetic-secret"])
 
 
-def test_e3_spec_rejects_control_characters_in_credential_sentinels():
+def test_e3_spec_requires_positive_int_sentinel_count():
     scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     spec = json.loads(scenario.read_text(encoding="utf-8"))
-    spec["credential_scan_sentinels"] = ["one\nOPENAI_API_KEY=two"]
-
-    assert "credential_scan_sentinels values must be dotenv-safe" in e3._validate_spec(spec)
+    spec["credential_scan_sentinel_count"] = 1
+    assert not any("credential_scan_sentinel_count" in f for f in e3._validate_spec(spec))
+    for bad in [None, 0, -1, "1", 1.0, True, False]:
+        s = dict(spec)
+        s["credential_scan_sentinel_count"] = bad
+        assert any(
+            "credential_scan_sentinel_count must be a positive integer" in f
+            for f in e3._validate_spec(s)
+        ), bad
+    s = dict(spec)
+    s.pop("credential_scan_sentinel_count", None)
+    assert any("credential_scan_sentinel_count" in f for f in e3._validate_spec(s))
 
 
 def _credential_order_fake_spawn(seen):
@@ -3835,7 +3844,7 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
         Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     )
     spec = json.loads(source_scenario.read_text(encoding="utf-8"))
-    spec["credential_scan_sentinels"] = [configured]
+    spec["credential_scan_sentinel_count"] = 1
     scenario = tmp_path / "credential-fixture-order.json"
     scenario.write_text(json.dumps(spec), encoding="utf-8")
     scratch = stable_test_root / "scratch"
@@ -4160,7 +4169,7 @@ def test_e3_rejects_preexisting_run_trees_without_deleting_them(monkeypatch, sta
 def test_e3_dry_run_rejects_missing_credential_sentinel_inventory(tmp_path):
     scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     spec = json.loads(scenario.read_text(encoding="utf-8"))
-    spec.pop("credential_scan_sentinels")
+    spec.pop("credential_scan_sentinel_count")
     spec_path = tmp_path / "missing-sentinels.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
     scratch = Path.home() / ".cache" / f"biv-e3-missing-sentinels-{os.getpid()}"
@@ -4171,7 +4180,7 @@ def test_e3_dry_run_rejects_missing_credential_sentinel_inventory(tmp_path):
         shutil.rmtree(scratch, ignore_errors=True)
 
     assert result.status is Status.INVALID
-    assert "credential_scan_sentinels" in result.detail
+    assert "credential_scan_sentinel_count" in result.detail
 
 
 def test_secret_scan_reads_decompressed_archive_members(tmp_path):
@@ -6794,6 +6803,15 @@ def _schema_shape_cases():
     scalar = ("none", None), ("scalar", 42), ("container", []), ("bad-element", [None])
     list_of_strings = ("none", None), ("scalar", "value"), ("container", {}), ("bad-element", [None])
     mapping = ("none", None), ("scalar", "value"), ("container", []), ("bad-element", {"KEY": None})
+    sentinel_counts = (
+        ("none", None),
+        ("zero", 0),
+        ("negative", -1),
+        ("string", "1"),
+        ("float", 1.0),
+        ("true", True),
+        ("false", False),
+    )
     cases = []
 
     def add(label, values, mutate):
@@ -6806,7 +6824,11 @@ def _schema_shape_cases():
     add("seed_turns", list_of_strings, lambda spec, value: spec.__setitem__("seed_turns", value))
     add("live_store_roots", list_of_strings, lambda spec, value: spec.__setitem__("live_store_roots", value))
     add("forbidden_bivpak_state", list_of_strings, lambda spec, value: spec.__setitem__("forbidden_bivpak_state", value))
-    add("credential_scan_sentinels", list_of_strings, lambda spec, value: spec.__setitem__("credential_scan_sentinels", value))
+    add(
+        "credential_scan_sentinel_count",
+        sentinel_counts,
+        lambda spec, value: spec.__setitem__("credential_scan_sentinel_count", value),
+    )
     add("agents", list_of_strings, lambda spec, value: spec.__setitem__("agents", value))
 
     def mutate_agent(field):
