@@ -69,15 +69,45 @@ CONTROLLED_RUNTIME_SENTINEL = "bive3-sentinel-" + "e" * 64
 CONTROLLED_SLASH_SENTINEL = "bive3-sentinel-" + "f" * 63 + "/"
 
 
+def _assert_fixed(condition, message):
+    if not condition:
+        pytest.fail(message, pytrace=False)
+
+
+def _assert_sensitive_values_absent(values, surfaces, message):
+    for value in values:
+        for surface in surfaces:
+            if value in surface:
+                pytest.fail(message, pytrace=False)
+
+
+def _sentinel_text_representations(sentinel):
+    return tuple(
+        dict.fromkeys(
+            (
+                sentinel,
+                *(
+                    representation.decode("ascii")
+                    for representation in e3._sentinel_representations(sentinel)
+                ),
+            )
+        )
+    )
+
+
 def _assert_report_refused(result):
-    assert result == ScenarioResult(
-        id="e3-report-refused",
-        tier="E3",
-        status=Status.INVALID,
-        classes=[],
-        held_asserts=[],
-        detail="report refused: result could not be sanitized",
-        warnings=[],
+    _assert_fixed(
+        result
+        == ScenarioResult(
+            id="e3-report-refused",
+            tier="E3",
+            status=Status.INVALID,
+            classes=[],
+            held_asserts=[],
+            detail="report refused: result could not be sanitized",
+            warnings=[],
+        ),
+        "report-refusal-shape-mismatch",
     )
 
 
@@ -2623,16 +2653,27 @@ def test_runtime_credential_sentinels_are_fresh_prefixed_and_cardinality_only(
     first = e3._runtime_credential_sentinels(len(configured))
     second = e3._runtime_credential_sentinels(len(configured))
 
-    assert first == [
-        "bive3-sentinel-" + "1" * 64,
-        "bive3-sentinel-" + "2" * 64,
-    ]
-    assert second == [
-        "bive3-sentinel-" + "3" * 64,
-        "bive3-sentinel-" + "4" * 64,
-    ]
-    assert first != second
-    assert not set(first + second).intersection(configured)
+    _assert_fixed(
+        first
+        == [
+            "bive3-sentinel-" + "1" * 64,
+            "bive3-sentinel-" + "2" * 64,
+        ],
+        "runtime-sentinel-first-batch-mismatch",
+    )
+    _assert_fixed(
+        second
+        == [
+            "bive3-sentinel-" + "3" * 64,
+            "bive3-sentinel-" + "4" * 64,
+        ],
+        "runtime-sentinel-second-batch-mismatch",
+    )
+    _assert_fixed(first != second, "runtime-sentinel-batches-not-fresh")
+    _assert_fixed(
+        not set(first + second).intersection(configured),
+        "runtime-sentinel-used-configured-value",
+    )
 
 
 def test_credential_scanner_adds_only_bounded_sentinel_representations():
@@ -2643,11 +2684,17 @@ def test_credential_scanner_adds_only_bounded_sentinel_representations():
 
     representations = e3._sentinel_representations(sentinel)
     canonical, solidus, ascii_u = representations[:3]
-    assert canonical != solidus
-    assert canonical != ascii_u
-    assert solidus != ascii_u
-    assert all(scanner.scan_bytes(value) for value in representations)
-    assert len(scanner._values) == len(representations)
+    _assert_fixed(canonical != solidus, "sentinel-canonical-solidus-not-distinct")
+    _assert_fixed(canonical != ascii_u, "sentinel-canonical-unicode-not-distinct")
+    _assert_fixed(solidus != ascii_u, "sentinel-solidus-unicode-not-distinct")
+    _assert_fixed(
+        all(scanner.scan_bytes(value) for value in representations),
+        "sentinel-representation-not-scannable",
+    )
+    _assert_fixed(
+        len(scanner._values) == len(representations),
+        "sentinel-representation-count-mismatch",
+    )
 
 
 def test_setup_host2_credentials_materializes_both_credentials_without_seeding_scanner(
@@ -3868,7 +3915,9 @@ def _run_adversarial_credential_scan_case(
 
     def controlled_runtime_sentinels(count):
         generated_counts.append(count)
-        return [sentinel] if count == 1 else pytest.fail(count)
+        if count != 1:
+            pytest.fail("runtime-sentinel-count-mismatch", pytrace=False)
+        return [sentinel]
 
     def stop_after_scan(*args):
         reached.append("terminal")
@@ -3921,25 +3970,45 @@ def test_e3_adversarial_seed_is_airtight_before_runtime_sentinel(
     )
     serialized = serialize_report([case.result])
 
-    assert case.result.status is Status.INVALID
-    assert case.generated_counts == [1]
-    assert case.captured_hits == []
-    assert case.reached == ["pack", "scan", "terminal"]
-    assert case.scanner_checks == [True]
-    assert set(case.captured_transcripts) == {
-        "payload/seen-claude-code.jsonl",
-        "payload/seen-codex.jsonl",
-    }
-    assert all(
-        configured in content for content in case.captured_transcripts.values()
+    _assert_fixed(
+        case.result.status is Status.INVALID,
+        "adversarial-seed-status-mismatch",
     )
-    assert all(
-        sentinel not in content for content in case.captured_transcripts.values()
+    _assert_fixed(
+        case.generated_counts == [1],
+        "adversarial-seed-sentinel-count-mismatch",
     )
-    for value in (sentinel, configured):
-        assert value not in case.console.out
-        assert value not in case.console.err
-        assert value not in serialized
+    _assert_fixed(not case.captured_hits, "adversarial-seed-unexpected-image-hit")
+    _assert_fixed(
+        case.reached == ["pack", "scan", "terminal"],
+        "adversarial-seed-phase-order-mismatch",
+    )
+    _assert_fixed(
+        case.scanner_checks == [True],
+        "adversarial-seed-scanner-check-mismatch",
+    )
+    _assert_fixed(
+        set(case.captured_transcripts)
+        == {
+            "payload/seen-claude-code.jsonl",
+            "payload/seen-codex.jsonl",
+        },
+        "adversarial-seed-member-set-mismatch",
+    )
+    _assert_fixed(
+        all(configured in content for content in case.captured_transcripts.values()),
+        "adversarial-seed-captured-content-missing",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sentinel),
+        tuple(case.captured_transcripts.values()),
+        "adversarial-seed-captured-runtime-sentinel",
+    )
+    _assert_sensitive_values_absent(
+        (*_sentinel_text_representations(sentinel), configured),
+        (case.console.out, case.console.err, serialized),
+        "adversarial-seed-output-not-value-free",
+    )
 
 
 def test_e3_adversarial_scan_captures_exact_multi_member_hits_value_free(
@@ -3961,29 +4030,54 @@ def test_e3_adversarial_scan_captures_exact_multi_member_hits_value_free(
     )
     serialized = serialize_report([case.result])
 
-    assert case.captured_hits == [
-        "payload/seen-claude-code.jsonl:secret[0]",
-        "payload/seen-codex.jsonl:secret[0]",
-    ]
-    assert set(case.captured_transcripts) == {
-        "payload/seen-claude-code.jsonl",
-        "payload/seen-codex.jsonl",
-    }
-    assert all(
-        sentinel in content and captured_content in content
-        for content in case.captured_transcripts.values()
+    _assert_fixed(
+        case.captured_hits
+        == [
+            "payload/seen-claude-code.jsonl:secret[0]",
+            "payload/seen-codex.jsonl:secret[0]",
+        ],
+        "adversarial-scan-hit-set-mismatch",
     )
-    assert case.result.status is Status.INVALID
-    assert case.generated_counts == [1]
-    assert case.reached == ["pack", "scan"]
-    assert case.scanner_checks == []
-    assert sentinel not in serialized
-    assert captured_content not in serialized
-    assert all(
-        content not in serialized for content in case.captured_transcripts.values()
+    _assert_fixed(
+        set(case.captured_transcripts)
+        == {
+            "payload/seen-claude-code.jsonl",
+            "payload/seen-codex.jsonl",
+        },
+        "adversarial-scan-member-set-mismatch",
     )
-    assert sentinel not in case.console.out
-    assert sentinel not in case.console.err
+    _assert_fixed(
+        all(
+            sentinel in content and captured_content in content
+            for content in case.captured_transcripts.values()
+        ),
+        "adversarial-scan-captured-content-mismatch",
+    )
+    _assert_fixed(
+        case.result.status is Status.INVALID,
+        "adversarial-scan-status-mismatch",
+    )
+    _assert_fixed(
+        case.generated_counts == [1],
+        "adversarial-scan-sentinel-count-mismatch",
+    )
+    _assert_fixed(
+        case.reached == ["pack", "scan"],
+        "adversarial-scan-phase-order-mismatch",
+    )
+    _assert_fixed(
+        not case.scanner_checks,
+        "adversarial-scan-unexpected-scanner-check",
+    )
+    _assert_sensitive_values_absent(
+        (
+            *_sentinel_text_representations(sentinel),
+            captured_content,
+            *case.captured_transcripts.values(),
+        ),
+        (case.console.out, case.console.err, serialized),
+        "adversarial-scan-output-not-value-free",
+    )
     _assert_report_refused(case.result)
 
 
@@ -4089,21 +4183,29 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
     def stop_after_scan(*args):
         reached.append("terminal")
         scanner = args[5]
-        assert scanner.scan_text(sentinel)
-        assert not scanner.scan_text(configured)
-        assert not (
-            scratch
-            / "seed-ws"
-            / spec["workspace_name"]
-            / e3.CREDENTIAL_DECOY_ROOT
-        ).exists()
+        _assert_fixed(scanner.scan_text(sentinel), "decoy-order-sentinel-not-active")
+        _assert_fixed(
+            not scanner.scan_text(configured),
+            "decoy-order-configured-value-active",
+        )
+        _assert_fixed(
+            not (
+                scratch
+                / "seed-ws"
+                / spec["workspace_name"]
+                / e3.CREDENTIAL_DECOY_ROOT
+            ).exists(),
+            "decoy-order-root-not-removed",
+        )
         raise ValueError("stop after credential scan")
 
     monkeypatch.setenv("STUB_BIV_MODE", "ok")
 
     def controlled_runtime_sentinels(count):
         generated_counts.append(count)
-        return [sentinel] if count == 1 else pytest.fail(count)
+        if count != 1:
+            pytest.fail("decoy-order-sentinel-count-mismatch", pytrace=False)
+        return [sentinel]
 
     monkeypatch.setattr(
         e3,
@@ -4121,20 +4223,30 @@ def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_
         scratch,
     )
     captured_console = capsys.readouterr()
+    serialized = serialize_report([result])
 
     assert result.status is Status.INVALID
     assert result.detail == "e3-post-materialization-invalid"
     assert generated_counts == [1]
-    assert sentinel not in captured_console.out
-    assert sentinel not in captured_console.err
-    assert len(captured_reads) == 2
-    assert all(sentinel not in blob for blob in captured_reads)
-    assert all(configured not in blob for blob in captured_reads)
-    assert not any(
-        member.startswith(f"payload/{e3.CREDENTIAL_DECOY_ROOT}/")
-        for member in captured_members
+    _assert_sensitive_values_absent(
+        (*_sentinel_text_representations(sentinel), configured),
+        (captured_console.out, captured_console.err, serialized),
+        "decoy-order-output-not-value-free",
     )
-    assert captured_hits == []
+    _assert_fixed(len(captured_reads) == 2, "decoy-order-captured-read-count-mismatch")
+    _assert_sensitive_values_absent(
+        (*_sentinel_text_representations(sentinel), configured),
+        tuple(captured_reads),
+        "decoy-order-seed-capture-not-airtight",
+    )
+    _assert_fixed(
+        not any(
+            member.startswith(f"payload/{e3.CREDENTIAL_DECOY_ROOT}/")
+            for member in captured_members
+        ),
+        "decoy-order-decoy-member-captured",
+    )
+    _assert_fixed(not captured_hits, "decoy-order-unexpected-image-hit")
     assert pack_time == {"decoys": True, "bivignore": True}
     assert reached == [
         "seed:claude-code",
@@ -4165,7 +4277,11 @@ def test_e3_controlled_sentinel_image_hit_stops_before_credential_materializatio
     monkeypatch.setattr(
         e3,
         "_runtime_credential_sentinels",
-        lambda count: [sentinel] if count == 1 else pytest.fail(count),
+        lambda count: (
+            [sentinel]
+            if count == 1
+            else pytest.fail("controlled-image-hit-sentinel-count", pytrace=False)
+        ),
     )
 
     def controlled_hit(_image, values):
@@ -4186,8 +4302,12 @@ def test_e3_controlled_sentinel_image_hit_stops_before_credential_materializatio
     )
 
     _assert_report_refused(result)
-    assert sentinel not in serialize_report([result])
-    assert scanned == [[sentinel]]
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(sentinel),
+        (serialize_report([result]),),
+        "controlled-image-hit-report-not-value-free",
+    )
+    _assert_fixed(scanned == [[sentinel]], "controlled-image-hit-scan-input-mismatch")
     assert seen == ["pack"]
 
 
@@ -4204,7 +4324,11 @@ def test_e3_pack_warning_before_sentinel_population_is_not_written(
     )
 
     _assert_report_refused(result)
-    assert secret not in serialize_report([result])
+    _assert_sensitive_values_absent(
+        (secret,),
+        (serialize_report([result]),),
+        "pack-warning-report-retained-sensitive-value",
+    )
     assert seen == ["pack"]
 
 
@@ -4346,13 +4470,17 @@ def test_e3_rejects_preexisting_run_trees_without_deleting_them(monkeypatch, sta
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def test_e3_dry_run_rejects_missing_credential_sentinel_inventory(tmp_path):
+def test_e3_dry_run_rejects_missing_credential_sentinel_count(tmp_path):
     scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
     spec = json.loads(scenario.read_text(encoding="utf-8"))
     spec.pop("credential_scan_sentinel_count")
-    spec_path = tmp_path / "missing-sentinels.json"
+    spec_path = tmp_path / "missing-sentinel-count.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
-    scratch = Path.home() / ".cache" / f"biv-e3-missing-sentinels-{os.getpid()}"
+    scratch = (
+        Path.home()
+        / ".cache"
+        / f"biv-e3-missing-sentinel-count-{os.getpid()}"
+    )
     shutil.rmtree(scratch, ignore_errors=True)
     try:
         result = e3.run_e3(spec_path, Path("biv"), scratch, dry_run=True)
@@ -4374,8 +4502,15 @@ def test_secret_scan_reads_decompressed_archive_members(tmp_path):
     image = tmp_path / "leak.bvpk"
     image.write_bytes(zstandard.ZstdCompressor().compress(raw.getvalue()))
 
-    assert scan_secret_values(image.read_bytes(), [sentinel]) == []
-    assert scan_image_secret_values(image, [sentinel]) == ["payload/leak.env:secret[0]"]
+    _assert_fixed(
+        scan_secret_values(image.read_bytes(), [sentinel]) == [],
+        "compressed-member-raw-scan-unexpected-hit",
+    )
+    _assert_fixed(
+        scan_image_secret_values(image, [sentinel])
+        == ["payload/leak.env:secret[0]"],
+        "compressed-member-scan-hit-mismatch",
+    )
 
 
 @pytest.mark.parametrize("agent_id", ["claude-code", "codex"])
@@ -4941,7 +5076,11 @@ def test_finalize_report_replaces_all_secret_bearing_fields(tmp_path):
     assert final.classes == []
     assert final.held_asserts == []
     assert final.warnings == []
-    assert secret not in serialize_report([final])
+    _assert_sensitive_values_absent(
+        (secret,),
+        (serialize_report([final]),),
+        "finalized-report-retained-sensitive-field",
+    )
 
 
 def _current_credential_guards(claude_dest, codex_dest):
@@ -5024,16 +5163,24 @@ def test_scan_and_teardown_builds_typed_post_materialization_result(tmp_path):
     )
 
     serialized = serialize_report([final])
-    assert final == ScenarioResult(
-        id="e3",
-        tier="E3",
-        status=Status.FAIL,
-        classes=[],
-        held_asserts=[],
-        detail="e3-post-materialization-fail",
-        warnings=["biv-warning-present"],
+    _assert_fixed(
+        final
+        == ScenarioResult(
+            id="e3",
+            tier="E3",
+            status=Status.FAIL,
+            classes=[],
+            held_asserts=[],
+            detail="e3-post-materialization-fail",
+            warnings=["biv-warning-present"],
+        ),
+        "post-materialization-result-shape-mismatch",
     )
-    assert dynamic not in serialized
+    _assert_sensitive_values_absent(
+        (dynamic,),
+        (serialized,),
+        "post-materialization-report-retained-sensitive-value",
+    )
 
 
 @pytest.mark.parametrize("representation_index", (0, 1, 2))
@@ -5090,7 +5237,10 @@ def test_controlled_sentinel_forms_in_capture_surfaces_invalidate_cleanly(
     )
     assert final.status is Status.INVALID
     assert expected_warning in final.warnings
-    assert representation not in serialized
+    _assert_fixed(
+        representation not in serialized,
+        "capture-surface-report-retained-sentinel-form",
+    )
 
 
 @pytest.mark.parametrize("representation_index", (0, 1, 2))
@@ -5121,8 +5271,14 @@ def test_controlled_sentinel_forms_in_final_candidate_are_discarded(
 
     serialized = serialize_report([final]).encode()
     assert final.status is Status.INVALID
-    assert representation not in serialized
-    assert not scanner.scan_bytes(serialized)
+    _assert_fixed(
+        representation not in serialized,
+        "final-candidate-report-retained-sentinel-form",
+    )
+    _assert_fixed(
+        not scanner.scan_bytes(serialized),
+        "final-candidate-report-scanner-detected-sentinel-form",
+    )
 
 
 @pytest.mark.parametrize("credential_id", ("claude-code", "codex"))
@@ -5443,7 +5599,10 @@ def test_scan_and_teardown_tree_hit_invalidates_preexisting_fail_and_stays_clean
     assert final.classes == []
     assert final.held_asserts == []
     assert "credential-scan-detected" in final.warnings
-    assert not report_scanner.scan_bytes(serialized)
+    _assert_fixed(
+        not report_scanner.scan_bytes(serialized),
+        "tree-hit-report-retained-sensitive-value",
+    )
 
 
 def test_scan_and_teardown_child_hit_keeps_preexisting_invalid_and_stays_clean(
@@ -5480,7 +5639,10 @@ def test_scan_and_teardown_child_hit_keeps_preexisting_invalid_and_stays_clean(
     serialized = serialize_report([final]).encode()
     assert final.status is Status.INVALID
     assert "credential-child-output-detected" in final.warnings
-    assert not report_scanner.scan_bytes(serialized)
+    _assert_fixed(
+        not report_scanner.scan_bytes(serialized),
+        "child-hit-report-retained-sensitive-value",
+    )
 
 
 def test_scan_and_teardown_scans_seed_tree_before_removing_all_targets(tmp_path):
@@ -5516,7 +5678,11 @@ def test_scan_and_teardown_scans_seed_tree_before_removing_all_targets(tmp_path)
     )
 
     assert final.status is Status.INVALID
-    assert secret.decode() not in serialize_report([final])
+    _assert_sensitive_values_absent(
+        (secret.decode(),),
+        (serialize_report([final]),),
+        "teardown-report-retained-sensitive-value",
+    )
     assert not any(path.exists() for path in (claude_dest, codex_dest, profile_root, host2, seed_parent))
 
 
@@ -5639,16 +5805,12 @@ def test_scan_and_teardown_activation_failure_returns_only_typed_constant_invali
         remove_targets=False,
     )
 
-    assert final == ScenarioResult(
-        id="e3-report-refused",
-        tier="E3",
-        status=Status.INVALID,
-        classes=[],
-        held_asserts=[],
-        detail="report refused: result could not be sanitized",
-        warnings=[],
+    _assert_report_refused(final)
+    _assert_sensitive_values_absent(
+        (secret,),
+        (serialize_report([final]),),
+        "activation-failure-report-retained-sensitive-value",
     )
-    assert secret not in serialize_report([final])
 
 
 def test_scan_and_teardown_empty_scanner_returns_only_typed_constant_invalid(
@@ -5681,16 +5843,12 @@ def test_scan_and_teardown_empty_scanner_returns_only_typed_constant_invalid(
         remove_targets=False,
     )
 
-    assert final == ScenarioResult(
-        id="e3-report-refused",
-        tier="E3",
-        status=Status.INVALID,
-        classes=[],
-        held_asserts=[],
-        detail="report refused: result could not be sanitized",
-        warnings=[],
+    _assert_report_refused(final)
+    _assert_sensitive_values_absent(
+        (secret,),
+        (serialize_report([final]),),
+        "empty-scanner-report-retained-sensitive-value",
     )
-    assert secret not in serialize_report([final])
 
 
 def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path):
@@ -8533,7 +8691,11 @@ def _run_argv_barrier_flow(
     monkeypatch.setattr(
         e3,
         "_runtime_credential_sentinels",
-        lambda count: [controlled_sentinel] if count == 1 else pytest.fail(count),
+        lambda count: (
+            [controlled_sentinel]
+            if count == 1
+            else pytest.fail("argv-flow-sentinel-count-mismatch", pytrace=False)
+        ),
     )
     monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
     monkeypatch.setattr(e3, "assert_exact_install_delta", fake_install_delta)
@@ -8686,7 +8848,7 @@ def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_b
 
 @pytest.mark.parametrize("leak_phase", ("auth", "liveness", "open", "resume"))
 def test_run_e3_invalidates_each_post_materialization_output_leak(
-    monkeypatch, tmp_path, stable_test_root, leak_phase
+    monkeypatch, tmp_path, stable_test_root, capsys, leak_phase
 ):
     result, *_ = _run_argv_barrier_flow(
         monkeypatch,
@@ -8695,9 +8857,20 @@ def test_run_e3_invalidates_each_post_materialization_output_leak(
         leak_phase=leak_phase,
     )
 
-    assert result.status is Status.INVALID
-    assert "credential-child-output-detected" in result.warnings
-    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
+    console = capsys.readouterr()
+    _assert_fixed(
+        result.status is Status.INVALID,
+        "post-materialization-output-leak-status-mismatch",
+    )
+    _assert_fixed(
+        "credential-child-output-detected" in result.warnings,
+        "post-materialization-output-leak-warning-missing",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(CONTROLLED_RUNTIME_SENTINEL),
+        (console.out, console.err, serialize_report([result])),
+        "post-materialization-output-leak-rendered-sentinel",
+    )
 
 
 @pytest.mark.parametrize(
@@ -8705,7 +8878,7 @@ def test_run_e3_invalidates_each_post_materialization_output_leak(
     ("auth", "liveness", "open", "resume"),
 )
 def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
-    monkeypatch, tmp_path, stable_test_root, exception_leak_phase
+    monkeypatch, tmp_path, stable_test_root, capsys, exception_leak_phase
 ):
     result, _, _, ledger, _, _, _ = _run_argv_barrier_flow(
         monkeypatch,
@@ -8714,9 +8887,20 @@ def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
         exception_leak_phase=exception_leak_phase,
     )
 
-    assert result.status is Status.INVALID
-    assert "credential-child-output-detected" in result.warnings
-    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
+    console = capsys.readouterr()
+    _assert_fixed(
+        result.status is Status.INVALID,
+        "exceptional-output-leak-status-mismatch",
+    )
+    _assert_fixed(
+        "credential-child-output-detected" in result.warnings,
+        "exceptional-output-leak-warning-missing",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(CONTROLLED_RUNTIME_SENTINEL),
+        (console.out, console.err, serialize_report([result])),
+        "exceptional-output-leak-rendered-sentinel",
+    )
     if exception_leak_phase == "auth":
         auth_calls = [
             command
@@ -8727,7 +8911,7 @@ def test_run_e3_invalidates_each_exceptional_post_materialization_output_leak(
 
 
 def test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization(
-    monkeypatch, tmp_path, stable_test_root
+    monkeypatch, tmp_path, stable_test_root, capsys
 ):
     result, *_ = _run_argv_barrier_flow(
         monkeypatch,
@@ -8736,9 +8920,20 @@ def test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization
         scratch_leak_payload=CONTROLLED_RUNTIME_SENTINEL,
     )
 
-    assert result.status is Status.INVALID
-    assert "credential-scan-detected" in result.warnings
-    assert CONTROLLED_RUNTIME_SENTINEL not in serialize_report([result])
+    console = capsys.readouterr()
+    _assert_fixed(
+        result.status is Status.INVALID,
+        "scratch-token-leak-status-mismatch",
+    )
+    _assert_fixed(
+        "credential-scan-detected" in result.warnings,
+        "scratch-token-leak-warning-missing",
+    )
+    _assert_sensitive_values_absent(
+        _sentinel_text_representations(CONTROLLED_RUNTIME_SENTINEL),
+        (console.out, console.err, serialize_report([result])),
+        "scratch-token-leak-rendered-sentinel",
+    )
 
 
 @pytest.mark.parametrize("mutation", ("missing", "replaced"))
@@ -8755,7 +8950,11 @@ def test_run_e3_invalidates_changed_credential_guard_after_materialization(
     serialized = serialize_report([result])
     assert result.status is Status.INVALID
     assert "credential-exclusion-integrity-failed" in result.warnings
-    assert CODEX_ACCESS_LEAF not in serialized
+    _assert_sensitive_values_absent(
+        (CODEX_ACCESS_LEAF,),
+        (serialized,),
+        "credential-guard-report-retained-access-leaf",
+    )
 
 
 def test_run_e3_rejects_restored_workspace_symlink_before_any_resume_spawn(
@@ -9325,6 +9524,78 @@ def test_e3_corpus_builder_rejects_symlinked_parent(tmp_path):
     assert list(outside.iterdir()) == []
 
 
+def test_e3_corpus_builder_rejects_existing_root_swap_before_open(
+    tmp_path,
+    monkeypatch,
+):
+    root = tmp_path / "corpus"
+    root.mkdir()
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    parked = tmp_path / "corpus-parked"
+    real_open = os.open
+    swapped = False
+
+    def swap_before_root_open(path, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        opens_root = (
+            dir_fd is None
+            and Path(path) == root
+            or dir_fd is not None
+            and os.fspath(path) == root.name
+        )
+        if opens_root and not swapped:
+            root.rename(parked)
+            replacement.rename(root)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", swap_before_root_open)
+
+    with pytest.raises(ValueError):
+        _adv().build_durable_corpus(root, {"entry.txt": "blocked"})
+
+    assert swapped
+    assert list(root.iterdir()) == []
+    assert list(parked.iterdir()) == []
+
+
+def test_e3_corpus_builder_missing_root_creation_stays_bound_to_open_parent(
+    tmp_path,
+    monkeypatch,
+):
+    parent = tmp_path / "validated-parent"
+    parent.mkdir()
+    replacement = tmp_path / "replacement-parent"
+    replacement.mkdir()
+    parked = tmp_path / "validated-parent-parked"
+    root = parent / "corpus"
+    real_mkdir = os.mkdir
+    swapped = False
+
+    def swap_before_root_mkdir(path, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        creates_root = (
+            dir_fd is None
+            and Path(path) == root
+            or dir_fd is not None
+            and os.fspath(path) == root.name
+        )
+        if creates_root and not swapped:
+            parent.rename(parked)
+            replacement.rename(parent)
+            swapped = True
+        return real_mkdir(path, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "mkdir", swap_before_root_mkdir)
+
+    _adv().build_durable_corpus(root, {"entry.txt": "INSIDE"})
+
+    assert swapped
+    assert (parked / "corpus" / "entry.txt").read_text(encoding="utf-8") == "INSIDE"
+    assert list(parent.iterdir()) == []
+
+
 def test_e3_corpus_builder_file_creation_stays_bound_to_open_parent(
     tmp_path,
     monkeypatch,
@@ -9448,7 +9719,10 @@ def test_e3_adversary_seed_fake_captures_roots_and_owns_transcript(tmp_path):
     )
 
     captured = json.loads(transcript.read_text(encoding="utf-8"))
-    assert captured == {"content": "SEEDEXTRA", "notes": []}
+    _assert_fixed(
+        captured == {"content": "SEEDEXTRA", "notes": []},
+        "adversarial-seed-captured-transcript-mismatch",
+    )
     assert transcript == seed_workspace / "seen-codex.jsonl"
     assert owned_paths == [transcript]
 
@@ -9613,7 +9887,10 @@ def collect_a4_offline_guards(
     verdicts = []
     for check in A4_OFFLINE_GUARD_REGISTRY:
         status, reason_token = check.run(state)
-        assert (status, reason_token) in _A4_ALLOWED_VERDICTS[check.name]
+        _assert_fixed(
+            (status, reason_token) in _A4_ALLOWED_VERDICTS[check.name],
+            "a4-verdict-vocabulary-invalid",
+        )
         verdicts.append(_A4GuardVerdict(check.name, status, reason_token))
     return tuple(verdicts)
 
@@ -9625,6 +9902,27 @@ def _a4_assigned_call_name(statement: ast.stmt) -> str | None:
     if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name):
         return None
     return call.func.id
+
+
+def _a4_is_first_open_boundary(statement: ast.stmt) -> bool:
+    if (
+        not isinstance(statement, ast.Assign)
+        or len(statement.targets) != 1
+        or not isinstance(statement.targets[0], ast.Name)
+        or statement.targets[0].id != "opened"
+        or not isinstance(statement.value, ast.Call)
+        or not isinstance(statement.value.func, ast.Name)
+        or statement.value.func.id != "capture_spawn"
+        or not statement.value.args
+        or not isinstance(statement.value.args[0], ast.List)
+    ):
+        return False
+    command = statement.value.args[0].elts
+    return (
+        len(command) >= 2
+        and isinstance(command[1], ast.Constant)
+        and command[1].value == "open"
+    )
 
 
 def _a4_guard_region_source(source: str | None = None) -> str:
@@ -9662,9 +9960,17 @@ def _a4_guard_region_source(source: str | None = None) -> str:
         and final_guard.test.id == "zero_session_failures"
     ):
         raise AssertionError("run_e3 zero-session guard shape changed")
+    open_indexes = [
+        index
+        for index, statement in enumerate(body)
+        if index > final_guard_index and _a4_is_first_open_boundary(statement)
+    ]
+    if len(open_indexes) != 1:
+        raise AssertionError("run_e3 first-open boundary anchor is not unique")
+    first_open = body[open_indexes[0]]
     lines = normalized.splitlines(keepends=True)
     first = body[start_index]
-    return "".join(lines[first.lineno - 1 : final_guard.end_lineno])
+    return "".join(lines[first.lineno - 1 : first_open.end_lineno])
 
 
 def e3_guard_region_signature(source: str | None = None) -> str:
@@ -9674,8 +9980,25 @@ def e3_guard_region_signature(source: str | None = None) -> str:
 
 
 _EXPECTED_GUARD_REGION_SIG = (
-    "90604557fd3f1d6f15d3298bf10f6cb56936179f85137dc009fb361015258c24"
+    "ac98c9f6d35f3fd8a385b52cf67e364e588f286b2ee4528b1f8b16a8fcc0d0dd"
 )
+
+
+def _a4_platform_neutral_alias(scratch: Path) -> str:
+    canonical = unicodedata.normalize("NFC", str(scratch))
+    for spelling in e3._alias_spellings(scratch):
+        if spelling != canonical:
+            return spelling
+    raise AssertionError("A4 scratch has no noncanonical alias spelling")
+
+
+def test_a4_alias_fixture_supports_a_linux_shaped_scratch_path():
+    scratch = Path("/tmp/a4-linux-shaped/synthetic-scratch")
+
+    alias = _a4_platform_neutral_alias(scratch)
+
+    assert alias != str(scratch)
+    assert alias in e3._alias_spellings(scratch)
 
 
 def test_a4_offline_collector_registry_is_exact_and_multi_failure_is_value_free(
@@ -9685,8 +10008,7 @@ def test_a4_offline_collector_registry_is_exact_and_multi_failure_is_value_free(
     scratch = tmp_path / "synthetic-scratch"
     scratch.mkdir()
     owned = tmp_path / "owned.jsonl"
-    scratch_alias = str(scratch).replace("/private/var/", "/var/", 1)
-    assert scratch_alias != str(scratch)
+    scratch_alias = _a4_platform_neutral_alias(scratch)
     owned.write_text(json.dumps({"observed": scratch_alias}) + "\n", encoding="utf-8")
     sentinel = "a4-private-sentinel-" + "7" * 48
     raw_member = "payload/raw-private-member-name.env"
@@ -9729,27 +10051,44 @@ def test_a4_offline_collector_registry_is_exact_and_multi_failure_is_value_free(
 
     verdicts = collect_a4_offline_guards(state)
 
-    assert tuple(check.name for check in A4_OFFLINE_GUARD_REGISTRY) == (
-        "negative-control",
-        "pack-exit-contract",
-        "pack-mutation",
-        "credential-scan",
-        "c1-drift",
-        "c1-zero-session",
+    _assert_fixed(
+        tuple(check.name for check in A4_OFFLINE_GUARD_REGISTRY)
+        == (
+            "negative-control",
+            "pack-exit-contract",
+            "pack-mutation",
+            "credential-scan",
+            "c1-drift",
+            "c1-zero-session",
+        ),
+        "a4-registry-shape-mismatch",
     )
-    assert observed_states == [state] * 6
-    assert tuple(verdict.render() for verdict in verdicts) == (
-        "negative-control=INVALID(negative-control)",
-        "pack-exit-contract=PASS(ok)",
-        "pack-mutation=INVALID(pack-mutation)",
-        "credential-scan=FAIL(member[i]:secret)",
-        "c1-drift=PASS(ok)",
-        "c1-zero-session=PASS(ok)",
+    _assert_fixed(
+        observed_states == [state] * 6,
+        "a4-collector-state-forwarding-mismatch",
     )
-    assert sum(verdict.status != "PASS" for verdict in verdicts) >= 2
+    _assert_fixed(
+        tuple(verdict.render() for verdict in verdicts)
+        == (
+            "negative-control=INVALID(negative-control)",
+            "pack-exit-contract=PASS(ok)",
+            "pack-mutation=INVALID(pack-mutation)",
+            "credential-scan=FAIL(member[i]:secret)",
+            "c1-drift=PASS(ok)",
+            "c1-zero-session=PASS(ok)",
+        ),
+        "a4-collector-verdict-set-mismatch",
+    )
+    _assert_fixed(
+        sum(verdict.status != "PASS" for verdict in verdicts) >= 2,
+        "a4-collector-multi-failure-missing",
+    )
     rendered = "\n".join(verdict.render() for verdict in verdicts)
-    assert sentinel not in rendered
-    assert raw_member not in rendered
+    _assert_sensitive_values_absent(
+        (*_sentinel_text_representations(sentinel), raw_member),
+        (rendered,),
+        "a4-collector-rendered-sensitive-value",
+    )
 
 
 def test_a4_offline_collector_producer_chain_binds_simultaneous_verdicts(
@@ -9789,14 +10128,53 @@ def test_a4_offline_collector_producer_chain_binds_simultaneous_verdicts(
     verdicts = collect_a4_offline_guards(state)
     by_name = {verdict.name: verdict.render() for verdict in verdicts}
 
-    assert by_name["pack-exit-contract"] == (
-        "pack-exit-contract=FAIL(pack-exit-contract)"
+    _assert_fixed(
+        by_name["pack-exit-contract"]
+        == "pack-exit-contract=FAIL(pack-exit-contract)",
+        "a4-producer-pack-exit-verdict-mismatch",
     )
-    assert by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)"
-    assert by_name["credential-scan"] == (
-        "credential-scan=NOT_EVALUABLE(no-image)"
+    _assert_fixed(
+        by_name["pack-mutation"] == "pack-mutation=INVALID(pack-mutation)",
+        "a4-producer-pack-mutation-verdict-mismatch",
     )
-    assert len(verdicts) == 6
+    _assert_fixed(
+        by_name["credential-scan"]
+        == "credential-scan=NOT_EVALUABLE(no-image)",
+        "a4-producer-credential-scan-verdict-mismatch",
+    )
+    _assert_fixed(
+        len(verdicts) == 6,
+        "a4-producer-verdict-count-mismatch",
+    )
+
+
+def test_a4_offline_collector_rejects_unbounded_verdict_with_fixed_message(
+    monkeypatch,
+):
+    attacker_text = "attacker-controlled-member-" + "6" * 48
+    monkeypatch.setitem(
+        globals(),
+        "A4_OFFLINE_GUARD_REGISTRY",
+        (
+            GuardCheck(
+                "credential-scan",
+                lambda _state: ("FAIL", attacker_text),
+            ),
+        ),
+    )
+
+    with pytest.raises(pytest.fail.Exception) as failure:
+        collect_a4_offline_guards(None)
+
+    _assert_fixed(
+        str(failure.value) == "a4-verdict-vocabulary-invalid",
+        "a4-verdict-failure-message-not-fixed",
+    )
+    _assert_sensitive_values_absent(
+        (attacker_text,),
+        (str(failure.value),),
+        "a4-verdict-failure-rendered-attacker-text",
+    )
 
 
 def test_a4_offline_collector_guard_region_signature_is_pinned():
@@ -9814,3 +10192,33 @@ def test_a4_offline_collector_guard_region_copy_mutation_changes_signature():
     assert mutated != source
 
     assert e3_guard_region_signature(mutated) != _EXPECTED_GUARD_REGION_SIG
+
+
+def test_a4_offline_collector_post_zero_guard_copy_mutation_changes_signature():
+    source = inspect.getsource(e3.run_e3)
+    anchor = "        opened = capture_spawn("
+    seventh_guard = (
+        "        if synthetic_seventh_guard:\n"
+        '            raise RuntimeError("synthetic seventh pre-open guard")\n'
+    )
+    mutated = source.replace(anchor, seventh_guard + anchor, 1)
+    assert mutated != source
+
+    assert e3_guard_region_signature(mutated) != _EXPECTED_GUARD_REGION_SIG
+
+
+def test_value_free_assertion_uses_fixed_message_for_sensitive_output():
+    sensitive = "bive3-sentinel-" + "9" * 64
+    fixed_message = "credential-output-not-value-free"
+
+    with pytest.raises(pytest.fail.Exception) as failure:
+        _assert_sensitive_values_absent(
+            (sensitive,),
+            ("prefix-" + sensitive + "-suffix",),
+            fixed_message,
+        )
+
+    if str(failure.value) != fixed_message:
+        pytest.fail("value-free-helper-message-not-fixed", pytrace=False)
+    if sensitive in str(failure.value):
+        pytest.fail("value-free-helper-rendered-sensitive-value", pytrace=False)

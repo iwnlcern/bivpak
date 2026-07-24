@@ -132,6 +132,46 @@ def _write_all(fd: int, data: bytes) -> None:
         pending = pending[written:]
 
 
+def _same_identity(expected: os.stat_result, opened: os.stat_result) -> bool:
+    return (expected.st_dev, expected.st_ino) == (opened.st_dev, opened.st_ino)
+
+
+def _open_or_create_corpus_root(root: Path, descriptors: ExitStack) -> int:
+    anchor = Path(root.anchor) if root.is_absolute() else Path(".")
+    expected_anchor = os.lstat(anchor)
+    current_fd = os.open(anchor, _DIRECTORY_FLAGS)
+    descriptors.callback(os.close, current_fd)
+    opened_anchor = os.fstat(current_fd)
+    if (
+        not stat.S_ISDIR(expected_anchor.st_mode)
+        or not stat.S_ISDIR(opened_anchor.st_mode)
+        or not _same_identity(expected_anchor, opened_anchor)
+    ):
+        raise ValueError("corpus root anchor changed during inspection")
+
+    components = root.parts[1:] if root.is_absolute() else root.parts
+    for component in components:
+        try:
+            expected = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            try:
+                os.mkdir(component, dir_fd=current_fd)
+            except FileExistsError:
+                pass
+            expected = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
+        if not stat.S_ISDIR(expected.st_mode):
+            raise ValueError("corpus root component must be a directory")
+
+        next_fd = os.open(component, _DIRECTORY_FLAGS, dir_fd=current_fd)
+        descriptors.callback(os.close, next_fd)
+        opened = os.fstat(next_fd)
+        if not stat.S_ISDIR(opened.st_mode) or not _same_identity(expected, opened):
+            raise ValueError("corpus root changed during inspection")
+        current_fd = next_fd
+
+    return current_fd
+
+
 def build_durable_corpus(
     root: Path,
     contents: Mapping[str, str | bytes],
@@ -142,17 +182,8 @@ def build_durable_corpus(
         for name, value in sorted(contents.items())
     ]
 
-    try:
-        root_stat = os.lstat(root)
-    except FileNotFoundError:
-        root.mkdir(parents=True)
-        root_stat = os.lstat(root)
-    if stat.S_ISLNK(root_stat.st_mode):
-        raise ValueError("corpus root must not be a symlink")
-
     with ExitStack() as root_descriptors:
-        root_fd = os.open(root, _DIRECTORY_FLAGS)
-        root_descriptors.callback(os.close, root_fd)
+        root_fd = _open_or_create_corpus_root(root, root_descriptors)
         for parts, value in entries:
             with ExitStack() as entry_descriptors:
                 parent_fd = os.dup(root_fd)
