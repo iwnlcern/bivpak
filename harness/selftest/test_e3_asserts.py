@@ -64,6 +64,18 @@ CONTROLLED_RUNTIME_SENTINEL = "bive3-sentinel-" + "e" * 64
 CONTROLLED_SLASH_SENTINEL = "bive3-sentinel-" + "f" * 63 + "/"
 
 
+def _assert_report_refused(result):
+    assert result == ScenarioResult(
+        id="e3-report-refused",
+        tier="E3",
+        status=Status.INVALID,
+        classes=[],
+        held_asserts=[],
+        detail="report refused: result could not be sanitized",
+        warnings=[],
+    )
+
+
 @pytest.fixture
 def repo_root() -> Path:
     root = Path(__file__).resolve().parents[2]
@@ -822,7 +834,7 @@ def test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces(
     assert row["warnings"] == ["biv-warning-present"]
 
 
-def test_e3_pack_ok_false_at_exit2_preserves_envelope_error(
+def test_e3_pack_ok_false_at_exit2_returns_report_refusal(
     monkeypatch, tmp_path, stable_test_root
 ):
     packed = SimpleNamespace(
@@ -840,11 +852,8 @@ def test_e3_pack_ok_false_at_exit2_preserves_envelope_error(
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
+    _assert_report_refused(result)
     assert seen == ["pack"]
-    assert "ContainmentRefused" in result.detail
-    assert "divergence" in result.detail
-    assert "exit-contract violation" not in result.detail
 
 
 def test_e3_pack_failure_detail_from_envelope(
@@ -865,10 +874,7 @@ def test_e3_pack_failure_detail_from_envelope(
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
-    assert "CollisionRefused" in result.detail
-    assert "boom" in result.detail
-    assert "wrong source" not in result.detail
+    _assert_report_refused(result)
 
 
 def test_e3_pack_exit_code_mismatch_fails(monkeypatch, tmp_path, stable_test_root):
@@ -887,9 +893,7 @@ def test_e3_pack_exit_code_mismatch_fails(monkeypatch, tmp_path, stable_test_roo
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
-    assert "exit_code 2" in result.detail
-    assert "process exit 3" in result.detail
+    _assert_report_refused(result)
 
 
 def test_e3_pack_ok_true_bad_exit_is_violation(
@@ -905,8 +909,7 @@ def test_e3_pack_ok_true_bad_exit_is_violation(
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
-    assert "exit-contract violation" in result.detail
+    _assert_report_refused(result)
 
 
 def test_e3_pack_boolean_exit_code_fails(monkeypatch, tmp_path, stable_test_root):
@@ -920,8 +923,7 @@ def test_e3_pack_boolean_exit_code_fails(monkeypatch, tmp_path, stable_test_root
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
-    assert "exit_code False" in result.detail
+    _assert_report_refused(result)
 
 
 def test_e3_pack_non_object_envelope_fails(
@@ -933,8 +935,7 @@ def test_e3_pack_non_object_envelope_fails(
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
-    assert "not an object" in result.detail
+    _assert_report_refused(result)
 
 
 def test_e3_pack_unparseable_envelope_fails(
@@ -946,9 +947,7 @@ def test_e3_pack_unparseable_envelope_fails(
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
-    assert "unparseable" in result.detail
-    assert "segfault" in result.detail
+    _assert_report_refused(result)
 
 
 def test_e3_pack_non_bool_ok_fails(monkeypatch, tmp_path, stable_test_root):
@@ -962,8 +961,7 @@ def test_e3_pack_non_bool_ok_fails(monkeypatch, tmp_path, stable_test_root):
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
-    assert "'ok' not a bool" in result.detail
+    _assert_report_refused(result)
 
 
 def test_e3_pack_malformed_warnings_fail_loud(
@@ -979,8 +977,7 @@ def test_e3_pack_malformed_warnings_fail_loud(
         monkeypatch, tmp_path, stable_test_root, pack_result=packed
     )
 
-    assert result.status is Status.FAIL
-    assert "malformed warning" in result.detail
+    _assert_report_refused(result)
 
 
 def test_e3_warned_pack_then_open_failure_retains_both(
@@ -1014,7 +1011,7 @@ def test_e3_warned_pack_then_open_failure_retains_both(
     ]
 
 
-def test_e3_warned_pack_then_handled_exception_retains_warning(
+def test_e3_warned_pack_then_handled_exception_returns_report_refusal(
     monkeypatch, tmp_path, stable_test_root
 ):
     result, seen = _run_exit_contract_case(
@@ -1025,13 +1022,8 @@ def test_e3_warned_pack_then_handled_exception_retains_warning(
         post_pack_exception=ValueError("credential sentinel found in image"),
     )
 
-    assert result.status is Status.INVALID
+    _assert_report_refused(result)
     assert seen == ["pack"]
-    assert "credential sentinel" in result.detail
-    assert result.warnings == ["CodexDbEnrichmentSkipped"]
-    assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "CodexDbEnrichmentSkipped"
-    ]
 
 
 def test_e3_open_exit2_with_warnings_proceeds(
@@ -2253,11 +2245,8 @@ def test_live_codex_auth_probe_runs_ambient_no_store_override(
 
     result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
-    assert result.status is Status.INVALID
-    assert "not authenticated" in result.detail
+    _assert_report_refused(result)
     assert "CODEX_HOME" not in seen[tuple(_resolved_agent_command("codex", "login", "status"))]
-    assert "CODEX_HOME=" not in result.detail
-    assert "codex login" in result.detail
     assert calls == [
         _resolved_agent_command("codex", "--version"),
         _resolved_agent_command("claude-code", "--version"),
@@ -2287,12 +2276,9 @@ def test_live_claude_auth_probe_runs_ambient_no_store_override(
 
     result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
-    assert result.status is Status.INVALID
-    assert "not authenticated" in result.detail
+    _assert_report_refused(result)
     assert "CODEX_HOME" not in seen[tuple(_resolved_agent_command("codex", "--version"))]
     assert "CLAUDE_CONFIG_DIR" not in seen[tuple(_resolved_agent_command("claude-code", "auth", "status"))]
-    assert "CLAUDE_CONFIG_DIR=" not in result.detail
-    assert "claude auth login" in result.detail
     assert calls == [
         _resolved_agent_command("codex", "--version"),
         _resolved_agent_command("claude-code", "--version"),
@@ -2428,8 +2414,7 @@ def test_live_seed_boundary_receives_ambient_env_for_both_agents(
 
     result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
-    assert result.status is Status.INVALID
-    assert result.detail == "stop-after-seed-loop"
+    _assert_report_refused(result)
     assert set(seen) == {"codex", "claude-code"}
     assert version_envs == {"codex": {}, "claude": {}}
     for env in seen.values():
@@ -3832,8 +3817,7 @@ def test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up(monkeypatch):
     monkeypatch.setattr(e3, "plant_credential_decoys", reject_plant)
     try:
         result = e3.run_e3(scenario, Path("biv"), scratch)
-        assert result.status is Status.INVALID
-        assert result.detail == "decoy root rejected"
+        _assert_report_refused(result)
         assert seeded == ["claude-code", "codex"]
         assert all(_agent_basename(command) in {"claude", "codex"} for command in seen)
         assert not (scratch / "seed-ws").exists()
@@ -4012,12 +3996,26 @@ def test_e3_controlled_sentinel_image_hit_stops_before_credential_materializatio
         stable_test_root / "scratch",
     )
 
-    assert result.status is Status.INVALID
-    assert result.detail == (
-        "credential sentinel found in image: payload/auth.json:secret[0]"
-    )
-    assert sentinel not in result.detail
+    _assert_report_refused(result)
+    assert sentinel not in serialize_report([result])
     assert scanned == [[sentinel]]
+    assert seen == ["pack"]
+
+
+def test_e3_pack_warning_before_sentinel_population_is_not_written(
+    monkeypatch, tmp_path, stable_test_root
+):
+    secret = "REFRESHED_REAL_CREDENTIAL_VALUE_pack_window"
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(warnings=[secret]),
+        post_pack_exception=ValueError("controlled image scan failure"),
+    )
+
+    _assert_report_refused(result)
+    assert secret not in serialize_report([result])
     assert seen == ["pack"]
 
 
@@ -4050,8 +4048,7 @@ def test_e3_decoy_removal_error_stops_before_scanner_activation_and_setup(
         stable_test_root / "scratch",
     )
 
-    assert result.status is Status.INVALID
-    assert result.detail == "controlled credential decoy cleanup failed"
+    _assert_report_refused(result)
     assert setup_calls == []
     assert seen == ["pack"]
 
@@ -4153,8 +4150,7 @@ def test_e3_rejects_preexisting_run_trees_without_deleting_them(monkeypatch, sta
     monkeypatch.setattr(e3, "_spawn", lambda *args: calls.append(args))
     try:
         result = e3.run_e3(scenario, Path("biv"), scratch)
-        assert result.status is Status.INVALID
-        assert "must be fresh" in result.detail
+        _assert_report_refused(result)
         assert calls == []
         assert marker.read_text(encoding="utf-8") == "stale"
     finally:
@@ -5466,6 +5462,48 @@ def test_scan_and_teardown_activation_failure_returns_only_typed_constant_invali
     assert secret not in serialize_report([final])
 
 
+def test_scan_and_teardown_empty_scanner_returns_only_typed_constant_invalid(
+    tmp_path,
+):
+    secret = "REFRESHED_REAL_CREDENTIAL_VALUE_empty_scanner"
+    scratch = tmp_path / "scratch"
+    scanner = e3._CredentialScanner()
+    assert scanner.active is False
+    final = e3._scan_and_teardown(
+        ScenarioResult(
+            "unsafe-empty-primary",
+            "E3",
+            Status.FAIL,
+            ["unsafe-class"],
+            ["unsafe-assert"],
+            detail="unsafe-empty-primary-detail",
+            warnings=[secret],
+        ),
+        scanner,
+        scratch,
+        child_outputs=[],
+        ambient_snapshots={},
+        credential_guards={},
+        claude_dest=scratch / "profile" / ".credentials.json",
+        codex_dest=scratch / "profile" / "auth.json",
+        profile_root=scratch / "profile",
+        host2=scratch / "host2",
+        seed_parent=scratch / "seed-ws",
+        remove_targets=False,
+    )
+
+    assert final == ScenarioResult(
+        id="e3-report-refused",
+        tier="E3",
+        status=Status.INVALID,
+        classes=[],
+        held_asserts=[],
+        detail="report refused: result could not be sanitized",
+        warnings=[],
+    )
+    assert secret not in serialize_report([final])
+
+
 def test_scan_and_teardown_drop_failure_honors_positive_constant_rescan(tmp_path):
     class BrokenDropScanner:
         active = False
@@ -6001,13 +6039,20 @@ def test_prerun_version_gate_enforces_the_enumerated_set(
     result, calls = _run_prerun_with_codex_version(
         monkeypatch, tmp_path, stable_test_root, version
     )
-    assert result.status is Status.INVALID
+    _assert_report_refused(result)
     assert _resolved_agent_command("codex", "--version") in calls
     if accepted:
-        assert "version is outside the validated range" not in result.detail
-        assert "not authenticated" in result.detail
+        assert calls == [
+            _resolved_agent_command("codex", "--version"),
+            _resolved_agent_command("claude-code", "--version"),
+            _resolved_agent_command("codex", "login", "status"),
+            _resolved_agent_command("claude-code", "auth", "status"),
+        ]
     else:
-        assert "version is outside the validated range" in result.detail
+        assert calls == [
+            _resolved_agent_command("codex", "--version"),
+            _resolved_agent_command("claude-code", "--version"),
+        ]
 
 
 @pytest.mark.parametrize("version", (
@@ -6024,8 +6069,7 @@ def test_prerun_version_gate_rejects_ambiguous_multi_token_output(
         version,
     )
 
-    assert result.status is Status.INVALID
-    assert "version is outside the validated range" in result.detail
+    _assert_report_refused(result)
     assert calls == [
         _resolved_agent_command("codex", "--version"),
         _resolved_agent_command("claude-code", "--version"),
@@ -7308,8 +7352,7 @@ def test_runner_voids_pre_pack_when_a_run_root_alias_spelling_appears(
 
     result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
 
-    assert result.status is Status.INVALID
-    assert "negative-control" in result.detail
+    _assert_report_refused(result)
     assert not any(command[:2] == ["biv", "pack"] for command in calls)
 
 
@@ -7393,9 +7436,7 @@ def test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack(
         stable_test_root / "scratch",
     )
 
-    assert result.status is Status.INVALID
-    assert "negative-control" in result.detail
-    assert hit_agent in result.detail
+    _assert_report_refused(result)
     assert not any(command[:2] == ["biv", "pack"] for command in calls)
 
 
@@ -8674,8 +8715,7 @@ def test_run_e3_wrong_agent_version_is_invalid_before_any_auth_or_setup(
         monkeypatch, tmp_path, stable_test_root, wrong_version=wrong_version
     )
 
-    assert result.status is Status.INVALID
-    assert "version is outside the validated range" in result.detail
+    _assert_report_refused(result)
     assert setup_calls == []
     assert lifecycle_events == []
     assert not any(command[1:] in (["login", "status"], ["auth", "status"]) for command, _, _ in ledger)

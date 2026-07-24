@@ -704,37 +704,14 @@ def _scan_and_teardown(
             else:
                 cleanup_note("cleanup-target-present")
 
-        settled = primary
-        notes = [*integrity_notes, *cleanup_notes]
-        if active is None:
+        if active is not True:
             settled = _nonwritable_sanitized_report_result()
-        elif active:
+        else:
             settled = _typed_post_materialization_result(
                 primary,
                 integrity_notes,
                 cleanup_notes,
             )
-        elif notes:
-            if integrity_notes or primary.status is Status.PASS:
-                settled = ScenarioResult(
-                    primary.id,
-                    primary.tier,
-                    Status.INVALID,
-                    [],
-                    [],
-                    detail="post-materialization verification failed",
-                    warnings=[*primary.warnings, *notes],
-                )
-            else:
-                settled = ScenarioResult(
-                    primary.id,
-                    primary.tier,
-                    primary.status,
-                    list(primary.classes),
-                    list(primary.held_asserts),
-                    detail=primary.detail,
-                    warnings=[*primary.warnings, *notes],
-                )
         try:
             final = _finalize_report(settled, scanner)
         except BaseException:

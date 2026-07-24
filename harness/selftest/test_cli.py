@@ -156,6 +156,68 @@ def test_cli_writes_constant_invalid_when_scanner_activation_inspection_fails(
     assert "unsafe-primary-detail" not in report_text
 
 
+def test_cli_writes_constant_invalid_when_scanner_is_empty(monkeypatch, tmp_path):
+    scenario = tmp_path / "e3.json"
+    scenario.write_text("{}", encoding="utf-8")
+    report = tmp_path / "report.json"
+    secret = "REFRESHED_REAL_CREDENTIAL_VALUE_empty_scanner"
+
+    def run_with_empty_scanner(*_args, **_kwargs):
+        scratch = tmp_path / "scratch"
+        return e3._scan_and_teardown(
+            ScenarioResult(
+                "unsafe-empty-primary",
+                "E3",
+                Status.FAIL,
+                ["unsafe-class"],
+                ["unsafe-assert"],
+                detail="unsafe-empty-primary-detail",
+                warnings=[secret],
+            ),
+            e3._CredentialScanner(),
+            scratch,
+            child_outputs=[],
+            ambient_snapshots={},
+            credential_guards={},
+            claude_dest=scratch / "profile" / ".credentials.json",
+            codex_dest=scratch / "profile" / "auth.json",
+            profile_root=scratch / "profile",
+            host2=scratch / "host2",
+            seed_parent=scratch / "seed-ws",
+            remove_targets=False,
+        )
+
+    monkeypatch.setattr(cli, "run_e3", run_with_empty_scanner)
+
+    assert (
+        cli.main(
+            [
+                "--biv",
+                str(STUB),
+                "--e3",
+                str(scenario),
+                "--report",
+                str(report),
+            ]
+        )
+        == 1
+    )
+    report_text = report.read_text(encoding="utf-8")
+    assert json.loads(report_text)["rows"] == [
+        {
+            "id": "e3-report-refused",
+            "tier": "E3",
+            "status": "invalid",
+            "classes": [],
+            "detail": "report refused: result could not be sanitized",
+            "warnings": [],
+        }
+    ]
+    assert secret not in report_text
+    assert "unsafe-empty-primary" not in report_text
+    assert "unsafe-empty-primary-detail" not in report_text
+
+
 def test_cli_writes_exact_shared_serializer_bytes_and_reuses_results_for_exit(
     monkeypatch, tmp_path
 ):
