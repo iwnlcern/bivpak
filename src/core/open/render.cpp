@@ -269,6 +269,9 @@ std::string render_summary(
     if (row.reason.has_value()) {
       out << " (" << display(*row.reason) << ')';
     }
+    if (row.detail.has_value()) {
+      out << " [" << display(*row.detail) << ']';
+    }
     if (row.host_version_unverified) {
       out << " [host version unverified]";
     }

@@ -190,7 +190,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = false,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       } else if (entry.entry_schema > 1) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
@@ -199,7 +200,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = false,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       } else {
         eligible.push_back(entry);
       }
@@ -216,7 +218,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = false,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       }
       continue;
     }
@@ -233,7 +236,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = true,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       }
       continue;
     }
@@ -246,7 +250,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = true,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       }
       continue;
     }
@@ -269,7 +274,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = true,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       }
       continue;
     }
@@ -287,7 +293,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                               .installed_session_id = installed_id(installed->id_map, row.image_session_id),
                               .host_version_unverified = row.host_version_unverified,
                               .activation_suppressed = verify_hits,
-                              .live_at_pack = false};
+                              .live_at_pack = false,
+                              .detail = row.detail};
       const auto source = std::ranges::find_if(manifest.agent_sessions, [&](const auto& entry) {
         return entry.agent == agent.agent && entry.original_session_ids.primary == row.image_session_id;
       });

@@ -55,6 +55,10 @@ struct SessionRowReport {
   bool host_version_unverified{false};
   bool activation_suppressed{false};
   bool live_at_pack{false};
+  // Generic pass-through of the adapter row's detail. Copied VERBATIM at the
+  // seam; emitted only when engaged. Appended last so existing designated
+  // initializers stay valid.
+  std::optional<std::string> detail;
 };
 
 struct AgentCaveat {

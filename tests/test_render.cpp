@@ -84,7 +84,8 @@ TEST_CASE("session summary renders outcomes activation and caveats from data") {
       .installed_session_id = "new-id",
       .host_version_unverified = true,
       .activation_suppressed = false,
-      .live_at_pack = true});
+      .live_at_pack = true,
+      .detail = std::nullopt});
   outcome.activation.push_back({.agent = "future-tool", .command = "future resume new-id"});
   outcome.caveats.push_back({.agent = "future-tool", .kind = "picker_gap", .note = "not listed in picker"});
 
@@ -322,7 +323,8 @@ TEST_CASE(
        .installed_session_id = "minted-one",
        .host_version_unverified = false,
        .activation_suppressed = false,
-       .live_at_pack = false},
+       .live_at_pack = false,
+       .detail = std::nullopt},
       {.agent = "claude-code",
        .image_session_id = "old-two",
        .row = biv::core_sessions::SessionRowReport::Row::installed,
@@ -330,7 +332,8 @@ TEST_CASE(
        .installed_session_id = "minted-two",
        .host_version_unverified = false,
        .activation_suppressed = false,
-       .live_at_pack = false},
+       .live_at_pack = false,
+       .detail = std::nullopt},
       {.agent = "claude-code",
        .image_session_id = "old-failed",
        .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
@@ -338,7 +341,8 @@ TEST_CASE(
        .installed_session_id = "minted-failed",
        .host_version_unverified = false,
        .activation_suppressed = true,
-       .live_at_pack = false},
+       .live_at_pack = false,
+       .detail = std::nullopt},
       {.agent = "codex",
        .image_session_id = "old-three",
        .row = biv::core_sessions::SessionRowReport::Row::installed,
@@ -346,7 +350,8 @@ TEST_CASE(
        .installed_session_id = "minted-three",
        .host_version_unverified = false,
        .activation_suppressed = false,
-       .live_at_pack = false}};
+       .live_at_pack = false,
+       .detail = std::nullopt}};
   const std::vector<biv::adapters::Activation> candidates{
       {.agent = "claude-code", .command = "claude --resume minted-one"},
       {.agent = "claude-code", .command = "claude --resume minted-two"},
@@ -495,7 +500,8 @@ TEST_CASE("no-detail session rows render byte-identically to the pre-carrier bas
       .installed_session_id = "new-id",
       .host_version_unverified = false,
       .activation_suppressed = false,
-      .live_at_pack = false});
+      .live_at_pack = false,
+      .detail = std::nullopt});
   outcome.rows.push_back(biv::core_sessions::SessionRowReport{
       .agent = "future-tool",
       .image_session_id = "failed-id",
@@ -504,7 +510,8 @@ TEST_CASE("no-detail session rows render byte-identically to the pre-carrier bas
       .installed_session_id = std::nullopt,
       .host_version_unverified = false,
       .activation_suppressed = true,
-      .live_at_pack = false});
+      .live_at_pack = false,
+      .detail = std::nullopt});
 
   const auto text =
       biv::open_render::render_summary(outcome, true, "/tmp/restored");
@@ -515,4 +522,24 @@ TEST_CASE("no-detail session rows render byte-identically to the pre-carrier bas
   future-tool: old-id -> installed as new-id
   future-tool: failed-id -> failed (error)
 )");
+}
+
+TEST_CASE("an adapter-authored detail reaches the rendered summary verbatim") {
+  biv::core_sessions::SessionsOutcome outcome;
+  outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false,
+      .detail = "capability_refused"});
+
+  const auto text =
+      biv::open_render::render_summary(outcome, true, "/tmp/restored");
+
+  CHECK(text.find("[capability_refused]") != std::string::npos);
+  CHECK(text.find("capability-refused") == std::string::npos);
 }

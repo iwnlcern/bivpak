@@ -194,12 +194,20 @@ TEST_CASE("activation filtering suppresses only the failed session command") {
        .image_session_id = "clean-image",
        .row = biv::core_sessions::SessionRowReport::Row::installed,
        .reason = std::nullopt,
-       .installed_session_id = "clean-id"},
+       .installed_session_id = "clean-id",
+       .host_version_unverified = false,
+       .activation_suppressed = false,
+       .live_at_pack = false,
+       .detail = std::nullopt},
       {.agent = "future-tool",
        .image_session_id = "bad-image",
        .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
        .reason = "error",
-       .installed_session_id = "bad-id"}};
+       .installed_session_id = "bad-id",
+       .host_version_unverified = false,
+       .activation_suppressed = false,
+       .live_at_pack = false,
+       .detail = std::nullopt}};
 
   const auto safe = biv::core_sessions::filter_activation(installed.activation, rows);
   REQUIRE(safe.size() == 1U);
@@ -297,6 +305,60 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
       std::filesystem::remove_all(home);
     }
   }
+}
+
+TEST_CASE("the seam copies an adapter-authored detail to the row verbatim") {
+  const auto home = make_tmp("carrier-verbatim");
+  const auto store = home / ".codex";
+  const auto workspace = home / "workspace";
+  std::filesystem::create_directories(store);
+  std::filesystem::create_directories(workspace);
+  {
+    std::ofstream marker{store / "version.json"};
+    marker << "{\"version\":\"0.144.1\"}\n";
+  }
+  // agent_version_at_pack "unknown" drives the capability refusal at
+  // codex/install.cpp:350-360, which pushes a row with detail
+  // "capability_refused" and returns a SUCCESSFUL InstallResult.
+  auto record = codex_entry("0.144.1");
+  record.agent_version_at_pack = "unknown";
+  auto manifest = model({record});
+  const biv::adapters::Host host{
+      .home = home,
+      .env = env(home),
+      .version_probe = [&](const std::string_view agent,
+                           const std::optional<std::filesystem::path>&)
+          -> biv::expected<biv::support::ProbeEvidence> {
+        return biv::support::ProbeEvidence{.agent = std::string{agent},
+                                           .requested = std::nullopt,
+                                           .executed = home / "bin" / "codex",
+                                           .pinned = false,
+                                           .outcome = biv::support::ProbeOutcome::ok,
+                                           .exit_code = 0,
+                                           .raw = "unparseable-version",
+                                           .parsed = std::nullopt};
+      },
+      .pinned_bins = {}};
+  auto preview = biv::core_sessions::build_preview(manifest, host);
+  REQUIRE(preview);
+  biv::core_sessions::ConsentSpec consent_spec;
+  consent_spec.global = biv::core_sessions::ConsentValue::yes;
+  const auto consent =
+      biv::core_sessions::resolve_consent(consent_spec, *preview, std::nullopt);
+  const biv::adapters::MemberRead reader =
+      [&](std::string_view path) -> biv::expected<std::vector<std::byte>> {
+    return std::unexpected(
+        biv::BivError{biv::ErrKind::ImageUnreadable, std::string{path}});
+  };
+
+  const auto outcome = biv::core_sessions::run_session_leg(
+      *preview, consent, manifest, workspace, reader);
+
+  REQUIRE(outcome);
+  REQUIRE(outcome->rows.size() == 1U);
+  CHECK(outcome->rows.front().detail ==
+        std::optional<std::string>{"capability_refused"});
+  std::filesystem::remove_all(home);
 }
 
 TEST_CASE(

@@ -175,7 +175,8 @@ TEST_CASE("session exit composition uses typed skip reasons") {
                           .installed_session_id = std::nullopt,
                           .host_version_unverified = false,
                           .activation_suppressed = false,
-                          .live_at_pack = false});
+                          .live_at_pack = false,
+                          .detail = std::nullopt});
   CHECK(biv::report::exit_for_sessions(consent) == 0);
 
   auto unknown = consent;
@@ -260,7 +261,8 @@ TEST_CASE("open envelope includes typed sessions report") {
                                    .installed_session_id = "new",
                                    .host_version_unverified = false,
                                    .activation_suppressed = false,
-                                   .live_at_pack = false});
+                                   .live_at_pack = false,
+                                   .detail = std::nullopt});
   sessions.outcome.activation.push_back(
       {.agent = "future-tool", .command = "future resume new"});
 
@@ -396,7 +398,8 @@ TEST_CASE("no-detail session rows serialize byte-identically to the pre-carrier 
       .installed_session_id = "new-id",
       .host_version_unverified = false,
       .activation_suppressed = false,
-      .live_at_pack = false});
+      .live_at_pack = false,
+      .detail = std::nullopt});
   sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
       .agent = "future-tool",
       .image_session_id = "failed-id",
@@ -405,7 +408,8 @@ TEST_CASE("no-detail session rows serialize byte-identically to the pre-carrier 
       .installed_session_id = std::nullopt,
       .host_version_unverified = false,
       .activation_suppressed = true,
-      .live_at_pack = false});
+      .live_at_pack = false,
+      .detail = std::nullopt});
 
   const auto json = biv::report::envelope(
       "open", std::nullopt, opened, std::nullopt, 0, sessions);
@@ -474,4 +478,75 @@ TEST_CASE("no-detail session rows serialize byte-identically to the pre-carrier 
   "error": null
 }
 )");
+}
+
+TEST_CASE("an adapter-authored detail reaches the envelope verbatim") {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false,
+      .detail = "capability_refused"});
+
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+
+  CHECK(json.find("\"detail\": \"capability_refused\"") !=
+        std::string::npos);
+  CHECK(json.find("capability-refused") == std::string::npos);
+}
+
+TEST_CASE("a detail-bearing envelope remains admitted by the unchanged schema") {
+  std::ifstream schema_file{std::string{BIV_SOURCE_DIR} +
+                            "/schemas/biv-json-envelope.v1.schema.json"};
+  REQUIRE(schema_file);
+  const std::string schema{std::istreambuf_iterator<char>{schema_file},
+                           std::istreambuf_iterator<char>{}};
+  // The session-row schema deliberately leaves additional properties open.
+  // Therefore adding an optional detail property is admitted without changing
+  // either schema artifact.
+  CHECK(schema.find("\"additionalProperties\"") == std::string::npos);
+
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false,
+      .detail = "capability_refused"});
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  CHECK(parser.parse(json).get(document) == simdjson::SUCCESS);
+  CHECK(json.find("\"detail\": \"capability_refused\"") !=
+        std::string::npos);
 }
