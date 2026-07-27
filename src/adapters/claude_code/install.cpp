@@ -599,13 +599,32 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
     if (!writes.empty()) {
       auto ok = secure_io::write_batch_no_replace(target.target_store.root, writes);
       if (!ok) {
-        if (ok.error().detail != "containment_refused") {
-          return std::unexpected(ok.error());
+        const bool containment = ok.error().detail == "containment_refused";
+        // Type and reason first; errno detail attaches only to the ambient
+        // cohort and never to a containment row.
+        std::optional<std::string> cohort_detail;
+        std::string cohort_reason;
+        if (containment) {
+          cohort_reason = "containment_refused";
+          cohort_detail = ok.error().path;
+        } else {
+          cohort_reason = "error";
+          if (const auto symbol = secure_io::errno_symbol(ok.error().err_no);
+              symbol.has_value()) {
+            cohort_detail = std::string{*symbol};
+          }
         }
-        result.sessions.clear();
+        // No clear(): pre-publish refusals keep their own reason and detail;
+        // only records whose writes joined the cohort inherit this fault.
         for (const auto& session : prepared) {
+          if (session.refusal_reason.has_value()) {
+            result.sessions.push_back(failed_outcome(
+                session.record, *session.refusal_reason,
+                session.refusal_detail));
+            continue;
+          }
           result.sessions.push_back(failed_outcome(
-              session.record, "containment_refused", ok.error().path));
+              session.record, cohort_reason, cohort_detail));
         }
         return result;
       }
