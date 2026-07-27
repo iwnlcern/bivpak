@@ -1285,3 +1285,53 @@ TEST_CASE("ambient_error never emits a detail install_failure_reason can retype"
     CHECK(biv::core_sessions::install_failure_reason(error) == "error");
   }
 }
+
+TEST_CASE("classify keeps containment only where the errno is the I7 signal") {
+  using biv::adapters::secure_io::internal::classify;
+  using biv::adapters::secure_io::internal::SiteClass;
+  using biv::adapters::secure_io::internal::SiteKind;
+
+  // Directory-walk opens (:98, :149, :194): a symlink or non-directory
+  // interposed in an O_NOFOLLOW|O_DIRECTORY walk IS the containment fact.
+  CHECK(classify(SiteKind::directory_walk, ELOOP) == SiteClass::containment);
+  CHECK(classify(SiteKind::directory_walk, ENOTDIR) == SiteClass::containment);
+  CHECK(classify(SiteKind::directory_walk, ENOENT) == SiteClass::ambient);
+  CHECK(classify(SiteKind::directory_walk, EACCES) == SiteClass::ambient);
+  CHECK(classify(SiteKind::directory_walk, EMFILE) == SiteClass::ambient);
+  CHECK(classify(SiteKind::directory_walk, ENOSPC) == SiteClass::ambient);
+
+  // Intermediate mkdirat (:181): reached only after the SAME component was
+  // observed ENOENT, so EEXIST means a node appeared in the checked path
+  // between the two operations -- the intermediate-path analogue of :358.
+  CHECK(classify(SiteKind::intermediate_create, EEXIST) == SiteClass::containment);
+  CHECK(classify(SiteKind::intermediate_create, EACCES) == SiteClass::ambient);
+  CHECK(classify(SiteKind::intermediate_create, ENOSPC) == SiteClass::ambient);
+  CHECK(classify(SiteKind::intermediate_create, EROFS) == SiteClass::ambient);
+  CHECK(classify(SiteKind::intermediate_create, ELOOP) == SiteClass::ambient);
+
+  // O_EXCL temporary creation (:342): retry-exhausted EEXIST stays containment.
+  CHECK(classify(SiteKind::temporary_create, EEXIST) == SiteClass::containment);
+  CHECK(classify(SiteKind::temporary_create, EACCES) == SiteClass::ambient);
+  CHECK(classify(SiteKind::temporary_create, ENOSPC) == SiteClass::ambient);
+
+  // linkat publish (:358): the canonical CB4-1 no-replace race.
+  CHECK(classify(SiteKind::publish_link, EEXIST) == SiteClass::containment);
+  CHECK(classify(SiteKind::publish_link, ENOSPC) == SiteClass::ambient);
+  CHECK(classify(SiteKind::publish_link, EMLINK) == SiteClass::ambient);
+  CHECK(classify(SiteKind::publish_link, EXDEV) == SiteClass::ambient);
+}
+
+TEST_CASE("classify is pure and total over every site kind") {
+  using biv::adapters::secure_io::internal::classify;
+  using biv::adapters::secure_io::internal::SiteClass;
+  using biv::adapters::secure_io::internal::SiteKind;
+
+  for (const auto kind : {SiteKind::directory_walk, SiteKind::intermediate_create,
+                          SiteKind::temporary_create, SiteKind::publish_link}) {
+    for (int value = 1; value < 200; ++value) {
+      const auto first = classify(kind, value);
+      CHECK(classify(kind, value) == first);
+      CHECK((first == SiteClass::containment || first == SiteClass::ambient));
+    }
+  }
+}

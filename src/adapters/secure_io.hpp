@@ -74,6 +74,26 @@ namespace internal {
 // NOT a supported product API. Nothing outside secure_io.cpp and the adapter
 // install tests may depend on these declarations.
 
+// The six genuinely errno-conditional sites in secure_io.cpp, keyed by the
+// operation §5 reasons about rather than by line number.
+//   directory_walk      :98, :149, :194   openat in an O_NOFOLLOW|O_DIRECTORY walk
+//   intermediate_create :181              mkdirat after that component read ENOENT
+//   temporary_create    :342              O_CREAT|O_EXCL temporary, retry exhausted
+//   publish_link        :358              linkat no-replace publish
+enum class SiteKind {
+  directory_walk,
+  intermediate_create,
+  temporary_create,
+  publish_link,
+};
+
+enum class SiteClass { containment, ambient };
+
+// Pure: no I/O, no ordering, no race. Decides the label ONLY; the caller then
+// constructs through the named constructor this selects, so the outcome stays
+// visible at the call site.
+[[nodiscard]] SiteClass classify(SiteKind kind, int err_no) noexcept;
+
 // The named AMBIENT constructor. Its BivError::detail is EXACTLY the empty
 // string at every site -- never a reason word, never the errno symbol. The
 // user-facing symbol is derived later from the preserved numeric err_no.

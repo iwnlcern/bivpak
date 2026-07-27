@@ -717,6 +717,23 @@ std::optional<std::string_view> errno_symbol(const int err_no) noexcept {
 
 namespace internal {
 
+SiteClass classify(const SiteKind kind, const int err_no) noexcept {
+  switch (kind) {
+    case SiteKind::directory_walk:
+      // The errno IS the I7 signal here: a symlink or a non-directory was
+      // interposed in a walk that refused to follow one.
+      return (err_no == ELOOP || err_no == ENOTDIR) ? SiteClass::containment
+                                                    : SiteClass::ambient;
+    case SiteKind::intermediate_create:
+    case SiteKind::temporary_create:
+    case SiteKind::publish_link:
+      // EEXIST at each of these three is a no-replace refusal: a node occupied
+      // a name this operation had established was free, or must be free.
+      return err_no == EEXIST ? SiteClass::containment : SiteClass::ambient;
+  }
+  return SiteClass::ambient;
+}
+
 BivError ambient_error(const fs::path& path, const int err_no) {
   return BivError{ErrKind::ArchiveWriteFailed, path.generic_string(), "",
                   err_no};
