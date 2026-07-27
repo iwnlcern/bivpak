@@ -484,3 +484,35 @@ TEST_CASE("probe timeout disclosure derives from the shared constant") {
   CHECK(text.find("\"timeout after 2000ms\"") == std::string::npos);
   CHECK(text.find("kProbeTimeout.count()") != std::string::npos);
 }
+
+TEST_CASE("no-detail session rows render byte-identically to the pre-carrier baseline") {
+  biv::core_sessions::SessionsOutcome outcome;
+  outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::installed,
+      .reason = std::nullopt,
+      .installed_session_id = "new-id",
+      .host_version_unverified = false,
+      .activation_suppressed = false,
+      .live_at_pack = false});
+  outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "failed-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false});
+
+  const auto text =
+      biv::open_render::render_summary(outcome, true, "/tmp/restored");
+
+  // ORACLE RULE: captured at BASE cd61ac6, before SessionRowReport gained a
+  // detail field. NEVER regenerate this literal from the renderer.
+  CHECK(text == R"(Session import summary:
+  future-tool: old-id -> installed as new-id
+  future-tool: failed-id -> failed (error)
+)");
+}

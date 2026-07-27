@@ -376,3 +376,102 @@ TEST_CASE("probe fields replace invalid UTF-8 before envelope serialization") {
   CHECK(json.find("\"parsed\": \"parsed-" + replacement + "\"") !=
         std::string::npos);
 }
+
+TEST_CASE("no-detail session rows serialize byte-identically to the pre-carrier baseline") {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::installed,
+      .reason = std::nullopt,
+      .installed_session_id = "new-id",
+      .host_version_unverified = false,
+      .activation_suppressed = false,
+      .live_at_pack = false});
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "failed-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false});
+
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+
+  // ORACLE RULE: captured at BASE cd61ac6, before SessionRowReport gained a
+  // detail field. NEVER regenerate this literal from the serializer.
+  CHECK(json == R"({
+  "envelope_version": 1,
+  "app_version": "0.1.0",
+  "ok": true,
+  "verb": "open",
+  "exit_code": 0,
+  "warnings": [],
+  "advisories": [],
+  "result": {
+    "image_path": "/tmp/image.bvpk",
+    "output_dir": "/tmp/restored",
+    "collision_action": "none",
+    "restored_member_count": 1,
+    "checksums_verified": true,
+    "manifest": {
+      "format_version": 1,
+      "repos": [],
+      "agent_sessions": [
+        {
+          "agent": "future-tool",
+          "session_count": 0
+        }
+      ]
+    },
+    "sessions": {
+      "prompt_shown": false,
+      "warning_shown": false,
+      "consent": {
+        "source": "deny-default",
+        "values": []
+      },
+      "agents": [
+        {
+          "agent": "future-tool",
+          "capabilities_verdict": "absent",
+          "store_root": "",
+          "sessions": [
+            {
+              "image_session_id": "old-id",
+              "installed_session_id": "new-id",
+              "outcome": "installed",
+              "host_version_unverified": false,
+              "activation_suppressed": false
+            },
+            {
+              "image_session_id": "failed-id",
+              "outcome": "failed",
+              "kind": "SessionInstallFailed",
+              "reason": "error",
+              "host_version_unverified": false,
+              "activation_suppressed": true
+            }
+          ],
+          "activation": [],
+          "caveats": []
+        }
+      ]
+    }
+  },
+  "error": null
+}
+)");
+}
