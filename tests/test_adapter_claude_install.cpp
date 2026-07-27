@@ -1335,3 +1335,20 @@ TEST_CASE("classify is pure and total over every site kind") {
     }
   }
 }
+
+TEST_CASE("secure install reports an absent store root as ambient, not containment") {
+  const auto root = make_tmp("absent-root");
+  const auto store = root / "never-created";
+  const auto payload = bytes("payload\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> writes{
+      {.relative_path = "sessions/only.jsonl", .bytes = payload}};
+
+  const auto result = biv::adapters::secure_io::write_batch_no_replace(store, writes);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail.empty());
+  CHECK(result.error().err_no == ENOENT);
+  CHECK(biv::core_sessions::install_failure_reason(result.error()) == "error");
+  fs::remove_all(root);
+}

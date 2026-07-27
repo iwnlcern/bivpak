@@ -87,7 +87,8 @@ expected<Fd> open_absolute_no_follow(const fs::path& path, const bool directory)
   }
   Fd current{::open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)};
   if (!current.valid()) {
-    return std::unexpected(containment_error(path, errno));
+    const int captured = errno;
+    return std::unexpected(internal::ambient_error(path, captured));
   }
   for (std::size_t i = 0; i < components->size(); ++i) {
     const bool final = i + 1U == components->size();
@@ -97,7 +98,12 @@ expected<Fd> open_absolute_no_follow(const fs::path& path, const bool directory)
     }
     Fd next{::openat(current.get(), components->at(i).c_str(), flags)};
     if (!next.valid()) {
-      return std::unexpected(containment_error(path, errno));
+      const int captured = errno;
+      if (internal::classify(internal::SiteKind::directory_walk, captured) ==
+          internal::SiteClass::containment) {
+        return std::unexpected(containment_error(path, captured));
+      }
+      return std::unexpected(internal::ambient_error(path, captured));
     }
     current = std::move(next);
   }
@@ -139,7 +145,8 @@ expected<void> preflight_relative(const int root_fd, const fs::path& relative) {
   }
   Fd current{::dup(root_fd)};
   if (!current.valid()) {
-    return std::unexpected(containment_error(relative, errno));
+    const int captured = errno;
+    return std::unexpected(internal::ambient_error(relative, captured));
   }
   for (std::size_t i = 0; i + 1U < components->size(); ++i) {
     Fd next{::openat(current.get(), components->at(i).c_str(),
@@ -148,7 +155,12 @@ expected<void> preflight_relative(const int root_fd, const fs::path& relative) {
       if (errno == ENOENT) {
         return {};
       }
-      return std::unexpected(containment_error(relative, errno));
+      const int captured = errno;
+      if (internal::classify(internal::SiteKind::directory_walk, captured) ==
+          internal::SiteClass::containment) {
+        return std::unexpected(containment_error(relative, captured));
+      }
+      return std::unexpected(internal::ambient_error(relative, captured));
     }
     current = std::move(next);
   }
@@ -159,7 +171,8 @@ expected<void> preflight_relative(const int root_fd, const fs::path& relative) {
     return std::unexpected(containment_error(relative, EEXIST));
   }
   if (errno != ENOENT) {
-    return std::unexpected(containment_error(relative, errno));
+    const int captured = errno;
+    return std::unexpected(internal::ambient_error(relative, captured));
   }
   return {};
 }
@@ -173,19 +186,31 @@ expected<Target> prepare_target(const int root_fd, const WriteRequest& request,
   }
   Fd current{::dup(root_fd)};
   if (!current.valid()) {
-    return std::unexpected(containment_error(request.relative_path, errno));
+    const int captured = errno;
+    return std::unexpected(
+        internal::ambient_error(request.relative_path, captured));
   }
   for (std::size_t i = 0; i + 1U < components->size(); ++i) {
     Fd next{::openat(current.get(), components->at(i).c_str(),
                      O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)};
     if (!next.valid() && errno == ENOENT) {
       if (::mkdirat(current.get(), components->at(i).c_str(), 0700) != 0) {
-        return std::unexpected(containment_error(request.relative_path, errno));
+        const int captured = errno;
+        if (internal::classify(internal::SiteKind::intermediate_create,
+                               captured) ==
+            internal::SiteClass::containment) {
+          return std::unexpected(
+              containment_error(request.relative_path, captured));
+        }
+        return std::unexpected(
+            internal::ambient_error(request.relative_path, captured));
       }
       Fd rollback_parent{::dup(current.get())};
       if (!rollback_parent.valid()) {
+        const int captured = errno;
         ::unlinkat(current.get(), components->at(i).c_str(), AT_REMOVEDIR);
-        return std::unexpected(containment_error(request.relative_path, errno));
+        return std::unexpected(
+            internal::ambient_error(request.relative_path, captured));
       }
       created.push_back(CreatedDirectory{.parent = std::move(rollback_parent),
                                          .leaf = components->at(i)});
@@ -193,7 +218,14 @@ expected<Target> prepare_target(const int root_fd, const WriteRequest& request,
                          O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)};
     }
     if (!next.valid()) {
-      return std::unexpected(containment_error(request.relative_path, errno));
+      const int captured = errno;
+      if (internal::classify(internal::SiteKind::directory_walk, captured) ==
+          internal::SiteClass::containment) {
+        return std::unexpected(
+            containment_error(request.relative_path, captured));
+      }
+      return std::unexpected(
+          internal::ambient_error(request.relative_path, captured));
     }
     current = std::move(next);
   }
@@ -205,7 +237,9 @@ expected<Target> prepare_target(const int root_fd, const WriteRequest& request,
     return std::unexpected(containment_error(request.relative_path, EEXIST));
   }
   if (errno != ENOENT) {
-    return std::unexpected(containment_error(request.relative_path, errno));
+    const int captured = errno;
+    return std::unexpected(
+        internal::ambient_error(request.relative_path, captured));
   }
   return Target{.parent = std::move(current),
                 .leaf = components->back(),
@@ -851,7 +885,12 @@ expected<void> write_batch_no_replace(const fs::path& root,
       }
     }
     if (!temporary.valid()) {
-      const auto error = containment_error(target.temporary, errno);
+      const int captured = errno;
+      const auto error =
+          internal::classify(internal::SiteKind::temporary_create, captured) ==
+                  internal::SiteClass::containment
+              ? containment_error(target.temporary, captured)
+              : internal::ambient_error(target.temporary, captured);
       rollback(targets, created);
       return std::unexpected(error);
     }
@@ -867,7 +906,12 @@ expected<void> write_batch_no_replace(const fs::path& root,
   for (auto& target : targets) {
     if (::linkat(target.parent.get(), target.temporary.c_str(), target.parent.get(),
                  target.leaf.c_str(), 0) != 0) {
-      const auto error = containment_error(target.leaf, errno);
+      const int captured = errno;
+      const auto error =
+          internal::classify(internal::SiteKind::publish_link, captured) ==
+                  internal::SiteClass::containment
+              ? containment_error(target.leaf, captured)
+              : internal::ambient_error(target.leaf, captured);
       rollback(targets, created);
       return std::unexpected(error);
     }
