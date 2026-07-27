@@ -1,3 +1,4 @@
+#include <cerrno>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -75,6 +76,63 @@ biv::manifest::AgentSessionEntry codex_entry(std::string_view version) {
   value.original_session_ids.primary = session_id;
   value.artifacts = {"agents/codex/" + std::string{session_id} + ".jsonl"};
   return value;
+}
+
+// Drives the REAL session leg with a member_read that fails, so the adapter
+// returns std::unexpected and sessions.cpp fans one row per eligible record.
+std::vector<biv::core_sessions::SessionRowReport> fanned_rows(
+    const std::filesystem::path& home,
+    std::vector<biv::manifest::AgentSessionEntry> records,
+    const biv::BivError& failure) {
+  const auto store = home / ".codex";
+  const auto workspace = home / "workspace";
+  std::filesystem::create_directories(store);
+  std::filesystem::create_directories(workspace);
+  {
+    std::ofstream marker{store / "version.json"};
+    marker << "{\"version\":\"0.144.1\"}\n";
+  }
+  auto manifest = model(std::move(records));
+  const biv::adapters::Host host{
+      .home = home,
+      .env = env(home),
+      .version_probe = [&](const std::string_view agent,
+                           const std::optional<std::filesystem::path>&)
+          -> biv::expected<biv::support::ProbeEvidence> {
+        return biv::support::ProbeEvidence{.agent = std::string{agent},
+                                           .requested = std::nullopt,
+                                           .executed = home / "bin" / "codex",
+                                           .pinned = false,
+                                           .outcome = biv::support::ProbeOutcome::ok,
+                                           .exit_code = 0,
+                                           .raw = "codex-cli 0.144.1",
+                                           .parsed = std::nullopt};
+      },
+      .pinned_bins = {}};
+  auto preview = biv::core_sessions::build_preview(manifest, host);
+  REQUIRE(preview);
+  biv::core_sessions::ConsentSpec consent_spec;
+  consent_spec.global = biv::core_sessions::ConsentValue::yes;
+  const auto consent =
+      biv::core_sessions::resolve_consent(consent_spec, *preview, std::nullopt);
+  const biv::adapters::MemberRead reader =
+      [&](std::string_view) -> biv::expected<std::vector<std::byte>> {
+    return std::unexpected(failure);
+  };
+  const auto outcome = biv::core_sessions::run_session_leg(
+      *preview, consent, manifest, workspace, reader);
+  REQUIRE(outcome);
+  return outcome->rows;
+}
+
+std::vector<biv::manifest::AgentSessionEntry> two_codex_records() {
+  auto first = codex_entry("0.144.1");
+  auto second = codex_entry("0.144.1");
+  second.original_session_ids.primary =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441";
+  second.artifacts = {
+      "agents/codex/019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441.jsonl"};
+  return {first, second};
 }
 
 }  // namespace
@@ -423,5 +481,50 @@ TEST_CASE(
   CHECK(outcome->rows.front().row == biv::core_sessions::SessionRowReport::Row::installed);
   CHECK_FALSE(outcome->rows.front().host_version_unverified);
   CHECK(observations == 1);
+  std::filesystem::remove_all(home);
+}
+
+TEST_CASE("a fanned hard error carries the exact errno symbol to every row") {
+  const auto home = make_tmp("fanned-errno");
+  const auto rows = fanned_rows(
+      home, two_codex_records(),
+      biv::BivError{biv::ErrKind::ArchiveWriteFailed, "/store", "", ENOSPC});
+
+  REQUIRE(rows.size() == 2U);
+  for (const auto& row : rows) {
+    CHECK(row.row ==
+          biv::core_sessions::SessionRowReport::Row::session_install_failed);
+    CHECK(row.reason == std::optional<std::string>{"error"});
+    CHECK(row.detail == std::optional<std::string>{"ENOSPC"});
+  }
+  std::filesystem::remove_all(home);
+}
+
+TEST_CASE("a fanned hard error with a zero errno omits the detail entirely") {
+  const auto home = make_tmp("fanned-zero");
+  const auto rows = fanned_rows(
+      home, {codex_entry("0.144.1")},
+      biv::BivError{biv::ErrKind::ArchiveWriteFailed, "/store", "", 0});
+
+  REQUIRE(rows.size() == 1U);
+  CHECK(rows.front().row ==
+        biv::core_sessions::SessionRowReport::Row::session_install_failed);
+  CHECK_FALSE(rows.front().detail.has_value());
+  std::filesystem::remove_all(home);
+}
+
+TEST_CASE("a fanned containment error stays outside the errno family") {
+  const auto home = make_tmp("fanned-containment");
+  const auto rows = fanned_rows(
+      home, {codex_entry("0.144.1")},
+      biv::BivError{biv::ErrKind::ArchiveWriteFailed, "/store",
+                    "containment_refused", EEXIST});
+
+  REQUIRE(rows.size() == 1U);
+  CHECK(rows.front().row ==
+        biv::core_sessions::SessionRowReport::Row::containment_refused);
+  CHECK(rows.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK_FALSE(rows.front().detail.has_value());
   std::filesystem::remove_all(home);
 }
