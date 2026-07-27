@@ -1352,3 +1352,56 @@ TEST_CASE("secure install reports an absent store root as ambient, not containme
   CHECK(biv::core_sessions::install_failure_reason(result.error()) == "error");
   fs::remove_all(root);
 }
+
+TEST_CASE("secure install refuses a duplicate publish target and rolls back completely") {
+  const auto root = make_tmp("duplicate-publish");
+  const auto store = root / "store";
+  fs::create_directories(store);
+  // NOTE: "newdir" is deliberately NOT created. The primitive must mkdirat it,
+  // pushing a CreatedDirectory, so the reverse-walk rollback leg has work to do.
+  const auto first = bytes("first\n");
+  const auto second = bytes("second\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> writes{
+      {.relative_path = "newdir/leaf.jsonl", .bytes = first},
+      {.relative_path = "newdir/leaf.jsonl", .bytes = second}};
+
+  const auto result = biv::adapters::secure_io::write_batch_no_replace(store, writes);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == EEXIST);
+
+  // All three rollback legs, asserted separately.
+  CHECK_FALSE(fs::exists(store / "newdir" / "leaf.jsonl"));
+  CHECK(regular_files(store).empty());
+  CHECK_FALSE(fs::exists(store / "newdir"));
+  fs::remove_all(root);
+}
+
+TEST_CASE("secure install classifies temporary-name exhaustion as containment") {
+  const auto root = make_tmp("temporary-exhaustion");
+  const auto store = root / "store";
+  const auto sessions = store / "sessions";
+  fs::create_directories(sessions);
+  const std::string base =
+      ".bivpak-install-" + std::to_string(::getpid()) + "-0.tmp";
+  // Occupy ALL 1024 candidates for ordinal 0. Occupying only some is rejected:
+  // the loop exits at the first free name and the terminal assertion never runs.
+  for (std::size_t attempt = 0; attempt < 1024U; ++attempt) {
+    const std::string name =
+        attempt == 0U ? base : base + "." + std::to_string(attempt);
+    std::ofstream occupied{sessions / name};
+    occupied << "occupied";
+  }
+  const auto payload = bytes("payload\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> writes{
+      {.relative_path = "sessions/only.jsonl", .bytes = payload}};
+
+  const auto result = biv::adapters::secure_io::write_batch_no_replace(store, writes);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == EEXIST);
+  CHECK_FALSE(fs::exists(sessions / "only.jsonl"));
+  fs::remove_all(root);
+}
