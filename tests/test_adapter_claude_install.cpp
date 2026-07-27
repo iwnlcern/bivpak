@@ -1525,3 +1525,42 @@ TEST_CASE("Claude preserves a capability refusal through an ambient publish faul
   CHECK(result->activation.empty());
   fs::remove_all(root);
 }
+
+TEST_CASE("every installed path embeds that session's freshly minted id") {
+  // AC12 pins the remoteness precondition: ordinary destination naming embeds
+  // the fresh id, so collision requires a UUID collision rather than overlap.
+  const auto root = make_tmp("remoteness-precondition");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{claude_entry()};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->id_map.size() == 1);
+  const auto installed_id = result->id_map.front().installed_session_id;
+  REQUIRE_FALSE(installed_id.empty());
+
+  const auto created = regular_files(store);
+  REQUIRE_FALSE(created.empty());
+  bool saw_main = false;
+  bool saw_subtree = false;
+  for (const auto& path : created) {
+    const auto text = path.generic_string();
+    CHECK(text.find(installed_id) != std::string::npos);
+    if (text.ends_with(installed_id + ".jsonl")) {
+      saw_main = true;
+    }
+    if (text.find("/" + installed_id + "/") != std::string::npos) {
+      saw_subtree = true;
+    }
+  }
+  CHECK(saw_main);
+  CHECK(saw_subtree);
+  fs::remove_all(root);
+}

@@ -589,6 +589,12 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
 
     std::vector<secure_io::WriteRequest> writes;
     for (const auto& session : prepared) {
+      // A refused session contributes nothing to the batch. Its destinations
+      // may be non-empty while outputs is empty, so indexing outputs.at(i)
+      // here would otherwise throw std::out_of_range in the CLI.
+      if (session.refusal_reason.has_value()) {
+        continue;
+      }
       for (size_t i = 0; i < session.destinations.size(); ++i) {
         writes.push_back(secure_io::WriteRequest{
             .relative_path = session.destinations.at(i).path.lexically_relative(
