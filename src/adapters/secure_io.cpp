@@ -773,6 +773,23 @@ BivError ambient_error(const fs::path& path, const int err_no) {
                   err_no};
 }
 
+std::optional<BivError> fstat_outcome(const fs::path& path,
+                                      const int fstat_result,
+                                      const mode_t st_mode,
+                                      const int errno_captured) {
+  if (fstat_result != 0) {
+    // Calls the shared ambient constructor rather than duplicating the field
+    // logic, so the empty-detail safety property is proved once.
+    return ambient_error(path, errno_captured);
+  }
+  if (!S_ISREG(st_mode)) {
+    // EINVAL is explicit. A successful fstat leaves errno untouched, so
+    // errno_captured may be stale and must not be reported here.
+    return containment_error(path, EINVAL);
+  }
+  return std::nullopt;
+}
+
 }  // namespace internal
 
 struct ReadHandle::State {
@@ -831,8 +848,12 @@ expected<ReadHandle> open_read_no_follow(const fs::path& path) {
     return std::unexpected(file.error());
   }
   struct stat status {};
-  if (::fstat(file->get(), &status) != 0 || !S_ISREG(status.st_mode)) {
-    return std::unexpected(containment_error(path, errno == 0 ? EINVAL : errno));
+  const int fstat_result = ::fstat(file->get(), &status);
+  const int captured = errno;
+  if (auto outcome =
+          internal::fstat_outcome(path, fstat_result, status.st_mode, captured);
+      outcome.has_value()) {
+    return std::unexpected(std::move(*outcome));
   }
   auto state = std::make_shared<ReadHandle::State>();
   state->fd = std::move(*file);

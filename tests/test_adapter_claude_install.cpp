@@ -1405,3 +1405,35 @@ TEST_CASE("secure install classifies temporary-name exhaustion as containment") 
   CHECK_FALSE(fs::exists(sessions / "only.jsonl"));
   fs::remove_all(root);
 }
+
+TEST_CASE("fstat_outcome routes a failed fstat to ambient with the captured errno") {
+  const auto outcome = biv::adapters::secure_io::internal::fstat_outcome(
+      "/store/file.jsonl", -1, 0, EIO);
+
+  REQUIRE(outcome.has_value());
+  CHECK(outcome->kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(outcome->path == "/store/file.jsonl");
+  CHECK(outcome->detail.empty());
+  CHECK(outcome->err_no == EIO);
+  CHECK(outcome->facts.empty());
+}
+
+TEST_CASE("fstat_outcome routes a non-regular file to containment with explicit EINVAL") {
+  // errno_captured is deliberately a STALE nonzero value: a successful fstat
+  // does not reset errno, and this branch must not report what was left behind.
+  const auto outcome = biv::adapters::secure_io::internal::fstat_outcome(
+      "/store/dir", 0, S_IFDIR | 0755, ENOENT);
+
+  REQUIRE(outcome.has_value());
+  CHECK(outcome->kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(outcome->path == "/store/dir");
+  CHECK(outcome->detail == "containment_refused");
+  CHECK(outcome->err_no == EINVAL);
+  CHECK(outcome->facts.empty());
+}
+
+TEST_CASE("fstat_outcome disengages for a successful fstat over a regular file") {
+  CHECK_FALSE(biv::adapters::secure_io::internal::fstat_outcome(
+                  "/store/file.jsonl", 0, S_IFREG | 0600, ENOENT)
+                  .has_value());
+}
