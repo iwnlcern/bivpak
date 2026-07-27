@@ -50,7 +50,7 @@ jobs:
       - name: Build macOS product
         run: cmake --build --preset ci-macos
       - name: Run macOS product and harness rows
-        run: ctest --preset ci-macos -R '^(biv_tests|harness-selftest|harness-e2)$' --output-on-failure
+        run: ctest --preset ci-macos -R '^(biv_tests|harness-selftest|harness-e2|errno_table_gate)$' --output-on-failure
       - name: Enforce macOS Catch2 counts and skip identity
         run: |
           ./build/ci-macos/biv_tests -r xml > catch.xml

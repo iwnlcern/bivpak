@@ -4,12 +4,36 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include "core/support/error.hpp"
 
 namespace biv::adapters::secure_io {
+
+// Converts a POSIX errno value to its exact uppercase symbol.
+//
+// NAMESPACE (m-3, DESIGN-PLANNER-M3-ERRNO-NAMESPACE-RULED-READING-B-20260727-010403):
+// every E* macro this build target defines -- 131 distinct values on the
+// reference host. "Closed by reference" means the reference authority is the
+// target's <errno.h>, not the POSIX specification list, because the criterion
+// is REACHABILITY: what openat/linkat/fstat can place in errno is decided by
+// the kernel and the mounted filesystem.
+//
+// PRESENCE: engaged iff err_no is a NONZERO MEMBER of that namespace. Absence
+// covers BOTH err_no == 0 and the nonzero-out-of-namespace case truthfully.
+// It NEVER returns an engaged empty string -- that is a third state no contract
+// admits, and it is what a bare string_view return produced.
+//
+// Reaching the out-of-namespace arm means a non-errno integer was stored in
+// BivError::err_no: a CAPTURE-SITE DEFECT, asserted in debug builds. Every
+// err_no this converter sees originates from an errno capture in secure_io.
+//
+// err_no is preserved numerically elsewhere; the symbol is an added rendering,
+// never a replacement. strerror() is rejected as localized prose.
+[[nodiscard]] std::optional<std::string_view> errno_symbol(int err_no) noexcept;
 
 using ByteSink =
     std::function<expected<void>(std::span<const std::byte>)>;

@@ -134,6 +134,13 @@ add_test(NAME core_adapter_purity_selftest
   COMMAND python3 ${CMAKE_SOURCE_DIR}/harness/ci/check_core_adapter_purity.py
           --self-test)
 
+add_test(NAME errno_table_gate
+  COMMAND ${CMAKE_COMMAND} -E env
+          CXX=${CMAKE_CXX_COMPILER}
+          CXXSTD=-std=c++${CMAKE_CXX_STANDARD}
+          ${CMAKE_SOURCE_DIR}/tests/check_errno_table.sh
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
 if(BIV_ENABLE_FUZZ)
   execute_process(
     COMMAND "${CMAKE_CXX_COMPILER}" -print-file-name=libclang_rt.fuzzer-x86_64.a

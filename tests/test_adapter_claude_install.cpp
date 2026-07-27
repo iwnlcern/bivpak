@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cerrno>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -1121,4 +1122,145 @@ TEST_CASE("Claude bridge-session E-1 slot preserves bridgeSessionId", "[!mayfail
 
   CHECK(rewritten.line.find("new-session") != std::string::npos);
   CHECK(rewritten.line.find(kBridgeSession) != std::string::npos);
+}
+
+TEST_CASE("errno_symbol converts representative errnos to exact POSIX spellings") {
+  using biv::adapters::secure_io::errno_symbol;
+  CHECK(errno_symbol(ENOENT) == std::optional<std::string_view>{"ENOENT"});
+  CHECK(errno_symbol(EACCES) == std::optional<std::string_view>{"EACCES"});
+  CHECK(errno_symbol(EEXIST) == std::optional<std::string_view>{"EEXIST"});
+  CHECK(errno_symbol(ENOSPC) == std::optional<std::string_view>{"ENOSPC"});
+  CHECK(errno_symbol(EMFILE) == std::optional<std::string_view>{"EMFILE"});
+  CHECK(errno_symbol(ELOOP) == std::optional<std::string_view>{"ELOOP"});
+  CHECK(errno_symbol(ENOTDIR) == std::optional<std::string_view>{"ENOTDIR"});
+  CHECK(errno_symbol(EINVAL) == std::optional<std::string_view>{"EINVAL"});
+  // Target-specific values are IN the namespace under Reading B: a network or
+  // FUSE mount can return these from the very syscalls C1 classifies. EACH IS
+  // GUARDED because the macOS job compiles this file and Darwin defines only
+  // some of them -- it reportedly defines EHOSTDOWN at its full feature level
+  // and neither EREMOTEIO nor EUCLEAN. The guards are per-name for that reason;
+  // do not collapse them.
+#ifdef EREMOTEIO
+  CHECK(errno_symbol(EREMOTEIO) == std::optional<std::string_view>{"EREMOTEIO"});
+#endif
+#ifdef EUCLEAN
+  CHECK(errno_symbol(EUCLEAN) == std::optional<std::string_view>{"EUCLEAN"});
+#endif
+#ifdef EHOSTDOWN
+  CHECK(errno_symbol(EHOSTDOWN) == std::optional<std::string_view>{"EHOSTDOWN"});
+#endif
+}
+
+TEST_CASE("errno_symbol resolves each equal-valued group by the owner's rule") {
+  // m-3 032747: EVERY multi-name group must be pinned; the canonical name
+  // comes from tests/errno_pins.txt, keyed by GROUP SIGNATURE (never by
+  // integer -- integers name opposite groups on different targets).
+  // m-3 020759 requires the test guards to MIRROR the
+  // production guards, and mirroring means THE SAME PREDICATE -- not a
+  // logically equivalent one. rev3 reached the distinct arm through a bare
+  // `#elif defined(A) && defined(B)`, which is equivalent after the preceding
+  // branch but is NOT the production predicate the owner made contract
+  // surface. Each pair below therefore states the production `!=` predicate
+  // verbatim, and expresses the equal case as its own `==` block.
+  using biv::adapters::secure_io::errno_symbol;
+
+  // --- group 11 on Linux: multiple-POSIX, pinned EAGAIN -------------------
+#if defined(EAGAIN) && defined(EWOULDBLOCK) && (EAGAIN) != (EWOULDBLOCK)
+  // DISTINCT: two singleton groups, each its own spelling.
+  CHECK(errno_symbol(EWOULDBLOCK) == std::optional<std::string_view>{"EWOULDBLOCK"});
+#endif
+#if defined(EAGAIN) && defined(EWOULDBLOCK) && (EAGAIN) == (EWOULDBLOCK)
+  // EQUAL: one group, the pin wins for the shared value.
+  CHECK(errno_symbol(EWOULDBLOCK) == std::optional<std::string_view>{"EAGAIN"});
+#endif
+#ifdef EAGAIN
+  CHECK(errno_symbol(EAGAIN) == std::optional<std::string_view>{"EAGAIN"});
+#endif
+
+  // --- group 35 on Linux: pinned EDEADLK ------------------------------
+#if defined(EDEADLK) && defined(EDEADLOCK) && (EDEADLK) != (EDEADLOCK)
+  CHECK(errno_symbol(EDEADLOCK) == std::optional<std::string_view>{"EDEADLOCK"});
+#endif
+#if defined(EDEADLK) && defined(EDEADLOCK) && (EDEADLK) == (EDEADLOCK)
+  CHECK(errno_symbol(EDEADLOCK) == std::optional<std::string_view>{"EDEADLK"});
+#endif
+#ifdef EDEADLK
+  // EDEADLOCK is reportedly undefined on Darwin; nothing is owed for it, and
+  // this assertion still holds there.
+  CHECK(errno_symbol(EDEADLK) == std::optional<std::string_view>{"EDEADLK"});
+#endif
+
+  // --- group 74 on Linux: pinned EBADMSG ------------------------------
+#if defined(EBADMSG) && defined(EFSBADCRC) && (EBADMSG) != (EFSBADCRC)
+  CHECK(errno_symbol(EFSBADCRC) == std::optional<std::string_view>{"EFSBADCRC"});
+#endif
+#if defined(EBADMSG) && defined(EFSBADCRC) && (EBADMSG) == (EFSBADCRC)
+  CHECK(errno_symbol(EFSBADCRC) == std::optional<std::string_view>{"EBADMSG"});
+#endif
+#ifdef EBADMSG
+  CHECK(errno_symbol(EBADMSG) == std::optional<std::string_view>{"EBADMSG"});
+#endif
+
+  // --- group 95 on Linux: multiple-POSIX, pinned ENOTSUP ------------------
+#if defined(ENOTSUP) && defined(EOPNOTSUPP) && (ENOTSUP) != (EOPNOTSUPP)
+  // THE DARWIN ARM. Reported as ENOTSUP 45, EOPNOTSUPP 102 under
+  // __DARWIN_UNIX03. 102 is its own singleton group: emitting "ENOTSUP" for it
+  // would be a FALSE SYMBOL and emitting nothing would be the forbidden
+  // omission. This assertion is the one that fails if the distinct-value arm
+  // is wrong, absent, or never compiled.
+  CHECK(errno_symbol(EOPNOTSUPP) == std::optional<std::string_view>{"EOPNOTSUPP"});
+#endif
+#if defined(ENOTSUP) && defined(EOPNOTSUPP) && (ENOTSUP) == (EOPNOTSUPP)
+  CHECK(errno_symbol(EOPNOTSUPP) == std::optional<std::string_view>{"ENOTSUP"});
+#endif
+#ifdef ENOTSUP
+  CHECK(errno_symbol(ENOTSUP) == std::optional<std::string_view>{"ENOTSUP"});
+#endif
+
+  // --- group 117 on Linux: zero POSIX members, pinned EUCLEAN -------------
+#if defined(EUCLEAN) && defined(EFSCORRUPTED) && (EUCLEAN) != (EFSCORRUPTED)
+  CHECK(errno_symbol(EFSCORRUPTED) == std::optional<std::string_view>{"EFSCORRUPTED"});
+#endif
+#if defined(EUCLEAN) && defined(EFSCORRUPTED) && (EUCLEAN) == (EFSCORRUPTED)
+  CHECK(errno_symbol(EFSCORRUPTED) == std::optional<std::string_view>{"EUCLEAN"});
+#endif
+#ifdef EUCLEAN
+  CHECK(errno_symbol(EUCLEAN) == std::optional<std::string_view>{"EUCLEAN"});
+#endif
+
+  // --- group 107 on Darwin: zero POSIX members, pinned ENOTCAPABLE --------
+  // ELAST is a MARKER naming the highest errno value, so it can never win a
+  // tie-break. It stays a namespace member no user will ever see, and
+  // detail: "ELAST" can therefore never be emitted.
+#if defined(ENOTCAPABLE) && defined(ELAST) && (ENOTCAPABLE) == (ELAST)
+  CHECK(errno_symbol(ELAST) == std::optional<std::string_view>{"ENOTCAPABLE"});
+#endif
+#ifdef ENOTCAPABLE
+  CHECK(errno_symbol(ENOTCAPABLE) == std::optional<std::string_view>{"ENOTCAPABLE"});
+#endif
+}
+
+TEST_CASE("errno_symbol disengages for zero and never yields an empty string") {
+  // The presence rule (m-3 010403): present iff err_no is a NONZERO MEMBER of
+  // the namespace. Absence covers zero truthfully. An ENGAGED optional holding
+  // "" is the third state no contract admits and must be unreachable.
+  using biv::adapters::secure_io::errno_symbol;
+  CHECK_FALSE(errno_symbol(0).has_value());
+  // TARGET-INDEPENDENT names only. rev3 had EUCLEAN in this list while
+  // guarding it thirty lines above -- the instance was fixed and the class was
+  // then asserted, and the Darwin build would have failed here. Any
+  // target-specific value belongs in its own guarded block, never in an
+  // unconditional initializer list.
+  for (const int value : {ENOENT, EACCES, ENOSPC, EMFILE, EROFS}) {
+    const auto symbol = errno_symbol(value);
+    REQUIRE(symbol.has_value());
+    CHECK_FALSE(symbol->empty());
+  }
+#ifdef EUCLEAN
+  {
+    const auto symbol = errno_symbol(EUCLEAN);
+    REQUIRE(symbol.has_value());
+    CHECK_FALSE(symbol->empty());
+  }
+#endif
 }
