@@ -19,6 +19,7 @@
 #include "adapters/claude_code/claude_code.hpp"
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
+#include "core/open/sessions.hpp"
 #include "core/support/probe.hpp"
 
 namespace {
@@ -1263,4 +1264,24 @@ TEST_CASE("errno_symbol disengages for zero and never yields an empty string") {
     CHECK_FALSE(symbol->empty());
   }
 #endif
+}
+
+TEST_CASE("ambient_error binds all five BivError fields with an empty detail") {
+  const auto error =
+      biv::adapters::secure_io::internal::ambient_error("/store/root", ENOSPC);
+
+  CHECK(error.kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(error.path == "/store/root");
+  CHECK(error.detail.empty());
+  CHECK(error.err_no == ENOSPC);
+  CHECK(error.facts.empty());
+}
+
+TEST_CASE("ambient_error never emits a detail install_failure_reason can retype") {
+  for (const int value : {ENOENT, EACCES, ENOSPC, EMFILE, EROFS}) {
+    const auto error =
+        biv::adapters::secure_io::internal::ambient_error("/store/root", value);
+    CHECK(error.detail.empty());
+    CHECK(biv::core_sessions::install_failure_reason(error) == "error");
+  }
 }

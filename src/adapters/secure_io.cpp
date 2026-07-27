@@ -715,6 +715,14 @@ std::optional<std::string_view> errno_symbol(const int err_no) noexcept {
   return std::nullopt;
 }
 
+namespace internal {
+
+BivError ambient_error(const fs::path& path, const int err_no) {
+  return BivError{ErrKind::ArchiveWriteFailed, path.generic_string(), "",
+                  err_no};
+}
+
+}  // namespace internal
 
 struct ReadHandle::State {
   Fd fd;

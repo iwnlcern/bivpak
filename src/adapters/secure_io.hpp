@@ -68,4 +68,18 @@ expected<void> write_batch_no_replace(
     const std::filesystem::path& root,
     std::span<const WriteRequest> requests);
 
+namespace internal {
+
+// Deterministic observation and classification seam for testing.
+// NOT a supported product API. Nothing outside secure_io.cpp and the adapter
+// install tests may depend on these declarations.
+
+// The named AMBIENT constructor. Its BivError::detail is EXACTLY the empty
+// string at every site -- never a reason word, never the errno symbol. The
+// user-facing symbol is derived later from the preserved numeric err_no.
+[[nodiscard]] BivError ambient_error(const std::filesystem::path& path,
+                                     int err_no);
+
+}  // namespace internal
+
 }  // namespace biv::adapters::secure_io
