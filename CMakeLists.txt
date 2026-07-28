@@ -125,7 +125,8 @@ target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_tests PRIVATE
   BIV_PROBE_TESTING=1
   BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
-  BIV_BINARY_PATH="$<TARGET_FILE:biv>")
+  BIV_BINARY_PATH="$<TARGET_FILE:biv>"
+  BIV_GENERATED_ENVELOPE_PATH="${CMAKE_CURRENT_BINARY_DIR}/generated-detail-envelope.v1.json")
 add_test(NAME biv_tests COMMAND biv_tests)
 add_test(NAME open_no_rewrite_gate
   COMMAND ${CMAKE_SOURCE_DIR}/tests/check_open_no_rewrite.sh

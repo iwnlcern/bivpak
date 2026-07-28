@@ -562,3 +562,35 @@ TEST_CASE("the emitted envelope carries detail at the schema's session-row path"
   }
   CHECK(detail_rows == 1);
 }
+
+TEST_CASE("a generated detail-bearing envelope is emitted for schema conformance") {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false,
+      .detail = "capability_refused"});
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+
+  std::ofstream out{BIV_GENERATED_ENVELOPE_PATH,
+                    std::ios::binary | std::ios::trunc};
+  REQUIRE(out);
+  out << json;
+  out.close();
+  REQUIRE(out);
+}
