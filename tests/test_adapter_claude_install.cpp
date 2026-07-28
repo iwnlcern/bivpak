@@ -1229,7 +1229,8 @@ TEST_CASE("errno_symbol resolves each equal-valued group by the owner's rule") {
   CHECK(errno_symbol(EUCLEAN) == std::optional<std::string_view>{"EUCLEAN"});
 #endif
 
-  // --- group 107 on Darwin: zero POSIX members, pinned ENOTCAPABLE --------
+  // --- Darwin-only group {ENOTCAPABLE, ELAST}: zero POSIX members, pinned
+  // ENOTCAPABLE ----------------------------------------------------------
   // ELAST is a MARKER naming the highest errno value, so it can never win a
   // tie-break. It stays a namespace member no user will ever see, and
   // detail: "ELAST" can therefore never be emitted.
