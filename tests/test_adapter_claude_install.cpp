@@ -35,6 +35,22 @@ constexpr std::string_view kToolUuid = "00000000-0000-4000-8000-000000000103";
 constexpr std::string_view kSubagentUuid =
     "00000000-0000-4000-8000-000000000201";
 
+bool is_errno_family(const std::optional<std::string>& detail) {
+  if (!detail || detail->empty() || detail->front() != 'E') {
+    return false;
+  }
+  return std::ranges::all_of(*detail, [](unsigned char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+  });
+}
+
+[[maybe_unused]] bool is_verify_family(
+    const std::optional<std::string>& detail) {
+  return detail == std::optional<std::string>{"origin_path"} ||
+         detail == std::optional<std::string>{"origin_id"} ||
+         detail == std::optional<std::string>{"undecodable_line"};
+}
+
 fs::path make_tmp(std::string_view name) {
   auto base = fs::temp_directory_path() /
               ("biv-claude-install-" + std::string{name} + "-" + std::to_string(::getpid()));
@@ -804,6 +820,8 @@ TEST_CASE("Claude install refuses nonzero rewrite verification before writing") 
   CHECK(result->sessions.front().outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
   CHECK(result->sessions.front().verify.origin_path_hits > 0);
+  // R-3.45: an outcome with origin-path hits must not carry an errno symbol.
+  CHECK_FALSE(is_errno_family(result->sessions.front().detail));
   CHECK(result->sessions.front().verify.origin_id_hits > 0);
   CHECK(result->id_map.empty());
   CHECK(result->activation.empty());

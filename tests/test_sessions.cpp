@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cerrno>
 #include <filesystem>
 #include <fstream>
@@ -63,6 +64,33 @@ std::vector<std::byte> bytes(std::string_view text) {
     result.push_back(static_cast<std::byte>(value));
   }
   return result;
+}
+
+// R-3.45 / m-3 014309:
+//   reason "verify-hits" => detail in {origin_path, origin_id, undecodable_line}
+//   ambient reason       => detail is a pinned uppercase POSIX errno symbol
+bool is_errno_family(const std::optional<std::string>& detail) {
+  if (!detail || detail->empty() || detail->front() != 'E') {
+    return false;
+  }
+  return std::ranges::all_of(*detail, [](unsigned char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+  });
+}
+
+bool is_verify_family(const std::optional<std::string>& detail) {
+  return detail == std::optional<std::string>{"origin_path"} ||
+         detail == std::optional<std::string>{"origin_id"} ||
+         detail == std::optional<std::string>{"undecodable_line"};
+}
+
+// The control. True when a row pairs the two families illegally.
+bool violates_cross_family(const biv::core_sessions::SessionRowReport& row) {
+  const bool verify_reason = row.reason == std::optional<std::string>{"verify-hits"};
+  if (verify_reason) {
+    return is_errno_family(row.detail);
+  }
+  return is_verify_family(row.detail);
 }
 
 biv::manifest::AgentSessionEntry codex_entry(std::string_view version) {
@@ -136,6 +164,30 @@ std::vector<biv::manifest::AgentSessionEntry> two_codex_records() {
 }
 
 }  // namespace
+
+TEST_CASE("the cross-family control catches an illegal reason/detail pair") {
+  // The report layer is a verbatim pass-through and enforces no pairing
+  // (sessions.hpp:53, :58-61), so a violating row is one initializer.
+  biv::core_sessions::SessionRowReport conforming_verify{};
+  conforming_verify.reason = "verify-hits";
+  conforming_verify.detail = "origin_path";
+  CHECK_FALSE(violates_cross_family(conforming_verify));
+
+  biv::core_sessions::SessionRowReport violating_verify{};
+  violating_verify.reason = "verify-hits";
+  violating_verify.detail = "EACCES";
+  CHECK(violates_cross_family(violating_verify));      // <- the bite
+
+  biv::core_sessions::SessionRowReport conforming_ambient{};
+  conforming_ambient.reason = "error";
+  conforming_ambient.detail = "ENOSPC";
+  CHECK_FALSE(violates_cross_family(conforming_ambient));
+
+  biv::core_sessions::SessionRowReport violating_ambient{};
+  violating_ambient.reason = "error";
+  violating_ambient.detail = "origin_path";
+  CHECK(violates_cross_family(violating_ambient));     // <- the bite, other direction
+}
 
 TEST_CASE("session preview groups manifest agents and flags unsupported rows") {
   const auto home = make_tmp("preview");
@@ -496,6 +548,8 @@ TEST_CASE("a fanned hard error carries the exact errno symbol to every row") {
           biv::core_sessions::SessionRowReport::Row::session_install_failed);
     CHECK(row.reason == std::optional<std::string>{"error"});
     CHECK(row.detail == std::optional<std::string>{"ENOSPC"});
+    // Applied to output from fanned_rows() -> run_session_leg(), a real producer.
+    CHECK_FALSE(violates_cross_family(row));
   }
   std::filesystem::remove_all(home);
 }
