@@ -1204,8 +1204,8 @@ TEST_CASE("errno_symbol resolves each equal-valued group by the owner's rule") {
 
   // --- group 95 on Linux: multiple-POSIX, pinned ENOTSUP ------------------
 #if defined(ENOTSUP) && defined(EOPNOTSUPP) && (ENOTSUP) != (EOPNOTSUPP)
-  // THE DARWIN ARM. Reported as ENOTSUP 45, EOPNOTSUPP 102 under
-  // __DARWIN_UNIX03. 102 is its own singleton group: emitting "ENOTSUP" for it
+  // THE DARWIN ARM. ENOTSUP and EOPNOTSUPP are DISTINCT values under
+  // __DARWIN_UNIX03. EOPNOTSUPP is its own singleton group: emitting "ENOTSUP" for it
   // would be a FALSE SYMBOL and emitting nothing would be the forbidden
   // omission. This assertion is the one that fails if the distinct-value arm
   // is wrong, absent, or never compiled.
