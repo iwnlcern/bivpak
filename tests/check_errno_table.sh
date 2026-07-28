@@ -41,6 +41,10 @@ signature() { tr ' ' '\n' <<<"$1" | grep -v '^$' | sort | paste -sd, -; }
 expected_mapping() {
   # Unused cross-target pins are intentional: one canonical file covers all
   # supported targets while the active mapping remains strictly per-target.
+  # Do NOT add the converse sweep: an unmatched pin is never consulted, and
+  # requiring every pin to match a platform group fails on the entries this
+  # shared file carries for other targets -- ELAST/ENOTCAPABLE has no
+  # signature on Linux.
   local platform="$1" fail=0 value names sig pin hits count
   while read -r value names; do
     [ -z "$value" ] && continue
