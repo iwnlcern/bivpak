@@ -216,3 +216,20 @@ Draft202012Validator.check_schema(schema)
 Draft202012Validator(schema).validate(fixture)"
           "${CMAKE_SOURCE_DIR}/schemas/biv-json-envelope.v1.schema.json"
           "${CMAKE_SOURCE_DIR}/tests/fixtures/probe-envelope-v1.json")
+
+add_test(
+  NAME generated_envelope_conforms
+  COMMAND "${BIVHARNESS_PYTHON}" -c
+          "import json, sys
+from jsonschema import Draft202012Validator
+schema = json.load(open(sys.argv[1], encoding='utf-8'))
+document = json.load(open(sys.argv[2], encoding='utf-8'))
+Draft202012Validator.check_schema(schema)
+Draft202012Validator(schema).validate(document)"
+          "${CMAKE_SOURCE_DIR}/schemas/biv-json-envelope.v1.schema.json"
+          "${CMAKE_CURRENT_BINARY_DIR}/generated-detail-envelope.v1.json")
+
+set_tests_properties(biv_tests PROPERTIES
+  FIXTURES_SETUP generated_envelope)
+set_tests_properties(generated_envelope_conforms PROPERTIES
+  FIXTURES_REQUIRED generated_envelope)
