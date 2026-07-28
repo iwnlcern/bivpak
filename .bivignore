@@ -1,0 +1,29 @@
+# .bivignore — bivpak (product code repo)
+#
+# WHY .git IS EXCLUDED — read before removing this rule.
+# `biv pack` REFUSES outright on any directory containing a `.git` entry
+# (typed RepoDiscoveredUnsupported, src/core/scan/scan.cpp) because the git
+# engine is ROADMAP Step 4 and is not implemented. The ignore matcher runs
+# BEFORE that refusal, so pruning `.git` is what makes this repo packable at
+# all. Without this rule, `biv pack .` fails immediately.
+#
+# Unlike pdc, this repo HAS a remote (github.com/iwnlcern/bivpak), so history
+# is recoverable by clone on the far side — push any live branch first.
+.git/
+
+# Build output — 645 MB of the repo's 695 MB. Excluding this is the difference
+# between a portable image and an unusable one. Binaries are rebuilt from
+# source on the target host; they are not portable across OS/arch anyway.
+build/
+
+# Python virtualenv — 32 MB, machine- AND interpreter-specific (absolute paths
+# baked into bin/ shims). Rebuild on the target with:
+#   python3 -m venv .venv-harness && .venv-harness/bin/pip install -r harness/requirements.lock
+.venv-harness/
+
+# Transient / machine-local
+.DS_Store
+*.swp
+compile_commands.json
+__pycache__/
+.pytest_cache/
