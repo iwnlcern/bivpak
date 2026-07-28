@@ -510,17 +510,7 @@ TEST_CASE("an adapter-authored detail reaches the envelope verbatim") {
   CHECK(json.find("capability-refused") == std::string::npos);
 }
 
-TEST_CASE("a detail-bearing envelope remains admitted by the unchanged schema") {
-  std::ifstream schema_file{std::string{BIV_SOURCE_DIR} +
-                            "/schemas/biv-json-envelope.v1.schema.json"};
-  REQUIRE(schema_file);
-  const std::string schema{std::istreambuf_iterator<char>{schema_file},
-                           std::istreambuf_iterator<char>{}};
-  // The session-row schema deliberately leaves additional properties open.
-  // Therefore adding an optional detail property is admitted without changing
-  // either schema artifact.
-  CHECK(schema.find("\"additionalProperties\"") == std::string::npos);
-
+TEST_CASE("the emitted envelope carries detail at the schema's session-row path") {
   biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
                                .output_dir = "/tmp/restored",
                                .collision_action = "none",
@@ -547,6 +537,28 @@ TEST_CASE("a detail-bearing envelope remains admitted by the unchanged schema") 
   simdjson::dom::parser parser;
   simdjson::dom::element document;
   CHECK(parser.parse(json).get(document) == simdjson::SUCCESS);
-  CHECK(json.find("\"detail\": \"capability_refused\"") !=
-        std::string::npos);
+
+  simdjson::dom::array agents;
+  REQUIRE(document["result"]["sessions"]["agents"].get(agents) ==
+          simdjson::SUCCESS);
+
+  std::size_t detail_rows = 0;
+  for (simdjson::dom::element agent : agents) {
+    simdjson::dom::array rows;
+    if (agent["sessions"].get(rows) != simdjson::SUCCESS) {
+      continue;
+    }
+    for (simdjson::dom::element row : rows) {
+      simdjson::dom::element detail;
+      if (row["detail"].get(detail) != simdjson::SUCCESS) {
+        continue;
+      }
+      ++detail_rows;
+      // TYPE, not just presence: R-3.43 leaves the schema unable to type this.
+      std::string_view value;
+      REQUIRE(detail.get(value) == simdjson::SUCCESS);
+      CHECK(value == "capability_refused");
+    }
+  }
+  CHECK(detail_rows == 1);
 }
