@@ -66,9 +66,16 @@ std::vector<std::byte> bytes(std::string_view text) {
   return result;
 }
 
-// R-3.45 / m-3 014309:
+// R-3.45 / m-3 014309 — the SEALED FUTURE detail domains (Addendum-3 §A3.6 / §A3.4 item 3):
 //   reason "verify-hits" => detail in {origin_path, origin_id, undecodable_line}
 //   ambient reason       => detail is a pinned uppercase POSIX errno symbol
+// NOT YET SHIPPED. Verified at 8a3e8c45: those three literals have ZERO quoted
+// occurrences under src/. Production today emits reason="verify-hits" with
+// detail="rewrite_verify_failed" (adapters/claude_code/install.cpp:582-583 ->
+// core/open/sessions.cpp:309 verbatim, :318 relabels the reason).
+// These predicates therefore describe the FUTURE domain and are exercised ONLY
+// against hand-constructed rows. They observe no producer. R-3.45 is fixture-owed
+// and "assertable only in fixtures" (RESIDUALS.md:799), which is why that is enough.
 bool is_errno_family(const std::optional<std::string>& detail) {
   if (!detail || detail->empty() || detail->front() != 'E') {
     return false;
@@ -165,7 +172,7 @@ std::vector<biv::manifest::AgentSessionEntry> two_codex_records() {
 
 }  // namespace
 
-TEST_CASE("the cross-family control catches an illegal reason/detail pair") {
+TEST_CASE("the cross-family control catches an illegal constructed reason/detail pair") {
   // The report layer is a verbatim pass-through and enforces no pairing
   // (sessions.hpp:53, :58-61), so a violating row is one initializer.
   biv::core_sessions::SessionRowReport conforming_verify{};
@@ -548,8 +555,6 @@ TEST_CASE("a fanned hard error carries the exact errno symbol to every row") {
           biv::core_sessions::SessionRowReport::Row::session_install_failed);
     CHECK(row.reason == std::optional<std::string>{"error"});
     CHECK(row.detail == std::optional<std::string>{"ENOSPC"});
-    // Applied to output from fanned_rows() -> run_session_leg(), a real producer.
-    CHECK_FALSE(violates_cross_family(row));
   }
   std::filesystem::remove_all(home);
 }
