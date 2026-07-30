@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -21,6 +22,34 @@ size_t count_occurrences(std::string_view text, std::string_view needle) {
     pos += needle.size();
   }
   return count;
+}
+
+// One source of truth for BOTH legs. Leg A navigates this envelope structurally;
+// Leg C validates the SAME envelope against the schema. Two copies could drift
+// apart silently and leave both test names reading true.
+std::string detail_bearing_envelope_json() {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false,
+      .detail = "capability_refused"});
+  return biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
 }
 
 }  // namespace
@@ -511,32 +540,11 @@ TEST_CASE("an adapter-authored detail reaches the envelope verbatim") {
 }
 
 TEST_CASE("the emitted envelope carries detail at the schema's session-row path") {
-  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
-                               .output_dir = "/tmp/restored",
-                               .collision_action = "none",
-                               .restored_member_count = 1,
-                               .checksums_verified = true,
-                               .manifest_format_version = 1};
-  biv::report::OpenSessionsReport sessions;
-  biv::core_sessions::AgentPreview preview;
-  preview.agent = "future-tool";
-  sessions.preview.agents.push_back(std::move(preview));
-  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
-      .agent = "future-tool",
-      .image_session_id = "old-id",
-      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
-      .reason = "error",
-      .installed_session_id = std::nullopt,
-      .host_version_unverified = false,
-      .activation_suppressed = true,
-      .live_at_pack = false,
-      .detail = "capability_refused"});
-  const auto json = biv::report::envelope(
-      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+  const auto json = detail_bearing_envelope_json();
 
   simdjson::dom::parser parser;
   simdjson::dom::element document;
-  CHECK(parser.parse(json).get(document) == simdjson::SUCCESS);
+  REQUIRE(parser.parse(json).get(document) == simdjson::SUCCESS);
 
   simdjson::dom::array agents;
   REQUIRE(document["result"]["sessions"]["agents"].get(agents) ==
@@ -564,28 +572,7 @@ TEST_CASE("the emitted envelope carries detail at the schema's session-row path"
 }
 
 TEST_CASE("a generated detail-bearing envelope is emitted for schema conformance") {
-  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
-                               .output_dir = "/tmp/restored",
-                               .collision_action = "none",
-                               .restored_member_count = 1,
-                               .checksums_verified = true,
-                               .manifest_format_version = 1};
-  biv::report::OpenSessionsReport sessions;
-  biv::core_sessions::AgentPreview preview;
-  preview.agent = "future-tool";
-  sessions.preview.agents.push_back(std::move(preview));
-  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
-      .agent = "future-tool",
-      .image_session_id = "old-id",
-      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
-      .reason = "error",
-      .installed_session_id = std::nullopt,
-      .host_version_unverified = false,
-      .activation_suppressed = true,
-      .live_at_pack = false,
-      .detail = "capability_refused"});
-  const auto json = biv::report::envelope(
-      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+  const auto json = detail_bearing_envelope_json();
 
   std::ofstream out{BIV_GENERATED_ENVELOPE_PATH,
                     std::ios::binary | std::ios::trunc};
