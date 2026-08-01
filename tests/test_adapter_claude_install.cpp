@@ -19,6 +19,7 @@
 #include "adapters/claude_code/claude_code.hpp"
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
+#include "adapters/secure_io_fstat_seam.hpp"
 #include "core/open/sessions.hpp"
 #include "core/support/probe.hpp"
 
@@ -1415,7 +1416,8 @@ TEST_CASE("secure install classifies temporary-name exhaustion as containment") 
 
 TEST_CASE("fstat_outcome routes a failed fstat to ambient with the captured errno") {
   const auto outcome = biv::adapters::secure_io::internal::fstat_outcome(
-      "/store/file.jsonl", -1, 0, EIO);
+      "/store/file.jsonl",
+      biv::adapters::secure_io::internal::FstatObservation{std::unexpect, EIO});
 
   REQUIRE(outcome.has_value());
   CHECK(outcome->kind == biv::ErrKind::ArchiveWriteFailed);
@@ -1426,10 +1428,16 @@ TEST_CASE("fstat_outcome routes a failed fstat to ambient with the captured errn
 }
 
 TEST_CASE("fstat_outcome routes a non-regular file to containment with explicit EINVAL") {
-  // errno_captured is deliberately a STALE nonzero value: a successful fstat
-  // does not reset errno, and this branch must not report what was left behind.
+  // The stale-errno argument this test used to carry is GONE, and deliberately:
+  // FstatObservation's success arm cannot hold an errno at all, so "succeeded,
+  // and here is a leftover errno" is now unrepresentable rather than merely
+  // forbidden. The rationale and its guard live at the alias (m-2 ruling 202000).
+  // What this test still proves is the branch itself: a successful fstat over a
+  // NON-REGULAR file yields containment EINVAL, never an ambient errno.
+  struct stat dir_status {};
+  dir_status.st_mode = S_IFDIR | 0755;
   const auto outcome = biv::adapters::secure_io::internal::fstat_outcome(
-      "/store/dir", 0, S_IFDIR | 0755, ENOENT);
+      "/store/dir", biv::adapters::secure_io::internal::FstatObservation{dir_status});
 
   REQUIRE(outcome.has_value());
   CHECK(outcome->kind == biv::ErrKind::ArchiveWriteFailed);
@@ -1440,8 +1448,11 @@ TEST_CASE("fstat_outcome routes a non-regular file to containment with explicit 
 }
 
 TEST_CASE("fstat_outcome disengages for a successful fstat over a regular file") {
+  struct stat reg_status {};
+  reg_status.st_mode = S_IFREG | 0600;
   CHECK_FALSE(biv::adapters::secure_io::internal::fstat_outcome(
-                  "/store/file.jsonl", 0, S_IFREG | 0600, ENOENT)
+                  "/store/file.jsonl",
+                  biv::adapters::secure_io::internal::FstatObservation{reg_status})
                   .has_value());
 }
 

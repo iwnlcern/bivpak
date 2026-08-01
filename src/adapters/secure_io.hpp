@@ -96,20 +96,6 @@ enum class SiteClass { containment, ambient };
 // visible at the call site.
 [[nodiscard]] SiteClass classify(SiteKind kind, int err_no) noexcept;
 
-// Deterministic observation seam for :289's two branches. Takes observations
-// the caller ALREADY HOLDS -- it performs no syscall and interposes none.
-// Returns the COMPLETE constructed error so a direct unit test can assert
-// route, exact err_no and detail on both error outcomes.
-//
-//   fstat FAILED           -> ambient,     detail "",                     captured errno
-//   SUCCEEDED, non-regular -> containment, detail "containment_refused",  EINVAL
-//   SUCCEEDED, regular     -> std::nullopt
-//
-// NOT a supported product API.
-[[nodiscard]] std::optional<BivError> fstat_outcome(
-    const std::filesystem::path& path, int fstat_result, mode_t st_mode,
-    int errno_captured);
-
 // The named AMBIENT constructor. Its BivError::detail is EXACTLY the empty
 // string at every site -- never a reason word, never the errno symbol. The
 // user-facing symbol is derived later from the preserved numeric err_no.

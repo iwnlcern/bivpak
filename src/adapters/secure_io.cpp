@@ -1,4 +1,5 @@
 #include "adapters/secure_io.hpp"
+#include "adapters/secure_io_fstat_seam.hpp"
 
 #include <algorithm>
 #include <array>
@@ -774,17 +775,15 @@ BivError ambient_error(const fs::path& path, const int err_no) {
 }
 
 std::optional<BivError> fstat_outcome(const fs::path& path,
-                                      const int fstat_result,
-                                      const mode_t st_mode,
-                                      const int errno_captured) {
-  if (fstat_result != 0) {
+                                      const FstatObservation& observed) {
+  if (!observed.has_value()) {
     // Calls the shared ambient constructor rather than duplicating the field
     // logic, so the empty-detail safety property is proved once.
-    return ambient_error(path, errno_captured);
+    return ambient_error(path, observed.error());
   }
-  if (!S_ISREG(st_mode)) {
-    // EINVAL is explicit. A successful fstat leaves errno untouched, so
-    // errno_captured may be stale and must not be reported here.
+  if (!S_ISREG(observed->st_mode)) {
+    // EINVAL is explicit. A successful fstat leaves errno untouched, which is
+    // why the success arm carries no errno at all: it is unrepresentable here.
     return containment_error(path, EINVAL);
   }
   return std::nullopt;
@@ -848,16 +847,17 @@ expected<ReadHandle> open_read_no_follow(const fs::path& path) {
     return std::unexpected(file.error());
   }
   struct stat status {};
-  const int fstat_result = ::fstat(file->get(), &status);
-  const int captured = errno;
-  if (auto outcome =
-          internal::fstat_outcome(path, fstat_result, status.st_mode, captured);
+  const auto observed =
+      (::fstat(file->get(), &status) == 0)
+          ? internal::FstatObservation{status}
+          : internal::FstatObservation{std::unexpect, errno};
+  if (auto outcome = internal::fstat_outcome(path, observed);
       outcome.has_value()) {
     return std::unexpected(std::move(*outcome));
   }
   auto state = std::make_shared<ReadHandle::State>();
   state->fd = std::move(*file);
-  state->size = static_cast<std::uint64_t>(status.st_size);
+  state->size = static_cast<std::uint64_t>(observed->st_size);
   return ReadHandle{std::move(state)};
 }
 
