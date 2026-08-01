@@ -5,8 +5,11 @@
 // NOT part of the secure_io public contract. The only consumers are
 // secure_io.cpp itself and the adapter install unit tests. It lives here
 // rather than in secure_io.hpp so that <sys/stat.h> and a POSIX struct stat
-// are not pulled into the four adapter translation units that include the
-// public header and never call this helper.
+// are not pulled into translation units that include the public header and
+// never call this helper. Some of those already have the type transitively
+// via core/support/portability.hpp; the ones that do not are the cost, and
+// their number moves with the includer set, so it is deliberately not stated
+// here.
 
 #include <expected>
 #include <filesystem>

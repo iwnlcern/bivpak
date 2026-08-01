@@ -857,7 +857,13 @@ expected<ReadHandle> open_read_no_follow(const fs::path& path) {
   }
   auto state = std::make_shared<ReadHandle::State>();
   state->fd = std::move(*file);
-  state->size = static_cast<std::uint64_t>(observed->st_size);
+  // .value(), not operator->. Reaching this line already requires the value --
+  // fstat_outcome returns an engaged optional for every valueless observation
+  // and the early return above intercepts them all. But that proof lives in
+  // another function, earlier in this file, and nothing enforces it. If it ever
+  // breaks: .value() throws, operator-> is undefined, and the zero-initialised
+  // status would silently stream an empty file.
+  state->size = static_cast<std::uint64_t>(observed.value().st_size);
   return ReadHandle{std::move(state)};
 }
 
