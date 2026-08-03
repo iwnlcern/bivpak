@@ -1,3 +1,4 @@
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -220,6 +221,38 @@ TEST_CASE("Codex adapter reads sqlite_home from config and collection honors it"
     return warning ==
            "CodexDbEnrichmentSkipped:" +
                (sqlite_home / "state_5.sqlite").generic_string();
+  }));
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex collect executes database reachability for a FIFO") {
+  // REACHABILITY EXECUTION. Absence-blind as to which arm fired: this asserts
+  // the observed warning and discharges no part of the arm coverage.
+  const auto root = make_tmp("fifo-database-reachability");
+  const auto database = root / "state_5.sqlite";
+  write_rollout(root, "019faaaa-bbbb-7ccc-8ddd-eeeeeeee6612",
+                "2026-07-06T01:00:00Z", "fifo-database");
+  REQUIRE(::mkfifo(database.c_str(), 0600) == 0);
+  const std::vector<biv::adapters::Store> stores{
+      biv::adapters::Store{
+          .root = root,
+          .locators = {biv::adapters::StoreLocator{
+              .kind = "sessions_root", .path = root / "sessions"}},
+          .tier = biv::adapters::DiscoveryTier::env,
+          .archived = false}};
+
+  // Test-owned deadline: independent of production flags, and expiry fails
+  // the test process instead of leaving the blocking open to hang the runner.
+  REQUIRE(::alarm(5) == 0U);
+  const auto report =
+      biv::adapters::codex_adapter().collect("/ws/proj", stores);
+  const auto deadline_remaining = ::alarm(0);
+  REQUIRE(deadline_remaining > 0U);
+
+  REQUIRE(report.has_value());
+  CHECK(std::ranges::any_of(report->warnings, [&](const std::string& warning) {
+    return warning ==
+           "CodexDbEnrichmentSkipped:" + database.generic_string();
   }));
   fs::remove_all(root);
 }

@@ -805,12 +805,10 @@ TEST_CASE("Claude install refuses nonzero rewrite verification before writing") 
   CHECK(result->sessions.front().outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
   CHECK(result->sessions.front().verify.origin_path_hits > 0);
-  // R-3.45's cross-family control is fixture-owed and lives in test_sessions.cpp
-  // against constructed rows (RESIDUALS.md:799, 030410:70-72). The CURRENT producer
-  // pair is already pinned exactly at :865-868 here and at
-  // test_adapter_codex_install.cpp:688-691 — reason="containment_refused",
-  // detail="rewrite_verify_failed". That is current-producer evidence and is NOT
-  // R-3.45 discharge; the two are different evidence claims.
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"rewrite_verify_failed"});
   CHECK(result->sessions.front().verify.origin_id_hits > 0);
   CHECK(result->id_map.empty());
   CHECK(result->activation.empty());
@@ -1454,6 +1452,55 @@ TEST_CASE("fstat_outcome disengages for a successful fstat over a regular file")
                   "/store/file.jsonl",
                   biv::adapters::secure_io::internal::FstatObservation{reg_status})
                   .has_value());
+}
+
+TEST_CASE("open_read_no_follow refuses a directory through real fstat containment") {
+  const auto root = make_tmp("open-read-directory");
+  const auto directory = root / "directory";
+  fs::create_directory(directory);
+
+  const auto result =
+      biv::adapters::secure_io::open_read_no_follow(directory);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == EINVAL);
+  fs::remove_all(root);
+}
+
+TEST_CASE("open_read_no_follow refuses a FIFO through real fstat containment") {
+  const auto root = make_tmp("open-read-fifo");
+  const auto fifo = root / "fifo";
+  REQUIRE(::mkfifo(fifo.c_str(), 0600) == 0);
+
+  // Test-owned deadline: independent of production flags, and expiry fails
+  // the test process instead of leaving the blocking open to hang the runner.
+  REQUIRE(::alarm(5) == 0U);
+  const auto result = biv::adapters::secure_io::open_read_no_follow(fifo);
+  const auto deadline_remaining = ::alarm(0);
+  REQUIRE(deadline_remaining > 0U);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == EINVAL);
+  fs::remove_all(root);
+}
+
+TEST_CASE("open_read_no_follow refuses a final symlink before fstat") {
+  const auto root = make_tmp("open-read-symlink");
+  const auto symlink = root / "symlink";
+  fs::create_symlink(root / "missing-target", symlink);
+
+  const auto result =
+      biv::adapters::secure_io::open_read_no_follow(symlink);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == ELOOP);
+  fs::remove_all(root);
 }
 
 TEST_CASE("Claude preserves a capability refusal through a containment publish fact") {
