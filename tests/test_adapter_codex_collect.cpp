@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <csignal>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -20,6 +21,47 @@
 namespace {
 
 namespace fs = std::filesystem;
+
+volatile std::sig_atomic_t fifo_deadline_expired = 0;
+
+void mark_fifo_deadline_expired(int) noexcept { fifo_deadline_expired = 1; }
+
+class ScopedFifoDeadline {
+ public:
+  ScopedFifoDeadline() {
+    fifo_deadline_expired = 0;
+    struct sigaction action {};
+    action.sa_handler = mark_fifo_deadline_expired;
+    REQUIRE(sigemptyset(&action.sa_mask) == 0);
+    action.sa_flags = 0;
+    REQUIRE(::sigaction(SIGALRM, &action, &previous_action_) == 0);
+  }
+
+  ScopedFifoDeadline(const ScopedFifoDeadline&) = delete;
+  ScopedFifoDeadline& operator=(const ScopedFifoDeadline&) = delete;
+
+  ~ScopedFifoDeadline() {
+    cancel();
+    (void)::sigaction(SIGALRM, &previous_action_, nullptr);
+  }
+
+  void arm(const unsigned int seconds) {
+    const auto previous_alarm = ::alarm(seconds);
+    armed_ = true;
+    REQUIRE(previous_alarm == 0U);
+  }
+
+  void cancel() noexcept {
+    if (armed_) {
+      (void)::alarm(0);
+      armed_ = false;
+    }
+  }
+
+ private:
+  struct sigaction previous_action_ {};
+  bool armed_{false};
+};
 
 constexpr std::string_view kParent = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001";
 constexpr std::string_view kChild = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0002";
@@ -226,8 +268,10 @@ TEST_CASE("Codex adapter reads sqlite_home from config and collection honors it"
 }
 
 TEST_CASE("Codex collect executes database reachability for a FIFO") {
-  // REACHABILITY EXECUTION. Absence-blind as to which arm fired: this asserts
-  // the observed warning and discharges no part of the arm coverage.
+  // REACHABILITY EXECUTION. Absence-blind as to which arm fired: a directory,
+  // FIFO, symlink, corrupt-but-regular file, and permission failure all emit the
+  // same warning. This asserts an OBSERVED warning, never a derived state, and
+  // discharges no part of the arm coverage.
   const auto root = make_tmp("fifo-database-reachability");
   const auto database = root / "state_5.sqlite";
   write_rollout(root, "019faaaa-bbbb-7ccc-8ddd-eeeeeeee6612",
@@ -241,13 +285,14 @@ TEST_CASE("Codex collect executes database reachability for a FIFO") {
           .tier = biv::adapters::DiscoveryTier::env,
           .archived = false}};
 
-  // Test-owned deadline: independent of production flags, and expiry fails
-  // the test process instead of leaving the blocking open to hang the runner.
-  REQUIRE(::alarm(5) == 0U);
-  const auto report =
-      biv::adapters::codex_adapter().collect("/ws/proj", stores);
-  const auto deadline_remaining = ::alarm(0);
-  REQUIRE(deadline_remaining > 0U);
+  const auto report = [&] {
+    ScopedFifoDeadline deadline;
+    deadline.arm(5);
+    auto guarded_report = biv::adapters::codex_adapter().collect("/ws/proj", stores);
+    deadline.cancel();
+    REQUIRE(fifo_deadline_expired == 0);
+    return guarded_report;
+  }();
 
   REQUIRE(report.has_value());
   CHECK(std::ranges::any_of(report->warnings, [&](const std::string& warning) {

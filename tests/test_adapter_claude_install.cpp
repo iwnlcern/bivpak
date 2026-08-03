@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstddef>
+#include <csignal>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -26,6 +27,47 @@
 namespace {
 
 namespace fs = std::filesystem;
+
+volatile std::sig_atomic_t fifo_deadline_expired = 0;
+
+void mark_fifo_deadline_expired(int) noexcept { fifo_deadline_expired = 1; }
+
+class ScopedFifoDeadline {
+ public:
+  ScopedFifoDeadline() {
+    fifo_deadline_expired = 0;
+    struct sigaction action {};
+    action.sa_handler = mark_fifo_deadline_expired;
+    REQUIRE(sigemptyset(&action.sa_mask) == 0);
+    action.sa_flags = 0;
+    REQUIRE(::sigaction(SIGALRM, &action, &previous_action_) == 0);
+  }
+
+  ScopedFifoDeadline(const ScopedFifoDeadline&) = delete;
+  ScopedFifoDeadline& operator=(const ScopedFifoDeadline&) = delete;
+
+  ~ScopedFifoDeadline() {
+    cancel();
+    (void)::sigaction(SIGALRM, &previous_action_, nullptr);
+  }
+
+  void arm(const unsigned int seconds) {
+    const auto previous_alarm = ::alarm(seconds);
+    armed_ = true;
+    REQUIRE(previous_alarm == 0U);
+  }
+
+  void cancel() noexcept {
+    if (armed_) {
+      (void)::alarm(0);
+      armed_ = false;
+    }
+  }
+
+ private:
+  struct sigaction previous_action_ {};
+  bool armed_{false};
+};
 
 constexpr std::string_view kOriginalSession = "aaaaaaaa-1111-4000-8000-000000000001";
 constexpr std::string_view kBridgeSession = "bbbb-1111-4000-8000-000000000001";
@@ -1474,12 +1516,14 @@ TEST_CASE("open_read_no_follow refuses a FIFO through real fstat containment") {
   const auto fifo = root / "fifo";
   REQUIRE(::mkfifo(fifo.c_str(), 0600) == 0);
 
-  // Test-owned deadline: independent of production flags, and expiry fails
-  // the test process instead of leaving the blocking open to hang the runner.
-  REQUIRE(::alarm(5) == 0U);
-  const auto result = biv::adapters::secure_io::open_read_no_follow(fifo);
-  const auto deadline_remaining = ::alarm(0);
-  REQUIRE(deadline_remaining > 0U);
+  const auto result = [&] {
+    ScopedFifoDeadline deadline;
+    deadline.arm(5);
+    auto guarded_result = biv::adapters::secure_io::open_read_no_follow(fifo);
+    deadline.cancel();
+    REQUIRE(fifo_deadline_expired == 0);
+    return guarded_result;
+  }();
 
   REQUIRE_FALSE(result.has_value());
   CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
