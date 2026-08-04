@@ -302,6 +302,10 @@ void write_sessions(json::Writer& writer, const OpenSessionsReport& report) {
         writer.key("reason");
         writer.value_string(*row.reason);
       }
+      if (row.detail.has_value()) {
+        writer.key("detail");
+        writer.value_string(*row.detail);
+      }
       writer.key("host_version_unverified");
       writer.value_bool(row.host_version_unverified);
       writer.key("activation_suppressed");

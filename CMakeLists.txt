@@ -122,10 +122,12 @@ target_sources(biv_tests PRIVATE tests/test_probe.cpp)
 target_link_libraries(biv_tests PRIVATE
   biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
+set(BIV_GENERATED_ENVELOPE "${CMAKE_CURRENT_BINARY_DIR}/generated-detail-envelope.v1.json")
 target_compile_definitions(biv_tests PRIVATE
   BIV_PROBE_TESTING=1
   BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
-  BIV_BINARY_PATH="$<TARGET_FILE:biv>")
+  BIV_BINARY_PATH="$<TARGET_FILE:biv>"
+  BIV_GENERATED_ENVELOPE_PATH="${BIV_GENERATED_ENVELOPE}")
 add_test(NAME biv_tests COMMAND biv_tests)
 add_test(NAME open_no_rewrite_gate
   COMMAND ${CMAKE_SOURCE_DIR}/tests/check_open_no_rewrite.sh
@@ -133,6 +135,13 @@ add_test(NAME open_no_rewrite_gate
 add_test(NAME core_adapter_purity_selftest
   COMMAND python3 ${CMAKE_SOURCE_DIR}/harness/ci/check_core_adapter_purity.py
           --self-test)
+
+add_test(NAME errno_table_gate
+  COMMAND ${CMAKE_COMMAND} -E env
+          CXX=${CMAKE_CXX_COMPILER}
+          CXXSTD=-std=c++${CMAKE_CXX_STANDARD}
+          ${CMAKE_SOURCE_DIR}/tests/check_errno_table.sh
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 if(BIV_ENABLE_FUZZ)
   execute_process(
@@ -208,3 +217,28 @@ Draft202012Validator.check_schema(schema)
 Draft202012Validator(schema).validate(fixture)"
           "${CMAKE_SOURCE_DIR}/schemas/biv-json-envelope.v1.schema.json"
           "${CMAKE_SOURCE_DIR}/tests/fixtures/probe-envelope-v1.json")
+
+add_test(
+  NAME generated_envelope_conforms
+  COMMAND "${BIVHARNESS_PYTHON}" -c
+          "import json, sys
+from jsonschema import Draft202012Validator
+schema = json.load(open(sys.argv[1], encoding='utf-8'))
+document = json.load(open(sys.argv[2], encoding='utf-8'))
+Draft202012Validator.check_schema(schema)
+Draft202012Validator(schema).validate(document)"
+          "${CMAKE_SOURCE_DIR}/schemas/biv-json-envelope.v1.schema.json"
+          "${BIV_GENERATED_ENVELOPE}")
+
+add_test(NAME generated_envelope_reset
+  COMMAND "${CMAKE_COMMAND}" -E rm -f "${BIV_GENERATED_ENVELOPE}")
+set_tests_properties(generated_envelope_reset PROPERTIES
+  FIXTURES_SETUP generated_envelope_clean
+  RESOURCE_LOCK generated_envelope_artifact)
+set_tests_properties(biv_tests PROPERTIES
+  FIXTURES_SETUP generated_envelope
+  FIXTURES_REQUIRED generated_envelope_clean
+  RESOURCE_LOCK generated_envelope_artifact)
+set_tests_properties(generated_envelope_conforms PROPERTIES
+  FIXTURES_REQUIRED generated_envelope
+  RESOURCE_LOCK generated_envelope_artifact)

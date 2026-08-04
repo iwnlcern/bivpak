@@ -1,7 +1,9 @@
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
 #include <chrono>
+#include <csignal>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -19,6 +21,56 @@
 namespace {
 
 namespace fs = std::filesystem;
+
+volatile std::sig_atomic_t fifo_deadline_expired = 0;
+
+void mark_fifo_deadline_expired(int) noexcept { fifo_deadline_expired = 1; }
+
+// An interrupted openat has no retry above it in the component loop, so a
+// wedged FIFO open becomes an attributed per-case failure rather than process
+// death or a CI timeout. The committed control proves the reporting half only.
+class ScopedFifoDeadline {
+ public:
+  ScopedFifoDeadline() {
+    fifo_deadline_expired = 0;
+    struct sigaction action {};
+    action.sa_handler = mark_fifo_deadline_expired;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    REQUIRE(::sigaction(SIGALRM, &action, &previous_action_) == 0);
+  }
+
+  ScopedFifoDeadline(const ScopedFifoDeadline&) = delete;
+  ScopedFifoDeadline& operator=(const ScopedFifoDeadline&) = delete;
+
+  ~ScopedFifoDeadline() {
+    cancel();
+    (void)::sigaction(SIGALRM, &previous_action_, nullptr);
+  }
+
+  void arm(const unsigned int seconds) {
+    const auto previous_alarm = ::alarm(seconds);
+    armed_ = true;
+    REQUIRE(previous_alarm == 0U);
+  }
+
+  void cancel() noexcept {
+    if (armed_) {
+      (void)::alarm(0);
+      armed_ = false;
+    }
+  }
+
+ private:
+  struct sigaction previous_action_ {};
+  bool armed_{false};
+};
+
+TEST_CASE("Codex FIFO deadline control reports synchronous SIGALRM delivery") {
+  ScopedFifoDeadline deadline;
+  REQUIRE(::raise(SIGALRM) == 0);
+  REQUIRE(fifo_deadline_expired == 1);
+}
 
 constexpr std::string_view kParent = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001";
 constexpr std::string_view kChild = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0002";
@@ -220,6 +272,41 @@ TEST_CASE("Codex adapter reads sqlite_home from config and collection honors it"
     return warning ==
            "CodexDbEnrichmentSkipped:" +
                (sqlite_home / "state_5.sqlite").generic_string();
+  }));
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex collect executes database reachability for a FIFO") {
+  // REACHABILITY EXECUTION. Absence-blind as to which arm fired: a directory,
+  // FIFO, symlink, corrupt-but-regular file, and permission failure all emit the
+  // same warning. This asserts an OBSERVED warning, never a derived state, and
+  // discharges no part of the arm coverage.
+  const auto root = make_tmp("fifo-database-reachability");
+  const auto database = root / "state_5.sqlite";
+  write_rollout(root, "019faaaa-bbbb-7ccc-8ddd-eeeeeeee6612",
+                "2026-07-06T01:00:00Z", "fifo-database");
+  REQUIRE(::mkfifo(database.c_str(), 0600) == 0);
+  const std::vector<biv::adapters::Store> stores{
+      biv::adapters::Store{
+          .root = root,
+          .locators = {biv::adapters::StoreLocator{
+              .kind = "sessions_root", .path = root / "sessions"}},
+          .tier = biv::adapters::DiscoveryTier::env,
+          .archived = false}};
+
+  const auto report = [&] {
+    ScopedFifoDeadline deadline;
+    deadline.arm(5);
+    auto guarded_report = biv::adapters::codex_adapter().collect("/ws/proj", stores);
+    deadline.cancel();
+    REQUIRE(fifo_deadline_expired == 0);
+    return guarded_report;
+  }();
+
+  REQUIRE(report.has_value());
+  CHECK(std::ranges::any_of(report->warnings, [&](const std::string& warning) {
+    return warning ==
+           "CodexDbEnrichmentSkipped:" + database.generic_string();
   }));
   fs::remove_all(root);
 }

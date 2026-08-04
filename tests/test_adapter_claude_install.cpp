@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <cerrno>
 #include <cstddef>
+#include <csignal>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -18,11 +20,63 @@
 #include "adapters/claude_code/claude_code.hpp"
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
+#include "adapters/secure_io_fstat_seam.hpp"
+#include "core/open/sessions.hpp"
 #include "core/support/probe.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
+
+volatile std::sig_atomic_t fifo_deadline_expired = 0;
+
+void mark_fifo_deadline_expired(int) noexcept { fifo_deadline_expired = 1; }
+
+// An interrupted openat has no retry above it in the component loop, so a
+// wedged FIFO open becomes an attributed per-case failure rather than process
+// death or a CI timeout. The committed control proves the reporting half only.
+class ScopedFifoDeadline {
+ public:
+  ScopedFifoDeadline() {
+    fifo_deadline_expired = 0;
+    struct sigaction action {};
+    action.sa_handler = mark_fifo_deadline_expired;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    REQUIRE(::sigaction(SIGALRM, &action, &previous_action_) == 0);
+  }
+
+  ScopedFifoDeadline(const ScopedFifoDeadline&) = delete;
+  ScopedFifoDeadline& operator=(const ScopedFifoDeadline&) = delete;
+
+  ~ScopedFifoDeadline() {
+    cancel();
+    (void)::sigaction(SIGALRM, &previous_action_, nullptr);
+  }
+
+  void arm(const unsigned int seconds) {
+    const auto previous_alarm = ::alarm(seconds);
+    armed_ = true;
+    REQUIRE(previous_alarm == 0U);
+  }
+
+  void cancel() noexcept {
+    if (armed_) {
+      (void)::alarm(0);
+      armed_ = false;
+    }
+  }
+
+ private:
+  struct sigaction previous_action_ {};
+  bool armed_{false};
+};
+
+TEST_CASE("Claude FIFO deadline control reports synchronous SIGALRM delivery") {
+  ScopedFifoDeadline deadline;
+  REQUIRE(::raise(SIGALRM) == 0);
+  REQUIRE(fifo_deadline_expired == 1);
+}
 
 constexpr std::string_view kOriginalSession = "aaaaaaaa-1111-4000-8000-000000000001";
 constexpr std::string_view kBridgeSession = "bbbb-1111-4000-8000-000000000001";
@@ -802,6 +856,10 @@ TEST_CASE("Claude install refuses nonzero rewrite verification before writing") 
   CHECK(result->sessions.front().outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
   CHECK(result->sessions.front().verify.origin_path_hits > 0);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"rewrite_verify_failed"});
   CHECK(result->sessions.front().verify.origin_id_hits > 0);
   CHECK(result->id_map.empty());
   CHECK(result->activation.empty());
@@ -1121,4 +1179,506 @@ TEST_CASE("Claude bridge-session E-1 slot preserves bridgeSessionId", "[!mayfail
 
   CHECK(rewritten.line.find("new-session") != std::string::npos);
   CHECK(rewritten.line.find(kBridgeSession) != std::string::npos);
+}
+
+TEST_CASE("errno_symbol converts representative errnos to exact POSIX spellings") {
+  using biv::adapters::secure_io::errno_symbol;
+  CHECK(errno_symbol(ENOENT) == std::optional<std::string_view>{"ENOENT"});
+  CHECK(errno_symbol(EACCES) == std::optional<std::string_view>{"EACCES"});
+  CHECK(errno_symbol(EEXIST) == std::optional<std::string_view>{"EEXIST"});
+  CHECK(errno_symbol(ENOSPC) == std::optional<std::string_view>{"ENOSPC"});
+  CHECK(errno_symbol(EMFILE) == std::optional<std::string_view>{"EMFILE"});
+  CHECK(errno_symbol(ELOOP) == std::optional<std::string_view>{"ELOOP"});
+  CHECK(errno_symbol(ENOTDIR) == std::optional<std::string_view>{"ENOTDIR"});
+  CHECK(errno_symbol(EINVAL) == std::optional<std::string_view>{"EINVAL"});
+  // Target-specific values are IN the namespace under Reading B: a network or
+  // FUSE mount can return these from the very syscalls C1 classifies. EACH IS
+  // GUARDED because the macOS job compiles this file and Darwin defines only
+  // some of them -- it reportedly defines EHOSTDOWN at its full feature level
+  // and neither EREMOTEIO nor EUCLEAN. The guards are per-name for that reason;
+  // do not collapse them.
+#ifdef EREMOTEIO
+  CHECK(errno_symbol(EREMOTEIO) == std::optional<std::string_view>{"EREMOTEIO"});
+#endif
+#ifdef EUCLEAN
+  CHECK(errno_symbol(EUCLEAN) == std::optional<std::string_view>{"EUCLEAN"});
+#endif
+#ifdef EHOSTDOWN
+  CHECK(errno_symbol(EHOSTDOWN) == std::optional<std::string_view>{"EHOSTDOWN"});
+#endif
+}
+
+TEST_CASE("errno_symbol resolves each equal-valued group by the owner's rule") {
+  // m-3 032747: EVERY multi-name group must be pinned; the canonical name
+  // comes from tests/errno_pins.txt, keyed by GROUP SIGNATURE (never by
+  // integer -- integers name opposite groups on different targets).
+  // m-3 020759 requires the test guards to MIRROR the
+  // production guards, and mirroring means THE SAME PREDICATE -- not a
+  // logically equivalent one. rev3 reached the distinct arm through a bare
+  // `#elif defined(A) && defined(B)`, which is equivalent after the preceding
+  // branch but is NOT the production predicate the owner made contract
+  // surface. Each pair below therefore states the production `!=` predicate
+  // verbatim, and expresses the equal case as its own `==` block.
+  using biv::adapters::secure_io::errno_symbol;
+
+  // --- group 11 on Linux: multiple-POSIX, pinned EAGAIN -------------------
+#if defined(EAGAIN) && defined(EWOULDBLOCK) && (EAGAIN) != (EWOULDBLOCK)
+  // DISTINCT: two singleton groups, each its own spelling.
+  CHECK(errno_symbol(EWOULDBLOCK) == std::optional<std::string_view>{"EWOULDBLOCK"});
+#endif
+#if defined(EAGAIN) && defined(EWOULDBLOCK) && (EAGAIN) == (EWOULDBLOCK)
+  // EQUAL: one group, the pin wins for the shared value.
+  CHECK(errno_symbol(EWOULDBLOCK) == std::optional<std::string_view>{"EAGAIN"});
+#endif
+#ifdef EAGAIN
+  CHECK(errno_symbol(EAGAIN) == std::optional<std::string_view>{"EAGAIN"});
+#endif
+
+  // --- group 35 on Linux: pinned EDEADLK ------------------------------
+#if defined(EDEADLK) && defined(EDEADLOCK) && (EDEADLK) != (EDEADLOCK)
+  CHECK(errno_symbol(EDEADLOCK) == std::optional<std::string_view>{"EDEADLOCK"});
+#endif
+#if defined(EDEADLK) && defined(EDEADLOCK) && (EDEADLK) == (EDEADLOCK)
+  CHECK(errno_symbol(EDEADLOCK) == std::optional<std::string_view>{"EDEADLK"});
+#endif
+#ifdef EDEADLK
+  // EDEADLOCK is reportedly undefined on Darwin; nothing is owed for it, and
+  // this assertion still holds there.
+  CHECK(errno_symbol(EDEADLK) == std::optional<std::string_view>{"EDEADLK"});
+#endif
+
+  // --- group 74 on Linux: pinned EBADMSG ------------------------------
+#if defined(EBADMSG) && defined(EFSBADCRC) && (EBADMSG) != (EFSBADCRC)
+  CHECK(errno_symbol(EFSBADCRC) == std::optional<std::string_view>{"EFSBADCRC"});
+#endif
+#if defined(EBADMSG) && defined(EFSBADCRC) && (EBADMSG) == (EFSBADCRC)
+  CHECK(errno_symbol(EFSBADCRC) == std::optional<std::string_view>{"EBADMSG"});
+#endif
+#ifdef EBADMSG
+  CHECK(errno_symbol(EBADMSG) == std::optional<std::string_view>{"EBADMSG"});
+#endif
+
+  // --- group 95 on Linux: multiple-POSIX, pinned ENOTSUP ------------------
+#if defined(ENOTSUP) && defined(EOPNOTSUPP) && (ENOTSUP) != (EOPNOTSUPP)
+  // THE DARWIN ARM. ENOTSUP and EOPNOTSUPP are DISTINCT values under
+  // __DARWIN_UNIX03. EOPNOTSUPP is its own singleton group: emitting "ENOTSUP" for it
+  // would be a FALSE SYMBOL and emitting nothing would be the forbidden
+  // omission. This assertion is the one that fails if the distinct-value arm
+  // is wrong, absent, or never compiled.
+  CHECK(errno_symbol(EOPNOTSUPP) == std::optional<std::string_view>{"EOPNOTSUPP"});
+#endif
+#if defined(ENOTSUP) && defined(EOPNOTSUPP) && (ENOTSUP) == (EOPNOTSUPP)
+  CHECK(errno_symbol(EOPNOTSUPP) == std::optional<std::string_view>{"ENOTSUP"});
+#endif
+#ifdef ENOTSUP
+  CHECK(errno_symbol(ENOTSUP) == std::optional<std::string_view>{"ENOTSUP"});
+#endif
+
+  // --- group 117 on Linux: zero POSIX members, pinned EUCLEAN -------------
+#if defined(EUCLEAN) && defined(EFSCORRUPTED) && (EUCLEAN) != (EFSCORRUPTED)
+  CHECK(errno_symbol(EFSCORRUPTED) == std::optional<std::string_view>{"EFSCORRUPTED"});
+#endif
+#if defined(EUCLEAN) && defined(EFSCORRUPTED) && (EUCLEAN) == (EFSCORRUPTED)
+  CHECK(errno_symbol(EFSCORRUPTED) == std::optional<std::string_view>{"EUCLEAN"});
+#endif
+#ifdef EUCLEAN
+  CHECK(errno_symbol(EUCLEAN) == std::optional<std::string_view>{"EUCLEAN"});
+#endif
+
+  // --- Darwin-only group {ENOTCAPABLE, ELAST}: zero POSIX members, pinned
+  // ENOTCAPABLE ----------------------------------------------------------
+  // ELAST is a MARKER naming the highest errno value, so it can never win a
+  // tie-break. It stays a namespace member no user will ever see, and
+  // detail: "ELAST" can therefore never be emitted.
+#if defined(ENOTCAPABLE) && defined(ELAST) && (ENOTCAPABLE) == (ELAST)
+  CHECK(errno_symbol(ELAST) == std::optional<std::string_view>{"ENOTCAPABLE"});
+#endif
+#ifdef ENOTCAPABLE
+  CHECK(errno_symbol(ENOTCAPABLE) == std::optional<std::string_view>{"ENOTCAPABLE"});
+#endif
+}
+
+TEST_CASE("errno_symbol disengages for zero and never yields an empty string") {
+  // The presence rule (m-3 010403): present iff err_no is a NONZERO MEMBER of
+  // the namespace. Absence covers zero truthfully. An ENGAGED optional holding
+  // "" is the third state no contract admits and must be unreachable.
+  using biv::adapters::secure_io::errno_symbol;
+  CHECK_FALSE(errno_symbol(0).has_value());
+  // TARGET-INDEPENDENT names only. rev3 had EUCLEAN in this list while
+  // guarding it thirty lines above -- the instance was fixed and the class was
+  // then asserted, and the Darwin build would have failed here. Any
+  // target-specific value belongs in its own guarded block, never in an
+  // unconditional initializer list.
+  for (const int value : {ENOENT, EACCES, ENOSPC, EMFILE, EROFS}) {
+    const auto symbol = errno_symbol(value);
+    REQUIRE(symbol.has_value());
+    CHECK_FALSE(symbol->empty());
+  }
+#ifdef EUCLEAN
+  {
+    const auto symbol = errno_symbol(EUCLEAN);
+    REQUIRE(symbol.has_value());
+    CHECK_FALSE(symbol->empty());
+  }
+#endif
+}
+
+TEST_CASE("ambient_error binds all five BivError fields with an empty detail") {
+  const auto error =
+      biv::adapters::secure_io::internal::ambient_error("/store/root", ENOSPC);
+
+  CHECK(error.kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(error.path == "/store/root");
+  CHECK(error.detail.empty());
+  CHECK(error.err_no == ENOSPC);
+  CHECK(error.facts.empty());
+}
+
+TEST_CASE("ambient_error never emits a detail install_failure_reason can retype") {
+  for (const int value : {ENOENT, EACCES, ENOSPC, EMFILE, EROFS}) {
+    const auto error =
+        biv::adapters::secure_io::internal::ambient_error("/store/root", value);
+    CHECK(error.detail.empty());
+    CHECK(biv::core_sessions::install_failure_reason(error) == "error");
+  }
+}
+
+TEST_CASE("classify keeps containment only where the errno is the I7 signal") {
+  using biv::adapters::secure_io::internal::classify;
+  using biv::adapters::secure_io::internal::SiteClass;
+  using biv::adapters::secure_io::internal::SiteKind;
+
+  // Directory-walk opens (:98, :149, :194): a symlink or non-directory
+  // interposed in an O_NOFOLLOW|O_DIRECTORY walk IS the containment fact.
+  CHECK(classify(SiteKind::directory_walk, ELOOP) == SiteClass::containment);
+  CHECK(classify(SiteKind::directory_walk, ENOTDIR) == SiteClass::containment);
+  CHECK(classify(SiteKind::directory_walk, ENOENT) == SiteClass::ambient);
+  CHECK(classify(SiteKind::directory_walk, EACCES) == SiteClass::ambient);
+  CHECK(classify(SiteKind::directory_walk, EMFILE) == SiteClass::ambient);
+  CHECK(classify(SiteKind::directory_walk, ENOSPC) == SiteClass::ambient);
+
+  // Intermediate mkdirat (:181): reached only after the SAME component was
+  // observed ENOENT, so EEXIST means a node appeared in the checked path
+  // between the two operations -- the intermediate-path analogue of :358.
+  CHECK(classify(SiteKind::intermediate_create, EEXIST) == SiteClass::containment);
+  CHECK(classify(SiteKind::intermediate_create, EACCES) == SiteClass::ambient);
+  CHECK(classify(SiteKind::intermediate_create, ENOSPC) == SiteClass::ambient);
+  CHECK(classify(SiteKind::intermediate_create, EROFS) == SiteClass::ambient);
+  CHECK(classify(SiteKind::intermediate_create, ELOOP) == SiteClass::ambient);
+
+  // O_EXCL temporary creation (:342): retry-exhausted EEXIST stays containment.
+  CHECK(classify(SiteKind::temporary_create, EEXIST) == SiteClass::containment);
+  CHECK(classify(SiteKind::temporary_create, EACCES) == SiteClass::ambient);
+  CHECK(classify(SiteKind::temporary_create, ENOSPC) == SiteClass::ambient);
+
+  // linkat publish (:358): the canonical CB4-1 no-replace race.
+  CHECK(classify(SiteKind::publish_link, EEXIST) == SiteClass::containment);
+  CHECK(classify(SiteKind::publish_link, ENOSPC) == SiteClass::ambient);
+  CHECK(classify(SiteKind::publish_link, EMLINK) == SiteClass::ambient);
+  CHECK(classify(SiteKind::publish_link, EXDEV) == SiteClass::ambient);
+}
+
+TEST_CASE("classify is pure and total over every site kind") {
+  using biv::adapters::secure_io::internal::classify;
+  using biv::adapters::secure_io::internal::SiteClass;
+  using biv::adapters::secure_io::internal::SiteKind;
+
+  for (const auto kind : {SiteKind::directory_walk, SiteKind::intermediate_create,
+                          SiteKind::temporary_create, SiteKind::publish_link}) {
+    for (int value = 1; value < 200; ++value) {
+      const auto first = classify(kind, value);
+      CHECK(classify(kind, value) == first);
+      CHECK((first == SiteClass::containment || first == SiteClass::ambient));
+    }
+  }
+}
+
+TEST_CASE("secure install reports an absent store root as ambient, not containment") {
+  const auto root = make_tmp("absent-root");
+  const auto store = root / "never-created";
+  const auto payload = bytes("payload\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> writes{
+      {.relative_path = "sessions/only.jsonl", .bytes = payload}};
+
+  const auto result = biv::adapters::secure_io::write_batch_no_replace(store, writes);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail.empty());
+  CHECK(result.error().err_no == ENOENT);
+  CHECK(biv::core_sessions::install_failure_reason(result.error()) == "error");
+  fs::remove_all(root);
+}
+
+TEST_CASE("secure install refuses a duplicate publish target and rolls back completely") {
+  const auto root = make_tmp("duplicate-publish");
+  const auto store = root / "store";
+  fs::create_directories(store);
+  // NOTE: "newdir" is deliberately NOT created. The primitive must mkdirat it,
+  // pushing a CreatedDirectory, so the reverse-walk rollback leg has work to do.
+  const auto first = bytes("first\n");
+  const auto second = bytes("second\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> writes{
+      {.relative_path = "newdir/leaf.jsonl", .bytes = first},
+      {.relative_path = "newdir/leaf.jsonl", .bytes = second}};
+
+  const auto result = biv::adapters::secure_io::write_batch_no_replace(store, writes);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == EEXIST);
+
+  // All three rollback legs, asserted separately.
+  CHECK_FALSE(fs::exists(store / "newdir" / "leaf.jsonl"));
+  CHECK(regular_files(store).empty());
+  CHECK_FALSE(fs::exists(store / "newdir"));
+  fs::remove_all(root);
+}
+
+TEST_CASE("secure install classifies temporary-name exhaustion as containment") {
+  const auto root = make_tmp("temporary-exhaustion");
+  const auto store = root / "store";
+  const auto sessions = store / "sessions";
+  fs::create_directories(sessions);
+  const std::string base =
+      ".bivpak-install-" + std::to_string(::getpid()) + "-0.tmp";
+  // Occupy ALL 1024 candidates for ordinal 0. Occupying only some is rejected:
+  // the loop exits at the first free name and the terminal assertion never runs.
+  for (std::size_t attempt = 0; attempt < 1024U; ++attempt) {
+    const std::string name =
+        attempt == 0U ? base : base + "." + std::to_string(attempt);
+    std::ofstream occupied{sessions / name};
+    occupied << "occupied";
+  }
+  const auto payload = bytes("payload\n");
+  const std::vector<biv::adapters::secure_io::WriteRequest> writes{
+      {.relative_path = "sessions/only.jsonl", .bytes = payload}};
+
+  const auto result = biv::adapters::secure_io::write_batch_no_replace(store, writes);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == EEXIST);
+  CHECK_FALSE(fs::exists(sessions / "only.jsonl"));
+  fs::remove_all(root);
+}
+
+TEST_CASE("fstat_outcome routes a failed fstat to ambient with the captured errno") {
+  const auto outcome = biv::adapters::secure_io::internal::fstat_outcome(
+      "/store/file.jsonl",
+      biv::adapters::secure_io::internal::FstatObservation{std::unexpect, EIO});
+
+  REQUIRE(outcome.has_value());
+  CHECK(outcome->kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(outcome->path == "/store/file.jsonl");
+  CHECK(outcome->detail.empty());
+  CHECK(outcome->err_no == EIO);
+  CHECK(outcome->facts.empty());
+}
+
+TEST_CASE("fstat_outcome routes a non-regular file to containment with explicit EINVAL") {
+  // The stale-errno argument this test used to carry is GONE, and deliberately:
+  // FstatObservation's success arm cannot hold an errno at all, so "succeeded,
+  // and here is a leftover errno" is now unrepresentable rather than merely
+  // forbidden. The rationale and its guard live at the alias (m-2 ruling 20260731-202000).
+  // What this test still proves is the branch itself: a successful fstat over a
+  // NON-REGULAR file yields containment EINVAL, never an ambient errno.
+  struct stat dir_status {};
+  dir_status.st_mode = S_IFDIR | 0755;
+  const auto outcome = biv::adapters::secure_io::internal::fstat_outcome(
+      "/store/dir", biv::adapters::secure_io::internal::FstatObservation{dir_status});
+
+  REQUIRE(outcome.has_value());
+  CHECK(outcome->kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(outcome->path == "/store/dir");
+  CHECK(outcome->detail == "containment_refused");
+  CHECK(outcome->err_no == EINVAL);
+  CHECK(outcome->facts.empty());
+}
+
+TEST_CASE("fstat_outcome disengages for a successful fstat over a regular file") {
+  struct stat reg_status {};
+  reg_status.st_mode = S_IFREG | 0600;
+  CHECK_FALSE(biv::adapters::secure_io::internal::fstat_outcome(
+                  "/store/file.jsonl",
+                  biv::adapters::secure_io::internal::FstatObservation{reg_status})
+                  .has_value());
+}
+
+TEST_CASE("open_read_no_follow refuses a directory through real fstat containment") {
+  const auto root = make_tmp("open-read-directory");
+  const auto directory = root / "directory";
+  fs::create_directory(directory);
+
+  const auto result =
+      biv::adapters::secure_io::open_read_no_follow(directory);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == EINVAL);
+  fs::remove_all(root);
+}
+
+TEST_CASE("open_read_no_follow refuses a FIFO through real fstat containment") {
+  const auto root = make_tmp("open-read-fifo");
+  const auto fifo = root / "fifo";
+  REQUIRE(::mkfifo(fifo.c_str(), 0600) == 0);
+
+  const auto result = [&] {
+    ScopedFifoDeadline deadline;
+    deadline.arm(5);
+    auto guarded_result = biv::adapters::secure_io::open_read_no_follow(fifo);
+    deadline.cancel();
+    REQUIRE(fifo_deadline_expired == 0);
+    return guarded_result;
+  }();
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == EINVAL);
+  fs::remove_all(root);
+}
+
+TEST_CASE("open_read_no_follow refuses a final symlink before fstat") {
+  const auto root = make_tmp("open-read-symlink");
+  const auto symlink = root / "symlink";
+  fs::create_symlink(root / "missing-target", symlink);
+
+  const auto result =
+      biv::adapters::secure_io::open_read_no_follow(symlink);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail == "containment_refused");
+  CHECK(result.error().err_no == ELOOP);
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude preserves a capability refusal through a containment publish fact") {
+  const auto root = make_tmp("cell-c2");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  const auto outside = root / "outside";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  fs::create_directories(outside);
+  fs::create_directory_symlink(outside, store / "projects");
+  auto members = claude_members();
+  auto target = target_for(workspace, store, members);
+
+  auto refused =
+      claude_entry("/ws/proj", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9002");
+  refused.agent_version_at_pack = "unknown";
+  const std::vector<biv::manifest::AgentSessionEntry> records{claude_entry(),
+                                                              refused};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2);
+  const auto row_for = [&](std::string_view id) {
+    return std::ranges::find_if(result->sessions, [&](const auto& row) {
+      return row.image_session_id == id;
+    });
+  };
+  const auto refused_row = row_for(refused.original_session_ids.primary);
+  const auto cohort_row = row_for(claude_entry().original_session_ids.primary);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(cohort_row != result->sessions.end());
+
+  CHECK(refused_row->reason == std::optional<std::string>{"error"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"capability_refused"});
+  CHECK(cohort_row->reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(cohort_row->detail != std::optional<std::string>{"ELOOP"});
+
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(outside).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude preserves a capability refusal through an ambient publish fault") {
+  const auto root = make_tmp("cell-c1");
+  const auto workspace = root / "workspace";
+  const auto store = root / "never-created";
+  fs::create_directories(workspace);
+  auto members = claude_members();
+  auto target = target_for(workspace, store, members);
+
+  auto refused =
+      claude_entry("/ws/proj", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9001");
+  refused.agent_version_at_pack = "unknown";
+  const std::vector<biv::manifest::AgentSessionEntry> records{claude_entry(),
+                                                              refused};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2);
+  const auto row_for = [&](std::string_view id) {
+    return std::ranges::find_if(result->sessions, [&](const auto& row) {
+      return row.image_session_id == id;
+    });
+  };
+  const auto refused_row = row_for(refused.original_session_ids.primary);
+  const auto cohort_row = row_for(claude_entry().original_session_ids.primary);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(cohort_row != result->sessions.end());
+
+  CHECK(refused_row->reason == std::optional<std::string>{"error"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"capability_refused"});
+  CHECK(cohort_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(cohort_row->reason == std::optional<std::string>{"error"});
+  CHECK(cohort_row->detail == std::optional<std::string>{"ENOENT"});
+
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("every installed path embeds that session's freshly minted id") {
+  // AC12 pins the remoteness precondition: ordinary destination naming embeds
+  // the fresh id, so collision requires a UUID collision rather than overlap.
+  const auto root = make_tmp("remoteness-precondition");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{claude_entry()};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->id_map.size() == 1);
+  const auto installed_id = result->id_map.front().installed_session_id;
+  REQUIRE_FALSE(installed_id.empty());
+
+  const auto created = regular_files(store);
+  REQUIRE_FALSE(created.empty());
+  bool saw_main = false;
+  bool saw_subtree = false;
+  for (const auto& path : created) {
+    const auto text = path.generic_string();
+    CHECK(text.find(installed_id) != std::string::npos);
+    if (text.ends_with(installed_id + ".jsonl")) {
+      saw_main = true;
+    }
+    if (text.find("/" + installed_id + "/") != std::string::npos) {
+      saw_subtree = true;
+    }
+  }
+  CHECK(saw_main);
+  CHECK(saw_subtree);
+  fs::remove_all(root);
 }

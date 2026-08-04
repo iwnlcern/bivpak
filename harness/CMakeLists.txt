@@ -76,6 +76,7 @@ if(TARGET biv_tests)
     set_tests_properties(safety-asan-ubsan PROPERTIES
       TIMEOUT 180
       LABELS "safety;sanitizer"
+      RESOURCE_LOCK generated_envelope_artifact
       ENVIRONMENT "ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:detect_leaks=1;UBSAN_OPTIONS=halt_on_error=1:abort_on_error=1:print_stacktrace=1")
   else()
     bivharness_skip_test(safety-asan-ubsan "biv_tests not built with sanitizer flags")

@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cerrno>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -64,6 +66,40 @@ std::vector<std::byte> bytes(std::string_view text) {
   return result;
 }
 
+// R-3.45 / m-3 014309 — the SEALED FUTURE detail domains (Addendum-3 §A3.6 / §A3.4 item 3):
+//   reason "verify-hits" => detail in {origin_path, origin_id, undecodable_line}
+//   ambient reason       => detail is a pinned uppercase POSIX errno symbol
+// NOT YET SHIPPED. Verified at 8a3e8c45: those three literals have ZERO quoted
+// occurrences under src/. Production today emits reason="verify-hits" with
+// detail="rewrite_verify_failed" (adapters/claude_code/install.cpp:582-583 ->
+// core/open/sessions.cpp:309 verbatim, :318 relabels the reason).
+// These predicates therefore describe the FUTURE domain and are exercised ONLY
+// against hand-constructed rows. They observe no producer. R-3.45 is fixture-owed
+// and "assertable only in fixtures" (RESIDUALS.md:799), which is why that is enough.
+bool is_errno_family(const std::optional<std::string>& detail) {
+  if (!detail || detail->empty() || detail->front() != 'E') {
+    return false;
+  }
+  return std::ranges::all_of(*detail, [](unsigned char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+  });
+}
+
+bool is_verify_family(const std::optional<std::string>& detail) {
+  return detail == std::optional<std::string>{"origin_path"} ||
+         detail == std::optional<std::string>{"origin_id"} ||
+         detail == std::optional<std::string>{"undecodable_line"};
+}
+
+// The control. True when a row pairs the two families illegally.
+bool violates_cross_family(const biv::core_sessions::SessionRowReport& row) {
+  const bool verify_reason = row.reason == std::optional<std::string>{"verify-hits"};
+  if (verify_reason) {
+    return is_errno_family(row.detail);
+  }
+  return is_verify_family(row.detail);
+}
+
 biv::manifest::AgentSessionEntry codex_entry(std::string_view version) {
   constexpr std::string_view session_id =
       "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1440";
@@ -77,7 +113,88 @@ biv::manifest::AgentSessionEntry codex_entry(std::string_view version) {
   return value;
 }
 
+// Drives the REAL session leg with a member_read that fails, so the adapter
+// returns std::unexpected and sessions.cpp fans one row per eligible record.
+std::vector<biv::core_sessions::SessionRowReport> fanned_rows(
+    const std::filesystem::path& home,
+    std::vector<biv::manifest::AgentSessionEntry> records,
+    const biv::BivError& failure) {
+  const auto store = home / ".codex";
+  const auto workspace = home / "workspace";
+  std::filesystem::create_directories(store);
+  std::filesystem::create_directories(workspace);
+  {
+    std::ofstream marker{store / "version.json"};
+    marker << "{\"version\":\"0.144.1\"}\n";
+  }
+  auto manifest = model(std::move(records));
+  const biv::adapters::Host host{
+      .home = home,
+      .env = env(home),
+      .version_probe = [&](const std::string_view agent,
+                           const std::optional<std::filesystem::path>&)
+          -> biv::expected<biv::support::ProbeEvidence> {
+        return biv::support::ProbeEvidence{.agent = std::string{agent},
+                                           .requested = std::nullopt,
+                                           .executed = home / "bin" / "codex",
+                                           .pinned = false,
+                                           .outcome = biv::support::ProbeOutcome::ok,
+                                           .exit_code = 0,
+                                           .raw = "codex-cli 0.144.1",
+                                           .parsed = std::nullopt};
+      },
+      .pinned_bins = {}};
+  auto preview = biv::core_sessions::build_preview(manifest, host);
+  REQUIRE(preview);
+  biv::core_sessions::ConsentSpec consent_spec;
+  consent_spec.global = biv::core_sessions::ConsentValue::yes;
+  const auto consent =
+      biv::core_sessions::resolve_consent(consent_spec, *preview, std::nullopt);
+  const biv::adapters::MemberRead reader =
+      [&](std::string_view) -> biv::expected<std::vector<std::byte>> {
+    return std::unexpected(failure);
+  };
+  const auto outcome = biv::core_sessions::run_session_leg(
+      *preview, consent, manifest, workspace, reader);
+  REQUIRE(outcome);
+  return outcome->rows;
+}
+
+std::vector<biv::manifest::AgentSessionEntry> two_codex_records() {
+  auto first = codex_entry("0.144.1");
+  auto second = codex_entry("0.144.1");
+  second.original_session_ids.primary =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441";
+  second.artifacts = {
+      "agents/codex/019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441.jsonl"};
+  return {first, second};
+}
+
 }  // namespace
+
+TEST_CASE("the cross-family control catches an illegal constructed reason/detail pair") {
+  // The report layer is a verbatim pass-through and enforces no pairing
+  // (sessions.hpp:53, :58-61), so a violating row is one initializer.
+  biv::core_sessions::SessionRowReport conforming_verify{};
+  conforming_verify.reason = "verify-hits";
+  conforming_verify.detail = "origin_path";
+  CHECK_FALSE(violates_cross_family(conforming_verify));
+
+  biv::core_sessions::SessionRowReport violating_verify{};
+  violating_verify.reason = "verify-hits";
+  violating_verify.detail = "EACCES";
+  CHECK(violates_cross_family(violating_verify));      // <- the bite
+
+  biv::core_sessions::SessionRowReport conforming_ambient{};
+  conforming_ambient.reason = "error";
+  conforming_ambient.detail = "ENOSPC";
+  CHECK_FALSE(violates_cross_family(conforming_ambient));
+
+  biv::core_sessions::SessionRowReport violating_ambient{};
+  violating_ambient.reason = "error";
+  violating_ambient.detail = "origin_path";
+  CHECK(violates_cross_family(violating_ambient));     // <- the bite, other direction
+}
 
 TEST_CASE("session preview groups manifest agents and flags unsupported rows") {
   const auto home = make_tmp("preview");
@@ -194,12 +311,20 @@ TEST_CASE("activation filtering suppresses only the failed session command") {
        .image_session_id = "clean-image",
        .row = biv::core_sessions::SessionRowReport::Row::installed,
        .reason = std::nullopt,
-       .installed_session_id = "clean-id"},
+       .installed_session_id = "clean-id",
+       .host_version_unverified = false,
+       .activation_suppressed = false,
+       .live_at_pack = false,
+       .detail = std::nullopt},
       {.agent = "future-tool",
        .image_session_id = "bad-image",
        .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
        .reason = "error",
-       .installed_session_id = "bad-id"}};
+       .installed_session_id = "bad-id",
+       .host_version_unverified = false,
+       .activation_suppressed = false,
+       .live_at_pack = false,
+       .detail = std::nullopt}};
 
   const auto safe = biv::core_sessions::filter_activation(installed.activation, rows);
   REQUIRE(safe.size() == 1U);
@@ -299,6 +424,60 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
   }
 }
 
+TEST_CASE("the seam copies an adapter-authored detail to the row verbatim") {
+  const auto home = make_tmp("carrier-verbatim");
+  const auto store = home / ".codex";
+  const auto workspace = home / "workspace";
+  std::filesystem::create_directories(store);
+  std::filesystem::create_directories(workspace);
+  {
+    std::ofstream marker{store / "version.json"};
+    marker << "{\"version\":\"0.144.1\"}\n";
+  }
+  // agent_version_at_pack "unknown" drives the capability refusal at
+  // codex/install.cpp:350-360, which pushes a row with detail
+  // "capability_refused" and returns a SUCCESSFUL InstallResult.
+  auto record = codex_entry("0.144.1");
+  record.agent_version_at_pack = "unknown";
+  auto manifest = model({record});
+  const biv::adapters::Host host{
+      .home = home,
+      .env = env(home),
+      .version_probe = [&](const std::string_view agent,
+                           const std::optional<std::filesystem::path>&)
+          -> biv::expected<biv::support::ProbeEvidence> {
+        return biv::support::ProbeEvidence{.agent = std::string{agent},
+                                           .requested = std::nullopt,
+                                           .executed = home / "bin" / "codex",
+                                           .pinned = false,
+                                           .outcome = biv::support::ProbeOutcome::ok,
+                                           .exit_code = 0,
+                                           .raw = "unparseable-version",
+                                           .parsed = std::nullopt};
+      },
+      .pinned_bins = {}};
+  auto preview = biv::core_sessions::build_preview(manifest, host);
+  REQUIRE(preview);
+  biv::core_sessions::ConsentSpec consent_spec;
+  consent_spec.global = biv::core_sessions::ConsentValue::yes;
+  const auto consent =
+      biv::core_sessions::resolve_consent(consent_spec, *preview, std::nullopt);
+  const biv::adapters::MemberRead reader =
+      [&](std::string_view path) -> biv::expected<std::vector<std::byte>> {
+    return std::unexpected(
+        biv::BivError{biv::ErrKind::ImageUnreadable, std::string{path}});
+  };
+
+  const auto outcome = biv::core_sessions::run_session_leg(
+      *preview, consent, manifest, workspace, reader);
+
+  REQUIRE(outcome);
+  REQUIRE(outcome->rows.size() == 1U);
+  CHECK(outcome->rows.front().detail ==
+        std::optional<std::string>{"capability_refused"});
+  std::filesystem::remove_all(home);
+}
+
 TEST_CASE(
     "Task 3 session preview observes capabilities once and install "
     "reuses them") {
@@ -361,5 +540,50 @@ TEST_CASE(
   CHECK(outcome->rows.front().row == biv::core_sessions::SessionRowReport::Row::installed);
   CHECK_FALSE(outcome->rows.front().host_version_unverified);
   CHECK(observations == 1);
+  std::filesystem::remove_all(home);
+}
+
+TEST_CASE("a fanned hard error carries the exact errno symbol to every row") {
+  const auto home = make_tmp("fanned-errno");
+  const auto rows = fanned_rows(
+      home, two_codex_records(),
+      biv::BivError{biv::ErrKind::ArchiveWriteFailed, "/store", "", ENOSPC});
+
+  REQUIRE(rows.size() == 2U);
+  for (const auto& row : rows) {
+    CHECK(row.row ==
+          biv::core_sessions::SessionRowReport::Row::session_install_failed);
+    CHECK(row.reason == std::optional<std::string>{"error"});
+    CHECK(row.detail == std::optional<std::string>{"ENOSPC"});
+  }
+  std::filesystem::remove_all(home);
+}
+
+TEST_CASE("a fanned hard error with a zero errno omits the detail entirely") {
+  const auto home = make_tmp("fanned-zero");
+  const auto rows = fanned_rows(
+      home, {codex_entry("0.144.1")},
+      biv::BivError{biv::ErrKind::ArchiveWriteFailed, "/store", "", 0});
+
+  REQUIRE(rows.size() == 1U);
+  CHECK(rows.front().row ==
+        biv::core_sessions::SessionRowReport::Row::session_install_failed);
+  CHECK_FALSE(rows.front().detail.has_value());
+  std::filesystem::remove_all(home);
+}
+
+TEST_CASE("a fanned containment error stays outside the errno family") {
+  const auto home = make_tmp("fanned-containment");
+  const auto rows = fanned_rows(
+      home, {codex_entry("0.144.1")},
+      biv::BivError{biv::ErrKind::ArchiveWriteFailed, "/store",
+                    "containment_refused", EEXIST});
+
+  REQUIRE(rows.size() == 1U);
+  CHECK(rows.front().row ==
+        biv::core_sessions::SessionRowReport::Row::containment_refused);
+  CHECK(rows.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK_FALSE(rows.front().detail.has_value());
   std::filesystem::remove_all(home);
 }

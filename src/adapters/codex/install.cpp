@@ -460,19 +460,30 @@ expected<InstallResult> codex_install(const InstallTarget& target,
     if (!writes.empty()) {
       auto ok = secure_io::write_batch_no_replace(target.target_store.root, writes);
       if (!ok) {
-        if (ok.error().detail != "containment_refused") {
-          return std::unexpected(ok.error());
+        const bool containment = ok.error().detail == "containment_refused";
+        std::optional<std::string> cohort_detail;
+        std::string cohort_reason;
+        if (containment) {
+          cohort_reason = "containment_refused";
+          cohort_detail = ok.error().path;
+        } else {
+          cohort_reason = "error";
+          if (const auto symbol = secure_io::errno_symbol(ok.error().err_no);
+              symbol.has_value()) {
+            cohort_detail = std::string{*symbol};
+          }
         }
-        result.sessions.clear();
+        // No clear(): capability-refusal rows never entered prepared_sessions
+        // or the batch, and clearing here deleted them from the report.
         for (const auto& prepared : prepared_sessions) {
           result.sessions.push_back(InstallSessionOutcome{
               .image_session_id = prepared.record.original_session_ids.primary,
               .outcome = InstallSessionOutcome::Outcome::failed,
-              .reason = "containment_refused",
+              .reason = cohort_reason,
               .content_rewrite = std::nullopt,
               .host_version_unverified = prepared.host_version_unverified,
               .verify = prepared.verify,
-              .detail = ok.error().path});
+              .detail = cohort_detail});
         }
         return result;
       }

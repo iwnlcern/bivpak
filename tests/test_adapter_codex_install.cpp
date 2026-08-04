@@ -1022,3 +1022,90 @@ TEST_CASE(
   CHECK(source.find("capabilities_for_root") == std::string::npos);
   fs::remove_all(root);
 }
+
+TEST_CASE("Codex preserves a capability refusal through a containment publish fact") {
+  const auto root = make_tmp("cell-c4");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  const auto outside = root / "outside";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  fs::create_directories(outside);
+  fs::create_directory_symlink(outside, store / "sessions");
+  auto members = codex_members();
+  auto target = target_for(workspace, store, members);
+
+  auto refused =
+      codex_entry("019faaaa-bbbb-7ccc-8ddd-eeeeeeee9004");
+  refused.agent_version_at_pack = "unknown";
+  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry(),
+                                                              refused};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2);
+  const auto row_for = [&](std::string_view id) {
+    return std::ranges::find_if(result->sessions, [&](const auto& row) {
+      return row.image_session_id == id;
+    });
+  };
+  const auto refused_row = row_for(refused.original_session_ids.primary);
+  const auto cohort_row = row_for(codex_entry().original_session_ids.primary);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(cohort_row != result->sessions.end());
+
+  CHECK(refused_row->reason == std::optional<std::string>{"error"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"capability_refused"});
+  CHECK(cohort_row->reason ==
+        std::optional<std::string>{"containment_refused"});
+
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(relative_files(outside).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex preserves a capability refusal through an ambient publish fault") {
+  const auto root = make_tmp("cell-c3");
+  const auto workspace = root / "workspace";
+  const auto store = root / "never-created";
+  fs::create_directories(workspace);
+  auto members = codex_members();
+  auto target = target_for(workspace, store, members);
+
+  auto refused =
+      codex_entry("019faaaa-bbbb-7ccc-8ddd-eeeeeeee9003");
+  refused.agent_version_at_pack = "unknown";
+  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry(),
+                                                              refused};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2);
+  const auto row_for = [&](std::string_view id) {
+    return std::ranges::find_if(result->sessions, [&](const auto& row) {
+      return row.image_session_id == id;
+    });
+  };
+  const auto refused_row = row_for(refused.original_session_ids.primary);
+  const auto cohort_row = row_for(codex_entry().original_session_ids.primary);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(cohort_row != result->sessions.end());
+
+  CHECK(refused_row->reason == std::optional<std::string>{"error"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"capability_refused"});
+  CHECK(cohort_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(cohort_row->reason == std::optional<std::string>{"error"});
+  CHECK(cohort_row->detail == std::optional<std::string>{"ENOENT"});
+
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  fs::remove_all(root);
+}

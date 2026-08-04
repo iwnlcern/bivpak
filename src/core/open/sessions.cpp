@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "adapters/registry.hpp"
+#include "adapters/secure_io.hpp"
 
 namespace biv::core_sessions {
 
@@ -190,7 +191,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = false,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       } else if (entry.entry_schema > 1) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
@@ -199,7 +201,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = false,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       } else {
         eligible.push_back(entry);
       }
@@ -216,7 +219,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = false,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       }
       continue;
     }
@@ -233,7 +237,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = true,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       }
       continue;
     }
@@ -246,7 +251,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = true,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = std::nullopt});
       }
       continue;
     }
@@ -258,18 +264,30 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                        .capabilities = caps},
                                adapters::Consent::yes, std::span<const manifest::AgentSessionEntry>{eligible});
     if (!installed) {
+      const auto reason = install_failure_reason(installed.error());
+      const bool containment = reason == "containment_refused";
+      // Type and reason are determined first. The errno detail attaches only
+      // to session_install_failed rows and never to containment rows.
+      std::optional<std::string> detail;
+      if (!containment) {
+        if (const auto symbol =
+                adapters::secure_io::errno_symbol(installed.error().err_no);
+            symbol.has_value()) {
+          detail = std::string{*symbol};
+        }
+      }
       for (const auto& entry : eligible) {
-        const auto reason = install_failure_reason(installed.error());
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
-                                                .row = reason == "containment_refused"
+                                                .row = containment
                                                            ? SessionRowReport::Row::containment_refused
                                                            : SessionRowReport::Row::session_install_failed,
                                                 .reason = reason,
                                                 .installed_session_id = std::nullopt,
                                                 .host_version_unverified = false,
                                                 .activation_suppressed = true,
-                                                .live_at_pack = entry.live_at_pack});
+                                                .live_at_pack = entry.live_at_pack,
+                                                .detail = detail});
       }
       continue;
     }
@@ -287,7 +305,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                               .installed_session_id = installed_id(installed->id_map, row.image_session_id),
                               .host_version_unverified = row.host_version_unverified,
                               .activation_suppressed = verify_hits,
-                              .live_at_pack = false};
+                              .live_at_pack = false,
+                              .detail = row.detail};
       const auto source = std::ranges::find_if(manifest.agent_sessions, [&](const auto& entry) {
         return entry.agent == agent.agent && entry.original_session_ids.primary == row.image_session_id;
       });

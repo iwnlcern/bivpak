@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -21,6 +22,34 @@ size_t count_occurrences(std::string_view text, std::string_view needle) {
     pos += needle.size();
   }
   return count;
+}
+
+// One source of truth for BOTH legs. Leg A navigates this envelope structurally;
+// Leg C validates the SAME envelope against the schema. Two copies could drift
+// apart silently and leave both test names reading true.
+std::string detail_bearing_envelope_json() {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false,
+      .detail = "capability_refused"});
+  return biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
 }
 
 }  // namespace
@@ -175,7 +204,8 @@ TEST_CASE("session exit composition uses typed skip reasons") {
                           .installed_session_id = std::nullopt,
                           .host_version_unverified = false,
                           .activation_suppressed = false,
-                          .live_at_pack = false});
+                          .live_at_pack = false,
+                          .detail = std::nullopt});
   CHECK(biv::report::exit_for_sessions(consent) == 0);
 
   auto unknown = consent;
@@ -260,7 +290,8 @@ TEST_CASE("open envelope includes typed sessions report") {
                                    .installed_session_id = "new",
                                    .host_version_unverified = false,
                                    .activation_suppressed = false,
-                                   .live_at_pack = false});
+                                   .live_at_pack = false,
+                                   .detail = std::nullopt});
   sessions.outcome.activation.push_back(
       {.agent = "future-tool", .command = "future resume new"});
 
@@ -375,4 +406,178 @@ TEST_CASE("probe fields replace invalid UTF-8 before envelope serialization") {
                   replacement + "\"") != std::string::npos);
   CHECK(json.find("\"parsed\": \"parsed-" + replacement + "\"") !=
         std::string::npos);
+}
+
+TEST_CASE("no-detail session rows serialize byte-identically to the pre-carrier baseline") {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::installed,
+      .reason = std::nullopt,
+      .installed_session_id = "new-id",
+      .host_version_unverified = false,
+      .activation_suppressed = false,
+      .live_at_pack = false,
+      .detail = std::nullopt});
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "failed-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false,
+      .detail = std::nullopt});
+
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+
+  // ORACLE RULE: captured at BASE cd61ac6, before SessionRowReport gained a
+  // detail field. NEVER regenerate this literal from the serializer.
+  CHECK(json == R"({
+  "envelope_version": 1,
+  "app_version": "0.1.0",
+  "ok": true,
+  "verb": "open",
+  "exit_code": 0,
+  "warnings": [],
+  "advisories": [],
+  "result": {
+    "image_path": "/tmp/image.bvpk",
+    "output_dir": "/tmp/restored",
+    "collision_action": "none",
+    "restored_member_count": 1,
+    "checksums_verified": true,
+    "manifest": {
+      "format_version": 1,
+      "repos": [],
+      "agent_sessions": [
+        {
+          "agent": "future-tool",
+          "session_count": 0
+        }
+      ]
+    },
+    "sessions": {
+      "prompt_shown": false,
+      "warning_shown": false,
+      "consent": {
+        "source": "deny-default",
+        "values": []
+      },
+      "agents": [
+        {
+          "agent": "future-tool",
+          "capabilities_verdict": "absent",
+          "store_root": "",
+          "sessions": [
+            {
+              "image_session_id": "old-id",
+              "installed_session_id": "new-id",
+              "outcome": "installed",
+              "host_version_unverified": false,
+              "activation_suppressed": false
+            },
+            {
+              "image_session_id": "failed-id",
+              "outcome": "failed",
+              "kind": "SessionInstallFailed",
+              "reason": "error",
+              "host_version_unverified": false,
+              "activation_suppressed": true
+            }
+          ],
+          "activation": [],
+          "caveats": []
+        }
+      ]
+    }
+  },
+  "error": null
+}
+)");
+}
+
+TEST_CASE("an adapter-authored detail reaches the envelope verbatim") {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "future-tool";
+  sessions.preview.agents.push_back(std::move(preview));
+  sessions.outcome.rows.push_back(biv::core_sessions::SessionRowReport{
+      .agent = "future-tool",
+      .image_session_id = "old-id",
+      .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+      .reason = "error",
+      .installed_session_id = std::nullopt,
+      .host_version_unverified = false,
+      .activation_suppressed = true,
+      .live_at_pack = false,
+      .detail = "capability_refused"});
+
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+
+  CHECK(json.find("\"detail\": \"capability_refused\"") !=
+        std::string::npos);
+  CHECK(json.find("capability-refused") == std::string::npos);
+}
+
+TEST_CASE("the emitted envelope carries detail at the schema's session-row path") {
+  const auto json = detail_bearing_envelope_json();
+
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(json).get(document) == simdjson::SUCCESS);
+
+  simdjson::dom::array agents;
+  REQUIRE(document["result"]["sessions"]["agents"].get(agents) ==
+          simdjson::SUCCESS);
+
+  std::size_t detail_rows = 0;
+  for (simdjson::dom::element agent : agents) {
+    simdjson::dom::array rows;
+    if (agent["sessions"].get(rows) != simdjson::SUCCESS) {
+      continue;
+    }
+    for (simdjson::dom::element row : rows) {
+      simdjson::dom::element detail;
+      if (row["detail"].get(detail) != simdjson::SUCCESS) {
+        continue;
+      }
+      ++detail_rows;
+      // TYPE, not just presence: R-3.43 leaves the schema unable to type this.
+      std::string_view value;
+      REQUIRE(detail.get(value) == simdjson::SUCCESS);
+      CHECK(value == "capability_refused");
+    }
+  }
+  CHECK(detail_rows == 1);
+}
+
+TEST_CASE("a generated detail-bearing envelope is emitted for schema conformance") {
+  const auto json = detail_bearing_envelope_json();
+
+  std::ofstream out{BIV_GENERATED_ENVELOPE_PATH,
+                    std::ios::binary | std::ios::trunc};
+  REQUIRE(out);
+  out << json;
+  out.close();
+  REQUIRE(out);
 }

@@ -1,10 +1,13 @@
 #include "adapters/secure_io.hpp"
+#include "adapters/secure_io_fstat_seam.hpp"
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cerrno>
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -85,7 +88,8 @@ expected<Fd> open_absolute_no_follow(const fs::path& path, const bool directory)
   }
   Fd current{::open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)};
   if (!current.valid()) {
-    return std::unexpected(containment_error(path, errno));
+    const int captured = errno;
+    return std::unexpected(internal::ambient_error(path, captured));
   }
   for (std::size_t i = 0; i < components->size(); ++i) {
     const bool final = i + 1U == components->size();
@@ -95,7 +99,12 @@ expected<Fd> open_absolute_no_follow(const fs::path& path, const bool directory)
     }
     Fd next{::openat(current.get(), components->at(i).c_str(), flags)};
     if (!next.valid()) {
-      return std::unexpected(containment_error(path, errno));
+      const int captured = errno;
+      if (internal::classify(internal::SiteKind::directory_walk, captured) ==
+          internal::SiteClass::containment) {
+        return std::unexpected(containment_error(path, captured));
+      }
+      return std::unexpected(internal::ambient_error(path, captured));
     }
     current = std::move(next);
   }
@@ -137,7 +146,8 @@ expected<void> preflight_relative(const int root_fd, const fs::path& relative) {
   }
   Fd current{::dup(root_fd)};
   if (!current.valid()) {
-    return std::unexpected(containment_error(relative, errno));
+    const int captured = errno;
+    return std::unexpected(internal::ambient_error(relative, captured));
   }
   for (std::size_t i = 0; i + 1U < components->size(); ++i) {
     Fd next{::openat(current.get(), components->at(i).c_str(),
@@ -146,7 +156,12 @@ expected<void> preflight_relative(const int root_fd, const fs::path& relative) {
       if (errno == ENOENT) {
         return {};
       }
-      return std::unexpected(containment_error(relative, errno));
+      const int captured = errno;
+      if (internal::classify(internal::SiteKind::directory_walk, captured) ==
+          internal::SiteClass::containment) {
+        return std::unexpected(containment_error(relative, captured));
+      }
+      return std::unexpected(internal::ambient_error(relative, captured));
     }
     current = std::move(next);
   }
@@ -157,7 +172,8 @@ expected<void> preflight_relative(const int root_fd, const fs::path& relative) {
     return std::unexpected(containment_error(relative, EEXIST));
   }
   if (errno != ENOENT) {
-    return std::unexpected(containment_error(relative, errno));
+    const int captured = errno;
+    return std::unexpected(internal::ambient_error(relative, captured));
   }
   return {};
 }
@@ -171,19 +187,31 @@ expected<Target> prepare_target(const int root_fd, const WriteRequest& request,
   }
   Fd current{::dup(root_fd)};
   if (!current.valid()) {
-    return std::unexpected(containment_error(request.relative_path, errno));
+    const int captured = errno;
+    return std::unexpected(
+        internal::ambient_error(request.relative_path, captured));
   }
   for (std::size_t i = 0; i + 1U < components->size(); ++i) {
     Fd next{::openat(current.get(), components->at(i).c_str(),
                      O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)};
     if (!next.valid() && errno == ENOENT) {
       if (::mkdirat(current.get(), components->at(i).c_str(), 0700) != 0) {
-        return std::unexpected(containment_error(request.relative_path, errno));
+        const int captured = errno;
+        if (internal::classify(internal::SiteKind::intermediate_create,
+                               captured) ==
+            internal::SiteClass::containment) {
+          return std::unexpected(
+              containment_error(request.relative_path, captured));
+        }
+        return std::unexpected(
+            internal::ambient_error(request.relative_path, captured));
       }
       Fd rollback_parent{::dup(current.get())};
       if (!rollback_parent.valid()) {
+        const int captured = errno;
         ::unlinkat(current.get(), components->at(i).c_str(), AT_REMOVEDIR);
-        return std::unexpected(containment_error(request.relative_path, errno));
+        return std::unexpected(
+            internal::ambient_error(request.relative_path, captured));
       }
       created.push_back(CreatedDirectory{.parent = std::move(rollback_parent),
                                          .leaf = components->at(i)});
@@ -191,7 +219,14 @@ expected<Target> prepare_target(const int root_fd, const WriteRequest& request,
                          O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)};
     }
     if (!next.valid()) {
-      return std::unexpected(containment_error(request.relative_path, errno));
+      const int captured = errno;
+      if (internal::classify(internal::SiteKind::directory_walk, captured) ==
+          internal::SiteClass::containment) {
+        return std::unexpected(
+            containment_error(request.relative_path, captured));
+      }
+      return std::unexpected(
+          internal::ambient_error(request.relative_path, captured));
     }
     current = std::move(next);
   }
@@ -203,7 +238,9 @@ expected<Target> prepare_target(const int root_fd, const WriteRequest& request,
     return std::unexpected(containment_error(request.relative_path, EEXIST));
   }
   if (errno != ENOENT) {
-    return std::unexpected(containment_error(request.relative_path, errno));
+    const int captured = errno;
+    return std::unexpected(
+        internal::ambient_error(request.relative_path, captured));
   }
   return Target{.parent = std::move(current),
                 .leaf = components->back(),
@@ -228,6 +265,531 @@ void rollback(std::vector<Target>& targets,
 }
 
 }  // namespace
+
+std::optional<std::string_view> errno_symbol(const int err_no) noexcept {
+  switch (err_no) {
+    // EXACTLY ONE case per equal-valued GROUP, carrying that group's canonical
+    // spelling from tests/errno_pins.txt. A group's non-canonical members get
+    // NO case label. Rule 3 -- an unpinned group cannot ship -- is enforced by
+    // the compiler-derived gate.
+#ifdef E2BIG
+    case E2BIG: return "E2BIG";
+#endif
+#ifdef EACCES
+    case EACCES: return "EACCES";
+#endif
+#ifdef EADDRINUSE
+    case EADDRINUSE: return "EADDRINUSE";
+#endif
+#ifdef EADDRNOTAVAIL
+    case EADDRNOTAVAIL: return "EADDRNOTAVAIL";
+#endif
+#ifdef EADV
+    case EADV: return "EADV";
+#endif
+#ifdef EAFNOSUPPORT
+    case EAFNOSUPPORT: return "EAFNOSUPPORT";
+#endif
+#ifdef EAGAIN
+    case EAGAIN: return "EAGAIN";
+#endif
+#ifdef EALREADY
+    case EALREADY: return "EALREADY";
+#endif
+#ifdef EAUTH
+    case EAUTH: return "EAUTH";
+#endif
+#ifdef EBADARCH
+    case EBADARCH: return "EBADARCH";
+#endif
+#ifdef EBADE
+    case EBADE: return "EBADE";
+#endif
+#ifdef EBADEXEC
+    case EBADEXEC: return "EBADEXEC";
+#endif
+#ifdef EBADF
+    case EBADF: return "EBADF";
+#endif
+#ifdef EBADFD
+    case EBADFD: return "EBADFD";
+#endif
+#ifdef EBADMACHO
+    case EBADMACHO: return "EBADMACHO";
+#endif
+#ifdef EBADMSG
+    case EBADMSG: return "EBADMSG";
+#endif
+#ifdef EBADR
+    case EBADR: return "EBADR";
+#endif
+#ifdef EBADRPC
+    case EBADRPC: return "EBADRPC";
+#endif
+#ifdef EBADRQC
+    case EBADRQC: return "EBADRQC";
+#endif
+#ifdef EBADSLT
+    case EBADSLT: return "EBADSLT";
+#endif
+#ifdef EBFONT
+    case EBFONT: return "EBFONT";
+#endif
+#ifdef EBUSY
+    case EBUSY: return "EBUSY";
+#endif
+#ifdef ECANCELED
+    case ECANCELED: return "ECANCELED";
+#endif
+#ifdef ECHILD
+    case ECHILD: return "ECHILD";
+#endif
+#ifdef ECHRNG
+    case ECHRNG: return "ECHRNG";
+#endif
+#ifdef ECOMM
+    case ECOMM: return "ECOMM";
+#endif
+#ifdef ECONNABORTED
+    case ECONNABORTED: return "ECONNABORTED";
+#endif
+#ifdef ECONNREFUSED
+    case ECONNREFUSED: return "ECONNREFUSED";
+#endif
+#ifdef ECONNRESET
+    case ECONNRESET: return "ECONNRESET";
+#endif
+#ifdef EDEADLK
+    case EDEADLK: return "EDEADLK";
+#endif
+#ifdef EDESTADDRREQ
+    case EDESTADDRREQ: return "EDESTADDRREQ";
+#endif
+#ifdef EDEVERR
+    case EDEVERR: return "EDEVERR";
+#endif
+#ifdef EDOM
+    case EDOM: return "EDOM";
+#endif
+#ifdef EDOTDOT
+    case EDOTDOT: return "EDOTDOT";
+#endif
+#ifdef EDQUOT
+    case EDQUOT: return "EDQUOT";
+#endif
+#ifdef EEXIST
+    case EEXIST: return "EEXIST";
+#endif
+#ifdef EFAULT
+    case EFAULT: return "EFAULT";
+#endif
+#ifdef EFBIG
+    case EFBIG: return "EFBIG";
+#endif
+#ifdef EFTYPE
+    case EFTYPE: return "EFTYPE";
+#endif
+#ifdef EHOSTDOWN
+    case EHOSTDOWN: return "EHOSTDOWN";
+#endif
+#ifdef EHOSTUNREACH
+    case EHOSTUNREACH: return "EHOSTUNREACH";
+#endif
+#ifdef EHWPOISON
+    case EHWPOISON: return "EHWPOISON";
+#endif
+#ifdef EIDRM
+    case EIDRM: return "EIDRM";
+#endif
+#ifdef EILSEQ
+    case EILSEQ: return "EILSEQ";
+#endif
+#ifdef EINPROGRESS
+    case EINPROGRESS: return "EINPROGRESS";
+#endif
+#ifdef EINTR
+    case EINTR: return "EINTR";
+#endif
+#ifdef EINVAL
+    case EINVAL: return "EINVAL";
+#endif
+#ifdef EIO
+    case EIO: return "EIO";
+#endif
+#ifdef EISCONN
+    case EISCONN: return "EISCONN";
+#endif
+#ifdef EISDIR
+    case EISDIR: return "EISDIR";
+#endif
+#ifdef EISNAM
+    case EISNAM: return "EISNAM";
+#endif
+#ifdef EKEYEXPIRED
+    case EKEYEXPIRED: return "EKEYEXPIRED";
+#endif
+#ifdef EKEYREJECTED
+    case EKEYREJECTED: return "EKEYREJECTED";
+#endif
+#ifdef EKEYREVOKED
+    case EKEYREVOKED: return "EKEYREVOKED";
+#endif
+#ifdef EL2HLT
+    case EL2HLT: return "EL2HLT";
+#endif
+#ifdef EL2NSYNC
+    case EL2NSYNC: return "EL2NSYNC";
+#endif
+#ifdef EL3HLT
+    case EL3HLT: return "EL3HLT";
+#endif
+#ifdef EL3RST
+    case EL3RST: return "EL3RST";
+#endif
+#ifdef ELIBACC
+    case ELIBACC: return "ELIBACC";
+#endif
+#ifdef ELIBBAD
+    case ELIBBAD: return "ELIBBAD";
+#endif
+#ifdef ELIBEXEC
+    case ELIBEXEC: return "ELIBEXEC";
+#endif
+#ifdef ELIBMAX
+    case ELIBMAX: return "ELIBMAX";
+#endif
+#ifdef ELIBSCN
+    case ELIBSCN: return "ELIBSCN";
+#endif
+#ifdef ELNRNG
+    case ELNRNG: return "ELNRNG";
+#endif
+#ifdef ELOOP
+    case ELOOP: return "ELOOP";
+#endif
+#ifdef EMEDIUMTYPE
+    case EMEDIUMTYPE: return "EMEDIUMTYPE";
+#endif
+#ifdef EMFILE
+    case EMFILE: return "EMFILE";
+#endif
+#ifdef EMLINK
+    case EMLINK: return "EMLINK";
+#endif
+#ifdef EMSGSIZE
+    case EMSGSIZE: return "EMSGSIZE";
+#endif
+#ifdef EMULTIHOP
+    case EMULTIHOP: return "EMULTIHOP";
+#endif
+#ifdef ENAMETOOLONG
+    case ENAMETOOLONG: return "ENAMETOOLONG";
+#endif
+#ifdef ENAVAIL
+    case ENAVAIL: return "ENAVAIL";
+#endif
+#ifdef ENEEDAUTH
+    case ENEEDAUTH: return "ENEEDAUTH";
+#endif
+#ifdef ENETDOWN
+    case ENETDOWN: return "ENETDOWN";
+#endif
+#ifdef ENETRESET
+    case ENETRESET: return "ENETRESET";
+#endif
+#ifdef ENETUNREACH
+    case ENETUNREACH: return "ENETUNREACH";
+#endif
+#ifdef ENFILE
+    case ENFILE: return "ENFILE";
+#endif
+#ifdef ENOANO
+    case ENOANO: return "ENOANO";
+#endif
+#ifdef ENOATTR
+    case ENOATTR: return "ENOATTR";
+#endif
+#ifdef ENOBUFS
+    case ENOBUFS: return "ENOBUFS";
+#endif
+#ifdef ENOCSI
+    case ENOCSI: return "ENOCSI";
+#endif
+#ifdef ENODATA
+    case ENODATA: return "ENODATA";
+#endif
+#ifdef ENODEV
+    case ENODEV: return "ENODEV";
+#endif
+#ifdef ENOENT
+    case ENOENT: return "ENOENT";
+#endif
+#ifdef ENOEXEC
+    case ENOEXEC: return "ENOEXEC";
+#endif
+#ifdef ENOKEY
+    case ENOKEY: return "ENOKEY";
+#endif
+#ifdef ENOLCK
+    case ENOLCK: return "ENOLCK";
+#endif
+#ifdef ENOLINK
+    case ENOLINK: return "ENOLINK";
+#endif
+#ifdef ENOMEDIUM
+    case ENOMEDIUM: return "ENOMEDIUM";
+#endif
+#ifdef ENOMEM
+    case ENOMEM: return "ENOMEM";
+#endif
+#ifdef ENOMSG
+    case ENOMSG: return "ENOMSG";
+#endif
+#ifdef ENONET
+    case ENONET: return "ENONET";
+#endif
+#ifdef ENOPKG
+    case ENOPKG: return "ENOPKG";
+#endif
+#ifdef ENOPOLICY
+    case ENOPOLICY: return "ENOPOLICY";
+#endif
+#ifdef ENOPROTOOPT
+    case ENOPROTOOPT: return "ENOPROTOOPT";
+#endif
+#ifdef ENOSPC
+    case ENOSPC: return "ENOSPC";
+#endif
+#ifdef ENOSR
+    case ENOSR: return "ENOSR";
+#endif
+#ifdef ENOSTR
+    case ENOSTR: return "ENOSTR";
+#endif
+#ifdef ENOSYS
+    case ENOSYS: return "ENOSYS";
+#endif
+#ifdef ENOTBLK
+    case ENOTBLK: return "ENOTBLK";
+#endif
+#ifdef ENOTCAPABLE
+    case ENOTCAPABLE: return "ENOTCAPABLE";
+#endif
+#ifdef ENOTCONN
+    case ENOTCONN: return "ENOTCONN";
+#endif
+#ifdef ENOTDIR
+    case ENOTDIR: return "ENOTDIR";
+#endif
+#ifdef ENOTEMPTY
+    case ENOTEMPTY: return "ENOTEMPTY";
+#endif
+#ifdef ENOTNAM
+    case ENOTNAM: return "ENOTNAM";
+#endif
+#ifdef ENOTRECOVERABLE
+    case ENOTRECOVERABLE: return "ENOTRECOVERABLE";
+#endif
+#ifdef ENOTSOCK
+    case ENOTSOCK: return "ENOTSOCK";
+#endif
+#ifdef ENOTSUP
+    case ENOTSUP: return "ENOTSUP";
+#endif
+#ifdef ENOTTY
+    case ENOTTY: return "ENOTTY";
+#endif
+#ifdef ENOTUNIQ
+    case ENOTUNIQ: return "ENOTUNIQ";
+#endif
+#ifdef ENXIO
+    case ENXIO: return "ENXIO";
+#endif
+#ifdef EOVERFLOW
+    case EOVERFLOW: return "EOVERFLOW";
+#endif
+#ifdef EOWNERDEAD
+    case EOWNERDEAD: return "EOWNERDEAD";
+#endif
+#ifdef EPERM
+    case EPERM: return "EPERM";
+#endif
+#ifdef EPFNOSUPPORT
+    case EPFNOSUPPORT: return "EPFNOSUPPORT";
+#endif
+#ifdef EPIPE
+    case EPIPE: return "EPIPE";
+#endif
+#ifdef EPROCLIM
+    case EPROCLIM: return "EPROCLIM";
+#endif
+#ifdef EPROCUNAVAIL
+    case EPROCUNAVAIL: return "EPROCUNAVAIL";
+#endif
+#ifdef EPROGMISMATCH
+    case EPROGMISMATCH: return "EPROGMISMATCH";
+#endif
+#ifdef EPROGUNAVAIL
+    case EPROGUNAVAIL: return "EPROGUNAVAIL";
+#endif
+#ifdef EPROTO
+    case EPROTO: return "EPROTO";
+#endif
+#ifdef EPROTONOSUPPORT
+    case EPROTONOSUPPORT: return "EPROTONOSUPPORT";
+#endif
+#ifdef EPROTOTYPE
+    case EPROTOTYPE: return "EPROTOTYPE";
+#endif
+#ifdef EPWROFF
+    case EPWROFF: return "EPWROFF";
+#endif
+#ifdef EQFULL
+    case EQFULL: return "EQFULL";
+#endif
+#ifdef ERANGE
+    case ERANGE: return "ERANGE";
+#endif
+#ifdef EREMCHG
+    case EREMCHG: return "EREMCHG";
+#endif
+#ifdef EREMOTE
+    case EREMOTE: return "EREMOTE";
+#endif
+#ifdef EREMOTEIO
+    case EREMOTEIO: return "EREMOTEIO";
+#endif
+#ifdef ERESTART
+    case ERESTART: return "ERESTART";
+#endif
+#ifdef ERFKILL
+    case ERFKILL: return "ERFKILL";
+#endif
+#ifdef EROFS
+    case EROFS: return "EROFS";
+#endif
+#ifdef ERPCMISMATCH
+    case ERPCMISMATCH: return "ERPCMISMATCH";
+#endif
+#ifdef ESHLIBVERS
+    case ESHLIBVERS: return "ESHLIBVERS";
+#endif
+#ifdef ESHUTDOWN
+    case ESHUTDOWN: return "ESHUTDOWN";
+#endif
+#ifdef ESOCKTNOSUPPORT
+    case ESOCKTNOSUPPORT: return "ESOCKTNOSUPPORT";
+#endif
+#ifdef ESPIPE
+    case ESPIPE: return "ESPIPE";
+#endif
+#ifdef ESRCH
+    case ESRCH: return "ESRCH";
+#endif
+#ifdef ESRMNT
+    case ESRMNT: return "ESRMNT";
+#endif
+#ifdef ESTALE
+    case ESTALE: return "ESTALE";
+#endif
+#ifdef ESTRPIPE
+    case ESTRPIPE: return "ESTRPIPE";
+#endif
+#ifdef ETIME
+    case ETIME: return "ETIME";
+#endif
+#ifdef ETIMEDOUT
+    case ETIMEDOUT: return "ETIMEDOUT";
+#endif
+#ifdef ETOOMANYREFS
+    case ETOOMANYREFS: return "ETOOMANYREFS";
+#endif
+#ifdef ETXTBSY
+    case ETXTBSY: return "ETXTBSY";
+#endif
+#ifdef EUCLEAN
+    case EUCLEAN: return "EUCLEAN";
+#endif
+#ifdef EUNATCH
+    case EUNATCH: return "EUNATCH";
+#endif
+#ifdef EUSERS
+    case EUSERS: return "EUSERS";
+#endif
+#ifdef EXDEV
+    case EXDEV: return "EXDEV";
+#endif
+#ifdef EXFULL
+    case EXFULL: return "EXFULL";
+#endif
+
+    // MULTI-MEMBER GROUPS -- conditional, because group membership is a
+    // PER-TARGET fact. Equal names are covered by the canonical case above;
+    // distinct names become singleton groups and need their own spelling.
+#if defined(ENOTSUP) && defined(EOPNOTSUPP) && (ENOTSUP) != (EOPNOTSUPP)
+    case EOPNOTSUPP: return "EOPNOTSUPP";
+#endif
+#if defined(EAGAIN) && defined(EWOULDBLOCK) && (EAGAIN) != (EWOULDBLOCK)
+    case EWOULDBLOCK: return "EWOULDBLOCK";
+#endif
+#if defined(EDEADLK) && defined(EDEADLOCK) && (EDEADLK) != (EDEADLOCK)
+    case EDEADLOCK: return "EDEADLOCK";
+#endif
+#if defined(EBADMSG) && defined(EFSBADCRC) && (EBADMSG) != (EFSBADCRC)
+    case EFSBADCRC: return "EFSBADCRC";
+#endif
+#if defined(EUCLEAN) && defined(EFSCORRUPTED) && (EUCLEAN) != (EFSCORRUPTED)
+    case EFSCORRUPTED: return "EFSCORRUPTED";
+#endif
+    default:
+      break;
+  }
+  // Unreachable from any errno capture under Reading B. Reaching it means a
+  // non-errno integer was placed in BivError::err_no -- a capture-site defect.
+  assert(err_no == 0 && "errno_symbol: nonzero value outside the target namespace");
+  return std::nullopt;
+}
+
+namespace internal {
+
+SiteClass classify(const SiteKind kind, const int err_no) noexcept {
+  switch (kind) {
+    case SiteKind::directory_walk:
+      // The errno IS the I7 signal here: a symlink or a non-directory was
+      // interposed in a walk that refused to follow one.
+      return (err_no == ELOOP || err_no == ENOTDIR) ? SiteClass::containment
+                                                    : SiteClass::ambient;
+    case SiteKind::intermediate_create:
+    case SiteKind::temporary_create:
+    case SiteKind::publish_link:
+      // EEXIST at each of these three is a no-replace refusal: a node occupied
+      // a name this operation had established was free, or must be free.
+      return err_no == EEXIST ? SiteClass::containment : SiteClass::ambient;
+  }
+  return SiteClass::ambient;
+}
+
+BivError ambient_error(const fs::path& path, const int err_no) {
+  return BivError{ErrKind::ArchiveWriteFailed, path.generic_string(), "",
+                  err_no};
+}
+
+std::optional<BivError> fstat_outcome(const fs::path& path,
+                                      const FstatObservation& observed) {
+  if (!observed.has_value()) {
+    // Calls the shared ambient constructor rather than duplicating the field
+    // logic, so the empty-detail safety property is proved once.
+    return ambient_error(path, observed.error());
+  }
+  if (!S_ISREG(observed->st_mode)) {
+    // EINVAL is explicit. A successful fstat leaves errno untouched, which is
+    // why the success arm carries no errno at all: it is unrepresentable here.
+    return containment_error(path, EINVAL);
+  }
+  return std::nullopt;
+}
+
+}  // namespace internal
 
 struct ReadHandle::State {
   Fd fd;
@@ -285,12 +847,23 @@ expected<ReadHandle> open_read_no_follow(const fs::path& path) {
     return std::unexpected(file.error());
   }
   struct stat status {};
-  if (::fstat(file->get(), &status) != 0 || !S_ISREG(status.st_mode)) {
-    return std::unexpected(containment_error(path, errno == 0 ? EINVAL : errno));
+  const auto observed =
+      (::fstat(file->get(), &status) == 0)
+          ? internal::FstatObservation{status}
+          : internal::FstatObservation{std::unexpect, errno};
+  if (auto outcome = internal::fstat_outcome(path, observed);
+      outcome.has_value()) {
+    return std::unexpected(std::move(*outcome));
   }
   auto state = std::make_shared<ReadHandle::State>();
   state->fd = std::move(*file);
-  state->size = static_cast<std::uint64_t>(status.st_size);
+  // .value(), not operator->. Reaching this line already requires the value --
+  // fstat_outcome returns an engaged optional for every valueless observation
+  // and the early return above intercepts them all. But that proof lives in
+  // another function, earlier in this file. If it ever breaks: .value() throws,
+  // operator-> is undefined, and the zero-initialised status would silently
+  // stream an empty file.
+  state->size = static_cast<std::uint64_t>(observed.value().st_size);
   return ReadHandle{std::move(state)};
 }
 
@@ -339,7 +912,12 @@ expected<void> write_batch_no_replace(const fs::path& root,
       }
     }
     if (!temporary.valid()) {
-      const auto error = containment_error(target.temporary, errno);
+      const int captured = errno;
+      const auto error =
+          internal::classify(internal::SiteKind::temporary_create, captured) ==
+                  internal::SiteClass::containment
+              ? containment_error(target.temporary, captured)
+              : internal::ambient_error(target.temporary, captured);
       rollback(targets, created);
       return std::unexpected(error);
     }
@@ -355,7 +933,12 @@ expected<void> write_batch_no_replace(const fs::path& root,
   for (auto& target : targets) {
     if (::linkat(target.parent.get(), target.temporary.c_str(), target.parent.get(),
                  target.leaf.c_str(), 0) != 0) {
-      const auto error = containment_error(target.leaf, errno);
+      const int captured = errno;
+      const auto error =
+          internal::classify(internal::SiteKind::publish_link, captured) ==
+                  internal::SiteClass::containment
+              ? containment_error(target.leaf, captured)
+              : internal::ambient_error(target.leaf, captured);
       rollback(targets, created);
       return std::unexpected(error);
     }
