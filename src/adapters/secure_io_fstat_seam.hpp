@@ -31,7 +31,7 @@ namespace biv::adapters::secure_io::internal {
 // correct answer is an explicit containment EINVAL. This type makes that pair
 // UNREPRESENTABLE rather than documenting it. Before the ruling that introduced
 // it, the hazard was guarded only by a comment and by an argument passed to a
-// seam test. (m-2 ruling 162000.)
+// seam test. (m-2 ruling 20260730-162000.)
 //
 // NOTE: spelled std::expected deliberately. The project alias `expected<T>`
 // (core/support/error.hpp) is std::expected<T, BivError>; writing
@@ -45,10 +45,9 @@ static_assert(std::is_same_v<FstatObservation::error_type, int>,
               "FstatObservation's failure arm must carry the captured errno and "
               "nothing else");
 
-// Deterministic observation seam for :289's two branches. Takes an observation
-// the caller ALREADY HOLDS -- it performs no syscall and interposes none.
-// Returns the COMPLETE constructed error so a direct unit test can assert
-// route, exact err_no and detail on both error outcomes.
+// Takes an observation the caller ALREADY HOLDS -- it performs no syscall and
+// interposes none. Returns the COMPLETE constructed error so a direct unit
+// test can assert route, exact err_no and detail on every error outcome.
 //
 //   call failed            -> ambient error carrying the captured errno
 //   succeeded, non-regular -> containment error, EINVAL (explicit, never the

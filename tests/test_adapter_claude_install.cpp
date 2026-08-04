@@ -32,6 +32,9 @@ volatile std::sig_atomic_t fifo_deadline_expired = 0;
 
 void mark_fifo_deadline_expired(int) noexcept { fifo_deadline_expired = 1; }
 
+// An interrupted openat has no retry above it in the component loop, so a
+// wedged FIFO open becomes an attributed per-case failure rather than process
+// death or a CI timeout. The committed control proves the reporting half only.
 class ScopedFifoDeadline {
  public:
   ScopedFifoDeadline() {
@@ -1477,7 +1480,7 @@ TEST_CASE("fstat_outcome routes a non-regular file to containment with explicit 
   // The stale-errno argument this test used to carry is GONE, and deliberately:
   // FstatObservation's success arm cannot hold an errno at all, so "succeeded,
   // and here is a leftover errno" is now unrepresentable rather than merely
-  // forbidden. The rationale and its guard live at the alias (m-2 ruling 202000).
+  // forbidden. The rationale and its guard live at the alias (m-2 ruling 20260731-202000).
   // What this test still proves is the branch itself: a successful fstat over a
   // NON-REGULAR file yields containment EINVAL, never an ambient errno.
   struct stat dir_status {};

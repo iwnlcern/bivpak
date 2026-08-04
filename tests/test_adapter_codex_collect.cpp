@@ -26,6 +26,9 @@ volatile std::sig_atomic_t fifo_deadline_expired = 0;
 
 void mark_fifo_deadline_expired(int) noexcept { fifo_deadline_expired = 1; }
 
+// An interrupted openat has no retry above it in the component loop, so a
+// wedged FIFO open becomes an attributed per-case failure rather than process
+// death or a CI timeout. The committed control proves the reporting half only.
 class ScopedFifoDeadline {
  public:
   ScopedFifoDeadline() {

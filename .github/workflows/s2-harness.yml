@@ -65,7 +65,7 @@ jobs:
               for key in ("successes", "failures", "expectedFailures", "skips")
           }
           want = {
-              "successes": 186,
+              "successes": 221,
               "failures": 0,
               "expectedFailures": 0,
               "skips": 2,
@@ -265,7 +265,7 @@ jobs:
               for key in ("successes", "failures", "expectedFailures", "skips")
           }
           want = {
-              "successes": 188,
+              "successes": 223,
               "failures": 0,
               "expectedFailures": 0,
               "skips": 0,
