@@ -38,7 +38,7 @@ class ScopedFifoDeadline {
     fifo_deadline_expired = 0;
     struct sigaction action {};
     action.sa_handler = mark_fifo_deadline_expired;
-    REQUIRE(sigemptyset(&action.sa_mask) == 0);
+    sigemptyset(&action.sa_mask);
     action.sa_flags = 0;
     REQUIRE(::sigaction(SIGALRM, &action, &previous_action_) == 0);
   }
@@ -68,6 +68,12 @@ class ScopedFifoDeadline {
   struct sigaction previous_action_ {};
   bool armed_{false};
 };
+
+TEST_CASE("Claude FIFO deadline control reports synchronous SIGALRM delivery") {
+  ScopedFifoDeadline deadline;
+  REQUIRE(::raise(SIGALRM) == 0);
+  REQUIRE(fifo_deadline_expired == 1);
+}
 
 constexpr std::string_view kOriginalSession = "aaaaaaaa-1111-4000-8000-000000000001";
 constexpr std::string_view kBridgeSession = "bbbb-1111-4000-8000-000000000001";
