@@ -109,6 +109,23 @@ independent; both verified the A7 lock hash `2e402057…` and read the carrier a
 
 **DISAGREEMENT:** none of substance found — the artifacts differ only in coverage.
 
+**THE THREE ROUTED QUESTIONS — ANSWERED (m-2 `001600` via master `013331`, 2026-08-05;
+holds released to the floor pair at `013542`):**
+- Q1: `…-exact` rows close over every member AS IT EXISTS at the reviewed tree
+  (criterion, not count); the executor asserts `detail` as read; a populated `detail` on
+  an installed row is a finding returned UP. No CANON rewrite.
+- Q2, WITH master's correction to m-2's answer: the old reader refuses the WHOLE ARCHIVE
+  (`UnmanifestedMember`, **exit 3** — m-2 said exit 2, falsified at master's seat at both
+  `cd61ac6` and `8981bfd`, and re-verified at this seat: `src/core/report/envelope.cpp:407`
+  `return 3` group; `schemas/biv-exit-map.v1.json:16`). Marker slice binds to
+  whole-archive refusal / exit 3 / zero install; A7's contrary text rode an unreachable
+  path and is corrected forward at m-2's seat. Stricter than claimed; no arm narrows.
+- Q3: F-1's RUNCARD leg = ONE-DIRECTIONAL SHA BINDING (one bivpak commit; the pdc RUNCARD
+  row names that SHA; no run consumes unpinned constants). Accepted limitation, carried
+  verbatim in the F-1 ledger: drift goes RED at the next run gate, not at change time.
+- P5 register disposition: VP-side, meets the A7 seal at s4's exit; the eighteen-receipt
+  obligation is unchanged.
+
 **Sequencing ruled at this seat (binding on both pairs' plans):**
 Addendum F → Arm-1 schema act (all FOUR surfaces) → floor `repos[]`-adjacent
 `manifest.cpp` act → separately-owned integration acts with rebases between them.
