@@ -1,7 +1,8 @@
-# s4-floor fold — integration-shape design under the LOCKED A7 (rev1)
+# s4-floor fold — integration-shape design under the LOCKED A7 (rev2)
 
 DESIGN_DOC_ID: s4-floor-fold-design-20260805
-REVISION: rev1 — folds all five findings of `DESIGN-REVIEW-IMPLEMENTER-20260805-002131` (must-revise): R1 carrier ordering; R2 warning/torn-tail consumers + the B2/E disjointness proof; R3 the live E3 runtime in the mirror boundary; R4 the D2 invariant + wire mapping; R5 the slice-D list/info base-contract shape.
+REVISION: rev2 — folds the three HOLD RELEASES of `DESIGN-ORCHESTRATOR-PLANNER-HOLDS-RELEASED-20260805-013542` (authoritative text: the master relay it cites): H1 exact-row criterion-closure; H2 released with the CORRECTED old-reader assumption (whole-archive refusal, exit 3); H3 one-directional SHA binding for the RUNCARD leg.
+rev1 lineage — folded all five findings of `DESIGN-REVIEW-IMPLEMENTER-20260805-002131` (must-revise): R1 carrier ordering; R2 warning/torn-tail consumers + the B2/E disjointness proof; R3 the live E3 runtime in the mirror boundary; R4 the D2 invariant + wire mapping; R5 the slice-D list/info base-contract shape.
 The rev0 accepted points (D1 shared unit; pack-MIN-omit manifest-free; single A9 writer ownership; B1-before-B2-branch-3; the §6 no-exact-key finding; hold handling) are preserved unchanged in substance.
 Author seat: `s4-floor.planner`.
 Dispatch: `s4-floor-design` (`.relays/s4/s4-floor-design/DESIGN-ORCHESTRATOR-PLANNER-20260804-235023.md`).
@@ -9,14 +10,17 @@ Basis (consumed, never edited): the LOCKED A7 (`2e402057…`, hash-verified at a
 This document designs integration shape only.
 Every behavioral semantic below is the locked text's; where a sentence restates one, the lock governs.
 
-## 0. Holds honored (designed around, never closed here)
+## 0. Holds — ALL THREE RELEASED (013542); the binding answers folded here
 
-- H1 (nine-member CANON drift): §6 parameterizes exact-row comparators over the pending ruling.
-  Finding recorded in §6: NONE of the eighteen receipt keys is an `…-exact` key, so H1 blocks the broader register build-out, not the receipts.
-  Rev1 sharpening (review-accepted): for the O4 receipts, the sibling `…-exact` keys' state is RECORDED RAW and never called green before the H1 ruling.
-- H2 (old-reader containment contradiction): the archive-only marker is isolated in slice D and is the ONLY fenced-and-held slice.
-- H3 (cross-repo same-commit): slice A carries the in-repo mirror per §A7.10 — rev1 widens that boundary to the LIVE E3 runtime (§4 slice A, R3); the pdc RUNCARD leg is excluded from every slice until master defines the cross-repo shape.
-- Fence 2: slice D alone touches `manifest.cpp`; slices A/B/C are constructed to be landable ahead of it.
+- H1 RELEASED — exact-row criterion-closure (m-2 arm (a)): an `…-exact` row closes over EVERY member of the object AS IT EXISTS at the reviewed tree; CANON's "ALL EIGHT" was a lock-time count, not a cap.
+  The executor READS `detail`'s actual value and ASSERTS what it read — `∅` asserted as `∅`; a POPULATED `detail` on an installed row is a FINDING returned up the bridge, never papered over.
+  No CANON rewrite; receipt semantics wait on nothing.
+  Standing finding kept from rev0: NONE of the eighteen receipt keys is an `…-exact` key.
+- H2 RELEASED — with the CORRECTED binding assumption (orchestrator-verified at `envelope.cpp:407` return-3 group + `schemas/biv-exit-map.v1.json:16` `class: refusal, exit: 3`, both at `8981bfd`): an old schema-1-only reader meeting a schema-2 archive-only entry refuses the WHOLE ARCHIVE as `UnmanifestedMember`, EXIT 3, nothing installs, session layer and consent never run.
+  Slice D designs against exactly that; partial-install-with-skip, a per-entry skip row, and exit 2 are NEVER assumed — A7's contrary compatibility text rode an unreachable path and is being corrected forward at m-2's seat (stricter direction; no arm narrows; no P5 key is a mutation arm, so the eighteen-receipt obligation is unchanged).
+- H3 RELEASED — F-1's RUNCARD leg is a ONE-DIRECTIONAL SHA BINDING: product constants + harness pins move in ONE bivpak commit; the pdc RUNCARD update NAMES that exact SHA; no run consumes new pins until the RUNCARD row lands.
+  The F-1 ledger carries the accepted limitation VERBATIM: "a bivpak constants change whose SHA no RUNCARD row names goes RED at the NEXT RUN GATE, not at change time — drift is detectable, not impossible."
+- Fence 2 (still binding): slice D alone touches `manifest.cpp`; slices A/B/C land ahead of it. Addendum F's landing signal is still pending across the bridge.
 
 ## 1. Decision D1 — the constants' home: ONE shared version-floor unit
 
@@ -94,7 +98,8 @@ Each slice is its own head/PR under panel-at-SHA rules; the reconciled sequencin
   `version_floor.{hpp,cpp}` (D1); allowlist deletion at both legs (`codex/install.cpp:194-196`, `claude_code/install.cpp:331`) with the diff NOT widened into below-MIN/non-version refusals (§A7.5); the three-step conjunction at both legs' admission sites — grammar BEFORE ordering, typed details; verdict restructure (D2) + the unreadable agent-level gate; the mapper's NEW `failed`-with-version-detail branch (closed `reason` spellings `basis-newer-than-host`/`basis-unorderable` on `agent_not_validated_failed`); pack-side MIN omit-loud disposition (review-verified manifest-free: classification and omission happen before `manifest_entry_for` and artifact spooling, `pack.cpp:533-575`; the skip-loud report rows get an explicit report/render contract in the plan); the §A7.9 disclosure loud line.
   **R3 correction — the §A7.10 in-repo mirror boundary is the FULL live set, one commit:** the product constants + call sites; `harness/scenarios-e3/e3-dual-resume.json` (the scenario pins); `harness/bivharness/e3.py` — whose `version_in_validated_range` (`:766-778`) is a LIVE runtime prefix predicate on the host path, and which is REPLACED by a mirror-derived contract: grammar-valid single version AND line-grain `≥ MIN`, with newer-than-`surveyed_through` recorded for disclosure expectations — the CLI-probe grammar/readability oracle preserved; plus every schema/selftest consumer of the retired `validated_version_prefixes` key (`harness/selftest/test_e3_asserts.py`, the scenario schema).
   A slice-A commit touching a constant without this full mirror set fails the pin check.
-  H3 still holds the external pdc RUNCARD leg.
+  **The RUNCARD leg (H3 release, one-directional SHA binding):** the pdc RUNCARD update NAMES the exact bivpak SHA of the constants commit; no run consumes new pins until that RUNCARD row lands.
+  The slice-A F-1 ledger carries the accepted limitation VERBATIM: "a bivpak constants change whose SHA no RUNCARD row names goes RED at the NEXT RUN GATE, not at change time — drift is detectable, not impossible."
 - **Slice C — consent-no carrier (D3). UNFENCED; after A (it consumes the verdict shape and the reordered gates).**
   Includes the F57 exit-0 chosen row + guidance, the orchestration A9 sidecar writer with the §3 failure boundary, the dead-mapper correction, the `sessions.cpp:308-314` hardening row, and the consent-no harness scenario flips (`open-consent-no.json`, `open-deny-default.json` — flip-ledger rows, decided-not-deleted).
 - **Slice B2 — torn-tail (R-3.25(b)). UNFENCED; codex leg strictly after B1; sequenced after B1 for the render surface too.**
@@ -104,8 +109,11 @@ Each slice is its own head/PR under panel-at-SHA rules; the reconciled sequencin
   **R2 correction — B2∥E disjointness by NAMED files, not labels:** B2 touches `src/adapters/codex/codex.cpp`, `src/adapters/claude_code/claude_code.cpp` (collect), `src/core/pack/pack.{hpp,cpp}`, the install-side refusal site, and their owner tests; E touches the open-side install/report surfaces (§A5.10 migration composition, announcement/created-paths/recovery rendering, evaluability abstention) and their owner tests.
   The only shared surfaces are `CMakeLists.txt` and any common test fixture scaffolding — explicit-path, rebase-before-land discipline; neither slice touches `main.cpp` (B1 owns that window) and only E touches `render.cpp`.
   If the plan discovers E needs an install-side file B2 also touches, the two serialize at that file — the claim is per-file, revisable at plan, not a label.
-- **Slice D — archive-only marker. FENCED (behind Arm-1's schema act) AND HELD (H2).**
+- **Slice D — archive-only marker. FENCED (behind Arm-1's schema act); hold RELEASED, designed against the corrected old-reader assumption.**
   Schema-2 writer + schema-2-aware reader + pre-consent filter + `archive_only_skipped` row + the ONE new 0-returning `ErrKind` (shared error/exit-map/envelope cluster — one owner per act window).
+  **Binding old-reader assumption (H2 release, corrected):** an old reader refuses the WHOLE ARCHIVE (`UnmanifestedMember`, exit 3, nothing installs, no session layer, no consent) on any schema-2 archive-only entry.
+  Slice D's fixtures assert THAT behavior for the old-reader leg; the FX-VF-P5 keys' contrary shapes follow m-2's forward correction (its register disposition runs at the VP's seat — no s4 dependency).
+  The safety property (an old reader cannot auto-install an archive-only session) holds trivially under the corrected direction; the degradation story is stricter than A7 claimed, and slice D introduces no mitigation for it (any softening is m-2/master design, not this pair's).
   **R5 correction — the `list`/`info` base contract:** both verbs are wholesale `NotYetImplemented` (`main.cpp:390-394`); there is no base surface to insert archive-only status into, and this design does not smuggle a whole verb in as "status rendering."
   Shape chosen for D's post-H2 restatement: **D DEPENDS on a separately-owned base `list`/`info` implementation** — ownership routed through `s4.orchestrator-planner` (it is a shared `main.cpp` cluster and an m-3 consumer surface, not this pair's to absorb).
   D's own scope on that base is archive-only status rendering only.
@@ -115,7 +123,7 @@ Each slice is its own head/PR under panel-at-SHA rules; the reconciled sequencin
   HONESTY BOUND: addendum-5's exact surface specs were NOT read at this seat; the PLAN phase for slice E consumes addendum-5 directly before naming file targets.
   Sequenced after A (the loud-install path re-anchors on A's derived `readable-newer-than-survey` state).
 
-Order: B1 → A → C → {B2, E} (disjoint by the named-file statement above) → D (post-fence, post-H2).
+Order: B1 → A → C → {B2, E} (disjoint by the named-file statement above) → D (post-fence).
 Cluster discipline (binding, from the reconcile): `main.cpp` (B1's window in this design), the error-enum/exit-map/envelope cluster (slice A's version-reason rows; slice D's new kind — separate windows), and the frozen open-envelope oracle (recaptured ONCE, after the floor's act lands, matrix-first at Arm 1) each have ONE owner per act window.
 
 ## 5. Boundary contracts (per slice, the writer/reader pairs)
@@ -124,7 +132,7 @@ Cluster discipline (binding, from the reconcile): `main.cpp` (B1's window in thi
 - Slice A — Writes: `Capabilities` (D2 shape + derived wire spelling), `InstallSessionOutcome.detail` version subset, pack skip-loud rows, disclosure line, refusal rows, the full in-repo mirror set (constants, scenario pins, `e3.py` runtime contract, selftest/schema consumers). Reads: host probe (unchanged §A7.6 oracle), image basis, the constants. Downstream consumers: sessions gate, render, envelope/JSON schema, the E3 runtime. Contract: §A7.3/4/5/7/9/10. Proof: E2 FX-VF O-family + P1/P2/P4 fixtures; the E3 forward-host acceptance test (§7).
 - Slice C — Writes: staged bytes under `<WS>/.biv/agents/…`, the ONE A9 sidecar (aggregation + failure boundary per §3), chosen-outcome rows, guidance. Reads: image members, consent decision, the admission-gate results (order per §3). Downstream consumers: re-pack provenance (`tier: staged` with original chain), m-3 report surface. Contract: sealed G2 + A9/F64 + F57. Proof: E2 FX-VF-O1 staged/sidecar/repack keys + the §7 ordering tests.
 - Slice B2 — Writes: collected artifact bytes (branch-trimmed tail only), per-artifact `torn_tail_dropped {artifact, bytes}` facts, pack summary rows. Reads: raw session files, the session's live flag (B1's derivation on codex). Downstream consumers: pack default text (via B1's renderer) + JSON envelope; the open-time caveat from persisted `live_at_pack`; the branch-4 typed install refusal (`undecodable_line`, new vocabulary). Contract: sealed A3.3 (all four branches + the surfacing sentence). Proof: E2 four-branch × two-leg fixtures with byte-equality + the §7 default-output test.
-- Slice D — held for H2; contract restated only after the ruling, on the R5 dependency shape.
+- Slice D — Writes: schema-2 entries (marker object + sentinel), the archive-only skip row + new 0-returning kind, default `list`/`info` status rendering (on the R5 base dependency). Reads: pack dispositions' unknown-parseable classification. Downstream consumers: the NEW reader's pre-consent filter and open rows; the OLD reader per the corrected assumption (whole-archive `UnmanifestedMember` refusal, exit 3 — asserted, not mitigated). Contract: pins P1–P5 as forward-corrected at m-2's seat. Proof: E2 P3/P6 fixtures + the corrected old-reader fixture; full restatement at slice D's own plan, post-fence.
 - No slice touches host stores outside the existing consent-bound install write; no slice adds a host-store surface (DNA rule).
 
 ## 6. Receipts-as-you-go — the EIGHTEEN mapped to their GREEN-abling slice
@@ -146,10 +154,9 @@ Cluster discipline (binding, from the reconcile): `main.cpp` (B1's window in thi
 Execution law restated per receipt: fixture GREEN on correct code → ONE isolated mutation → observed RED (with sibling-stays-green where the plan requires it) → revert → post-revert green; run-traceable evidence; produced AS SLICES LAND.
 The NUL-bearing O4 fixtures carry a REAL NUL byte and are never normalized by hygiene sweeps.
 
-**H1 interaction, resolved shape:** none of the eighteen keys is an `…-exact` key — the receipts assert visibility/purity/ordering, and their `…-exact` SIBLINGS are observed-and-recorded, never assumed.
-So H1 does not block any receipt.
-The 30 `…-exact` fixture comparators are built PARAMETERIZED over the closed-row member list (eight members + `∅`-ninth vs an amended nine) and are asserted only after m-2's ruling lands.
-Rev1 (review sharpening): for the O4 receipts the sibling keys' observed state is recorded RAW in the receipt evidence and is not described as green (or red) until the H1 ruling makes the comparator assertable.
+**H1 resolved (criterion-closure, per the release):** none of the eighteen keys is an `…-exact` key — the receipts assert visibility/purity/ordering — and the 30 `…-exact` comparators are now ASSERTABLE without waiting: each closes over EVERY member of the shipped carrier at the reviewed tree (today: all nine, `detail` included), asserting the value actually read — `∅` as `∅`.
+A populated `detail` on an installed row is a FINDING routed up the bridge, never absorbed into the expectation.
+For the O4 receipts the sibling `…-exact` keys' observed state is recorded per that criterion in the receipt evidence.
 
 **Flip ledger (decided-not-deleted, DR-3 discipline; owned per slice):** the allowlist-asserting tests (`test_adapter_codex_install.cpp`, `test_adapter_claude_install.cpp`, `test_envelope.cpp`, `test_render.cpp`, `test_sessions.cpp`, `tests/fixtures/probe-envelope-v1.json`) flip in slice A — joined by the E3 mirror set (`e3-dual-resume.json`, `test_e3_asserts.py` prefix assertions, per R3); the consent-no scenarios (`open-consent-no.json`, `open-deny-default.json`) flip in slice C; every flip is LISTED in the slice's plan ledger with its replacement assertion.
 
@@ -170,11 +177,11 @@ Rev1 (review sharpening): for the O4 receipts the sibling keys' observed state i
 
 ## 8. Out of scope (restated hard lines)
 
-The five matrix arms; sealed-doc amendments (A7 consumed, not edited); host-store surfaces; R-4.1 arm (ii); R-4.2 sparse; everything H1/H2/H3 reserve; the pdc RUNCARD leg of the mirror; `list`/`info` beyond the R5 dependency statement.
+The five matrix arms; sealed-doc amendments (A7 consumed, not edited — its old-reader compatibility correction is m-2's, not ours); host-store surfaces; R-4.1 arm (ii); R-4.2 sparse; the pdc RUNCARD write itself (pdc-side, named-SHA per H3's binding); any mitigation of the corrected old-reader whole-archive refusal; `list`/`info` beyond the R5 dependency statement.
 
 ## 9. Open items this design leaves for named owners
 
 - Chosen-outcome row + guidance SPELLINGS: m-3 consumer surface — panel consumer-review leg at slice C.
 - The base `list`/`info` implementation D depends on: ownership routed through `s4.orchestrator-planner` (R5).
 - Slice E file targets: PLAN phase reads addendum-5 first (honesty bound, §4).
-- H1/H2/H3: upstream; slices constructed so no hold blocks A/B1/B2/C.
+- Holds: all three RELEASED (013542) and folded (§0); the remaining external signals are Addendum F's landing (fence 2's upstream) and the P5/A7 forward correction at m-2's seat (no s4 dependency).
