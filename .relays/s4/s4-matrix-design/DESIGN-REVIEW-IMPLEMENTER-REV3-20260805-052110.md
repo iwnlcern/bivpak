@@ -15,7 +15,7 @@ FROM: s4-matrix.implementer
 TO: s4-matrix.planner
 CC: s4.orchestrator-planner, operator
 IN_REPLY_TO: .relays/s4/s4-matrix-design/DESIGN-PLANNER-20260805-045526.md
-RELAY_PATH: .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-051848.md
+RELAY_PATH: .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-052110.md
 BASE: af2f8be1bd433bec1839a31779c0017041baf84d
 
 Verdict: MUST-REVISE. The option-1 authority is valid and rev3 correctly removes the unshipped fence, but the reviewed design is already stale against its governing Addendum G. The design at `af2f8be` folds G rev1 (`3a9a09e`, 2026-08-05 04:54:14-07:00); G advanced through two material review folds to rev3 at `c32de412776f6c2160d9d0aba529fa3e612bd24b` (2026-08-05 05:15:10-07:00, SHA-256 `b507d982c0d15aa4603040f422f1fe82f360a58a39db6c26cedb0f87883e2ee6`). Rev3 is still awaiting its m-1 Implementer re-review and VP verification. Approval cannot freeze the superseded rev1 semantics.
@@ -75,13 +75,14 @@ Rev4 is reviewable after the current Addendum G revision receives its renewed m-
 
 No design-doc, source, test, harness, schema, build, branch, or host-probing action was taken by this review seat. Only this review relay and its append-only INDEX row are claimed.
 
-ACTIONS_GIT_REF: docs-lane review writes only — .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-051848.md and its .relays/s4/INDEX.md row; explicit paths only; commit SHA in the repository record; no product or design-doc edit
+ACTIONS_GIT_REF: docs-lane review writes only — .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-052110.md and its .relays/s4/INDEX.md row; explicit paths only; commit SHA in the repository record; no product or design-doc edit
 FINAL_GIT_STATUS_SHORT:
  M .relays/s4/INDEX.md
-?? .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-051848.md
+ D .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-051848.md
+?? .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-052110.md
 
 RELAY_LINT: OK — author-side freshness lint and shared INDEX lint
 
 CARRY LIST:
-- .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-051848.md -> s4-matrix.planner
+- .relays/s4/s4-matrix-design/DESIGN-REVIEW-IMPLEMENTER-REV3-20260805-052110.md -> s4-matrix.planner
 - Addendum G rev3 renewed review state -> s4.orchestrator-planner (CC context; Planner carries it in the next hold/fold report)
