@@ -30,9 +30,25 @@ Every behavioral semantic is the locked A7's (`2e402057…`), m-2 `170500` §4's
 ## Dispatch-scope file set (the SCOPE_DIFF universe for delegated dispatch)
 
 Production: `src/adapters/version_floor.hpp` (new), `src/adapters/version_floor.cpp` (new), `src/adapters/migration.hpp` (new), `src/adapters/migration.cpp` (new), `src/adapters/adapter.hpp`, `src/adapters/codex/codex.cpp`, `src/adapters/codex/install.cpp`, `src/adapters/claude_code/claude_code.cpp`, `src/adapters/claude_code/install.cpp`, `src/core/open/sessions.hpp`, `src/core/open/sessions.cpp`, `src/core/open/render.hpp`, `src/core/open/render.cpp`, `src/core/pack/pack.hpp`, `src/core/pack/pack.cpp`, `src/core/report/envelope.cpp`, `src/core/support/error.hpp`, `src/core/support/error.cpp`, `src/cli/main.cpp`, `schemas/biv-json-envelope.v1.schema.json`, `schemas/biv-exit-map.v1.json`, `CMakeLists.txt` (build wiring for the two new units only).
-Tests: `tests/test_adapter_codex_collect.cpp`, `tests/test_adapter_claude_collect.cpp`, `tests/test_adapter_codex_install.cpp`, `tests/test_adapter_claude_install.cpp`, `tests/test_pack.cpp`, `tests/test_manifest.cpp` (assertion flips only — no parser change), `tests/test_open.cpp`, `tests/test_sessions.cpp`, `tests/test_render.cpp`, `tests/test_envelope.cpp`, `tests/test_cli.cpp`, new fixture files under `tests/fixtures/` (incl. the NUL-bearing corpus and the MG-FX double).
-Harness: `harness/scenarios-e3/e3-dual-resume.json`, `harness/bivharness/e3.py`, `harness/selftest/test_e3_asserts.py`, `harness/scenarios/open-consent-no.json`, `harness/scenarios/open-deny-default.json`, plus the scenario schema file that validates `validated_version_prefixes` if one binds it.
-OUT (hard lines): `src/core/manifest/*`, `.github/`, host stores, `src/core/scan/*`, everything slice D, the pdc RUNCARD, R-4.1(ii), R-4.2.
+Tests: `tests/test_adapter_codex_collect.cpp`, `tests/test_adapter_claude_collect.cpp`, `tests/test_adapter_codex_install.cpp`, `tests/test_adapter_claude_install.cpp`, `tests/test_pack.cpp`, `tests/test_manifest.cpp` (assertion flips only — no parser change), `tests/test_open.cpp`, `tests/test_sessions.cpp`, `tests/test_render.cpp`, `tests/test_envelope.cpp`, `tests/test_cli.cpp`, new fixture files under `tests/fixtures/**` (incl. the NUL-bearing corpus and the MG-FX double; new fixture SUBDIRECTORIES under `tests/fixtures/` are in-scope by this glob, but any NEW test translation unit not named above is OUT until rerouted).
+Harness: `harness/scenarios-e3/e3-dual-resume.json`, `harness/bivharness/e3.py` (the in-file validators are the complete set — `version_in_validated_range` `:766-778`, the `_version_gate_agents` call `:1684-1687`, the scenario required-field/type checks `:2359-2374`; NO separate scenario schema file exists for this key), `harness/selftest/test_e3_asserts.py`, `harness/scenarios/open-consent-no.json`, `harness/scenarios/open-deny-default.json`, `harness/ci/check_version_floor_mirror.py` (new — the §A7.10 pin check).
+Docs-lane evidence writes (a SEPARATELY AUTHORIZED evidence step, included in the SCOPE_DIFF universe so it can return all-in): receipt evidence under `docs/sprints/2026-08-04-s4-step4/results/receipts/**`; the implementation report relays + their INDEX rows under `.relays/s4/**`. These are docs-lane commits (explicit paths, per the operator's lane ruling), never on the implementation branches.
+OUT (hard lines): `src/core/manifest/*`, `.github/`, host stores, `src/core/scan/*`, everything slice D, the pdc RUNCARD, R-4.1(ii), R-4.2, any path not enumerated above.
+
+## Five-head topology (P4.3 — locked; no merge authority is assumed anywhere)
+
+Stacked branches, each PR targeting `main`; merges happen only per-PR on the operator's own authority, in order:
+
+| head | branch | base |
+|---|---|---|
+| B1 | `s4-floor/b1-codex-liveness` | `main` at branch time (product bytes proven equal to `8981bfd` via `git diff --exit-code 8981bfd HEAD -- src tests harness schemas CMakeLists.txt` before branching) |
+| A | `s4-floor/a-floor-core` | head of `s4-floor/b1-codex-liveness` |
+| C | `s4-floor/c-consent-no-carrier` | head of `s4-floor/a-floor-core` |
+| B2 | `s4-floor/b2-torn-tail` | head of `s4-floor/c-consent-no-carrier` |
+| E | `s4-floor/e-a5-surfaces` | head of `s4-floor/b2-torn-tail` |
+
+Restack rule: when a predecessor gains review-fold commits, every later branch rebases onto the updated predecessor BEFORE its own PR review; a later slice never starts its panel on a stale parent.
+If the operator merges predecessors as the stack proceeds, later branches may rebase onto `main` equivalently — either way the base is stated in that head's PR body.
 
 ---
 
@@ -65,18 +81,21 @@ OUT (hard lines): `src/core/manifest/*`, `.github/`, host stores, `src/core/scan
 **Files:** Modify `src/adapters/codex/codex.cpp` (the rollout reader + the `SessionRecord` builder at the `.live_at_pack = false` literal, `:374-392` at baseline); Test `tests/test_adapter_codex_collect.cpp` + new rollout fixtures under `tests/fixtures/codex_store/`.
 **Interfaces — Produces:** `live_at_pack` derived per m-2 `170500` §4: TERMINAL tail types = `{task_complete, turn_aborted, thread_rolled_back}` ⇒ `false`; ANY other tail — other type, dangling tool call, truncated final line, unparseable record, EMPTY file — ⇒ `true` (fail-closed). Downstream propagation untouched.
 
-- [ ] Write the failing tests, one per tail class (5 fixtures: `task_complete`, `thread_rolled_back`, dangling `custom_tool_call`, truncated final line, empty file) asserting the derived flag.
-- [ ] Run; expect FAIL (hardcoded false makes the three live cases fail).
-- [ ] Implement `terminal_tail_type()` over the last parseable record's `type` + the fail-closed default; replace the literal.
-- [ ] Run collect suite; expect PASS; claude suite untouched-green.
+- [ ] Write the failing tests over the FULL tail matrix (P3 — one fixture per row, all asserting the derived flag): `task_complete` ⇒ false; `turn_aborted` ⇒ false; `thread_rolled_back` ⇒ false; an ordinary nonterminal type (`session_meta`) ⇒ true; dangling `custom_tool_call` ⇒ true; a COMPLETE but malformed final JSON line ⇒ true; a TRUNCATED final JSON line ⇒ true; an empty file ⇒ true; and the decisive regression row — an EARLIER terminal `task_complete` record followed by a corrupt final tail ⇒ true (no scan-back may rescue it).
+- [ ] Run; expect FAIL (hardcoded false makes every ⇒-true case fail).
+- [ ] Implement `terminal_tail_type()` with NO SCAN-BACK: it inspects only the ACTUAL final segment/record of the rollout — if that final tail is missing, empty, truncated, or fails to parse, the session is LIVE; only a final record that parses AND whose `type` is one of the three terminal spellings yields false. Replace the literal.
+- [ ] Run collect suite; expect PASS incl. the regression row; claude suite untouched-green.
 - [ ] End-to-end pack test: live codex fixture ⇒ exactly one `SessionLiveAtPack` warning rendered (task 2's line); terminal fixture ⇒ the NEGATIVE CONTROL — warning line ABSENT from default output (design §7 test 3).
 - [ ] Commit. **Slice head exit:** suites green; PR; panel per panel-at-SHA; receipts: none GREEN-abled here.
 
 ## SLICE A — floor core + C1 head, one head (own head/PR; the same-commit task is 4)
 
-### Task 4: the version-floor unit + allowlist deletion + mirror, ONE commit
+### Task 4: the version-floor unit + allowlist deletion + mirror (checkpoint 1 of Slice A's ONE commit)
 
-**Files:** Create `src/adapters/version_floor.{hpp,cpp}`; Modify `src/adapters/codex/install.cpp` (delete `validated_codex_version` `:194-196`; admission call sites), `src/adapters/claude_code/install.cpp` (delete `:331`), `CMakeLists.txt`; Modify the FULL mirror set in the same commit: `harness/scenarios-e3/e3-dual-resume.json:24,42`, `harness/bivharness/e3.py:766-778` (`version_in_validated_range` → the mirror contract), `harness/selftest/test_e3_asserts.py` (its prefix assertions), the scenario schema key; Test `tests/test_adapter_codex_install.cpp`, `tests/test_adapter_claude_install.cpp` (flip ledger rows), `harness/selftest/`.
+**Slice-A commit law (P1):** tasks 4–6 are RED/GREEN CHECKPOINTS that accumulate into ONE commit, made at the end of task 6 — no intermediate commit exists, so no commit ever touches a floor constant while leaving a consumer or the mirror behind.
+
+**Files:** Create `src/adapters/version_floor.{hpp,cpp}`, `harness/ci/check_version_floor_mirror.py`; Modify `src/adapters/codex/install.cpp` (delete `validated_codex_version` `:194-196`; admission call sites), `src/adapters/claude_code/install.cpp` (delete `:331`), `CMakeLists.txt`; Modify the FULL mirror set (exact in-file consumers — no separate schema file exists): `harness/scenarios-e3/e3-dual-resume.json:24,42`, `harness/bivharness/e3.py` — `version_in_validated_range` `:766-778` (→ the mirror contract), the `_version_gate_agents` call site `:1684-1687`, the scenario required-field/type checks `:2359-2374` (retired key replaced everywhere), `harness/selftest/test_e3_asserts.py` (its prefix assertions); Test `tests/test_adapter_codex_install.cpp`, `tests/test_adapter_claude_install.cpp` (flip ledger rows), `harness/selftest/`.
+**Pin check (exact mechanism):** `harness/ci/check_version_floor_mirror.py` parses the `FloorRow` constants out of `src/adapters/version_floor.cpp` and the mirror table in `harness/bivharness/e3.py` and exits nonzero on any mismatch; wired beside the existing `harness/ci/` checks. Run: `python3 harness/ci/check_version_floor_mirror.py` — expected: exit 0.
 **Interfaces — Produces:**
 ```cpp
 namespace biv::adapters::version_floor {
@@ -97,45 +116,49 @@ E3 mirror contract: grammar-valid single version AND line ≥ MIN, `newer_than_s
 - [ ] Implement the unit; unit tests PASS.
 - [ ] Failing install tests per leg: FX-VF-O2 (direction refuse, detail transported), FX-VF-O4's 32 keys (grammar-before-ordering: the NUL-bearing fixture carries a REAL NUL byte), FX-MG-7 both legs (hostile basis set, per-leg).
 - [ ] Delete both allowlist gates; wire admission; flip-ledger rows updated in the SAME change (list every flipped assertion in the PR ledger); diff NOT widened into below-MIN/non-version refusals.
-- [ ] Update the mirror set; harness selftests green incl. the forward-host acceptance (design §7 test 5).
-- [ ] ONE commit for constants + call sites + mirror (`feat(adapters): version floor + C1 conjunction; allowlist retired; mirror moved same-commit`).
+- [ ] Update the mirror set (all four in-file consumer sites + the scenario pins + selftests) and write the pin-check script; harness selftests green incl. the forward-host acceptance (design §7 test 5); pin check exit 0.
+- [ ] CHECKPOINT — no commit; proceed to task 5 (Slice A commits once, at task 6).
 
-### Task 5: verdict restructure + the unreadable gate + mapper branch
+### Task 5: verdict restructure + the unreadable gate + mapper branch (checkpoint 2 of Slice A's ONE commit)
 
 **Files:** Modify `src/adapters/adapter.hpp:108` (Verdict), both `probe_capabilities`, `src/core/open/sessions.cpp:229-243` (gate) and `:318-326` region (mapper's new `failed`-with-version-detail branch), `src/core/open/render.cpp:187-241`, `src/core/report/envelope.cpp:142-146`, `schemas/biv-json-envelope.v1.schema.json`; Test `tests/test_sessions.cpp`, `tests/test_render.cpp`, `tests/test_envelope.cpp`.
 **Interfaces — Produces:** `enum class Verdict { readable, unreadable, absent }` + `bool newer_than_survey` with the construction invariant (`newer_than_survey==false` unless readable; single factory path; debug-asserted); wire spelling derived deterministically (`readable-newer-than-survey` / `readable` / `unreadable` / `absent`); `agent_version` parsed iff readable, else `"unknown"`; sessions gate: `unreadable`/`absent` ⇒ per-session `agent_not_validated_failed` rows, reasons `host-version-unreadable`/`store-absent`, zero adapter calls, exit 2; mapper: adapter `failed` + version detail ⇒ `agent_not_validated_failed` + reason `basis-newer-than-host`/`basis-unorderable` (hyphenated); non-version `failed` rows unchanged.
 
 - [ ] Failing tests: FX-VF-O5's 12 keys + CANON-3 row vectors (the FX-MG-9 burden — record its own CIM in the fixture comment); the invariant/wire test (design §7 test 6, all four spellings); the mapper transport test (O2's exact-row keys, comparator marked pending-pin for `detail`).
 - [ ] Implement; suites green; flip-ledger rows for `test_envelope`/`test_render`/`probe-envelope-v1.json` listed.
-- [ ] Commit.
+- [ ] CHECKPOINT — no commit; proceed to task 6.
 
-### Task 6: pack MIN omit-loud + watermark disclosure
+### Task 6: pack MIN omit-loud + watermark disclosure (checkpoint 3 + Slice A's ONE commit)
 
 **Files:** Modify `src/core/pack/pack.cpp:533-575` region (classify before `manifest_entry_for`; omitted sessions never reach `agent_sessions`), `src/core/open/render.cpp` (the §A7.9 loud line on `readable-newer-than-survey`); Test `tests/test_pack.cpp`, `tests/test_render.cpp`, fixtures for FX-VF-P1 (below-MIN inputs codex `0.61.0`, claude `2.0.5`), P2, P4 (above-survey `0.300.0`/`2.9.0`), O3, O7 (boundary inputs at/above survey, FROZEN spellings from CANON-7).
 **Interfaces — Produces:** pack skip-loud report rows naming id + version + MIN + reason; disclosure line fires iff derived state is `readable-newer-than-survey`.
 
 - [ ] Failing tests: P1's 10 keys; P2/P4 entry-schema-1 keys (writer stays at 1 — no manifest change); O3's 8 keys; O7's 8 keys (at-survey no-loud-line is the negative control).
 - [ ] Implement; suites green.
-- [ ] Commit. **Slice head exit:** PR + panel; then EXECUTE receipts GREEN-abled by A (mutation→RED→revert, evidence filed): `FX-VF-O3/{codex,claude}/disclosure-default-visible`, `FX-VF-O6/{codex,claude}/no-image-field-in-derivation` (the CANON-4 sweep test rides task 5's derivation purity), `FX-VF-O4/{codex,claude}/basis-nul-bearing/refuses-before-comparison`, `FX-MG-7/{codex,claude}/full-grammar-red`, `A5.8/silent-promotion` (raise `surveyed_through` only, oracle + O7 inputs FROZEN, confirm inputs not retuned). Each carries the discriminating-input-class precheck note (all five predate-or-straddle A7).
+- [ ] **THE ONE SLICE-A COMMIT** — tasks 4+5+6 together: constants + EVERY MIN and `surveyed_through` consumer (admission call sites, verdict/watermark state, pack-MIN disposition, disclosure line) + the full mirror set + the pin check (`feat(adapters): version floor + C1 conjunction, one head — allowlist retired, mirror + pin check same-commit`). **Slice head exit:** PR + panel; then EXECUTE receipts GREEN-abled by A (mutation→RED→revert, evidence filed): `FX-VF-O3/{codex,claude}/disclosure-default-visible`, `FX-VF-O6/{codex,claude}/no-image-field-in-derivation` (the CANON-4 sweep test rides task 5's derivation purity), `FX-VF-O4/{codex,claude}/basis-nul-bearing/refuses-before-comparison`, `FX-MG-7/{codex,claude}/full-grammar-red`, `A5.8/silent-promotion` (raise `surveyed_through` only, oracle + O7 inputs FROZEN, confirm inputs not retuned). Each carries the discriminating-input-class precheck note (all five predate-or-straddle A7).
 
 ## SLICE C — consent-no carrier (own head/PR)
 
-### Task 7: carrier reorder + destination fork + chosen row
+### Task 7: carrier reorder + chosen row (checkpoint 1 of Slice C's ONE commit)
+
+**Slice-C commit law (P2):** tasks 7–8 are RED/GREEN checkpoints accumulating into ONE commit at the end of task 8 — task 7 alone cannot green the staging-dependent tests and does not claim to.
 
 **Files:** Modify `src/core/open/sessions.cpp` (the `run_session_leg` order per design §3: entry rows → absent/unreadable gates → consent fork; consent-no calls `adapter->install(…, Consent::no)` with the workspace-staging target; `store_write_bits_absent` moves inside the consent-yes branch; the dead mapper `:323-326` becomes the chosen row; the `:308-314` lookup-miss hardening — fail closed, not default-false), `src/core/open/sessions.hpp` (new `Row::sessions_staged` `/* m-3 spelling at consumer review */`), `src/core/support/error.hpp`/`error.cpp` + `src/core/report/envelope.cpp` + `schemas/biv-exit-map.v1.json` (ONE new 0-returning kind — C's error-cluster window), `src/core/open/render.cpp` (staging report + guidance); Test `tests/test_sessions.cpp`, `tests/test_envelope.cpp` (row-count pin moves inside this window), `tests/test_cli.cpp`.
 **Interfaces — Produces:** the §3 normative order; `Outcome::staged` ⇒ the chosen row ⇒ new kind ⇒ exit 0; workspace-staging write failure ⇒ existing `session_install_failed` + errno convention, exit 2.
 
-- [ ] Failing tests: design §7 test 1 (unreadable/absent/store-missing × consent-no ⇒ zero adapter calls, zero staging), test 7 (read-only host store cross-product), test 8 (unwritable workspace ⇒ typed failure, no sidecar, no complete artifact), the F57 pair (consent-no exit 0 + same-run refusal/quarantine exit 2 — FX-VF-O1's exit keys).
-- [ ] Implement; green.
-- [ ] Commit.
+- [ ] Failing tests EXECUTABLE AT THIS CHECKPOINT (the shipped adapters suffice — no staging behavior is asserted): design §7 test 1 (unreadable/absent × consent-no ⇒ zero adapter calls, zero staging — provable from the gate reorder alone), the chosen-row/kind mapping unit tests (`Outcome::staged` ⇒ the chosen row ⇒ the new 0-returning kind), the `:308-314` fail-closed hardening test.
+- [ ] Implement the reorder + row + kind + hardening; the checkpoint tests green.
+- [ ] DEFERRED to task 8 (they need real staging): design §7 tests 2, 7, 8, and the F57 operation pair (consent-no exit 0 WITH staged bytes + same-run refusal/quarantine exit 2).
+- [ ] CHECKPOINT — no commit; proceed to task 8.
 
-### Task 8: adapter consent-no staging + the A9 sidecar
+### Task 8: adapter consent-no staging + the A9 sidecar (checkpoint 2 + Slice C's ONE commit)
 
 **Files:** Modify `src/adapters/codex/install.cpp` (the consent-yes pipeline `:406-480` runs for both consents; destination = `<WS>/.biv/agents/codex/sessions/YYYY/MM/DD/…` sealed dated layout under consent-no; the metadata-only branch `:499-509` deleted), `src/adapters/claude_code/install.cpp` (same, `:533-613`/`:650-660`, layout `<WS>/.biv/agents/claude-code/projects/<key>/…`), `src/core/open/sessions.cpp` (the ONE sidecar writer: aggregate succeeded staging across agents after all install calls, write `<WS>/.biv/agents/manifest.json` with the three sealed members — id_map, provenance chain, pair-set applied — no envelope pinned; publication failure ⇒ divergence per design §3); Test `tests/test_adapter_codex_install.cpp`, `tests/test_adapter_claude_install.cpp`, `tests/test_sessions.cpp` (FX-VF-O1's staged/minted/rewritten/sidecar/idmap/repack keys per CANON-2/2.5/2.6 — `…-exact` comparators built, marked pending-pin on `detail` only where a row object is asserted), harness scenario flips (`open-consent-no.json`, `open-deny-default.json` — flip-ledger rows).
 **Interfaces — Produces:** staged bytes install-ready (ids minted AND written, in-pair paths rewritten at stage time, verify run); sidecar content per sealed A9/F64; design §7 tests 2 and 9 pass.
 
-- [ ] Failing tests first (staged-artifact-set, identity binding, path-pair set, sidecar members, `created_paths` ABSENT on staged rows — the C1 pin); implement; green; flips listed.
-- [ ] Commit. **Slice head exit:** PR + panel (consumer leg reviews the chosen-row/guidance spellings); no receipts GREEN-abled here (O1 keys are BOUND arms, not mutation arms).
+- [ ] Failing tests first: staged-artifact-set, identity binding, path-pair set, sidecar members (CANON-2/2.5/2.6), PLUS the task-7 deferrals — design §7 tests 2 (one sidecar + publication-failure divergence), 7 (read-only host store cross-product), 8 (unwritable workspace), and the F57 operation pair. (The C1 `created_paths`-absent-on-staged assertion moves to task 11, where the field first exists.)
+- [ ] Implement; ALL slice-C tests green; harness scenario flips listed.
+- [ ] **THE ONE SLICE-C COMMIT** — tasks 7+8 together. **Slice head exit:** PR + panel (consumer leg reviews the chosen-row/guidance spellings); no receipts GREEN-abled here (O1 keys are BOUND arms, not mutation arms).
 
 ## SLICE B2 — torn-tail (own head/PR; codex branch 3 only after B1)
 
@@ -160,7 +183,7 @@ E3 mirror contract: grammar-valid single version AND line ≥ MIN, `newer_than_s
 
 **Files:** Modify `src/adapters/adapter.hpp` (`created_paths` on `InstallSessionOutcome`: store-relative, files-only, sorted, present EXACTLY on installed host-publish-succeeded rows — ABSENT on refusals and consent-no staged rows), both `install.cpp` (populate on publish), `src/core/open/sessions.cpp` (exactly one `AgentCaveat{kind:"host-version-unverified"}` per agent iff ≥1 readable-newer session INSTALLED), `src/core/open/render.cpp` (pre-consent announcement naming V + `surveyed_through` uncertainty + resume-unvalidated — never the retired prefix set; created-paths listing; the three-clause recovery paragraph, each clause separately rendered); Test install/session/render suites (the C2 pins incl. `host_version_unverified` true/false split and the at-survey negative control — design §7 test 9's second half).
 
-- [ ] Failing tests; implement; green; commit.
+- [ ] Failing tests — including the RELOCATED C1 pin (staged consent-no rows carry NO `created_paths`, asserted now that the field exists; P2's relocation) and the C2 pins; implement; green; commit.
 - [ ] **Slice head exit:** PR + panel; then EXECUTE the E-GREEN-abled receipts: `FX-MG-1R/recovery-visibility`, `FX-MG-3a/recovery-visibility`, `FX-MG-6/default-visibility`, `A5.8/tier2-announcement/default-visibility`, `A5.8/tier2-createdpaths/default-visibility` (content arms stay green — sibling rule), `A5.8/tier2-recovery/{identify,removes-ours,vendor-warning}-visibility` (one clause hidden per mutation, other two GREEN) — each with the discriminating-input-class precheck note and the loud path driven by A's trigger, never a tier concept.
 
 ## Verification & exit ledger
