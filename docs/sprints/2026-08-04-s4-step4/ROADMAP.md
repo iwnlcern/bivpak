@@ -19,8 +19,8 @@ Work branches from `main@8981bfd`.
 | 1 | Paired independent audits (s4-matrix, s4-floor) + reconcile | DISPATCHED |
 | 2 | FU-1 authoring duty ASSIGNED to s4 (master `230800`); the three-arm ruling folds `TO: operator` at Arm-2 design — design does not close unruled | ASSIGNED |
 | 3 | Addenda F **and G** land (unborn-HEAD ruled option 1, G rev0 authored 2026-08-05; the ONE fenced `manifest.cpp` reopening consumes BOTH after both reviews close); master relays the landing signal — no polling | PENDING UP |
-| 4 | Local DESIGN per pair (Superpowers brainstorming; grill where semantics unsettled) | — |
-| 5 | PLAN → plan-review → delegated `DISPATCH IMPL` per pair | — |
+| 4 | Local DESIGN per pair | floor: COMPLETE (rev5 approve `42cdfd94…`, PROCEED-TO-PLAN issued `145825`); matrix: holds for the pinned F+G closure signal |
+| 5 | PLAN → plan-review → delegated implementation dispatch per pair | floor: PLAN authorized; matrix: — |
 | 6 | Arm 1 end-to-end + golden harness day one; then Arms 2–5; floor rides after Arm-1 schema act | — |
 | 7 | Receipts executed as arms land (EIGHTEEN: 12 A5 + 6 A7, run-traceable; plans — A7 six in R-4.4/`170500` §3, A5 twelve at `224200`) | — |
 | 8 | Exit: ROADMAP exit test (Arm 5 closure), both addendum seals (VP), R-3.25 both legs in (a)→(b) order, DR-3 decided, clause-1 cold panel at final SHA | — |
