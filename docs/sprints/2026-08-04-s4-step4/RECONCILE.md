@@ -46,6 +46,16 @@ Both seats E1, blob-pinned, independent (each attests non-reading of the other).
   Homes: partial lifecycle → Arm 1/Arm 5 plan rows; representability → Arm 1 plan-time
   checks. The scope READING (contract features beyond the git slice are in-gate) is
   routed UP for master's concurrence — see the reconcile relay.
+  **CONCURRED by master (`001031`, 2026-08-05) on STRONGER ground: both features are
+  NAMED in the sealed contract itself — `detect_partial`/`clean_partial` at
+  `2026-07-02-restore-apply-contract.md:39-40,66-70` (E-17 primitives), representability
+  at `:121-126` (§2.5 E-13, `PathUnrepresentable`). One fence restated: contract
+  SEMANTICS beyond the sealed text (e.g. the `:218` rename-map mechanism, m-3 input
+  flagged) is an m-1 ADDENDUM routed UP, never a local amendment. Q1/Q2/Q3 are
+  dispatched to m-2 with master-side verification; the floor holds stand.**
+  *Hygiene rule adopted at this seat (master `001031` §2): citations in bridge relays
+  carry FULL repo-relative paths (`src/core/open/sessions.hpp`, never `sessions.hpp`) —
+  a cite must resolve verbatim at the receiving seat.*
 
 **Process disclosures accepted:** the shared-INDEX ordering wobble (one boot-ack append
 race, grandfathered by marker at `232323`); the matrix implementer's shared-checkout
