@@ -4,10 +4,107 @@ Audit/sitrep reconciliation at the `s4.orchestrator-planner` seat. Incoming clai
 until checked against repo/PR/task/runtime evidence; resolve toward file:line/runtime/test
 evidence. Rows append as reconciliations happen.
 
-## s4-matrix-audit — paired reconcile
+## s4-matrix-audit — paired reconcile (2026-08-04, both artifacts at `main@8981bfd`)
 
-*(pending both seats' artifacts)*
+Artifacts: `audits/s4-matrix-audit-planner.md` · `audits/s4-matrix-audit-implementer.md`.
+Both seats E1, blob-pinned, independent (each attests non-reading of the other).
 
-## s4-floor-audit — paired reconcile
+**AGREEMENT (dual-evidenced, adopted as the reconciled base):**
+- Fence 1 (`scan.cpp:137-138`, basename-`.git` test, prune-beats-refusal ordering, sole
+  construction site, blast radius = pack verb only) and fence 2 (`require_empty_array`
+  helper `:81-97`, sole call `:597`, wrap at open into `IntegrityFailurePreApply`).
+- The payload-restore substrate is EXTEND-not-rebuild: staging/rename/partial semantics,
+  containment via created-ancestry, collision refuse/rename-exhausted, checksummed member
+  accounting, plan/apply split — same sites both artifacts.
+- NO hidden/dead-pathed git engine exists (two independent instrument sets, both empty).
+- Golden harness: substrate reusable (scenario/compare/tolerance), but no git fixture
+  builder, repo-aware comparison, semantic git oracle, or activated `d-git-restore` row.
+- All five arms: PRIMARY_BUCKET still-open; no bucket/recommendation contradictions.
+- The `repos/` member-namespace gate (`open.cpp:275-279` → `UnmanifestedMember`) is a
+  THIRD surface Arm 1's schema act must open (planner named it a finding; implementer's
+  §2 states the same behavior) — with the envelope summaries (`envelope.cpp:79-81/:107-109`
+  + frozen oracle) the schema act scopes FOUR surfaces, not the package's two. **ADOPTED.**
 
-*(pending both seats' artifacts)*
+**DIFFERENT COVERAGE (complementary, both folded into the reconciled base):**
+- Planner: F1–F7 flip set with the frozen-oracle recapture DECISION (F7), the exit-map
+  row-count pin (F4), C1–C9 carriers, green-side seams. Implementer: the ten
+  `manifest_variant` scenario retentions, schema `maxItems`/`minItems` gap, selftest
+  positive/negative coverage gaps. The DR-3 ledger at PLAN merges BOTH lists.
+- Implementer only: the `probe.cpp` subprocess machinery question — extract a generic
+  argv runner vs a separately-owned git runner (`probe.cpp:669-880` hardcodes
+  `--version`). **Routed to the matrix DESIGN phase as a named decision** (two process-
+  safety implementations is the failure to avoid).
+
+**DISAGREEMENT (one, ruled):**
+- The two payload-contract gaps (partial lifecycle `detect_partial`/`clean_partial`
+  absent from `open.hpp`; plan-time representability — case-collision/path-length/
+  `rename_map`/no-probe absent). Implementer: "payload-contract gaps" needing
+  disposition; planner: "absent, not divergent — Step-4 work."
+  **RULED at this seat: both readings are compatible and the planner's classification
+  stands — these are unimplemented features of the restore-apply contract Step 4 exists
+  to implement, NOT prior-step drift (nothing landed contradicts the contract).**
+  Homes: partial lifecycle → Arm 1/Arm 5 plan rows; representability → Arm 1 plan-time
+  checks. The scope READING (contract features beyond the git slice are in-gate) is
+  routed UP for master's concurrence — see the reconcile relay.
+
+**Process disclosures accepted:** the shared-INDEX ordering wobble (one boot-ack append
+race, grandfathered by marker at `232323`); the matrix implementer's shared-checkout
+observations.
+
+## s4-floor-audit — paired reconcile (2026-08-04, both artifacts at `main@8981bfd`)
+
+Artifacts: `audits/s4-floor-audit-planner.md` · `audits/s4-floor-audit-implementer.md`
+(implementer relay of record: `234019`, third revision). Both E1, blob-pinned,
+independent; both verified the A7 lock hash `2e402057…` and read the carrier at blob
+`ce9ef8c` (implementer hashed it: `c2bcdc12…`).
+
+**AGREEMENT (dual-evidenced):**
+- R-W.1/C1: bare `starts_with` both legs (`codex/install.cpp:194-196`,
+  `claude_code/install.cpp:331`); grammar/total-order/typed-refuse conjuncts absent; the
+  two production call paths (probe leg, install leg) identical in both artifacts.
+- R-VF.1/2/3: all three present exactly as A7 names them — consent-denied bare skip
+  before any adapter call; consent-no branches metadata-only both legs; A9 sidecar
+  absent tree-wide; the dead `staged`→`session_install_failed` mapper; zero tests on
+  `Outcome::staged`.
+- R-3.25(a): codex `.live_at_pack=false` at `codex.cpp:391` is the only assignment
+  (planner's whole-dir `live` grep is the stronger only-ness instrument); claude leg
+  computed; propagation pure (planner enumerated all 21 `live_at_pack` hits). Torn-tail:
+  0 hits — unimplemented BOTH legs; (b)-inoperative-until-(a) restated by both.
+- A7 floor wholly unlanded: `surveyed_through` 0 hits, `archive_only` 0 hits, no MIN
+  constants, no dispositions, writer hardcodes `entry_schema: 1`. MIN vs
+  `surveyed_through` kept distinct in every sentence of both artifacts (dispatch
+  acceptance criterion met).
+- EIGHTEEN receipts: 18 required / 0 keys in tree / 18 still open, all carrier arms
+  MUTATION-required; per-receipt prerequisite rows compatible; `A5.8/silent-promotion`
+  §8-operative (not §1) in both.
+
+**DIFFERENT COVERAGE (each significant, all routed rather than absorbed):**
+- Planner only — **the nine-member drift:** `SessionRowReport` gained `detail`
+  post-lock (`sessions.hpp:46-62`) while A7's CANON closed-row rule closes exact rows
+  over "ALL EIGHT members." Lock intact; the TREE moved. Every `…-exact` receipt row
+  needs a ruling (close over ninth with ∅, or CANON amendment). **m-2 seam → routed UP.**
+- Implementer only — **the old-reader containment contradiction:** A7 claims an old
+  reader degrades gracefully to a generic skip row on a schema-2 archive-only entry,
+  but the shipped parser early-returns at `manifest.cpp:206-227` leaving the entry's
+  members unaccounted, so `open.cpp:261-284` refuses the archive's `agents/…` member as
+  `UnmanifestedMember` BEFORE the session-layer skip — refusal, not degradation.
+  **m-2 seam (it tests A7's own compatibility claim) → routed UP.**
+- Both, converging — **the cross-repo same-commit law:** §A7.10's mirror spans two git
+  repos (product + harness mirror in bivpak; RUNCARD in pdc) — one literal commit
+  cannot hold both. **The cross-repo lock/receipt definition → routed UP.**
+- Planner only, plan-level (kept local): `sessions.cpp:308-314` fail-open
+  `live_at_pack=false` default on manifest-lookup miss — hardening row for the floor
+  plan. `main.cpp:390-394` `NotYetImplemented` list/info (implementer) — render-surface
+  note for the floor design.
+
+**DISAGREEMENT:** none of substance found — the artifacts differ only in coverage.
+
+**Sequencing ruled at this seat (binding on both pairs' plans):**
+Addendum F → Arm-1 schema act (all FOUR surfaces) → floor `repos[]`-adjacent
+`manifest.cpp` act → separately-owned integration acts with rebases between them.
+Beyond the charter fences, three shared clusters get ONE owner per act window:
+(1) `src/cli/main.cpp` orchestration; (2) the error-enum/exit-map/envelope cluster
+(`error.hpp/cpp`, `envelope.cpp`, `schemas/biv-exit-map.v1.json`, `test_envelope.cpp`
+row-count pin); (3) the frozen open-envelope oracle — recapture is ONE decision per act
+window, matrix-first at Arm 1, floor after its act lands. `CMakeLists.txt` and shared
+open/cli tests: explicit-path, rebase-before-land discipline.
