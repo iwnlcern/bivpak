@@ -1,9 +1,11 @@
-# s4-floor fold — integration-shape design under the LOCKED A7
+# s4-floor fold — integration-shape design under the LOCKED A7 (rev1)
 
 DESIGN_DOC_ID: s4-floor-fold-design-20260805
+REVISION: rev1 — folds all five findings of `DESIGN-REVIEW-IMPLEMENTER-20260805-002131` (must-revise): R1 carrier ordering; R2 warning/torn-tail consumers + the B2/E disjointness proof; R3 the live E3 runtime in the mirror boundary; R4 the D2 invariant + wire mapping; R5 the slice-D list/info base-contract shape.
+The rev0 accepted points (D1 shared unit; pack-MIN-omit manifest-free; single A9 writer ownership; B1-before-B2-branch-3; the §6 no-exact-key finding; hold handling) are preserved unchanged in substance.
 Author seat: `s4-floor.planner`.
 Dispatch: `s4-floor-design` (`.relays/s4/s4-floor-design/DESIGN-ORCHESTRATOR-PLANNER-20260804-235023.md`).
-Basis (consumed, never edited): the LOCKED A7 (`2e402057…`, hash-verified at audit), m-2 `170500` §4, sealed `A3.3`, the reconciled audits (`RECONCILE.md` §s4-floor), the receipt plans (`170500` §3, `224200` §4, carrier §8 at `ce9ef8c`).
+Basis (consumed, never edited): the LOCKED A7 (`2e402057…`, hash-verified at audit), m-2 `170500` §4, sealed `A3.3` (read in full at this seat for rev1), sealed A9/F64, the reconciled audits (`RECONCILE.md` §s4-floor), the receipt plans (`170500` §3, `224200` §4, carrier §8 at `ce9ef8c`).
 This document designs integration shape only.
 Every behavioral semantic below is the locked text's; where a sentence restates one, the lock governs.
 
@@ -11,8 +13,9 @@ Every behavioral semantic below is the locked text's; where a sentence restates 
 
 - H1 (nine-member CANON drift): §6 parameterizes exact-row comparators over the pending ruling.
   Finding recorded in §6: NONE of the eighteen receipt keys is an `…-exact` key, so H1 blocks the broader register build-out, not the receipts.
+  Rev1 sharpening (review-accepted): for the O4 receipts, the sibling `…-exact` keys' state is RECORDED RAW and never called green before the H1 ruling.
 - H2 (old-reader containment contradiction): the archive-only marker is isolated in slice D and is the ONLY fenced-and-held slice.
-- H3 (cross-repo same-commit): slice A carries the in-repo mirror per §A7.10; the pdc RUNCARD leg is excluded from every slice until master defines the cross-repo shape.
+- H3 (cross-repo same-commit): slice A carries the in-repo mirror per §A7.10 — rev1 widens that boundary to the LIVE E3 runtime (§4 slice A, R3); the pdc RUNCARD leg is excluded from every slice until master defines the cross-repo shape.
 - Fence 2: slice D alone touches `manifest.cpp`; slices A/B/C are constructed to be landable ahead of it.
 
 ## 1. Decision D1 — the constants' home: ONE shared version-floor unit
@@ -29,71 +32,100 @@ Alternatives considered:
 - (a) per-adapter constants beside the retired allowlist — rejected: two comparator implementations is the drift class the matrix reconcile names for `probe.cpp`, and the §A7.10 mirror sweep would span two files;
 - (c) constants in `adapter.hpp` — rejected: pollutes the cross-adapter interface header with m-2 line-grain data.
 
-Why (b) wins: one mirror surface for the same-commit pin law (F-1: the constants, the consuming code, and the in-repo harness mirror move in ONE commit); one comparator; per-leg call sites preserve `FX-MG-7`'s per-leg falsifiability (the receipt's mutation removes ONE leg's call/wiring, not the shared function body — the shared body is exactly what makes "removing codex's check leaves claude green" a real per-leg claim).
+Why (b) wins: one mirror surface for the same-commit pin law (F-1: the constants, the consuming code, and the in-repo mirror — §4 slice A's full list — move in ONE commit); one comparator; per-leg call sites preserve `FX-MG-7`'s per-leg falsifiability (the receipt's mutation removes ONE leg's call/wiring, not the shared function body).
 MIN and `surveyed_through` remain DIFFERENT things end to end: MIN is consumed only by the pack dispositions (slice A pack leg); `surveyed_through` only by the disclosure trigger (slice A render leg); no code path consumes both for one decision.
 
-## 2. Decision D2 — verdict vocabulary restructure (`adapter.hpp:108`)
+## 2. Decision D2 — verdict vocabulary restructure (`adapter.hpp:108`), with the R4 invariant and wire mapping
 
-**Decision: `enum class Verdict { readable, unreadable, absent }` plus a separate `bool newer_than_survey`,** meaningful only when `readable`.
-The disclosure trigger is exactly `verdict == readable && newer_than_survey` (host line > `surveyed_through`).
+**Decision: `enum class Verdict { readable, unreadable, absent }` plus a separate `bool newer_than_survey`.**
 
-Alternative considered: a four-value enum carrying `readable_newer_than_survey` as its own state — rejected: §A7.7's cardinality note names "verdict + host version + `newer_than_survey` boolean" separately, and an enum+boolean pair that can disagree (enum says newer, bool says no) is an inconsistent-state bug the two-field shape cannot express.
+**Construction invariant (normative, R4.1):** `newer_than_survey == false` unless `verdict == readable`.
+The pair is produced only through one construction path (a factory/normalizing constructor in the capabilities probe); a state of `unreadable + true` or `absent + true` is unrepresentable through that path, debug-asserted at the type, and test-asserted for every serialized state.
 
-Consumer rewires (all named, all slice A): `sessions.cpp:229-243` (the gate keys on `unreadable`/`absent` for the agent-level refusals; `readable` proceeds), `render.cpp:187-241` (prompt wording moves from validated-range display to floor/watermark display — exact wording is the m-3 consumer surface, flagged for the consumer-review leg), `envelope.cpp:142-146` (verdict serialization), the JSON envelope schema.
-The shipped `unvalidated_host` state (store exists, probe failed) maps to `unreadable` — §A7.4's fail-closed refuse — and the shipped `unvalidated` (probe ok, not in allowlist) ceases to exist: a readable host is readable; admission moves entirely to the per-session direction gate.
+**Host-version presence rule:** `agent_version` carries a parsed version iff `verdict == readable`; for `unreadable` and `absent` the field holds the existing `"unknown"` sentinel and the raw probe evidence rides the existing `probe` member untouched.
+
+**Wire mapping (R4.2):** the JSON envelope and any text surface carry ONE derived verdict spelling, deterministically:
+`readable && newer_than_survey` → `readable-newer-than-survey`; `readable` → `readable`; `unreadable` → `unreadable`; `absent` → `absent`.
+No separate boolean is serialized; the internal pair is not a wire shape.
+This preserves §A7.9's externally named state (`readable_newer_than_survey`) exactly, and the envelope schema enumerates the four spellings.
+The disclosure trigger is exactly the first spelling's condition (host line > `surveyed_through`).
+
+Alternative considered: a four-value enum carrying `readable_newer_than_survey` as its own state — rejected: §A7.7's cardinality note names "verdict + host version + `newer_than_survey` boolean" separately, and the derived-wire-spelling shape above gives the external four-state vocabulary without an internal enum/bool pair that can disagree.
+
+Consumer rewires (all named, all slice A): `sessions.cpp` agent gate (keys on `unreadable`/`absent`; `readable` proceeds), `render.cpp:187-241` (prompt wording moves to floor/watermark display — exact wording is the m-3 consumer surface, flagged for the consumer-review leg), `envelope.cpp:142-146` + `schemas/biv-json-envelope.v1.schema.json` (the four derived spellings).
+The shipped `unvalidated_host` state maps to `unreadable` (§A7.4 fail-closed); the shipped `unvalidated` ceases to exist — a readable host is readable, and admission moves entirely to the per-session direction gate.
 `validated_range` (display string) retires with the allowlist.
 
-## 3. Decision D3 — the consent-no carrier wiring (R-VF.1/2/3)
+## 3. Decision D3 — the consent-no carrier, with the R1 ordering made explicit
 
-**Decision: one pipeline, two destinations; the sidecar is written by the orchestration layer.**
+**The reordered per-agent carrier in `run_session_leg` (normative order, R1):**
 
-- The adapters' existing consent-yes machinery (mint → derive pair set → read members → rewrite → verify → secure-write) is PROMOTED to run on BOTH consent values.
-  The only consent-conditional is the WRITE DESTINATION and the outcome tag: consent-yes writes to the host store and returns `installed`; consent-no writes install-ready staged BYTES under `<WS>/.biv/agents/…` (the sealed dated layouts CANON-2 exercises) and returns `staged`.
-  Nothing else forks — same mint, same rewrite, same verify.
-- The A9 sidecar (`<WS>/.biv/agents/manifest.json`: id_map + provenance chain + pair-set applied — sealed content members only, no wire schema invented) is written ONCE by the orchestration layer (`sessions.cpp`), aggregated across agents after the per-agent install calls return.
-  Rationale: the sealed path is a single file; two adapters writing one file is a collision by construction.
-- `run_session_leg` consent-denied branch (today `sessions.cpp:215-227`, the bare skip) becomes: call `adapter->install(…, Consent::no)` with the staging-destination target, then map `staged` to the CHOSEN-OUTCOME row — a NEW distinct row + a 0-returning kind (F57: exit 0 AND the operation), with the staging report + printed guidance rendered default-visible.
-  The exact row/guidance SPELLINGS are the m-3 consumer surface; this design pins the behavior (distinct row, exit 0, guidance present, no existing skip's exit changed) and routes spellings to the consumer-review leg of the panel.
-- The dead mapper (`sessions.cpp:323-326`, `staged` → `session_install_failed`/`error`) is corrected to the chosen-outcome row in the same slice; it is never cited as precedent.
-- Hardening row (from the audit): `sessions.cpp:308-314` — an adapter row whose manifest lookup misses must fail CLOSED for `live_at_pack` reporting (or refuse loudly), not default to `false`.
+1. Entry-level rows first, as today: unknown-adapter and entry-schema rows (slice-D note: archive-only pre-consent filtering, when D lands, slots here — held).
+2. **Agent-level admission gates, BEFORE consent dispatch, zero adapter calls, regardless of the consent answer:** `absent` (store/agent), `unreadable` (probe), and the store-write-bits check — each terminates with its per-session `SessionRowReport` rows (`store-absent` / `host-version-unreadable` / `store_locked`), exit 2, exactly as locked (§A7.7 rows 1–2).
+   A consent-no answer never converts these into staging: an unreadable or absent target stages nothing.
+3. **Consent dispatch, only for a readable, present, writable target:** consent-yes → `install(…, Consent::yes)` with the host-store destination; consent-no → `install(…, Consent::no)` with the workspace-staging destination.
+4. **Per-session version admission inside the adapter call, both consent values:** grammar gate BEFORE ordering; `basis_unorderable` / `basis_newer_than_host` refusals are per-session `failed` outcomes with typed details regardless of consent; only admitted sessions proceed to write (host or staged).
 
-Alternative considered: a separate staging writer beside the adapters (leave `Consent::no` metadata-only, orchestration stages raw copies) — rejected by the lock itself: §A7.7 pins ONE end-to-end carrier and G2 requires paths rewritten IN the staged bytes at stage time; raw copies are the named defect, not a design option.
+**One pipeline, two destinations (unchanged from rev0):** the adapters' consent-yes machinery (mint → derive pair set → read members → rewrite → verify → secure-write) runs on BOTH consent values; only the write destination and outcome tag fork (host store + `installed` vs `<WS>/.biv/agents/…` staged bytes + `staged`, sealed dated layouts).
 
-## 4. Decision D4 — slice partitioning and order (landability under the fences)
+**Sidecar aggregation, publication, and failure boundary (R1, made explicit):**
+- The A9 sidecar (`<WS>/.biv/agents/manifest.json`; sealed content members: id_map, provenance chain, pair-set applied; no wire schema invented) is written ONCE by the orchestration layer, after ALL agents' install calls return and before rows are finalized for rendering.
+- It aggregates exactly the sessions whose staging SUCCEEDED (`Outcome::staged` with staged bytes on disk), across all agents.
+- Per-agent isolation holds: one agent's install failure never aborts a sibling agent's staging; failed agents contribute their failure rows and nothing to the sidecar.
+- **Sidecar-publication failure is DIVERGENCE, not a chosen outcome:** if the sidecar write fails, the affected staged sessions' rows become `session_install_failed` (typed to the sidecar failure), exit 2, and the report DISCLOSES the staged byte paths already on disk — they are not silently deleted (the recovery path is a re-run; destroying user-visible staged bytes on a bookkeeping failure is the worse failure).
+  F57 is honored in both directions: exit 0 requires the WHOLE operation (bytes + sidecar + report + guidance); an incomplete operation is a genuine failure.
+- On success: the chosen-outcome row (a NEW distinct row + a 0-returning kind; spellings are the m-3 consumer surface, routed to the consumer-review leg), staging report + printed guidance default-visible, exit 0.
+- The dead mapper (`sessions.cpp:323-326`) is corrected to the chosen-outcome row in the same slice; never cited as precedent.
+- Hardening row (from the audit): the `sessions.cpp:308-314` manifest-lookup miss must fail CLOSED for `live_at_pack` reporting, not default to `false`.
+
+Review-accepted ownership stands: A9 pins one path and three content members, not a per-adapter writer; the single orchestration writer with the ordering above is the design.
+
+## 4. Decision D4 — slices, with the R2/R3 consumer and cluster corrections
 
 Each slice is its own head/PR under panel-at-SHA rules; the reconciled sequencing (Addendum F → Arm-1 schema act → floor `manifest.cpp` act) and the one-owner-per-act-window clusters bind throughout.
 
-- **Slice B1 — codex liveness (R-3.25(a)). UNFENCED; land FIRST (smallest, unblocks the most).**
+- **Slice B1 — codex liveness (R-3.25(a)) + the pack-warning render surface. UNFENCED; land FIRST.**
   `codex.cpp` collect derives `live_at_pack` from the rollout tail-record type: TERMINAL = `{task_complete, turn_aborted, thread_rolled_back}`; ANY other tail — dangling tool call, truncated final line, unparseable record, empty file — ⇒ `true` (fail-closed).
-  Everything downstream is already pure propagation (audit-verified); the one default-visible warning rides the existing `SessionLiveAtPack` pack warning; wording carries MAY, never IS (R-3.36 class).
-  NEGATIVE CONTROL fixture: terminal tail asserts the warning ABSENT.
+  **R2 correction — the render consumer is IN this slice:** at the pinned tree, non-JSON `pack` renders only prune advisories (`main.cpp:44-50`); `PackReport.warnings` reaches only the exit code and the JSON envelope.
+  B1 therefore adds default-visible rendering of `PackReport.warnings` to the non-JSON pack text output (a GENERIC warnings renderer, so later warning kinds — including B2's — ride it with no further `main.cpp` change), and the `SessionLiveAtPack` warning text carries MAY, never IS (R-3.36 class), exactly once per live session.
+  Cluster note: this is B1's one `src/cli/main.cpp` touch; B1 owns that cluster for its act window.
+  NEGATIVE CONTROL fixture: terminal tail asserts the warning line ABSENT from default output (not merely a zero count).
 - **Slice A — the floor core + C1 head, one head (F-3). UNFENCED.**
-  `version_floor.{hpp,cpp}` (D1); allowlist deletion at both legs (`codex/install.cpp:194-196`, `claude_code/install.cpp:331`) with the diff NOT widened into below-MIN/non-version refusals (§A7.5); the three-step conjunction at both legs' admission sites — grammar gate BEFORE ordering, typed `basis_unorderable`/`basis_newer_than_host` details; verdict restructure (D2) + the unreadable agent-level gate (zero adapter calls, per-session rows, recovery text); the mapper's NEW `failed`-with-version-detail branch (`InstallSessionOutcome.detail` → closed `SessionRowReport.reason` spellings `basis-newer-than-host`/`basis-unorderable` on `agent_not_validated_failed`); pack-side MIN omit-loud disposition (skip-loud report rows — NO manifest change: an omitted session simply never enters the archive); the §A7.9 disclosure loud line; the in-repo §A7.10 mirror (`harness/scenarios-e3/e3-dual-resume.json`, `harness/selftest/test_e3_asserts.py`) in the SAME commit as the constants.
-  Note: pack MIN omit-loud is deliberately IN slice A, not the fenced slice — it consumes only the constants and the pack report, never `manifest.cpp`.
-- **Slice C — consent-no carrier (D3). UNFENCED; after A (it consumes the verdict shape).**
-  Includes the F57 exit-0 chosen row + guidance, the A9 sidecar writer, the dead-mapper correction, the `sessions.cpp:308-314` hardening row, and the consent-no harness scenario flips (`open-consent-no.json`, `open-deny-default.json` — flip-ledger rows, decided-not-deleted).
-- **Slice B2 — torn-tail (R-3.25(b)). UNFENCED; codex leg strictly after B1.**
-  A3.3's four branches at collect, per leg, retained-prefix byte equality in every branch; branch 2 appends exactly one LF; branch 3 records `torn_tail_dropped = {artifact, bytes: len(T)}` exactly; branch 4 collects verbatim and refuses at install as `undecodable_line`; interior segments never inspected.
-  A codex branch-3 test green while `live_at_pack` is hardcoded fails review (the dispatch law; B1 removes the hardcode first).
+  `version_floor.{hpp,cpp}` (D1); allowlist deletion at both legs (`codex/install.cpp:194-196`, `claude_code/install.cpp:331`) with the diff NOT widened into below-MIN/non-version refusals (§A7.5); the three-step conjunction at both legs' admission sites — grammar BEFORE ordering, typed details; verdict restructure (D2) + the unreadable agent-level gate; the mapper's NEW `failed`-with-version-detail branch (closed `reason` spellings `basis-newer-than-host`/`basis-unorderable` on `agent_not_validated_failed`); pack-side MIN omit-loud disposition (review-verified manifest-free: classification and omission happen before `manifest_entry_for` and artifact spooling, `pack.cpp:533-575`; the skip-loud report rows get an explicit report/render contract in the plan); the §A7.9 disclosure loud line.
+  **R3 correction — the §A7.10 in-repo mirror boundary is the FULL live set, one commit:** the product constants + call sites; `harness/scenarios-e3/e3-dual-resume.json` (the scenario pins); `harness/bivharness/e3.py` — whose `version_in_validated_range` (`:766-778`) is a LIVE runtime prefix predicate on the host path, and which is REPLACED by a mirror-derived contract: grammar-valid single version AND line-grain `≥ MIN`, with newer-than-`surveyed_through` recorded for disclosure expectations — the CLI-probe grammar/readability oracle preserved; plus every schema/selftest consumer of the retired `validated_version_prefixes` key (`harness/selftest/test_e3_asserts.py`, the scenario schema).
+  A slice-A commit touching a constant without this full mirror set fails the pin check.
+  H3 still holds the external pdc RUNCARD leg.
+- **Slice C — consent-no carrier (D3). UNFENCED; after A (it consumes the verdict shape and the reordered gates).**
+  Includes the F57 exit-0 chosen row + guidance, the orchestration A9 sidecar writer with the §3 failure boundary, the dead-mapper correction, the `sessions.cpp:308-314` hardening row, and the consent-no harness scenario flips (`open-consent-no.json`, `open-deny-default.json` — flip-ledger rows, decided-not-deleted).
+- **Slice B2 — torn-tail (R-3.25(b)). UNFENCED; codex leg strictly after B1; sequenced after B1 for the render surface too.**
+  A3.3's four branches at collect, per leg: branch 1 verbatim; branch 2 appends exactly one LF (the only byte collect may add); branch 3 drops exactly T and records `torn_tail_dropped = {artifact, bytes: len(T)}`; branch 4 collects verbatim and refuses at install typed `undecodable_line`; interior segments never inspected; retained-prefix byte equality in every branch.
+  **R2 correction — the full consumer set is in the boundary contract (§5):** the structured carrier runs collect → `SessionRecord` (per-artifact torn-tail facts) → `PackReport` summary rows → BOTH pack outputs (default text via B1's generic warnings/summary renderer — no new `main.cpp` touch — and the JSON envelope); the open-time caveat derives from the persisted `live_at_pack` flag (the existing row suffix surface, wording per A3.3); the branch-4 typed install refusal is a separate consumer (its `undecodable_line` spelling is today absent from src — 0 grep hits — so the typed-refusal vocabulary is B2 work on the install side).
+  If the summary row needs a field the shipped `Warning{kind, path}` cannot carry (the byte count), B2 extends the pack report structure (`pack.hpp`) — named here so the plan costs it.
+  **R2 correction — B2∥E disjointness by NAMED files, not labels:** B2 touches `src/adapters/codex/codex.cpp`, `src/adapters/claude_code/claude_code.cpp` (collect), `src/core/pack/pack.{hpp,cpp}`, the install-side refusal site, and their owner tests; E touches the open-side install/report surfaces (§A5.10 migration composition, announcement/created-paths/recovery rendering, evaluability abstention) and their owner tests.
+  The only shared surfaces are `CMakeLists.txt` and any common test fixture scaffolding — explicit-path, rebase-before-land discipline; neither slice touches `main.cpp` (B1 owns that window) and only E touches `render.cpp`.
+  If the plan discovers E needs an install-side file B2 also touches, the two serialize at that file — the claim is per-file, revisable at plan, not a label.
 - **Slice D — archive-only marker. FENCED (behind Arm-1's schema act) AND HELD (H2).**
-  Schema-2 writer (`entry_schema: 2` + required `archive_only` object + the exact `"unknown"` sentinel; admissible entries STAY at 1 — minimum-schema rule; writer today hardcodes 1 at `pack.cpp:405`), schema-2-aware reader (full schema-1 set + marker; `>known-max` skip preserved), pre-consent filter, `archive_only_skipped` row + the ONE new 0-returning `ErrKind` (shared error/exit-map/envelope cluster — one owner per act window per the reconcile ruling), `list`/`info` default rendering (today `NotYetImplemented`, `main.cpp:390-394` — the `list`/`info` verb implementation is a shared `main.cpp` cluster surface; scope minimally to archive-only status rendering).
-  H2 may reshape the old-reader compatibility claims; nothing in A–C depends on D's shape.
+  Schema-2 writer + schema-2-aware reader + pre-consent filter + `archive_only_skipped` row + the ONE new 0-returning `ErrKind` (shared error/exit-map/envelope cluster — one owner per act window).
+  **R5 correction — the `list`/`info` base contract:** both verbs are wholesale `NotYetImplemented` (`main.cpp:390-394`); there is no base surface to insert archive-only status into, and this design does not smuggle a whole verb in as "status rendering."
+  Shape chosen for D's post-H2 restatement: **D DEPENDS on a separately-owned base `list`/`info` implementation** — ownership routed through `s4.orchestrator-planner` (it is a shared `main.cpp` cluster and an m-3 consumer surface, not this pair's to absorb).
+  D's own scope on that base is archive-only status rendering only.
+  If no base exists when D unfences, D's restatement escalates the dependency rather than absorbing the verb.
 - **Slice E — A5-surface completion (migration backstop + the A5 visibility surfaces).**
   §A7.8: the §A5.10 migration table (MG-1 REFUSE-with-recovery, FX-VF-M1) composes inside the admitted direction; plus the tier-2 loud-install surfaces the A5 receipts assert (announcement, created-paths listing, three-clause recovery block, the golden line, evaluability-keyed abstention) — all absent in src (audit instruments).
   HONESTY BOUND: addendum-5's exact surface specs were NOT read at this seat; the PLAN phase for slice E consumes addendum-5 directly before naming file targets.
-  Sequenced after A (the loud-install path re-anchors on A's `readable && newer_than_survey` trigger — driving it by a retired tier concept reaches nothing, per `224200` §5.3).
+  Sequenced after A (the loud-install path re-anchors on A's derived `readable-newer-than-survey` state).
 
-Order: B1 → A → C → {B2, E} (parallel-safe: disjoint files) → D (post-fence, post-H2).
-Cluster discipline (binding, from the reconcile): `main.cpp`, the error-enum/exit-map/envelope cluster, and the frozen open-envelope oracle each have ONE owner per act window; floor recapture of the frozen oracle happens once, after the floor's own act lands, matrix-first at Arm 1.
+Order: B1 → A → C → {B2, E} (disjoint by the named-file statement above) → D (post-fence, post-H2).
+Cluster discipline (binding, from the reconcile): `main.cpp` (B1's window in this design), the error-enum/exit-map/envelope cluster (slice A's version-reason rows; slice D's new kind — separate windows), and the frozen open-envelope oracle (recaptured ONCE, after the floor's act lands, matrix-first at Arm 1) each have ONE owner per act window.
 
 ## 5. Boundary contracts (per slice, the writer/reader pairs)
 
-- Slice B1 — Writes: `SessionRecord.live_at_pack` (true derivation). Reads: rollout tail record. Target entity: manifest `agent_sessions[]` entry. Downstream consumer: pack warning + open rows + render (all existing). Contract: `170500` §4. Proof: E2 fixtures incl. the negative control.
-- Slice A — Writes: `Capabilities` (new shape), `InstallSessionOutcome.detail` version subset, pack skip-loud rows, disclosure line, refusal rows. Reads: host probe (unchanged §A7.6 oracle), image basis, the constants. Downstream consumers: sessions gate, render, envelope/JSON schema, harness mirror. Contract: §A7.3/4/5/7/9/10. Proof: E2 FX-VF O-family + P1/P2/P4 fixtures.
-- Slice C — Writes: staged bytes under `<WS>/.biv/agents/…`, the A9 sidecar, chosen-outcome rows, guidance. Reads: image members, consent decision. Downstream consumers: re-pack provenance (`tier: staged` with original chain), m-3 report surface. Contract: sealed G2 + A9/F64 + F57. Proof: E2 FX-VF-O1 staged/sidecar/repack keys.
-- Slice B2 — Writes: collected artifact bytes (branch-trimmed tail only), `torn_tail_dropped` record. Reads: raw session files. Downstream consumer: install (`undecodable_line` refusal on branch 4). Contract: sealed A3.3. Proof: E2 four-branch × two-leg fixtures with byte-equality.
-- Slice D — held for H2; contract restated only after the ruling.
-- No slice touches host stores outside the existing consent-bound install write; no slice adds a host-store surface (DNA rule; the floor reads host state via the existing probe only).
+- Slice B1 — Writes: `SessionRecord.live_at_pack` (true derivation); the default-visible pack-warnings TEXT surface (generic renderer). Reads: rollout tail record. Target entity: manifest `agent_sessions[]` entry + the pack report. Downstream consumers: non-JSON pack text (NEW — today warnings reach only exit code + JSON), JSON envelope warnings, open rows + render suffix (existing). Contract: `170500` §4 acceptance criteria incl. exactly-one MAY-worded warning + negative control. Proof: E2 fixtures.
+- Slice A — Writes: `Capabilities` (D2 shape + derived wire spelling), `InstallSessionOutcome.detail` version subset, pack skip-loud rows, disclosure line, refusal rows, the full in-repo mirror set (constants, scenario pins, `e3.py` runtime contract, selftest/schema consumers). Reads: host probe (unchanged §A7.6 oracle), image basis, the constants. Downstream consumers: sessions gate, render, envelope/JSON schema, the E3 runtime. Contract: §A7.3/4/5/7/9/10. Proof: E2 FX-VF O-family + P1/P2/P4 fixtures; the E3 forward-host acceptance test (§7).
+- Slice C — Writes: staged bytes under `<WS>/.biv/agents/…`, the ONE A9 sidecar (aggregation + failure boundary per §3), chosen-outcome rows, guidance. Reads: image members, consent decision, the admission-gate results (order per §3). Downstream consumers: re-pack provenance (`tier: staged` with original chain), m-3 report surface. Contract: sealed G2 + A9/F64 + F57. Proof: E2 FX-VF-O1 staged/sidecar/repack keys + the §7 ordering tests.
+- Slice B2 — Writes: collected artifact bytes (branch-trimmed tail only), per-artifact `torn_tail_dropped {artifact, bytes}` facts, pack summary rows. Reads: raw session files, the session's live flag (B1's derivation on codex). Downstream consumers: pack default text (via B1's renderer) + JSON envelope; the open-time caveat from persisted `live_at_pack`; the branch-4 typed install refusal (`undecodable_line`, new vocabulary). Contract: sealed A3.3 (all four branches + the surfacing sentence). Proof: E2 four-branch × two-leg fixtures with byte-equality + the §7 default-output test.
+- Slice D — held for H2; contract restated only after the ruling, on the R5 dependency shape.
+- No slice touches host stores outside the existing consent-bound install write; no slice adds a host-store surface (DNA rule).
 
 ## 6. Receipts-as-you-go — the EIGHTEEN mapped to their GREEN-abling slice
 
@@ -117,22 +149,32 @@ The NUL-bearing O4 fixtures carry a REAL NUL byte and are never normalized by hy
 **H1 interaction, resolved shape:** none of the eighteen keys is an `…-exact` key — the receipts assert visibility/purity/ordering, and their `…-exact` SIBLINGS are observed-and-recorded, never assumed.
 So H1 does not block any receipt.
 The 30 `…-exact` fixture comparators are built PARAMETERIZED over the closed-row member list (eight members + `∅`-ninth vs an amended nine) and are asserted only after m-2's ruling lands.
+Rev1 (review sharpening): for the O4 receipts the sibling keys' observed state is recorded RAW in the receipt evidence and is not described as green (or red) until the H1 ruling makes the comparator assertable.
 
-**Flip ledger (decided-not-deleted, DR-3 discipline; owned per slice):** the allowlist-asserting tests (`test_adapter_codex_install.cpp`, `test_adapter_claude_install.cpp`, `test_envelope.cpp`, `test_render.cpp`, `test_sessions.cpp`, `tests/fixtures/probe-envelope-v1.json`) flip in slice A; the consent-no scenarios (`open-consent-no.json`, `open-deny-default.json`) flip in slice C; every flip is LISTED in the slice's plan ledger with its replacement assertion.
+**Flip ledger (decided-not-deleted, DR-3 discipline; owned per slice):** the allowlist-asserting tests (`test_adapter_codex_install.cpp`, `test_adapter_claude_install.cpp`, `test_envelope.cpp`, `test_render.cpp`, `test_sessions.cpp`, `tests/fixtures/probe-envelope-v1.json`) flip in slice A — joined by the E3 mirror set (`e3-dual-resume.json`, `test_e3_asserts.py` prefix assertions, per R3); the consent-no scenarios (`open-consent-no.json`, `open-deny-default.json`) flip in slice C; every flip is LISTED in the slice's plan ledger with its replacement assertion.
 
 ## 7. Testing and verification shape
 
 - TDD per slice (RED first) with the FX-VF/FX-MG stable keys as fixture names wherever a key exists — the fixture register IS the test plan for the floor surfaces.
-- Per-slice verification target: E2 (unit/fixture) at the slice head; the golden-harness E3 rows and the panel ride each head per panel-at-SHA rules; receipts execute at the slice that GREEN-ables them.
-- The §A7.10 same-commit law is CI-checkable in-repo: a slice-A commit touching a constant without its mirror fails the pin-mirror check (existing `validated_version_prefixes` sites become the floor-constant mirror; exact mechanism per plan).
-- Exit-map/envelope row-count pins (`test_envelope.cpp`, `schemas/biv-exit-map.v1.json`) move only inside the error-cluster act window with its single owner.
+- Per-slice verification target: E2 at the slice head; golden-harness E3 rows and the panel ride each head per panel-at-SHA rules; receipts execute at the slice that GREEN-ables them.
+- The §A7.10 same-commit law is CI-checkable in-repo over the FULL R3 mirror set: a slice-A commit touching a constant without the complete set fails the pin-mirror check.
+- Exit-map/envelope row-count pins move only inside the error-cluster act window with its single owner.
+
+**Required revised-design tests (from the review, adopted verbatim as plan obligations):**
+1. unreadable / absent / store-missing × consent-no ⇒ zero adapter calls and zero staging (the §3 ordering, both legs);
+2. readable admitted × consent-no ⇒ staged bytes on disk, exactly ONE sealed-member sidecar aggregated across agents, and the defined sidecar-publication-failure behavior (rows flip to typed failure, exit 2, staged paths disclosed, bytes not deleted);
+3. non-JSON pack displays exactly one MAY-worded warning for a live codex session and NONE for the terminal negative control (absence asserted on the output, not a count);
+4. B2 branch 3 emits exact artifact/byte facts in default pack output; the open caveat and the branch-4 typed refusal are separately asserted;
+5. E3 accepts a grammar-valid readable forward host OUTSIDE the retired prefixes while the constants and scenario mirror remain exact (the R3 runtime-contract proof);
+6. every serialized D2 state obeys the construction invariant and has exactly one deterministic wire spelling (all four spellings enumerated).
 
 ## 8. Out of scope (restated hard lines)
 
-The five matrix arms; sealed-doc amendments (A7 consumed, not edited); host-store surfaces; R-4.1 arm (ii); R-4.2 sparse; everything H1/H2/H3 reserve; the pdc RUNCARD leg of the mirror; `list`/`info` beyond archive-only status rendering.
+The five matrix arms; sealed-doc amendments (A7 consumed, not edited); host-store surfaces; R-4.1 arm (ii); R-4.2 sparse; everything H1/H2/H3 reserve; the pdc RUNCARD leg of the mirror; `list`/`info` beyond the R5 dependency statement.
 
 ## 9. Open items this design leaves for named owners
 
 - Chosen-outcome row + guidance SPELLINGS: m-3 consumer surface — panel consumer-review leg at slice C.
+- The base `list`/`info` implementation D depends on: ownership routed through `s4.orchestrator-planner` (R5).
 - Slice E file targets: PLAN phase reads addendum-5 first (honesty bound, §4).
 - H1/H2/H3: upstream; slices constructed so no hold blocks A/B1/B2/C.
