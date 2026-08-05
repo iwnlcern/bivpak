@@ -1,7 +1,8 @@
-# s4-matrix DESIGN — Arm 1 integration shape (+ arm-plan skeleton), rev0
+# s4-matrix DESIGN — Arm 1 integration shape (+ arm-plan skeleton), rev1
 
 **DESIGN_DOC_ID:** `docs/sprints/2026-08-04-s4-step4/designs/2026-08-05-s4-matrix-arm1-design.md`
 **Author:** `s4-matrix.planner` · **Dispatch:** `s4-matrix-design` (20260804-235022) · **Date:** 2026-08-05.
+**rev1:** folds the four blockers of DESIGN-REVIEW-IMPLEMENTER-20260805-013222 (must-revise at BASE `a5fb475`): B1 manifest-driven repo phase (D4.1); B2 ordered classification with explicit unborn/shallow branches (D2.2, D4.2); B3 no-follow directory inventory preserving symlink-ancestry containment + hostile fixture (D4.3, D6); B4 exact public error/advisory/outcome membership frozen here (D5).
 **Kind:** LOCAL integration design under sealed contracts.
 Semantics are governed by the sealed docs (pack-engine, restore-apply contract, addenda A/B/D/E, manifest-format §2.3) and are cited, never restated as authority; nothing here amends a sealed doc.
 The reconciled audit base (`RECONCILE.md` §s4-matrix) binds; audit citations are at `main@8981bfd`.
@@ -60,19 +61,19 @@ Prune-beats-discovery ordering is PRESERVED exactly as landed and tested (`test_
 
 ### D2.2 The Arm-1 acceptance gate and transitional fences (the Step-3 fence pattern, moved one ring in)
 
-Arm 1 handles exactly the single-clean-repo classes; everything beyond gets a TYPED, transitional refusal — the same honest fencing Step 3 used, flipped by the later arm that owns it:
+Arm 1 handles exactly the single-clean-repo classes; everything beyond gets a TYPED, transitional refusal — the same honest fencing Step 3 used, flipped by the later arm that owns it.
+Classification is an ORDERED decision procedure (B2 fold); the first matching step decides, so no repo can route two ways:
 
-| Class at 8981bfd-style classification | Arm-1 behavior | Flip owner |
-|---|---|---|
-| single repo, porcelain-v2 empty (no staged/unstaged/untracked; ignored files allowed as penumbra) | capture (overlay or full per eligibility) | — |
-| any staged/unstaged/untracked dirt | typed transitional refusal (D5) | Arm 2 |
-| unmerged index (`ls-files -u` non-empty) | typed refusal per sealed B1 — PERMANENT v1, not transitional | — |
-| nested repo discovered | typed transitional refusal | Arm 3 |
-| submodule discovered (gitlink in parent index) | typed transitional refusal | Arm 4 |
-| shallow source | shallow-aware capture per sealed addendum-D §D4: working-tree payload + `{shallow, sha, shallow_boundary, remote_urls[]}`; never refused | — |
-| promisor source (online) | full-capture under `GIT_NO_LAZY_FETCH=1`; missing objects ⇒ typed `PromisorObjectsUnavailable` per sealed §A5 | — |
-| unborn HEAD (fresh init) | payload-only capture, `head_state: unborn`, `sha: null`, no bundle, per sealed §A6 | — |
-| detached HEAD / no-remote / unknown-tip / sha-unpushed / remote-unreachable | capture; eligibility result forces `full` where not proven (fail-safe) | — |
+1. **Repo-set shape (from discovery, before per-repo classification):** nested repo present ⇒ `RepoNestedUnsupported` (transitional, Arm 3); submodule present (gitlink in the parent index, `ls-files -s`) ⇒ `RepoSubmoduleUnsupported` (transitional, Arm 4).
+2. **Unmerged index** (`ls-files -u` non-empty) ⇒ `UnmergedIndexUnrepresentable` — PERMANENT sealed refusal (addendum-B B1), fail-stop before any archive write, facts carry the conflicted paths (paths, never content).
+3. **Unborn HEAD, zero commits anywhere** (`rev-parse HEAD` fails AND `for-each-ref` empty) ⇒ payload-only capture per sealed §A6: worktree files ride as ordinary payload (their untracked-ness IS the payload — this step deliberately precedes the dirt gate), `head_state: unborn`, `sha: null`, no bundle, no eligibility run.
+4. **Unborn HEAD with commits on a non-HEAD ref** (`for-each-ref` non-empty) ⇒ treat as normal per §A6's own carve-out: classification continues at step 5 with `head_state: unborn`, `sha: null`, `local_refs[]` populated, bundle capture per eligibility.
+5. **Dirt** (porcelain v2 shows any staged/unstaged/untracked entry; ignored files are NOT dirt — they are penumbra payload) ⇒ `RepoDirtyUnsupported` (transitional, Arm 2).
+6. **Shallow** (`rev-parse --is-shallow-repository` true) ⇒ shallow-aware capture per sealed addendum-D §D4: worktree content as payload + manifest metadata `{shallow: true, sha, shallow_boundary, remote_urls[]}`, NO bundle stored (a shallow bundle is dead-or-corrupt weight, the §A4-inverted trap), never refused.
+7. **Promisor** (`config remote.<name>.promisor` true or any `partialclonefilter`) ⇒ full-capture with `GIT_NO_LAZY_FETCH=1` around bundle creation; genuinely missing objects ⇒ `PromisorObjectsUnavailable`, per sealed §A5 (HELD by addendum-D rev3).
+8. **Eligibility** (everything that reaches here: clean single repo, incl. detached HEAD / no-remote / unknown-tip / sha-unpushed / remote-unreachable) ⇒ overlay iff `proven`, else full — fail-safe by construction.
+
+Steps 3/4/6 are capture BRANCHES with their own apply behavior and report rows — specified in D4.2, membership frozen in D5, day-one fixtures in D6.
 
 Cross-cutting rules bound in from day one: promisor HELD (§A5 sealed, addendum-D made no change); shallow never-refuse (addendum-D §D4); `.bivignore`-only exclusion (addendum E — no credential floor, no default key exclusions); single-writer; no host-store surface.
 `--offline` pack mode is NOT an Arm-1 deliverable (its refusal semantics interlock with Arm-4/offline work), but `eligibility.result` plumbs the full sealed enum including `offline-declared` so the mode lands later without a schema reopen.
@@ -102,30 +103,81 @@ Sequenced strictly after addendum F lands (signal across the bridge; no polling)
 ## D4 — Restore integration (into the landed staging, not beside it)
 
 **Area ordering decision:** the archive assembly order becomes manifest, checksums, `repos/` area, `payload/` area, `agents/` area.
-Rationale: `git clone` requires an empty target; penumbra payload inside a repo subtree must be laid AFTER the repo materializes; with repos-first the single-pass streaming apply clones each repo as its bundle arrives, then payload members apply into and around the materialized trees.
+Rationale: `git clone` requires an empty target; penumbra payload inside a repo subtree must be laid AFTER the repo materializes, so every repo artifact must be on disk before the repo phase runs and every repo must be materialized before payload streams.
 Manifest-first is the only container-fixed intra-order rule; member-area ordering is explicitly a deferred build detail (manifest-format §4), so this is a build choice, not a contract change.
 
-The Arm-1 apply chain (sealed §2.2 steps 1, 2, 6 — steps 3–5 are later arms):
-1. Overlay: clone from the recorded remote, checkout recorded sha (detached; re-point branch iff `head_state: branch`); full: clone from the extracted bundle, re-point origin to the recorded URL.
-   All clone/fetch targets are INSIDE the partial dir; the bundle is extracted to a Bivpak-internal path under the partial dir first (§A7's contained-bundle-path practice survives as file mechanics even though its URL-policing died with addendum-D).
-2. `local_refs[]` recreation per sealed §A2 exactly: skip-at-sha no-op; non-checked-out refs via `update-ref` (objects fetched per §A1 first if absent); the checked-out branch corrected explicitly (symbolic-ref/checkout per `head_state`); per-ref failure is a per-repo advisory, never silent.
-3. Per-repo verification: porcelain-v2 emptiness + HEAD/branch/refs against the manifest entry; result recorded per repo id.
+### D4.1 The repository phase is MANIFEST-driven, not artifact-arrival-driven (B1 fold)
 
-**Containment adaptation:** the created-ancestry map currently admits only tar-member-created dirs; repo materialization registers its subtree root (and the clone owns everything below it), so subsequent penumbra payload members inside repo subtrees validate against "created dir OR inside a materialized repo root".
+Artifacts and materialization are decoupled:
+- **Accounting (at plan):** `read_archive_plan` verifies, for EVERY manifest repo entry, that each artifact path the entry names (`bundle`, `local_refs_bundle`) exists as a checksummed `repos/` member, and that no `repos/` member exists that no entry names — missing ⇒ `IntegrityFailurePreApply` (detail `missing-repo-member`), surplus ⇒ `UnmanifestedMember`.
+  An entry that names NO artifacts (the fully remote-proven overlay, `bundle: null`, `local_refs_bundle` absent — legal per sealed §2.3) accounts vacuously.
+- **Artifact extraction (streaming):** `repos/` members stream first (area order above) and are extracted to a Bivpak-internal staging path under the partial dir (§A7's contained-bundle-path practice survives as file mechanics even though its URL-policing died with addendum-D).
+- **The repo phase (at the repos→payload area boundary, or end-of-archive when payload is empty):** iterate EVERY `manifest.repos[]` entry — never the artifact list — and dispatch on entry state per D4.2.
+  Totality is by construction: the loop is over manifest entries, so the zero-artifact overlay repo, the no-bundle shallow repo, and the no-anything unborn repo each reach their branch with no arrival event needed.
+- **Then payload streams** (residue + penumbra), then `agents/` replay as landed.
+
+### D4.2 Per-entry dispatch (the apply branches, ordered by entry state — B2 fold)
+
+- **`head_state: unborn`, no `local_refs[]`, no bundle (zero-commit):** NO git materialization; the worktree arrives as ordinary payload members; the per-repo row reports `outcome: payload-only-unborn` with the sealed §A6 `EmptyRepoPayloadOnly` note; the restored dir is a plain re-`git init`-able tree (the recorded-config re-init option of §A6 is deliberately NOT taken at Arm 1 — no config subset is captured).
+- **`shallow: true`:** NO git materialization and NO bundle exists to clone (sealed addendum-D §D4); the worktree arrives as payload; the per-repo row reports `outcome: shallow-pointer` carrying `{sha, shallow_boundary, remote_urls[]}` — the honest manual re-clone pointer (addendum-D §D3 posture: extract-and-report is never described as a full repo restore).
+- **`capture_mode: overlay`:** clone from the recorded remote, checkout recorded sha (detached; re-point branch iff `head_state: branch`), then local_refs recreation (below).
+- **`capture_mode: full`:** clone from the EXTRACTED bundle path, re-point origin to the recorded URL, then local_refs recreation.
+- **`head_state: unborn` WITH `local_refs[]` (D2.2 step 4, `sha: null`):** the overlay/full branch applies with NO sha checkout — materialize objects/refs per capture mode and local_refs recreation, then set HEAD by `symbolic-ref` to the recorded (unborn) `branch`; per-repo verification checks refs and the unborn HEAD, not a HEAD sha.
+- **local_refs recreation (overlay and full), sealed §A2 exactly:** skip-at-sha no-op; non-checked-out refs via `update-ref` (objects fetched per §A1 `proof.url` first if absent); the checked-out branch corrected explicitly (symbolic-ref/checkout per `head_state`); per-ref failure ⇒ the D5 per-ref divergence row, never silent.
+- **Per-repo verification (overlay and full):** porcelain-v2 emptiness + HEAD/branch/refs against the manifest entry; result recorded per repo id (R-m1-9).
+All clone/fetch/update-ref targets are INSIDE the partial dir.
+
+### D4.3 Containment: materialized trees enter the ancestry set by NO-FOLLOW inventory (B3 fold)
+
+The landed created-ancestry property — a payload member's every parent must be a KNOWN DIRECTORY, symlinks never traversable (`open.cpp:443-476@8981bfd`) — is retained UNWEAKENED for post-materialization payload.
+A checkout can legitimately create symlinks inside its worktree, so "inside a materialized repo root" proves nothing about a member's ancestry; instead, after each repo materializes, the engine walks the materialized subtree with `lstat` (no-follow) and registers exactly its DIRECTORIES into the created map (symlinks and files are recorded as their own kinds, exactly as tar-created entries are).
+Payload validation logic is then UNCHANGED: a penumbra member under a repo root is admitted only when every ancestor segment is a registered directory; a symlink parent — whether tar-created or checkout-created — refuses the member as `MemberPathUnsafe`.
+The final canonical containment assertion on the partial dir is retained.
+Day-one hostile fixture (D6): a fixture repo whose tracked tree contains a symlink `dir-link -> elsewhere`, plus a declared penumbra payload member at `dir-link/x`; the member must refuse with no out-of-root write.
+
 The staging atomicity story is UNCHANGED: everything lands in the partial dir; dir-mtime pass, fsync tree, single rename, EEXIST refusal — repo dirs ride the same boundary.
-`OpenReport` gains per-repo rows `{id, relpath, sha, capture_mode, outcome, local_refs[], advisories}` (contract R-m1-7/9 anchor shape), rendered by the envelope.
+`OpenReport` gains per-repo rows `{id, relpath, sha, capture_mode, outcome, local_refs[], advisories}` (contract R-m1-7/9 anchor shape; outcome vocabulary frozen in D5), rendered by the envelope.
 
 **Orchestration (`main.cpp`, matrix-owned this window):** repo materialization is part of `execute_open` (inside the staging boundary), so the CLI sequence plan → preview → consent → execute → session leg is UNCHANGED in shape — the session leg still runs after the workspace rename, per spec §5 order.
 
-## D5 — Error surface (design-level set; exact membership frozen at PLAN)
+## D5 — Public error/advisory/outcome membership, EXACT and frozen here (B4 fold)
 
-New typed kinds, following the landed pattern (closed `ErrKind` enum + exit-map row + class):
-transitional refusals `RepoDirtyUnsupported`, `RepoNestedUnsupported`, `RepoSubmoduleUnsupported` (refusal/exit 3, `transitional: true` — each names its flip arm in the ledger);
-permanent sealed refusals `UnmergedIndexUnrepresentable` (B1), `RefUncapturable` (§A1.3), `PromisorObjectsUnavailable` (§A5);
-degrade-not-error advisories per pack-engine §5 (`EligibilityIndeterminate`, capture-check degrade) ride report advisories/notes, not refusals;
-restore-side per-repo failures map into the contract §3 outcome families (per-repo rows), with `GitInvocationFailed(repo, op)` as the typed wrapper for unexpected git exits.
-`RepoDiscoveredUnsupported` retires at the schema act — its exit-map row removal and the row-count-pin flip are ledger rows, honoring the `transitional: true` marker it shipped with.
-`PromisorSourceOffline` is declared in the enum when offline mode lands (Arm 4 window), not before.
+This section IS the Arm-1 public surface; PLAN enumerates edit/test steps but may not change membership.
+Every row maps into exactly one sealed contract-§3 outcome family.
+
+### D5.1 New `ErrKind` members (closed enum + exit-map rows + envelope schema)
+
+| Kind | Class / exit | Transitional | Facts shape | §3 family |
+|---|---|---|---|---|
+| `RepoDirtyUnsupported` | refusal / 3 | yes → Arm 2 | `{repo_relpath, dirty_paths_count}` | refused-preflight |
+| `RepoNestedUnsupported` | refusal / 3 | yes → Arm 3 | `{repo_relpath, parent_relpath}` | refused-preflight |
+| `RepoSubmoduleUnsupported` | refusal / 3 | yes → Arm 4 | `{repo_relpath, gitlink_relpath}` | refused-preflight |
+| `UnmergedIndexUnrepresentable` | refusal / 3 | no (sealed B1) | `{repo_relpath, conflicted_paths[]}` — paths, never content | refused-preflight |
+| `RefUncapturable` | refusal / 3 | no (sealed §A1.3) | `{repo_relpath, ref}` | refused-preflight |
+| `PromisorObjectsUnavailable` | refusal / 3 | no (sealed §A5) | `{repo_relpath}` | refused-preflight |
+| `GitInvocationFailed` | mid-fail / 4 | no | `{repo_relpath, op, exit_code}` — op is the wrapper's operation name, never raw argv | failed-mid-apply (restore) / pack-time error surface (pack) |
+| `RepoRestoreFailed` | mid-fail / 4 | no | `{repo_relpath, step, detail}` — step ∈ {clone, ref-recreation, checkout, inventory} | failed-mid-apply |
+
+Reused landed kinds (no new member): manifest-named artifact missing ⇒ `IntegrityFailurePreApply` detail `missing-repo-member` (D4.1); surplus `repos/` member ⇒ `UnmanifestedMember`; symlink-ancestry refusal ⇒ `MemberPathUnsafe` (D4.3).
+RETIRED: `RepoDiscoveredUnsupported` leaves the enum, the exit map, and the row-count pin at the schema act — ledger rows, honoring its shipped `transitional: true`.
+NOT declared at Arm 1: `PromisorSourceOffline` (enters with `--offline` at the Arm-4 window); Arm-2+ kinds.
+
+### D5.2 Per-repo outcome vocabulary (`OpenReport` rows, envelope-rendered)
+
+`outcome ∈ { restored, shallow-pointer, payload-only-unborn, failed(kind, detail) }`;
+`local_refs[]` rows `{ref, outcome: recreated | failed(detail)}`;
+`shallow-pointer` rows carry `{sha, shallow_boundary, remote_urls[]}`; `payload-only-unborn` rows carry the `EmptyRepoPayloadOnly` note.
+`restored`/`shallow-pointer`/`payload-only-unborn` are the ok family (`ok-with-advisories` when any advisory/warning row is present); `failed` is `failed-mid-apply` with the partial dir reported as landed.
+
+### D5.3 Warning vs advisory mapping (exit semantics per the landed envelope split)
+
+WARNINGS (divergence class, exit 2 via `exit_for_warnings`): restore-side per-ref recreation failure (`local-ref-failed`, per sealed §2.2 "per-ref failure is a per-repo advisory, never silent" — it diverges from full restore); per-repo verification mismatch (`repo-verify-divergence`).
+ADVISORIES (exit 0, the landed `prune-summary` pattern): pack-side capture-mode degrade notes (`overlay-degraded: <reason>` incl. eligibility-indeterminate, per pack-engine §5 "never blocks — degrades to full"); `shallow-capture` note; `EmptyRepoPayloadOnly` note; per-repo `notes[]` passthrough (`exclude-rules-local` etc. arrive with later arms).
+Nothing in the Arm-1 surface writes "fixed/done/verified" semantics into an exit-0 row that a divergence actually occurred — divergence is always the warning class.
+
+### D5.4 Pack-report rows
+
+`PackReport` gains per-repo rows `{id, relpath, kind, capture_mode, eligibility_result, notes[]}` — the envelope pack summary renders them (the D3 surface-4 flip).
 
 ## D6 — Golden harness, day one (one tolerance surface, never a second harness)
 
@@ -134,6 +186,7 @@ restore-side per-repo failures map into the contract §3 outcome families (per-r
 - **Comparator:** `compare_trees` becomes repo-aware — `.git/**` excluded from the byte walk (contract §5 acceptable-difference), replaced by a semantic git oracle per repo: HEAD sha, current branch, porcelain-v2 emptiness, local-refs set with shas, worktree bytes/modes/symlink targets via the existing walk.
   The three git tolerance rows flip `reachable: true` with policies the comparator ACTUALLY consumes (`ALLOWED_POLICIES` extended in lockstep); the §5 class list seeds any further rows; tolerance stays the single source.
 - **Scenario ops:** repo fixtures in setup; an `assert-repo-state` expectation block; `d-git-restore` promoted from xfail-pending shell to the first real row (round-trip: pack clean repo → open → semantic oracle + tree compare), gaining a determinism leg (pack twice, compare manifests modulo documented-volatile fields).
+- **Day-one fixture set (B2/B3 rows included):** the clean round-trip row (promoted `d-git-restore`); an eligibility spread (proven-overlay, sha-unpushed-full, no-remote-full); the ZERO-ARTIFACT proven-overlay row (B1's class: `bundle: null`, no `local_refs_bundle` — materializes from remote alone); a shallow-capture row (payload + pointer, no bundle member, restored tree matches worktree); an unborn zero-commit row (payload-only, `EmptyRepoPayloadOnly` note); an unborn-with-non-HEAD-ref row (treated normal); the B3 hostile row (checkout-created symlink parent + declared penumbra member beneath it ⇒ `MemberPathUnsafe`, no out-of-root write); transitional-fence rows (dirty/nested/submodule each refusing with its typed kind).
 - **Harness selftests** cover the new builder and comparator branches (positive and negative), per the implementer's coverage-gap finding.
 
 ## D7 — DR-3 fixture ledger (structure + home)
@@ -174,7 +227,10 @@ Arm 2–5 design depth (skeleton only); the A7 floor and adapter legs; sealed-do
 2. The runner decision leaves exactly ONE process-safety implementation and keeps the probe contract/tests intact; the probe-comment re-scope is on the record.
 3. The schema act covers all FOUR reconciled surfaces and the parser is the full sealed shape (no per-arm parser reopenings).
 4. Repo restore lands strictly inside the existing staging boundary (no second staging/finalization mechanism anywhere in the design).
-5. Transitional fences cover every class Arm 1 does not handle (no silent-loss path; B1 permanent refusal included).
-6. Harness: one tolerance surface; comparator consumes what tolerance declares; fixture determinism is env-pinned.
-7. DR-3 ledger structure merges both audits' lists with no dropped row.
-8. Sequencing/ownership matches the reconcile rulings verbatim.
+5. The classification procedure is ORDERED and total: every class Arm 1 accepts has a specified apply branch and report row (zero-artifact overlay, shallow, unborn included), and every class it does not handle has a typed fence (addendum-B B1 unmerged refusal permanent) — no silent-loss path.
+6. The repo phase iterates manifest entries, never artifact arrivals; artifact accounting is proven at plan.
+7. Symlink-ancestry containment holds unweakened across materialized repo subtrees (no-follow inventory), with the hostile fixture named.
+8. The D5 membership is exact and PLAN cannot change it; every row maps to one sealed §3 family.
+9. Harness: one tolerance surface; comparator consumes what tolerance declares; fixture determinism is env-pinned; the D6 day-one fixture set includes the B2/B3 rows.
+10. DR-3 ledger structure merges both audits' lists with no dropped row.
+11. Sequencing/ownership matches the reconcile rulings verbatim.
