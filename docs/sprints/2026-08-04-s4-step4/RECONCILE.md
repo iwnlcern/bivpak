@@ -131,6 +131,16 @@ holds released to the floor pair at `013542`):**
 - P5 register disposition: VP-side, meets the A7 seal at s4's exit; the eighteen-receipt
   obligation is unchanged.
 
+**FX-MG-9 (found at floor design rev3, routed `051705`, ruled 2026-08-05):** DISSOLVED —
+§A7.5's allowlist deletion made the verdict a pure function of the parsed line; the
+discriminating A5 input class is EXTINCT (unconstructible, not unreachable). Burden:
+`FX-VF-O5` (12 keys) + `CANON-3`, own CIM, strictly stronger. Map entry:
+DISSOLVED-PENDING-RATIFICATION with burden pointer. **Count discipline: EIGHTEEN stays
+operative in every s4 artifact until the VP's one master-side re-ratification pass lands
+(seventeen only as marked candidate); carried down at `141338`.** Pattern refinement
+adopted: a dead-world receipt test asks whether the DISCRIMINATING INPUT CLASS still
+exists, not whether one case died.
+
 **Sequencing ruled at this seat (binding on both pairs' plans):**
 Addendum F → Arm-1 schema act (all FOUR surfaces) → floor `repos[]`-adjacent
 `manifest.cpp` act → separately-owned integration acts with rebases between them.
