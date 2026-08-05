@@ -18,7 +18,7 @@ Work branches from `main@8981bfd`.
 | 0 | Standup: charter, boots, paired AUDIT dispatches | DONE 2026-08-04 |
 | 1 | Paired independent audits (s4-matrix, s4-floor) + reconcile | DISPATCHED |
 | 2 | FU-1 authoring duty ASSIGNED to s4 (master `230800`); the three-arm ruling folds `TO: operator` at Arm-2 design — design does not close unruled | ASSIGNED |
-| 3 | Addendum F lands (fence: precedes Arm-1 `manifest.cpp` reopening); master relays the landing signal (`230800`) — no polling | PENDING UP |
+| 3 | Addenda F **and G** land (unborn-HEAD ruled option 1, G rev0 authored 2026-08-05; the ONE fenced `manifest.cpp` reopening consumes BOTH after both reviews close); master relays the landing signal — no polling | PENDING UP |
 | 4 | Local DESIGN per pair (Superpowers brainstorming; grill where semantics unsettled) | — |
 | 5 | PLAN → plan-review → delegated `DISPATCH IMPL` per pair | — |
 | 6 | Arm 1 end-to-end + golden harness day one; then Arms 2–5; floor rides after Arm-1 schema act | — |

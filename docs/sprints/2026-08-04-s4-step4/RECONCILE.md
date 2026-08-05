@@ -114,6 +114,11 @@ holds released to the floor pair at `013542`):**
 - Q1: `…-exact` rows close over every member AS IT EXISTS at the reviewed tree
   (criterion, not count); the executor asserts `detail` as read; a populated `detail` on
   an installed row is a finding returned UP. No CANON rewrite.
+  **CORRECTED FORWARD (master `044101`, 2026-08-05): the read-and-assert execution shape
+  is WITHDRAWN — VP-rejected as self-referential. `detail` semantics arrive PINNED via
+  m-2's scoped addendum before the A7 seal; exact-row fixtures take the expected value as
+  INPUT, never derive it from the observed row. Criterion-not-count closure stands;
+  receipt plans unchanged; carried down at `044329`.**
 - Q2, WITH master's correction to m-2's answer: the old reader refuses the WHOLE ARCHIVE
   (`UnmanifestedMember`, **exit 3** — m-2 said exit 2, falsified at master's seat at both
   `cd61ac6` and `8981bfd`, and re-verified at this seat: `src/core/report/envelope.cpp:407`
