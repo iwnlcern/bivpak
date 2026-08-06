@@ -61,6 +61,7 @@ add_library(bivcore STATIC
   src/core/open/render.cpp
   src/core/open/sessions.cpp
   src/core/pack/pack.cpp
+  src/core/repo/discover.cpp
   src/core/repo/git.cpp
   src/core/report/envelope.cpp
   src/core/scan/scan.cpp
@@ -113,6 +114,12 @@ target_link_libraries(biv_repo_git_tests PRIVATE
 target_compile_options(biv_repo_git_tests PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_repo_git_tests PRIVATE BIV_REPO_TESTING=1)
 add_test(NAME repo_git COMMAND biv_repo_git_tests)
+
+add_executable(biv_repo_engine_tests tests/test_repo_engine.cpp)
+target_include_directories(biv_repo_engine_tests PRIVATE src)
+target_link_libraries(biv_repo_engine_tests PRIVATE bivcore Catch2::Catch2WithMain)
+target_compile_options(biv_repo_engine_tests PRIVATE -Wall -Wextra -Werror)
+add_test(NAME repo_engine COMMAND biv_repo_engine_tests)
 
 add_library(biv_probe_test_seam STATIC src/core/support/probe.cpp)
 target_include_directories(biv_probe_test_seam PUBLIC src)
