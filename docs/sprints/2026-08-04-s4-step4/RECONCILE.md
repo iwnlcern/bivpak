@@ -186,3 +186,11 @@ authorized schema change; C1 attests non-perturbation over the F-4-forbidden sur
 so the re-green uses the instrument's native evidence class. B2 inherits (both anchors);
 per-head, never batched; option 2b (re-anchor to the protected surface) is upstream
 R-3.40 item (11), re-opened by REPORTED ceremony burden.
+
+**Root-lint red inventory, matrix plan thread (disposed `004554`, operator co-sign):**
+thirteen reds, three classes, each on named authority — 8 × INDEX-as-relay (R-3.40
+item 9), 2 × voided-`154105` (the path-2 operator waiver), 3 × lock-path FALSE REDS
+(`relay-lint.py:1640` resolves repo-relative `DESIGN_LOCK_ID`/`PLAN_LOCK_ID` against
+the RELAY ROOT; both artifacts verified present at HEAD; routed UP as the third
+root-walk instrument item this run). Exact-file lint remains the operative per-artifact
+gate; a new red of any OTHER class re-engages the orchestrator before dispatch.
