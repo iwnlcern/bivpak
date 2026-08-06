@@ -1,5 +1,7 @@
 # DR-3 fixture ledger — Arm 1 (FROZEN at PLAN, 2026-08-06)
 
+**rev1 (plan-review R1 fold):** task KEYS corrected to the reordered Wave C (T6 = open/consumer, T7 = pack/producer) — rows, sites, decisions, and instruments byte-untouched; this is the only permitted non-status edit, made under PLAN-REVIEW-IMPLEMENTER-REV0-20260806-002313.
+
 **Status: FROZEN** — materialized inside the Arm-1 PLAN per design D7 (rev4 at `934fca3`, blob `802b8499…`).
 Flips are decided-not-deleted: every flip row names its replacement oracle; every retain row says why the empty-repos case stays valid (payload-only images remain legal — `repos` may be empty forever).
 Sites cite `main@8981bfd` (the audit baseline); instruments are the audit's greps, re-runnable at any base.
@@ -10,8 +12,8 @@ Sites cite `main@8981bfd` (the audit baseline); instruments are the audit's grep
 | id | site (at 8981bfd) | decision — replacement oracle | instrument | task | status |
 |---|---|---|---|---|---|
 | L-F1 | `tests/test_manifest.cpp:163-167` (`"repos": [1]` ⇒ refused, `step2-plain-dir-only`) | replace with positive full-§2.3+G parse suite + malformed-item rejection (an explicit negative-schema case retained) | `git grep -F 'step2-plain-dir-only'` | T5 | FROZEN |
-| L-F2 | `tests/test_scan.cpp:131-138` ("scan refuses repo-bearing roots") | replace with discovery oracle: repo boundary recorded (id/relpath/kind), walk continues, no refusal | `git grep -F 'RepoDiscoveredUnsupported' -- tests` | T6 | FROZEN |
-| L-F3 | `tests/test_pack.cpp:236-245` ("pack refuses repo-bearing source", no `.bvpk` left) | replace with clean-repo pack oracle: image seals, manifest carries the repo entry, `repos/` members present per entry | same as L-F2 | T6 | FROZEN |
+| L-F2 | `tests/test_scan.cpp:131-138` ("scan refuses repo-bearing roots") | replace with discovery oracle: repo boundary recorded (id/relpath/kind), walk continues, no refusal | `git grep -F 'RepoDiscoveredUnsupported' -- tests` | T7 | FROZEN |
+| L-F3 | `tests/test_pack.cpp:236-245` ("pack refuses repo-bearing source", no `.bvpk` left) | replace with clean-repo pack oracle: image seals, manifest carries the repo entry, `repos/` members present per entry | same as L-F2 | T7 | FROZEN |
 | L-F4 | `tests/test_envelope.cpp:147,180,181` (exit-map row + closed count + transitional literal) | row list updated: `RepoDiscoveredUnsupported` REMOVED (honoring its shipped `transitional: true`), D5 new kinds added, count re-closed at the new total | `git grep -F 'RepoDiscoveredUnsupported' -- tests schemas` | T5 | FROZEN |
 | L-F5 | `schemas/biv-exit-map.v1.json:5` (the transitional row) | row removed + D5 rows added in the same reviewed head as L-F4 | same | T5 | FROZEN |
 | L-F6 | `harness/bivharness/manifest.py:81-82` ("repos must be [] for Step-2 plain-dir") | replace with per-item §2.3+G validation mirroring the product parser (incl. the G-R6 note member) | `git grep -F 'repos must be' -- harness` | T5 | FROZEN |
@@ -39,13 +41,13 @@ Sites cite `main@8981bfd` (the audit baseline); instruments are the audit's grep
 | L-A2 | harness selftest positive/negative coverage for populated repos (currently empty-array-only) | T5 | FROZEN |
 | L-A3 | FX-G-1 legs — engine `a, b, b2, f, i, k` (harness scenario rows) | T8 | FROZEN |
 | L-A4 | FX-G-1 legs — schema/parser `c, d, e, g, j`, `l`(l1–l9), `m` (schema-act test suite) | T5 | FROZEN |
-| L-A5 | FX-G-1 leg `n` (P1 render bar, both surfaces + `--json` round-trip decode) | T7 | FROZEN |
-| L-A6 | FX-G-1 leg `o` (writer bounds, o1–o5; o5 constructed-trigger with injected enumeration) | T6 | FROZEN |
-| L-A7 | B3 hostile row: checkout-created symlink parent + declared penumbra member ⇒ `MemberAncestryUnsafe`, no out-of-root write, partial reported | T7 | FROZEN |
-| L-A8 | combined shallow+promisor row: shallow capture under `GIT_NO_LAZY_FETCH=1`, zero fetch subprocess activity, `promisor-source` note | T6 | FROZEN |
-| L-A9 | stage-lifecycle golden assert: no `.biv-stage` path in any restored tree | T7/T8 | FROZEN |
-| L-A10 | transitional-fence rows: dirty/nested/submodule each refusing with its D5 typed kind | T6 | FROZEN |
-| L-A11 | zero-artifact proven-overlay row (`bundle: null`, no `local_refs_bundle` — materializes from remote alone) | T8 | FROZEN |
+| L-A5 | FX-G-1 leg `n` (P1 render bar, both surfaces + `--json` round-trip decode) | T6 | FROZEN |
+| L-A6 | FX-G-1 leg `o` (writer bounds, o1–o5; o5 constructed-trigger with injected enumeration) | T7 | FROZEN |
+| L-A7 | B3 hostile row: checkout-created symlink parent + declared penumbra member ⇒ `MemberAncestryUnsafe`, no out-of-root write, partial reported | T6 | FROZEN |
+| L-A8 | combined shallow+promisor row: shallow capture under `GIT_NO_LAZY_FETCH=1`, zero fetch subprocess activity, `promisor-source` note | T7 | FROZEN |
+| L-A9 | stage-lifecycle golden assert: no `.biv-stage` path in any restored tree | T6/T8 | FROZEN |
+| L-A10 | transitional-fence rows: dirty/nested/submodule each refusing with its D5 typed kind | T7 | FROZEN |
+| L-A11 | zero-artifact proven-overlay row (`bundle: null`, no `local_refs_bundle` — materializes from remote alone) | T6/T8 | FROZEN |
 | L-A12 | eligibility spread rows (proven-overlay / sha-unpushed-full / no-remote-full) + unborn zero-ref control (leg e) | T8 | FROZEN |
 
 ## GREEN-side seams (exist today, promoted rather than created)

@@ -1,4 +1,6 @@
-# s4-matrix Arm-1 Implementation Plan (rev0)
+# s4-matrix Arm-1 Implementation Plan (rev1)
+
+> **rev1** folds PLAN-REVIEW-IMPLEMENTER-REV0-20260806-002313 (must-revise at `5b3c603`): R1 — namespace admission/accounting moved INTO the T5 act head, and Wave C reordered CONSUMER-FIRST (T6 = open side, T7 = pack side; ledger task keys corrected to match); R2 — the ledger/ROADMAP/report/INDEX writes added to the locked file universe with bounded semantics; R3 — the NINE D5 kinds enumerated with a closed-count test (rev0's "eight" was a count error); R4 — `run_argv` gains a spawn-time stderr topology (probe merges at spawn, git separates; stderr byte-exact generically); R5 — `eligibility` optional in the frozen type, `--` delimiter mechanical via typed operands; R6 — stacked-branch PR topology locked with restack and stop rules.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The executor is `s4-matrix.implementer` under the s4 protocol — implementation starts ONLY on the pair Planner's delegated dispatch token, per task-wave gating below.
 
@@ -21,7 +23,9 @@ The behavior authority is the design + sealed docs; this plan sequences and lock
 - The three shared clusters (`src/cli/main.cpp`; error-enum/exit-map/envelope cluster; frozen envelope oracle) are matrix-owned THIS window; the floor's additive `value_uint` writer addition is rebased over, never touched.
 - Locked-schema changes recapture `harness/selftest/test_envelope.py`'s blob lock literal-for-literal in the SAME reviewed head (ruling `200505`).
 - DR-3 flips follow the FROZEN ledger (`docs/sprints/2026-08-04-s4-step4/results/dr3-fixture-ledger.md`) — decided, never deleted; the ledger's task keys bind.
-- Commit style: repo conventions, explicit paths, no co-author lines; work branches from `main` (branch names `s4-matrix/arm1-<task>`).
+- **Branch/PR topology (R6, locked): STACKED task branches.** `s4-matrix/arm1-t1` bases on `main`; every later task branch bases on its PREDECESSOR task branch (t2←t1, t3←t1 [independent, may base main], t4←t2, t5←t4, t6←t5, t7←t6, t8←t7). Each task ends in a PR targeting its base branch; when the operator merges a predecessor, dependents RESTACK (rebase onto the new base, retarget the PR to `main` when the whole chain below is merged). Rebase-before-land for shared files (reconcile rule). STOP RULE: a task whose base branch is unreachable, conflicted beyond mechanical rebase, or not yet pushed STOPS and relays — never re-implements predecessor work. Merge is the operator's at every level; no wait-for-merge is required to CONTINUE the stack.
+- **Locked file universe additions (R2):** every task that lands rows also updates `docs/sprints/2026-08-04-s4-step4/results/dr3-fixture-ledger.md` — STATUS-ONLY transitions (`FROZEN → DONE` in its own task-keyed rows; any other ledger edit is out of scope); every task ends with a file-first implementation report under `.relays/s4/s4-matrix-arm1-impl/` (exact new file) plus ONE append-at-EOF row in `.relays/s4/INDEX.md` — no other `.relays/` write; T8 may update `docs/sprints/2026-08-04-s4-step4/ROADMAP.md` matrix rows only.
+- Commit style: repo conventions, explicit paths, no co-author lines.
 - Verdict lines bare (R-3.40 item 7); describe-never-reproduce for instrument text; no host probing; no `.github/` edits; product DNA (no host-store surface, never launch agents).
 
 ## File structure (who owns what)
@@ -35,16 +39,16 @@ src/core/repo/discover.{hpp,cpp}        NEW  boundary discovery consumed by scan
 src/core/repo/classify.{hpp,cpp}        NEW  ordered D2.2 gate + promisor policy bit (T4)
 src/core/repo/eligibility.{hpp,cpp}     NEW  COND-5/5b gate + proofs (T4)
 src/core/repo/capture.{hpp,cpp}         NEW  bundles + non-carried-refs note writer + clean-case oracle (T4)
-src/core/repo/restore.{hpp,cpp}         NEW  manifest-driven repo phase + per-entry dispatch (T7 consumes; unit core in T4)
+src/core/repo/restore.{hpp,cpp}         NEW  per-entry dispatch core (T6 consumes; unit core in T4)
 src/core/manifest/manifest.{hpp,cpp}    MOD  the schema act (T5, F-FENCED)
 src/core/report/envelope.cpp            MOD  repo rows + exit map (T5)
 src/core/support/error.{hpp,cpp}        MOD  D5 kinds (T5)
 schemas/biv-exit-map.v1.json            MOD  (T5)
 schemas/biv-json-envelope.v1.schema.json MOD (T5)
-src/core/scan/scan.{hpp,cpp}            MOD  fence-1 flip → discovery (T6)
-src/core/pack/pack.cpp                  MOD  capture integration (T6)
-src/core/open/open.{hpp,cpp}            MOD  repos member family, repo phase, containment inventory, partial lifecycle, representability (T7)
-src/cli/main.cpp                        MOD  only if report plumbing requires (T7; matrix-owned window)
+src/core/scan/scan.{hpp,cpp}            MOD  fence-1 flip → discovery (T7)
+src/core/pack/pack.cpp                  MOD  capture integration (T7)
+src/core/open/open.{hpp,cpp}            MOD  namespace admission/accounting (T5); repo phase, containment inventory, partial lifecycle, representability (T6)
+src/cli/main.cpp                        MOD  only if report plumbing requires (T6; matrix-owned window)
 harness/bivharness/fixtures.py          MOD  git-repo/git-bare builders (T3)
 harness/bivharness/compare.py           MOD  repo-aware walk + semantic oracle (T3)
 harness/tolerance/tolerance-v1.json     MOD  git rows reachable (T3)
@@ -52,8 +56,12 @@ harness/bivharness/scenario.py          MOD  repo ops + assertions (T3)
 harness/bivharness/manifest.py          MOD  §2.3+G validation (T5)
 harness/scenarios/d-git-restore.json    PROMOTE from shells/ (T8)
 tests/test_subprocess.cpp NEW (T1) · tests/test_repo_git.cpp NEW (T2) · tests/test_repo_engine.cpp NEW (T4)
-tests/test_manifest.cpp MOD (T5) · tests/test_envelope.cpp MOD (T5) · tests/test_scan.cpp MOD (T6)
-tests/test_pack.cpp MOD (T6) · tests/test_open.cpp MOD (T7)
+tests/test_manifest.cpp MOD (T5) · tests/test_envelope.cpp MOD (T5/T6) · tests/test_scan.cpp MOD (T7)
+tests/test_pack.cpp MOD (T7) · tests/test_open.cpp MOD (T5/T6)
+docs/sprints/2026-08-04-s4-step4/results/dr3-fixture-ledger.md  MOD status-only (T5/T6/T7/T8)
+docs/sprints/2026-08-04-s4-step4/ROADMAP.md                     MOD matrix rows only (T8)
+.relays/s4/s4-matrix-arm1-impl/IMPL-IMPLEMENTER-<stamp>.md      NEW one per task (T1-T8)
+.relays/s4/INDEX.md                                             MOD append-at-EOF, one row per report
 ```
 
 ---
@@ -67,31 +75,33 @@ tests/test_pack.cpp MOD (T6) · tests/test_open.cpp MOD (T7)
 **Interfaces (Produces — T2 consumes verbatim):**
 ```cpp
 namespace biv::support {
+enum class StderrMode { separate, merge_into_stdout };  // R4: topology fixed AT SPAWN (dup2), never post-hoc
 struct SpawnRequest {
   std::filesystem::path executable;          // fully resolved; runner never PATH-searches
   std::vector<std::string> argv;             // argv[0..n]; runner adds nothing
   std::vector<std::string> env;              // FULL environment ("K=V"); no parent passthrough
+  StderrMode stderr_mode{StderrMode::separate};
   std::optional<std::filesystem::path> stdout_file; // stream-to-file sink; else bounded memory
   size_t stdout_cap;                          // bytes, memory sink only
-  size_t stderr_cap;                          // stderr always bounded memory, separate pipe
+  size_t stderr_cap;                          // separate-mode only; byte-exact capture
   ProbeBudgets budgets;                       // reused shape; per-call values
 };
 struct SpawnResult {
   int exit_code;                              // data, not verdict (-1 = not exited)
   bool timed_out; bool spawn_failed; bool io_failed;
   std::vector<std::byte> stdout_bytes;        // raw bytes — NO sanitization (patches/porcelain)
-  std::string stderr_text;                    // sanitized for diagnostics only
+  std::vector<std::byte> stderr_bytes;        // raw bytes too (R4); consumers sanitize for display
 };
 expected<SpawnResult> run_argv(const SpawnRequest&, const ProbeClock& = production_probe_clock(),
                                const ProbeWaiter& = production_probe_waiter());
 }
 ```
 
-- [ ] **T1.1** Write failing tests in `tests/test_subprocess.cpp` (the runner does not exist): `run_argv echoes argv and env` (spawn `/bin/sh -c 'echo "$MARK"'` with `env={"MARK=x1"}`, expect stdout `x1\n`, exit 0); `stdout and stderr are separate` (`sh -c 'echo out; echo err 1>&2'` → stdout_bytes `out\n`, stderr_text contains `err`); `exit code is data` (`sh -c 'exit 7'` → exit_code 7, no error); `timeout sweeps the group` (a `sleep 30` child with 100ms budget → timed_out, reaped); `stdout streams to file` (output larger than stdout_cap lands complete in stdout_file); `raw bytes survive` (`printf '\xff\x00'` → exact bytes in stdout_bytes).
+- [ ] **T1.1** Write failing tests in `tests/test_subprocess.cpp` (the runner does not exist): `run_argv echoes argv and env` (spawn `/bin/sh -c 'echo "$MARK"'` with `env={"MARK=x1"}`, expect stdout `x1\n`, exit 0); `separate topology keeps streams apart` (`sh -c 'echo out; echo err 1>&2'` with `StderrMode::separate` → stdout_bytes `out\n`, stderr_bytes contains `err`); `merge topology interleaves at source` (`sh -c 'echo a; echo b 1>&2; echo c'` with `merge_into_stdout` → stdout_bytes `a\nb\nc\n` in write order, stderr_bytes empty — the spawn-time dup2 property post-hoc concatenation cannot fake); `exit code is data` (`sh -c 'exit 7'` → exit_code 7, no error); `timeout sweeps the group` (a `sleep 30` child with 100ms budget → timed_out, reaped); `stdout streams to file`; `raw bytes survive on BOTH streams` (`printf '\xff\x00'` to stdout and to stderr → exact bytes in each).
 - [ ] **T1.2** Run: `ctest -R subprocess` — expect FAIL (no such target/symbols).
 - [ ] **T1.3** Implement `subprocess.{hpp,cpp}` by EXTRACTING `probe.cpp:669-880`'s machinery (posix_spawn, Fd hygiene, own-process-group, poll-slice loop, TERM→grace→KILL sweep, post-kill reap) — generalized exactly per D1.1: caller argv/env, split pipes, raw-byte + to-file sinks, per-call budgets, exit-as-data.
 - [ ] **T1.4** Run: `ctest -R subprocess` — expect PASS.
-- [ ] **T1.5** Refactor `run_version_probe` into a thin adapter over `run_argv` (merge stderr→stdout at the ADAPTER to preserve its contract; UTF-8 sanitize at the adapter; same ProbeEvidence semantics). Re-scope the `probe.hpp:73-76` law comment per D1.1: agent-exec prohibition absolute (operator ruling 062318 cited), git exec governed by the sealed Step-4 contracts — reworded, on the record, never deleted.
+- [ ] **T1.5** Refactor `run_version_probe` into a thin adapter over `run_argv` using `StderrMode::merge_into_stdout` (the SAME spawn-time dup2 topology the probe has today — source interleaving preserved; UTF-8 sanitize at the adapter; same ProbeEvidence semantics). Re-scope the `probe.hpp:73-76` law comment per D1.1: agent-exec prohibition absolute (operator ruling 062318 cited), git exec governed by the sealed Step-4 contracts — reworded, on the record, never deleted.
 - [ ] **T1.6** Run: `ctest -R probe` — expect PASS with ZERO probe test edits (the acceptance bar: probe contract unchanged).
 - [ ] **T1.7** Commit `s4-matrix/arm1-runner`: `feat(support): extract generic argv runner; probe becomes adapter`.
 
@@ -112,8 +122,10 @@ enum class RefAvailability { remote_proven, bundle_carried, repo_bundle_carried 
 struct Proof { std::string remote, url, ref, tip_sha; };
 struct LocalRef { std::string ref, sha; RefAvailability availability; std::optional<Proof> proof; };
 struct NonCarriedRefsNote { std::vector<std::string> refs_p1; std::optional<uint64_t> omitted_count; };
-struct RepoEntry { /* id, relpath, kind, parent_id, remote, remotes, sha(optional), branch,
-  head_state, dirty(false at Arm 1), capture_mode, eligibility{method,result,checked_at,proof?},
+struct Eligibility { std::string method; EligibilityResult result; std::string checked_at; std::optional<Proof> proof; };
+struct RepoEntry { /* id, relpath, kind, parent_id, remote, remotes, sha: std::optional<std::string>, branch,
+  head_state, dirty(false at Arm 1), capture_mode,
+  eligibility: std::optional<Eligibility>,   // R5: OPTIONAL — the zero-ref unborn entry carries NONE (pinned G invariant)
   local_refs, local_refs_bundle?, bundle?, shallow?{sha,boundary,remote_urls}, sparse(null), notes incl. NonCarriedRefsNote */ };
 
 // git.hpp — policy wrapper over support::run_argv (D1.1).
@@ -121,14 +133,19 @@ class Git {
  public:
   static expected<Git> resolve(const support::Getenv&);   // one binary per run, recorded
   struct Opts { std::optional<std::filesystem::path> cwd; bool no_lazy_fetch{false};
+                support::StderrMode stderr_mode{support::StderrMode::separate};
                 std::optional<std::filesystem::path> stdout_file; std::chrono::milliseconds budget; };
-  expected<support::SpawnResult> run(std::span<const std::string> args, const Opts&) const;
+  // R5: delimiter ownership is MECHANICAL — `args` are flags/subcommand only; every pathish or
+  // URL-ish value goes in `operands`, and the wrapper itself emits `--` before them whenever
+  // operands is non-empty. There is no overload that takes operands positionally in args.
+  expected<support::SpawnResult> run(std::span<const std::string> args,
+                                     std::span<const std::string> operands, const Opts&) const;
 };
 }
 ```
-Env pinned inside `Git::run` per D1.1: `GIT_TERMINAL_PROMPT=0`, `LC_ALL=C`, `GIT_CONFIG_NOSYSTEM=1`, isolated `GIT_CONFIG_GLOBAL`, `GIT_NO_LAZY_FETCH=1` iff `no_lazy_fetch`; `--` before pathish operands; cwd via `-C`.
+Env pinned inside `Git::run` per D1.1: `GIT_TERMINAL_PROMPT=0`, `LC_ALL=C`, `GIT_CONFIG_NOSYSTEM=1`, isolated `GIT_CONFIG_GLOBAL`, `GIT_NO_LAZY_FETCH=1` iff `no_lazy_fetch`; cwd via `-C`.
 
-- [ ] **T2.1** Failing tests (`tests/test_repo_git.cpp`, fixture repos built by test helpers running real git): `resolve records one binary`; `env is pinned` (a `git var GIT_COMMITTER_IDENT`-style read under a hostile fake HOME config proves isolation — the hostile config's values do NOT appear); `exit-as-data` (`merge-base --is-ancestor` false → exit 1, not error); `no_lazy_fetch sets the env` (assert via `git -c` echo of environment through a script shim on PATH? NO — assert via wrapper unit seam: the built SpawnRequest.env contains `GIT_NO_LAZY_FETCH=1`; expose a test-only hook `BIV_REPO_TESTING` mirroring probe_testing's pattern); `stdout to file` (a `cat-file --batch`-scale output streams).
+- [ ] **T2.1** Failing tests (`tests/test_repo_git.cpp`, fixture repos built by test helpers running real git): `resolve records one binary`; `env is pinned` (a `git var GIT_COMMITTER_IDENT`-style read under a hostile fake HOME config proves isolation — the hostile config's values do NOT appear); `exit-as-data` (`merge-base --is-ancestor` false → exit 1, not error); `no_lazy_fetch sets the env` and `operands ride behind --` (both via the `BIV_REPO_TESTING` unit seam mirroring `probe_testing`'s pattern: the built `SpawnRequest` carries `GIT_NO_LAZY_FETCH=1`, and argv is `args… -- operands…` exactly when operands is non-empty — incl. an operand named `-rf` proving the delimiter defangs it); `eligibility is optional` (a `RepoEntry` with `eligibility == std::nullopt` constructs and round-trips through the T4 classify shapes); `stdout to file` (a `cat-file --batch`-scale output streams).
 - [ ] **T2.2** Run → FAIL; **T2.3** implement; **T2.4** run → PASS.
 - [ ] **T2.5** Commit: `feat(repo): repo types + env-pinned git wrapper`.
 
@@ -179,47 +196,49 @@ expected<RepoRestoreRow> restore_entry(const Git&, const RepoEntry&, const std::
 
 ### Task T5: the schema act (all four surfaces, one reviewed head)
 
-**Files:** Modify `src/core/manifest/manifest.{hpp,cpp}`, `src/core/support/error.{hpp,cpp}`, `src/core/report/envelope.cpp`, `schemas/biv-exit-map.v1.json`, `schemas/biv-json-envelope.v1.schema.json`, `harness/bivharness/manifest.py`, `harness/schemas/manifest-plaindir-v1.schema.json`, `harness/selftest/test_manifest.py`, `tests/test_manifest.cpp`, `tests/test_envelope.cpp`, `harness/selftest/test_envelope.py` (blob-lock recapture, same head).
+**Files:** Modify `src/core/manifest/manifest.{hpp,cpp}`, `src/core/open/open.{hpp,cpp}` (member-namespace admission + accounting ONLY — R1: the D3.3 surface belongs to THIS head; no materialization here), `src/core/support/error.{hpp,cpp}`, `src/core/report/envelope.cpp`, `schemas/biv-exit-map.v1.json`, `schemas/biv-json-envelope.v1.schema.json`, `harness/bivharness/manifest.py`, `harness/schemas/manifest-plaindir-v1.schema.json`, `harness/selftest/test_manifest.py`, `tests/test_manifest.cpp`, `tests/test_open.cpp` (namespace/accounting tests), `tests/test_envelope.cpp`, `harness/selftest/test_envelope.py` (blob-lock recapture, same head), `docs/sprints/2026-08-04-s4-step4/results/dr3-fixture-ledger.md` (status-only).
 
-**Interfaces (Produces):** `Manifest` gains `std::vector<repo::RepoEntry> repos;` `manifest::parse` implements full §2.3 + F (as landed at F's pin) + G (both license equivalences; G-R6 note schema; unknown-note-kind tolerance) — violations = `ParseError` (repo id + note index in detail/facts); `serialize` emits entries in locked field order (empty list still `[]`); `ErrKind` gains the D5.1 eight kinds and DROPS `RepoDiscoveredUnsupported`; `exit_for_error` + exit-map + envelope render the D5 surface; envelope repo rows per D5.2/D5.4.
+**Interfaces (Produces):** `Manifest` gains `std::vector<repo::RepoEntry> repos;` `manifest::parse` implements full §2.3 + F (as landed at F's pin) + G (both license equivalences; G-R6 note schema; unknown-note-kind tolerance) — violations = `ParseError` (repo id + note index in detail/facts); `serialize` emits entries in locked field order (empty list still `[]`); `read_archive_plan` admits the `repos/` member family with full accounting (entry-named artifacts REQUIRED members ⇒ `IntegrityFailurePreApply` `missing-repo-member`; surplus ⇒ `UnmanifestedMember`; `ArchivePlan` gains the repos artifact table) and `apply_archive` accounts the family (extraction to stage only — the repo PHASE lands in T6); **`ErrKind` gains the NINE D5.1 kinds** — `RepoDirtyUnsupported`, `RepoNestedUnsupported`, `RepoSubmoduleUnsupported`, `RepoUnbornRefsUnsupported` is NOT one of them (deleted unshipped), `MemberAncestryUnsafe`, `UnmergedIndexUnrepresentable`, `RefUncapturable`, `PromisorObjectsUnavailable`, `GitInvocationFailed`, `RepoRestoreFailed` — with the D5.1 fact shapes and exit/family rows, and DROPS `RepoDiscoveredUnsupported`; `exit_for_error` + exit-map + envelope render the D5 surface; envelope repo rows per D5.2/D5.4.
 
-- [ ] **T5.1** Failing tests first, from the ledger: L-F1 replacement suite (positive parse of every §2.3 field incl. unborn-head/shallow/note; malformed-item negatives; legs c/d/e/g/j; l1–l9 each an independent `ParseError`; leg m tolerance) in `tests/test_manifest.cpp`; L-F4/L-F5 new exit-map row set + re-closed count; L-F7 oracle recapture DECISION (new literal captured from the new serializer AT THIS HEAD, recorded in the test comment with base SHA per the ORACLE RULE; `harness/selftest/test_envelope.py` blob lock recaptured literal-for-literal, same head); L-F6/L-A1/L-A2 harness validator + schema + selftests; L-R1..L-R8 verified green.
+- [ ] **T5.1** Failing tests first, from the ledger: L-F1 replacement suite (positive parse of every §2.3 field incl. unborn-head/shallow/note and an ABSENT-eligibility entry; malformed-item negatives; legs c/d/e/g/j; l1–l9 each an independent `ParseError`; leg m tolerance) in `tests/test_manifest.cpp`; member-namespace tests in `tests/test_open.cpp` (a `repos/x/repo.bundle` member with a matching manifest entry plans cleanly; entry-named-but-absent artifact ⇒ `missing-repo-member`; surplus `repos/` member ⇒ `UnmanifestedMember`); L-F4/L-F5 new exit-map row set + a CLOSED-COUNT test asserting the exact nine-name set (R3 — the mismatch cannot survive prose); L-F7 oracle recapture DECISION (new literal captured from the new serializer AT THIS HEAD, recorded in the test comment with base SHA per the ORACLE RULE; `harness/selftest/test_envelope.py` blob lock recaptured literal-for-literal, same head); L-F6/L-A1/L-A2 harness validator + schema + selftests; L-R1..L-R8 verified green.
 - [ ] **T5.2** Run → FAIL on the new suites; **T5.3** implement the parser/serializer over `repo::types` + error/envelope/schema surfaces; **T5.4** full `ctest` + harness selftests → PASS incl. every RETAIN row.
 - [ ] **T5.5** Commit (one reviewed head for the act): `feat(manifest)!: schema act — repos §2.3+F+G parser, member kinds, envelope rows`.
 
 **Acceptance:** all four design-D3 surfaces changed together; F+G consumed at their pins; `git grep -F 'RepoDiscoveredUnsupported'` → zero hits tree-wide; ledger rows L-F1/4/5/6/7/8, L-A1/2/4, L-R* moved to DONE.
 
-## WAVE C — integration (after T5 lands)
+## WAVE C — integration (after T5 lands; CONSUMER FIRST per R1 — the reader/materializer lands before any producer)
 
-### Task T6: pack side — discovery flip + capture wiring
+### Task T6: open side — repo phase + containment + lifecycle (consumer)
 
-**Files:** Modify `src/core/scan/scan.{hpp,cpp}` (fence-1 flip → `repo::discover` integration; `ScanResult.repos`), `src/core/pack/pack.cpp` (classify/eligibility/capture per repo; single-writer exclusion prefixes; `repos/` area assembly BEFORE payload per D4; PackReport rows + advisories; transitional fences), `tests/test_scan.cpp` (L-F2), `tests/test_pack.cpp` (L-F3 + fence rows L-A10 + shallow/promisor L-A8 + note legs L-A6).
+**Files:** Modify `src/core/open/open.{hpp,cpp}` (the manifest-driven repo phase at first non-`repos/` member or EOF; per-entry dispatch via `repo::restore_entry`; no-follow directory inventory + `MemberAncestryUnsafe` [D4.3]; `.biv-stage` lifecycle + `stage-cleanup` failure; `detect_partial`/`clean_partial` [D8]; plan-time representability checks + `opts` bag [D8]; OpenReport rows/advisories incl. note re-render — namespace admission/accounting ALREADY landed in T5), `src/cli/main.cpp` (report plumbing only), `tests/test_open.cpp`, `tests/test_envelope.cpp` (P1 render leg L-A5), `docs/sprints/2026-08-04-s4-step4/results/dr3-fixture-ledger.md` (status-only).
 
-- [ ] **T6.1** Failing tests: L-F2 replacement (boundary recorded, walk continues; prune-beats-discovery test STAYS green untouched); L-F3 replacement (clean repo packs; manifest entry + `repos/` members + checksums; area order repos-before-payload asserted on the member sequence); dirty/nested/submodule sources → the three D5 transitional refusals with facts; unmerged → sealed refusal; shallow and shallow+promisor rows; unborn zero-ref/any-ref pack legs (a/b/b2/i capture side); note emission at the uniform bundle site incl. a BORN repo with `refs/notes/x`.
-- [ ] **T6.2** → FAIL; **T6.3** wire; **T6.4** full suite → PASS.
-- [ ] **T6.5** Commit: `feat(pack): repo discovery + clean-repo capture (Arm 1)`.
+Test images at this head are SYNTHETIC (pack cannot produce repo images yet): built in-test from `manifest::serialize` + the tar/zstd writers, with REAL bundles created via `repo::Git` fixture helpers — the same construction style the hostile legs need anyway.
 
-**Acceptance:** fence 1 flipped WITH its ledger rows; no repo state reaches an image that `open` at this head cannot read (T5 landed first); pack refuses nothing the design accepts and captures nothing silently.
+- [ ] **T6.1** Failing tests: zero-artifact proven overlay materializes (from a local bare remote fixture) [L-A11]; full-from-bundle; repo phase triggers on `agents/`-first archive (empty payload) — the R4 trigger case; B3 hostile row ⇒ `MemberAncestryUnsafe` + partial reported + no out-of-root write [L-A7]; `.biv-stage` absent post-restore + cleanup-failure row [L-A9]; unborn zero-ref/any-ref restore legs (e/f incl. symref + stash-absent b2 restore side); note re-render advisory on open + leg n P1 assertions on both surfaces [L-A5]; `detect_partial` reports / `clean_partial` removes / `OpenPartialPresent` carries the summary; representability: case-collision + path-length ⇒ `PathUnrepresentable` findings, probe-pair + `no_probe` degradation.
+- [ ] **T6.2** → FAIL; **T6.3** implement; **T6.4** full suite → PASS.
+- [ ] **T6.5** File the T6 implementation report (`.relays/s4/s4-matrix-arm1-impl/` + INDEX row); commit: `feat(open): manifest-driven repo restore inside the staging boundary (Arm 1)`.
 
-### Task T7: open side — repo phase + containment + lifecycle
+**Acceptance:** everything lands inside the partial-dir boundary (no second staging path — grep for a second `rename(` finalization); containment property unweakened (the hostile row is the proof); the D5 outcome vocabulary is the ONLY new report surface; ledger rows L-A5/A7/A9/A11 status → DONE.
 
-**Files:** Modify `src/core/open/open.{hpp,cpp}` (member family `repos/`; artifact accounting at plan [D4.1]; the manifest-driven repo phase at first non-`repos/` member or EOF; per-entry dispatch via `repo::restore_entry`; no-follow directory inventory + `MemberAncestryUnsafe` [D4.3]; `.biv-stage` lifecycle + `stage-cleanup` failure; `detect_partial`/`clean_partial` [D8]; plan-time representability checks + `opts` bag [D8]; OpenReport rows/advisories incl. note re-render), `src/cli/main.cpp` (report plumbing only), `tests/test_open.cpp`, `tests/test_envelope.cpp` (P1 render leg L-A5).
+### Task T7: pack side — discovery flip + capture wiring (producer, after the consumer exists)
 
-- [ ] **T7.1** Failing tests: zero-artifact proven overlay materializes (from a local bare remote fixture) [L-A11]; full-from-bundle; missing manifest-named artifact ⇒ `IntegrityFailurePreApply` `missing-repo-member`; surplus `repos/` member ⇒ `UnmanifestedMember`; repo phase triggers on `agents/`-first archive (empty payload) — the R4 case; B3 hostile row ⇒ `MemberAncestryUnsafe` + partial reported + no out-of-root write [L-A7]; `.biv-stage` absent post-restore + cleanup-failure row [L-A9]; unborn zero-ref/any-ref restore legs (e/f incl. symref + stash-absent b2); note re-render advisory on open + leg n P1 assertions on both surfaces [L-A5]; `detect_partial` reports / `clean_partial` removes / `OpenPartialPresent` carries the summary; representability: case-collision + path-length ⇒ `PathUnrepresentable` findings, probe-pair + `no_probe` degradation.
-- [ ] **T7.2** → FAIL; **T7.3** implement; **T7.4** full suite → PASS.
-- [ ] **T7.5** Commit: `feat(open): manifest-driven repo restore inside the staging boundary (Arm 1)`.
+**Files:** Modify `src/core/scan/scan.{hpp,cpp}` (fence-1 flip → `repo::discover` integration; `ScanResult.repos`), `src/core/pack/pack.cpp` (classify/eligibility/capture per repo; single-writer exclusion prefixes; `repos/` area assembly BEFORE payload per D4; PackReport rows + advisories; transitional fences), `tests/test_scan.cpp` (L-F2), `tests/test_pack.cpp` (L-F3 + fence rows L-A10 + shallow/promisor L-A8 + note legs L-A6), `docs/sprints/2026-08-04-s4-step4/results/dr3-fixture-ledger.md` (status-only).
 
-**Acceptance:** everything lands inside the partial-dir boundary (no second staging path — grep for a second `rename(` finalization); containment property unweakened (the hostile row is the proof); the D5 outcome vocabulary is the ONLY new report surface.
+- [ ] **T7.1** Failing tests: L-F2 replacement (boundary recorded, walk continues; prune-beats-discovery test STAYS green untouched); L-F3 replacement (clean repo packs; manifest entry + `repos/` members + checksums; area order repos-before-payload asserted on the member sequence; AND the packed image round-trips through the T6 open — the producer/consumer closure in one test); dirty/nested/submodule sources → the three D5 transitional refusals with facts; unmerged → sealed refusal; shallow and shallow+promisor rows [L-A8]; unborn zero-ref/any-ref pack legs (a/b/b2/i capture side); note emission at the uniform bundle site incl. a BORN repo with `refs/notes/x` + writer legs o1–o5 [L-A6].
+- [ ] **T7.2** → FAIL; **T7.3** wire; **T7.4** full suite → PASS.
+- [ ] **T7.5** File the T7 implementation report (`.relays/s4/s4-matrix-arm1-impl/` + INDEX row); commit: `feat(pack): repo discovery + clean-repo capture (Arm 1)`.
+
+**Acceptance:** fence 1 flipped WITH its ledger rows (L-F2/F3, L-A6/A8/A10 → DONE); every image this head can emit, this head can restore (T5+T6 landed below it — the R1 guarantee is structural, and the round-trip test proves it); pack refuses nothing the design accepts and captures nothing silently.
 
 ## WAVE D — closure
 
 ### Task T8: golden rows + scenario promotion
 
-**Files:** Promote `harness/scenarios/shells/d-git-restore.json` → `harness/scenarios/d-git-restore.json` with real steps; add the D6 day-one scenario rows (eligibility spread, zero-artifact overlay, shallow, shallow+promisor, unborn pair, FX-G-1 engine legs a/b/b2/f/i/k as scenario assertions); determinism leg (pack twice, manifests equal modulo documented-volatile fields).
+**Files:** Promote `harness/scenarios/shells/d-git-restore.json` → `harness/scenarios/d-git-restore.json` with real steps; add the D6 day-one scenario rows (eligibility spread [L-A12], zero-artifact overlay [L-A11 golden half], shallow, shallow+promisor, unborn pair, FX-G-1 engine legs a/b/b2/f/i/k as scenario assertions [L-A3]); determinism leg (pack twice, manifests equal modulo documented-volatile fields); Modify `docs/sprints/2026-08-04-s4-step4/results/dr3-fixture-ledger.md` (status-only) and `docs/sprints/2026-08-04-s4-step4/ROADMAP.md` (matrix rows only).
 
-- [ ] **T8.1** Write the rows (RED against any remaining gap); **T8.2** run the harness suite → all rows GREEN; L-R7 ten scenarios still green; **T8.3** commit: `feat(harness): Arm-1 golden rows — d-git-restore live`.
+- [ ] **T8.1** Write the rows (RED against any remaining gap); **T8.2** run the harness suite → all rows GREEN; L-R7 ten scenarios still green; **T8.3** file the T8 implementation report (`.relays/s4/s4-matrix-arm1-impl/` + INDEX row); commit: `feat(harness): Arm-1 golden rows — d-git-restore live`.
 
-**Acceptance:** the golden harness asserts contract-§5 semantics over Arm 1 end-to-end at E2; every FROZEN ledger row is DONE or explicitly still-frozen-for-a-later-arm; ROADMAP updated by the pair.
+**Acceptance:** the golden harness asserts contract-§5 semantics over Arm 1 end-to-end at E2; every FROZEN ledger row is DONE or explicitly still-frozen-for-a-later-arm; ROADMAP matrix rows updated.
 
 ---
 
