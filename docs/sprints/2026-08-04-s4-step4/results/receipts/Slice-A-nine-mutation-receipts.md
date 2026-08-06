@@ -1,6 +1,6 @@
 # Slice A — nine mutation receipts run trace
 
-Reviewed head: `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`
+Reviewed head: `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`
 
 Authority read before execution:
 
@@ -10,6 +10,8 @@ Authority read before execution:
 - `2026-07-13-rclass2-fixture-evidence-map.md` §8
 
 Protocol: each arm is correct-code GREEN → one isolated mutation → intended RED with required sibling observations → exact inverse → same-command GREEN → temporary instrument removal → clean diff. No mutation or temporary test is committed.
+
+Parent-provided exact-head validation (not independently rerun during this receipt replay): all 14 locally applicable CTest rows passed. The safety-hardening row was excluded only on Darwin because its `readelf` prerequisite is unavailable. Branch topology remained one Slice A commit over `ff63e521d8ae5229a831aab8718a3fa58205f40f` (`git rev-list --count ff63e52..HEAD` → `1`).
 
 ## Receipt summary
 
@@ -42,16 +44,16 @@ Temporary setup diff:
 Exact focused command, used before mutation and after inverse:
 
 ```sh
-cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O3 codex default disclosure,Codex install uses grammar and direction instead of an allowlist' --success
+cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O3 codex default disclosure,Codex install uses grammar and direction instead of an allowlist'
 ```
 
-Correct-code GREEN (seed `4112045895`):
+Correct-code GREEN (seed `2093554264`):
 
 ```text
 Codex forward install: outcome installed; host_version_unverified true; activation size 1; sessions path exists — all PASSED.
 Receipt verdict: readable — PASSED.
 Receipt wire verdict: "readable-newer-than-survey" — PASSED.
-Receipt default loud-line `find(...) != npos` — PASSED (position 2).
+Receipt default loud-line `find(...) != npos` — PASSED.
 All tests passed (27 assertions in 2 test cases)
 ```
 
@@ -65,14 +67,14 @@ diff --git a/src/core/open/render.cpp b/src/core/open/render.cpp
          agent.caps->wire_verdict() == "readable-newer-than-survey") {
 ```
 
-Observed intended RED (same command, seed `2007325849`):
+Observed intended RED (same command, seed `1228704767`):
 
 ```text
 Codex install test case: PASSED (23 assertions), including forward outcome installed,
 host_version_unverified true, activation size 1, and sessions path exists.
 Receipt verdict readable: PASSED.
 Receipt wire verdict readable-newer-than-survey: PASSED.
-tests/test_render.cpp:383: FAILED:
+Exact receipt loud-line check: FAILED:
   CHECK(text.find("codex host version 0.300.0 is newer than surveyed through 0.144; session import compatibility is uncertain") != std::string::npos)
 with expansion: npos != npos
 test cases: 2 | 1 passed | 1 failed
@@ -81,7 +83,7 @@ assertions: 27 | 26 passed | 1 failed
 
 Thus only default visibility reddened; install and verdict siblings stayed GREEN.
 
-Complete inverse: removed only `agent.agent != "codex" &&`. Post-revert same-command GREEN (seed `2245345966`): `All tests passed (27 assertions in 2 test cases)`.
+Complete inverse: removed only `agent.agent != "codex" &&`. Post-revert same-command GREEN (seed `1179988306`): `All tests passed (27 assertions in 2 test cases)`.
 
 The temporary test block was then removed with its exact inverse. Clean proof:
 
@@ -91,7 +93,7 @@ $ git diff --exit-code
 $ git status --short
 (no output)
 $ git rev-parse HEAD
-e11731ad59d1a1d99a6fc182fbe2b0877917f13a
+26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6
 ```
 
 ## 2. `FX-VF-O3/claude/disclosure-default-visible`
@@ -111,10 +113,10 @@ Temporary setup diff:
 Exact focused command, before mutation and after inverse:
 
 ```sh
-cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O3 claude default disclosure,Claude install uses grammar and direction instead of an allowlist' --success
+cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O3 claude default disclosure,Claude install uses grammar and direction instead of an allowlist'
 ```
 
-Correct-code GREEN (seed `3944605923`): Claude forward install outcome installed, `host_version_unverified` true, activation size 1, projects path present; receipt verdict and wire verdict passed; exact loud line found at position 2. `All tests passed (27 assertions in 2 test cases)`.
+Correct-code GREEN (seed `3469422775`): Claude forward install outcome installed, `host_version_unverified` true, activation size 1, projects path present; receipt verdict and wire verdict passed; exact loud line was present. `All tests passed (27 assertions in 2 test cases)`.
 
 One isolated mutation:
 
@@ -126,14 +128,14 @@ diff --git a/src/core/open/render.cpp b/src/core/open/render.cpp
          agent.caps->wire_verdict() == "readable-newer-than-survey") {
 ```
 
-Observed intended RED (same command, seed `4115509379`):
+Observed intended RED (same command, seed `845440388`):
 
 ```text
 Claude install test case: PASSED (23 assertions), including forward installed,
 host_version_unverified true, activation size 1, projects path exists.
 Receipt readable verdict: PASSED.
 Receipt readable-newer-than-survey wire verdict: PASSED.
-tests/test_render.cpp:383: FAILED:
+Exact receipt loud-line check: FAILED:
   CHECK(text.find("claude-code host version 2.9.0 is newer than surveyed through 2.1; session import compatibility is uncertain") != std::string::npos)
 with expansion: npos != npos
 test cases: 2 | 1 passed | 1 failed
@@ -142,9 +144,9 @@ assertions: 27 | 26 passed | 1 failed
 
 Only visibility reddened; install and verdict siblings stayed GREEN.
 
-Complete inverse removed only `agent.agent != "claude-code" &&`. Post-revert same-command GREEN (seed `3704209799`): `All tests passed (27 assertions in 2 test cases)`. Temporary test removed by exact inverse.
+Complete inverse removed only `agent.agent != "claude-code" &&`. Post-revert same-command GREEN (seed `2299722715`): `All tests passed (27 assertions in 2 test cases)`. Temporary test removed by exact inverse.
 
-Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`.
+Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`.
 
 ## 3. `FX-VF-O6/claude/no-image-field-in-derivation`
 
@@ -162,10 +164,10 @@ Temporary setup diff:
 Exact focused command, before mutation and after inverse:
 
 ```sh
-cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O6 claude derivation purity' --success
+cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O6 claude derivation purity'
 ```
 
-Correct-code GREEN (seed `2138523144`):
+Correct-code GREEN (seed `2495259495`):
 
 ```text
 absent|failed|basis_unorderable|false
@@ -187,13 +189,14 @@ diff --git a/src/adapters/claude_code/install.cpp b/src/adapters/claude_code/ins
 +      version_floor::row_for("claude-code").surveyed_through);
 +  assert(surveyed.has_value());
    return {.admitted = true,
--          .host_version_unverified = caps.newer_than_survey()};
+-          .host_version_unverified = caps.newer_than_survey(),
 +          .host_version_unverified =
 +              version_floor::compare_line(*basis, *surveyed) ==
-+              version_floor::Order::greater};
++              version_floor::Order::greater,
+           .detail = {}};
 ```
 
-Observed intended RED (same command, seed `2922620913`):
+Observed intended RED (same filter with `--success`, seed `2811947710`):
 
 ```text
 Before vector:
@@ -209,9 +212,9 @@ assertions: 12 | 10 passed | 2 failed
 
 All three valid `0.x` image bases moved against Claude survey `2.1`, while invalid-basis refusal and every install outcome remained fixed. This is the exact forbidden image-field dependency.
 
-Complete inverse restored `caps.newer_than_survey()` as the sole watermark source. Post-revert same-command GREEN (seed `2771698005`): `All tests passed (12 assertions in 1 test case)`. Temporary instrument removed by exact inverse.
+Complete inverse restored `caps.newer_than_survey()` as the sole watermark source. Post-revert same-command GREEN (seed `2198900590`): `All tests passed (12 assertions in 1 test case)`. Temporary instrument removed by exact inverse.
 
-Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`.
+Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`.
 
 ## 4. `FX-VF-O6/codex/no-image-field-in-derivation`
 
@@ -230,10 +233,10 @@ Temporary setup diff:
 Exact focused command, before mutation and after inverse:
 
 ```sh
-cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O6 codex derivation purity' --success
+cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O6 codex derivation purity'
 ```
 
-Correct-code GREEN (seed `3021178160`):
+Correct-code GREEN (seed `1395678602`):
 
 ```text
 absent|failed|basis_unorderable|false
@@ -255,13 +258,14 @@ diff --git a/src/adapters/codex/install.cpp b/src/adapters/codex/install.cpp
 +      version_floor::row_for("codex").surveyed_through);
 +  assert(surveyed.has_value());
    return {.admitted = true,
--          .host_version_unverified = caps.newer_than_survey()};
+-          .host_version_unverified = caps.newer_than_survey(),
 +          .host_version_unverified =
 +              version_floor::compare_line(*basis, *surveyed) ==
-+              version_floor::Order::greater};
++              version_floor::Order::greater,
+           .detail = {}};
 ```
 
-Observed intended RED (same command, seed `3874589505`):
+Observed intended RED (same filter with `--success`, seed `3057742409`):
 
 ```text
 Before vector:
@@ -277,9 +281,9 @@ assertions: 12 | 10 passed | 2 failed
 
 The exact vector moved only where image-basis comparison would move it, proving the purity assertion is discriminating rather than decorative. Invalid-basis refusal and all install outcomes remained unchanged.
 
-Complete inverse restored `caps.newer_than_survey()` as the sole watermark source. Post-revert same-command GREEN (seed `354052159`): `All tests passed (12 assertions in 1 test case)`. The temporary test was then removed by exact inverse.
+Complete inverse restored `caps.newer_than_survey()` as the sole watermark source. Post-revert same-command GREEN (seed `1214767663`): `All tests passed (12 assertions in 1 test case)`. The temporary test was then removed by exact inverse.
 
-Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`.
+Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`.
 
 ## 5. `FX-VF-O4/codex/basis-nul-bearing/refuses-before-comparison`
 
@@ -291,7 +295,7 @@ Exact focused command, before mutation and after inverse:
 cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O4 codex NUL basis refuses before comparison,FX-VF-O4 and FX-MG-7 codex hostile bases refuse before ordering' --success
 ```
 
-Correct-code GREEN (seed `2510980135`): the probe proved `basis.size() == 7` and `basis.back() == '\0'`; raw session state was reason `basis-unorderable`, detail `basis_unorderable`, exact row enum `agent_not_validated_failed` (`7`), exit `2`, member reads `0`. The shipped adapter test kept all eight hostile cases green. `All tests passed (65 assertions in 2 test cases)`.
+Correct-code GREEN (seed `658458551`): the probe proved `basis.size() == 7` and `basis.back() == '\0'`; raw session state was reason `basis-unorderable`, detail `basis_unorderable`, exact row enum `agent_not_validated_failed` (`7`), exit `2`, member reads `0`. The shipped adapter test kept all eight hostile cases green. `All tests passed (65 assertions in 2 test cases)`.
 
 One isolated ordering-before-grammar mutation was added only to the Codex admission function. For the real-NUL path it trims the truncatable prefix's terminal dot, parses `0.144`, compares it with host `0.142.5`, and returns the ordering result before the full-string grammar gate:
 
@@ -312,13 +316,14 @@ diff --git a/src/adapters/codex/install.cpp b/src/adapters/codex/install.cpp
 +        return {.detail = version_floor::kBasisNewerThanHost};
 +      }
 +      return {.admitted = true,
-+              .host_version_unverified = caps.newer_than_survey()};
++              .host_version_unverified = caps.newer_than_survey(),
++              .detail = {}};
 +    }
 +  }
    const auto basis = version_floor::parse_grammar(image_version);
 ```
 
-Observed intended RED (same command, seed `2124457710`):
+Observed intended RED (same command, seed `3763361010`):
 
 ```text
 FX-VF-O4/codex/basis-nul-bearing/refuses-before-comparison — FAILED
@@ -337,9 +342,9 @@ assertions: 65 | 62 passed | 3 failed
 
 This records the sibling states raw rather than assuming they move: adapter detail moved, while exact row and exit-2 did not.
 
-Complete inverse removed the entire NUL ordering-first block. Post-revert same-command GREEN (seed `1702266281`): `All tests passed (65 assertions in 2 test cases)`. The temporary real-adapter session test and temporary include were removed by exact inverse.
+Complete inverse removed the entire NUL ordering-first block. Post-revert same-command GREEN (seed `1422791818`): `All tests passed (65 assertions in 2 test cases)`. The temporary real-adapter session test and temporary include were removed by exact inverse.
 
-Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`.
+Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`.
 
 ## 6. `FX-VF-O4/claude/basis-nul-bearing/refuses-before-comparison`
 
@@ -351,7 +356,7 @@ Exact focused command, before mutation and after inverse:
 cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT FX-VF-O4 claude NUL basis refuses before comparison,FX-VF-O4 and FX-MG-7 claude hostile bases refuse before ordering' --success
 ```
 
-Correct-code GREEN (seed `2766311839`): the probe proved `basis.size() == 5` and a real terminal NUL. Raw session state was reason `basis-unorderable`, detail `basis_unorderable`, exact row enum `agent_not_validated_failed` (`7`), exit `2`, member reads `0`; all eight shipped hostile sublegs passed. `All tests passed (65 assertions in 2 test cases)`.
+Correct-code GREEN (seed `673258085`): the probe proved `basis.size() == 5` and a real terminal NUL. Raw session state was reason `basis-unorderable`, detail `basis_unorderable`, exact row enum `agent_not_validated_failed` (`7`), exit `2`, member reads `0`; all eight shipped hostile sublegs passed. `All tests passed (65 assertions in 2 test cases)`.
 
 The one isolated mutation was the Claude-local equivalent of receipt 5: for NUL input only, parse the truncatable `2.1` prefix and evaluate host ordering before the full-string grammar gate.
 
@@ -372,13 +377,14 @@ diff --git a/src/adapters/claude_code/install.cpp b/src/adapters/claude_code/ins
 +        return {.detail = version_floor::kBasisNewerThanHost};
 +      }
 +      return {.admitted = true,
-+              .host_version_unverified = caps.newer_than_survey()};
++              .host_version_unverified = caps.newer_than_survey(),
++              .detail = {}};
 +    }
 +  }
    const auto basis = version_floor::parse_grammar(image_version);
 ```
 
-Observed intended RED (same command, seed `1534994957`):
+Observed intended RED (same command, seed `511754739`):
 
 ```text
 FX-VF-O4/claude/basis-nul-bearing/refuses-before-comparison — FAILED
@@ -396,9 +402,9 @@ assertions: 65 | 56 passed | 9 failed
 
 The required sibling states are recorded raw: on this host all three named siblings moved, rather than being presumed either green or red.
 
-Complete inverse removed the entire NUL ordering-first block. Post-revert same-command GREEN (seed `1243301253`): `All tests passed (65 assertions in 2 test cases)`. The temporary real-adapter session test and include were removed by exact inverse.
+Complete inverse removed the entire NUL ordering-first block. Post-revert same-command GREEN (seed `341233099`): `All tests passed (65 assertions in 2 test cases)`. The temporary real-adapter session test and include were removed by exact inverse.
 
-Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`.
+Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`.
 
 ## 7. `FX-MG-7/codex/full-grammar-red`
 
@@ -410,7 +416,7 @@ Exact focused command, before mutation and after inverse:
 cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'FX-VF-O4 and FX-MG-7 codex hostile bases refuse before ordering,FX-VF-O4 and FX-MG-7 claude hostile bases refuse before ordering'
 ```
 
-Correct-code GREEN (seed `1426965148`): `All tests passed (112 assertions in 2 test cases)` — 56 Codex and 56 Claude assertions.
+Correct-code GREEN (seed `3154077261`): `All tests passed (112 assertions in 2 test cases)` — 56 Codex and 56 Claude assertions.
 
 One isolated Codex-only mutation removed the invalid-full-grammar refusal by admitting an unparseable basis:
 
@@ -421,25 +427,26 @@ diff --git a/src/adapters/codex/install.cpp b/src/adapters/codex/install.cpp
    if (!basis.has_value()) {
 -    return {.detail = version_floor::kBasisUnorderable};
 +    return {.admitted = true,
-+            .host_version_unverified = caps.newer_than_survey()};
++            .host_version_unverified = caps.newer_than_survey(),
++            .detail = {}};
    }
 ```
 
-Observed intended RED (combined command with compact reporter, seed `2188913370`): every Codex hostile subleg stopped refusing — outcome became installed (`0` vs failed `2`), reason/detail disappeared, and `id_map`/activation became non-empty. `test cases: 2 | 1 passed | 1 failed`; `assertions: 112 | 72 passed | 40 failed`.
+Observed intended RED (combined command with compact reporter, seed `4228561241`): every Codex hostile subleg stopped refusing — outcome became installed (`0` vs failed `2`), reason/detail disappeared, and `id_map`/activation became non-empty. `test cases: 2 | 1 passed | 1 failed`; `assertions: 112 | 72 passed | 40 failed`.
 
 Required other-leg observation while the Codex mutation remained applied:
 
 ```text
 $ build/dev/biv_tests 'FX-VF-O4 and FX-MG-7 claude hostile bases refuse before ordering'
-Randomness seeded to: 66495033
+Randomness seeded to: 1476199824
 All tests passed (56 assertions in 1 test case)
 ```
 
 Thus the mutation reddened only Codex; Claude was unaffected, proving per-leg rather than shared enforcement.
 
-Complete inverse restored `return {.detail = version_floor::kBasisUnorderable};`. Post-revert same-command GREEN (seed `1362414034`): `All tests passed (112 assertions in 2 test cases)`.
+Complete inverse restored `return {.detail = version_floor::kBasisUnorderable};`. Post-revert same-command GREEN (seed `3450339330`): `All tests passed (112 assertions in 2 test cases)`.
 
-Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`.
+Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`.
 
 ## 8. `FX-MG-7/claude/full-grammar-red`
 
@@ -451,7 +458,7 @@ Exact focused command, before mutation and after inverse:
 cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'FX-VF-O4 and FX-MG-7 codex hostile bases refuse before ordering,FX-VF-O4 and FX-MG-7 claude hostile bases refuse before ordering'
 ```
 
-Correct-code GREEN (seed `3897577630`): `All tests passed (112 assertions in 2 test cases)`.
+Correct-code GREEN (seed `3921190158`): `All tests passed (112 assertions in 2 test cases)`.
 
 One isolated Claude-only mutation removed its invalid-full-grammar refusal:
 
@@ -462,25 +469,26 @@ diff --git a/src/adapters/claude_code/install.cpp b/src/adapters/claude_code/ins
    if (!basis.has_value()) {
 -    return {.detail = version_floor::kBasisUnorderable};
 +    return {.admitted = true,
-+            .host_version_unverified = caps.newer_than_survey()};
++            .host_version_unverified = caps.newer_than_survey(),
++            .detail = {}};
    }
 ```
 
-Observed intended RED (combined command with compact reporter, seed `4109668006`): every Claude hostile subleg stopped refusing — outcome installed (`0` vs failed `2`), reason/detail absent, and `id_map`/activation non-empty. `test cases: 2 | 1 passed | 1 failed`; `assertions: 112 | 72 passed | 40 failed`.
+Observed intended RED (combined command with compact reporter, seed `3527569928`): every Claude hostile subleg stopped refusing — outcome installed (`0` vs failed `2`), reason/detail absent, and `id_map`/activation non-empty. `test cases: 2 | 1 passed | 1 failed`; `assertions: 112 | 72 passed | 40 failed`.
 
 Required other-leg observation while the Claude mutation remained applied:
 
 ```text
 $ build/dev/biv_tests 'FX-VF-O4 and FX-MG-7 codex hostile bases refuse before ordering'
-Randomness seeded to: 4003678921
+Randomness seeded to: 2421877536
 All tests passed (56 assertions in 1 test case)
 ```
 
 Only Claude reddened; Codex remained green, satisfying per-leg separation.
 
-Complete inverse restored the Claude `basis_unorderable` refusal. Post-revert same-command GREEN (seed `658203572`): `All tests passed (112 assertions in 2 test cases)`.
+Complete inverse restored the Claude `basis_unorderable` refusal. Post-revert same-command GREEN (seed `3276202413`): `All tests passed (112 assertions in 2 test cases)`.
 
-Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`.
+Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`.
 
 ## 9. `A5.8/silent-promotion`
 
@@ -492,7 +500,7 @@ Exact focused command, before mutation and after inverse:
 cmake --build build/dev -j4 --target biv_tests && build/dev/biv_tests 'RECEIPT A5.8 silent promotion with frozen O7 inputs' --success
 ```
 
-Correct-code GREEN (seed `659553129`):
+Correct-code GREEN (seed `4169873715`):
 
 ```text
 codex_version  = 0.145.0
@@ -519,7 +527,7 @@ diff --git a/src/adapters/version_floor.cpp b/src/adapters/version_floor.cpp
 
 Before the RED run, the unchanged temporary-test diff was searched and still contained the literal O7 inputs `0.145.0` and `2.2.0`, plus the frozen MIN assertions. No test input was retuned.
 
-Observed intended RED (same command, seed `4201023481`):
+Observed intended RED (same command, seed `330124780`):
 
 ```text
 codex_version  = 0.145.0                         — PASSED frozen input
@@ -535,8 +543,8 @@ assertions: 6 | 4 passed | 2 failed
 
 Both exact O7 loud-line assertions reddened while all four frozen-input/MIN assertions stayed green; this is the silent-promotion falsifier with no oracle retune.
 
-Complete inverse restored surveyed-through `0.144` / `2.1`. Post-revert same-command GREEN (seed `3342265134`): `All tests passed (6 assertions in 1 test case)`. The temporary real-capability test and its temporary includes were removed by exact inverse.
+Complete inverse restored surveyed-through `0.144` / `2.1`. Post-revert same-command GREEN (seed `1929154726`): `All tests passed (6 assertions in 1 test case)`. The temporary real-capability test and its temporary includes were removed by exact inverse.
 
-Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `e11731ad59d1a1d99a6fc182fbe2b0877917f13a`.
+Clean proof: `git diff --exit-code` exit 0; `git status --short` empty; HEAD `26e6eb1fbe57401e9ed3c931a57f0d8863d96fd6`.
 
 Remote boundary: no commit, push, PR, GitHub CI/CD action, merge, release, or other remote operation was performed.
