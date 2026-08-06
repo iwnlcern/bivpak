@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
@@ -16,6 +17,7 @@
 #include "core/repo/discover.hpp"
 #include "core/repo/eligibility.hpp"
 #include "core/repo/git.hpp"
+#include "core/repo/restore.hpp"
 
 namespace {
 
@@ -53,7 +55,9 @@ biv::support::SpawnResult git_run(
     const biv::repo::Git& git, const std::filesystem::path& cwd,
     const std::vector<std::string>& args,
     const std::vector<std::string>& operands = {}, const bool allow_nonzero = false) {
-  auto result = git.run(args, operands, biv::repo::Git::Opts{.cwd = cwd});
+  biv::repo::Git::Opts options;
+  options.cwd = cwd;
+  auto result = git.run(args, operands, options);
   if (!result || (!allow_nonzero && result->exit_code != 0)) {
     throw std::runtime_error{"git fixture command failed"};
   }
@@ -93,9 +97,15 @@ void commit_file(const biv::repo::Git& git, const std::filesystem::path& repo,
            "commit", "-m", message});
 }
 
-biv::repo::Discovery one_repo() {
-  return biv::repo::Discovery{.repos = {biv::repo::RepoBoundary{
-                                   .relpath = ".", .kind = biv::repo::RepoKind::repo}}};
+biv::repo::Discovery one_repo(
+    const std::filesystem::path& root = {},
+    const std::filesystem::path& relpath = ".") {
+  return biv::repo::Discovery{
+      .root = root,
+      .repos = {biv::repo::RepoBoundary{
+          .relpath = relpath,
+          .kind = biv::repo::RepoKind::repo,
+          .parent_index = std::nullopt}}};
 }
 
 std::filesystem::path init_bare_remote(const biv::repo::Git& git,
@@ -113,6 +123,15 @@ void add_remote_and_push(const biv::repo::Git& git,
   git_run(git, repo, {"push", "-u", "origin", "main"});
 }
 
+void stage_artifacts(const biv::repo::CaptureResult& capture,
+                     const std::filesystem::path& stage_root) {
+  for (const auto& artifact : capture.artifacts) {
+    const auto target = stage_root / artifact.archive_path;
+    std::filesystem::create_directories(target.parent_path());
+    std::filesystem::copy_file(artifact.disk_path, target);
+  }
+}
+
 }  // namespace
 
 TEST_CASE("repo discovery preserves prune ordering and records nested boundaries") {
@@ -121,7 +140,8 @@ TEST_CASE("repo discovery preserves prune ordering and records nested boundaries
   std::filesystem::create_directories(root.path / ".biv/private/.git");
   std::filesystem::create_directories(root.path / "visible/.git");
   std::filesystem::create_directories(root.path / "visible/nested/.git");
-  touch(root.path / "visible/submodule/.git", "gitdir: ../.git/modules/submodule\n");
+  touch(root.path / "visible/linked/.git",
+        "gitdir: ../../.git/worktrees/linked\n");
   auto matcher = biv::ignore::Matcher::compile("ignored/\n", false);
   REQUIRE(matcher.has_value());
 
@@ -132,11 +152,11 @@ TEST_CASE("repo discovery preserves prune ordering and records nested boundaries
   CHECK(result->repos[0].relpath == "visible");
   CHECK(result->repos[0].kind == biv::repo::RepoKind::repo);
   CHECK_FALSE(result->repos[0].parent_index.has_value());
-  CHECK(result->repos[1].relpath == "visible/nested");
+  CHECK(result->repos[1].relpath == "visible/linked");
   CHECK(result->repos[1].kind == biv::repo::RepoKind::nested);
   CHECK(result->repos[1].parent_index == 0);
-  CHECK(result->repos[2].relpath == "visible/submodule");
-  CHECK(result->repos[2].kind == biv::repo::RepoKind::submodule);
+  CHECK(result->repos[2].relpath == "visible/nested");
+  CHECK(result->repos[2].kind == biv::repo::RepoKind::nested);
   CHECK(result->repos[2].parent_index == 0);
 }
 
@@ -157,6 +177,8 @@ TEST_CASE("classification orders zero-ref and any-ref unborn before dirt") {
   const std::string sha{reinterpret_cast<const char*>(blob.stdout_bytes.data()),
                         blob.stdout_bytes.size() - 1U};
   git_run(git, root.path, {"update-ref", "refs/tags/blob-only", sha});
+  git_run(git, root.path, {"remote", "add"},
+          {"origin", (root.path / "remote.git").string()});
 
   auto any_ref = biv::repo::classify(git, root.path, one_repo());
   REQUIRE(any_ref.has_value());
@@ -164,6 +186,8 @@ TEST_CASE("classification orders zero-ref and any-ref unborn before dirt") {
   CHECK(any_ref->entry.eligibility->result == biv::repo::EligibilityResult::unborn_head);
   CHECK(any_ref->entry.capture_mode == biv::repo::CaptureMode::full);
   CHECK(any_ref->fence == biv::repo::Classification::Fence::none);
+  REQUIRE(any_ref->entry.remotes.size() == 1);
+  CHECK(any_ref->entry.remotes[0].name == "origin");
 }
 
 TEST_CASE("classification fences discovery shape, dirt, and unmerged paths") {
@@ -210,6 +234,9 @@ TEST_CASE("classification reports each unmerged path before the dirt gate") {
   commit_file(git, root.path, "side\n", "side");
   git_run(git, root.path, {"checkout", "main"});
   commit_file(git, root.path, "main\n", "main");
+  git_run(git, root.path, {"config", "user.name", "Biv Test"});
+  git_run(git, root.path,
+          {"config", "user.email", "biv@example.invalid"});
   const auto merge = git_run(git, root.path, {"merge", "side"}, {}, true);
   REQUIRE(merge.exit_code != 0);
 
@@ -251,13 +278,15 @@ TEST_CASE("classification records shallow promisor source without a bundle") {
   init_repo(git, root.path);
   git_run(git, root.path, {"remote", "add"},
           {"origin", "https://example.invalid/r.git"});
+  const auto head = git_stdout(git_run(git, root.path, {"rev-parse", "HEAD"}));
+  touch(root.path / ".git/shallow", head + "\n");
   git_run(git, root.path, {"config", "remote.origin.promisor", "false"});
   auto disabled = biv::repo::classify(git, root.path, one_repo());
   REQUIRE(disabled.has_value());
   CHECK_FALSE(disabled->promisor);
+  REQUIRE(disabled->entry.shallow.has_value());
+  CHECK(disabled->entry.notes.empty());
   git_run(git, root.path, {"config", "remote.origin.promisor", "true"});
-  const auto head = git_stdout(git_run(git, root.path, {"rev-parse", "HEAD"}));
-  touch(root.path / ".git/shallow", head + "\n");
 
   auto result = biv::repo::classify(git, root.path, one_repo());
 
@@ -373,6 +402,34 @@ TEST_CASE("eligibility fetch-probes one advertised unknown tip") {
   CHECK(git_run(git, repo, {"cat-file", "-e"}, {remote_tip}, true).exit_code == 0);
 }
 
+TEST_CASE("eligibility selects the remote whose advertisement proves HEAD") {
+  auto git = resolved_git();
+  TempDir root{"eligibility-select-remote"};
+  const auto repo = root.path / "repo";
+  init_repo(git, repo);
+  const auto wrong = root.path / "wrong.git";
+  const auto right = root.path / "right.git";
+  std::filesystem::create_directories(wrong);
+  std::filesystem::create_directories(right);
+  git_run(git, wrong, {"init", "--bare"});
+  git_run(git, right, {"init", "--bare"});
+  git_run(git, repo, {"remote", "add"}, {"aaa", wrong.string()});
+  git_run(git, repo, {"remote", "add"}, {"zzz", right.string()});
+  git_run(git, repo, {"push", "zzz", "main"});
+  auto classified = biv::repo::classify(
+      git, repo, one_repo(root.path, "repo"));
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.remote == "aaa");
+
+  auto result = biv::repo::run_eligibility(git, classified->entry);
+
+  REQUIRE(result.has_value());
+  REQUIRE(classified->entry.eligibility.has_value());
+  REQUIRE(classified->entry.eligibility->proof.has_value());
+  CHECK(classified->entry.eligibility->proof->remote == "zzz");
+  CHECK(classified->entry.remote == "zzz");
+}
+
 TEST_CASE("capture writes and verifies a full bundle plus a hostile-ref note") {
   auto git = resolved_git();
   TempDir root{"capture-full"};
@@ -429,6 +486,25 @@ TEST_CASE("capture writes a thin local-ref bundle from advertisement bases") {
   const auto heads = git_stdout(git_run(
       git, repo, {"bundle", "list-heads"}, {result->artifacts[0].disk_path.string()}));
   CHECK(heads.find("refs/heads/side") != std::string::npos);
+
+  const auto stage = root.path / "stage";
+  stage_artifacts(*result, stage);
+  classified->entry.relpath = "restored";
+  auto restored_row = biv::repo::restore_entry(
+      git, classified->entry, root.path / "partial", stage);
+  const std::string restore_detail =
+      restored_row ? "" : restored_row.error().detail;
+  INFO(restore_detail);
+  REQUIRE(restored_row.has_value());
+  const auto restored = root.path / "partial/restored";
+  const auto side = std::ranges::find_if(classified->entry.local_refs,
+                                         [](const auto& ref) {
+    return ref.ref == "refs/heads/side";
+  });
+  REQUIRE(side != classified->entry.local_refs.end());
+  CHECK(git_stdout(git_run(
+            git, restored,
+            {"show-ref", "--verify", "--hash=40", "refs/heads/side"})) == side->sha);
 }
 
 TEST_CASE("capture discloses stash-only unborn refs without carrying the ref name") {
@@ -450,6 +526,83 @@ TEST_CASE("capture discloses stash-only unborn refs without carrying the ref nam
   CHECK(classified->entry.notes.empty());
   REQUIRE(result->advisories.size() == 1);
   CHECK(result->advisories[0].find("refs/stash") != std::string::npos);
+}
+
+TEST_CASE("capture oracle reports penumbra loss and contamination") {
+  auto git = resolved_git();
+  TempDir root{"capture-penumbra-oracle"};
+  init_repo(git, root.path);
+  touch(root.path / ".gitignore", "*.cache\n");
+  git_run(git, root.path, {"add"}, {".gitignore"});
+  git_run(git, root.path,
+          {"-c", "user.name=Biv Test", "-c", "user.email=biv@example.invalid",
+           "commit", "-m", "ignore cache"});
+  touch(root.path / "old.cache", "old\n");
+  auto classified = biv::repo::classify(git, root.path, one_repo(root.path));
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.engine_source.has_value());
+  CHECK(classified->entry.engine_source->penumbra_paths ==
+        std::vector<std::filesystem::path>{"old.cache"});
+  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(std::filesystem::remove(root.path / "old.cache"));
+  touch(root.path / "new.cache", "new\n");
+
+  auto result = biv::repo::capture(git, classified->entry, root.path / "scratch");
+
+  REQUIRE(result.has_value());
+  CHECK(std::ranges::find(result->advisories, "capture-loss: old.cache") !=
+        result->advisories.end());
+  CHECK(std::ranges::find(result->advisories,
+                          "capture-contamination: new.cache") !=
+        result->advisories.end());
+}
+
+TEST_CASE("capture failures retain ref and promisor engine kinds") {
+  auto git = resolved_git();
+  TempDir root{"capture-typed-errors"};
+  const auto repo = root.path / "repo";
+  init_repo(git, repo);
+
+  biv::repo::RepoEntry uncapturable;
+  uncapturable.id = "repo";
+  uncapturable.relpath = ".";
+  uncapturable.sha = "0123456789012345678901234567890123456789";
+  uncapturable.head_state = biv::repo::HeadState::branch;
+  uncapturable.capture_mode = biv::repo::CaptureMode::overlay;
+  uncapturable.local_refs = {biv::repo::LocalRef{
+      .ref = "refs/heads/not-present",
+      .sha = "0123456789012345678901234567890123456789",
+      .availability = biv::repo::RefAvailability::bundle_carried,
+      .proof = std::nullopt}};
+  uncapturable.engine_source =
+      biv::repo::EngineSourceState{.repo_path = repo, .penumbra_paths = {}};
+  auto ref_failure =
+      biv::repo::capture(git, uncapturable, root.path / "scratch-ref");
+  REQUIRE_FALSE(ref_failure.has_value());
+  REQUIRE(biv::repo::engine_error_kind(ref_failure.error()).has_value());
+  CHECK(*biv::repo::engine_error_kind(ref_failure.error()) ==
+        biv::repo::EngineErrorKind::ref_uncapturable);
+
+  const auto head = git_stdout(git_run(git, repo, {"rev-parse", "HEAD"}));
+  git_run(git, repo, {"config", "remote.origin.promisor", "true"});
+  const auto object_path =
+      repo / ".git/objects" / head.substr(0U, 2U) / head.substr(2U);
+  REQUIRE(std::filesystem::is_regular_file(object_path));
+  REQUIRE(std::filesystem::remove(object_path));
+  biv::repo::RepoEntry promisor;
+  promisor.id = "repo";
+  promisor.relpath = ".";
+  promisor.sha = head;
+  promisor.head_state = biv::repo::HeadState::branch;
+  promisor.capture_mode = biv::repo::CaptureMode::full;
+  promisor.engine_source =
+      biv::repo::EngineSourceState{.repo_path = repo, .penumbra_paths = {}};
+  auto promisor_failure =
+      biv::repo::capture(git, promisor, root.path / "scratch-promisor");
+  REQUIRE_FALSE(promisor_failure.has_value());
+  REQUIRE(biv::repo::engine_error_kind(promisor_failure.error()).has_value());
+  CHECK(*biv::repo::engine_error_kind(promisor_failure.error()) ==
+        biv::repo::EngineErrorKind::promisor_objects_unavailable);
 }
 
 TEST_CASE("non-carried-ref writer obeys eligible bounds and sentinel semantics") {
@@ -493,4 +646,237 @@ TEST_CASE("non-carried-ref writer obeys eligible bounds and sentinel semantics")
   REQUIRE(o5_over.has_value());
   CHECK(o5_at->omitted_count == sentinel);
   CHECK(o5_over->omitted_count == sentinel);
+}
+
+TEST_CASE("restore dispatch leaves zero-ref and shallow payload trees untouched") {
+  auto git = resolved_git();
+  TempDir root{"restore-payload-branches"};
+  const auto partial = root.path / "partial";
+  touch(partial / "empty/payload.txt", "payload\n");
+  biv::repo::RepoEntry empty;
+  empty.id = "empty";
+  empty.relpath = "empty";
+  empty.head_state = biv::repo::HeadState::unborn;
+
+  auto payload = biv::repo::restore_entry(git, empty, partial, root.path / "stage");
+
+  REQUIRE(payload.has_value());
+  CHECK(payload->outcome == biv::repo::RepoRestoreOutcome::payload_only_unborn);
+  CHECK(std::filesystem::is_regular_file(partial / "empty/payload.txt"));
+  CHECK_FALSE(std::filesystem::exists(partial / "empty/.git"));
+  REQUIRE(payload->advisories.size() == 1);
+  CHECK(payload->advisories[0] == "EmptyRepoPayloadOnly");
+
+  touch(partial / "shallow/file.txt", "shallow payload\n");
+  biv::repo::RepoEntry shallow;
+  shallow.id = "shallow";
+  shallow.relpath = "shallow";
+  shallow.sha = "0123456789012345678901234567890123456789";
+  shallow.head_state = biv::repo::HeadState::detached;
+  shallow.shallow = biv::repo::Shallow{
+      .sha = "0123456789012345678901234567890123456789",
+      .boundary = {"0123456789012345678901234567890123456789"},
+      .remote_urls = {"https://example.invalid/r.git"}};
+
+  auto pointer = biv::repo::restore_entry(git, shallow, partial, root.path / "stage");
+
+  REQUIRE(pointer.has_value());
+  CHECK(pointer->outcome == biv::repo::RepoRestoreOutcome::shallow_pointer);
+  REQUIRE(pointer->shallow.has_value());
+  CHECK(pointer->shallow->sha == shallow.shallow->sha);
+  CHECK(pointer->shallow->boundary == shallow.shallow->boundary);
+  CHECK(pointer->shallow->remote_urls == shallow.shallow->remote_urls);
+  CHECK_FALSE(std::filesystem::exists(partial / "shallow/.git"));
+}
+
+TEST_CASE("restore imports unborn object closure without source refs") {
+  auto git = resolved_git();
+  TempDir root{"restore-unborn-closure"};
+  const auto source = root.path / "source";
+  init_repo(git, source, false);
+  touch(source / "blob", "object closure\n");
+  const auto blob = git_stdout(git_run(git, source, {"hash-object", "-w"}, {"blob"}));
+  git_run(git, source, {"update-ref", "refs/tags/blob-tag", blob});
+  git_run(git, source, {"update-ref", "refs/stash", blob});
+  auto classified = biv::repo::classify(git, source, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.eligibility.has_value());
+  REQUIRE(classified->entry.local_refs.size() == 1);
+  CHECK(classified->entry.local_refs[0].ref == "refs/tags/blob-tag");
+  auto captured = biv::repo::capture(git, classified->entry, root.path / "scratch");
+  REQUIRE(captured.has_value());
+  const auto stage = root.path / "stage";
+  stage_artifacts(*captured, stage);
+  classified->entry.relpath = "restored";
+
+  auto row = biv::repo::restore_entry(git, classified->entry,
+                                      root.path / "partial", stage);
+
+  const std::string row_detail = row ? "" : row.error().detail;
+  INFO(row_detail);
+  REQUIRE(row.has_value());
+  CHECK(row->outcome == biv::repo::RepoRestoreOutcome::restored);
+  CHECK_FALSE(row->sha.has_value());
+  const auto restored = root.path / "partial/restored";
+  CHECK(git_stdout(git_run(git, restored, {"symbolic-ref", "HEAD"})) ==
+        "refs/heads/main");
+  const auto tag = git_run(git, restored,
+                           {"show-ref", "--verify", "--hash=40", "refs/tags/blob-tag"},
+                           {}, true);
+  const std::string tag_error{reinterpret_cast<const char*>(tag.stderr_bytes.data()),
+                              tag.stderr_bytes.size()};
+  INFO(tag_error);
+  REQUIRE(tag.exit_code == 0);
+  CHECK(git_stdout(tag) == blob);
+  CHECK(git_run(git, restored,
+                {"show-ref", "--verify", "--hash=40", "refs/stash"}, {}, true)
+            .exit_code != 0);
+  CHECK(git_run(git, restored, {"cat-file", "-e"}, {blob}).exit_code == 0);
+}
+
+TEST_CASE("restore full mode skips exact refs, updates missing refs, and corrects HEAD") {
+  auto git = resolved_git();
+  TempDir root{"restore-full-refs"};
+  const auto source = root.path / "source";
+  init_repo(git, source);
+  git_run(git, source, {"branch", "side"});
+  auto classified = biv::repo::classify(
+      git, source, one_repo(root.path, "source"));
+  REQUIRE(classified.has_value());
+  CHECK(classified->entry.relpath == "source");
+  REQUIRE(classified->entry.engine_source.has_value());
+  CHECK(classified->entry.engine_source->repo_path == source);
+  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  auto captured = biv::repo::capture(git, classified->entry, root.path / "scratch");
+  REQUIRE(captured.has_value());
+  const auto stage = root.path / "stage";
+  stage_artifacts(*captured, stage);
+
+  auto row = biv::repo::restore_entry(git, classified->entry,
+                                      root.path / "partial", stage);
+
+  const std::string row_detail = row ? "" : row.error().detail;
+  INFO(row_detail);
+  REQUIRE(row.has_value());
+  CHECK(row->outcome == biv::repo::RepoRestoreOutcome::restored);
+  REQUIRE(row->local_refs.size() == 2);
+  CHECK(std::ranges::any_of(row->local_refs, [](const auto& ref) {
+    return ref.skipped_at_sha;
+  }));
+  CHECK(std::ranges::any_of(row->local_refs, [](const auto& ref) {
+    return ref.recreated && !ref.skipped_at_sha;
+  }));
+  const auto restored = root.path / "partial/source";
+  CHECK(git_stdout(git_run(git, restored, {"symbolic-ref", "--short", "HEAD"})) ==
+        "main");
+  for (const auto& ref : classified->entry.local_refs) {
+    CHECK(git_stdout(git_run(
+              git, restored, {"show-ref", "--verify", "--hash=40", ref.ref})) == ref.sha);
+  }
+}
+
+TEST_CASE("restore overlay is total with zero captured artifacts") {
+  auto git = resolved_git();
+  TempDir root{"restore-overlay-zero-artifact"};
+  const auto source = root.path / "source";
+  init_repo(git, source);
+  const auto remote = init_bare_remote(git, root.path);
+  add_remote_and_push(git, source, remote);
+  auto classified = biv::repo::classify(git, source, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  auto captured = biv::repo::capture(git, classified->entry, root.path / "scratch");
+  REQUIRE(captured.has_value());
+  CHECK(captured->artifacts.empty());
+  classified->entry.relpath = "restored";
+
+  auto row = biv::repo::restore_entry(git, classified->entry,
+                                      root.path / "partial", root.path / "stage");
+
+  const std::string row_detail = row ? "" : row.error().detail;
+  INFO(row_detail);
+  REQUIRE(row.has_value());
+  CHECK(row->outcome == biv::repo::RepoRestoreOutcome::restored);
+  const auto restored = root.path / "partial/restored";
+  CHECK(git_stdout(git_run(git, restored, {"rev-parse", "HEAD"})) ==
+        *classified->entry.sha);
+  CHECK(git_stdout(git_run(git, restored, {"symbolic-ref", "--short", "HEAD"})) ==
+        "main");
+}
+
+TEST_CASE("restore preserves a detached HEAD") {
+  auto git = resolved_git();
+  TempDir root{"restore-detached"};
+  const auto source = root.path / "source";
+  init_repo(git, source);
+  git_run(git, source, {"checkout", "--detach", "HEAD"});
+  auto classified = biv::repo::classify(git, source, one_repo());
+  REQUIRE(classified.has_value());
+  CHECK(classified->entry.head_state == biv::repo::HeadState::detached);
+  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  auto captured = biv::repo::capture(git, classified->entry, root.path / "scratch");
+  REQUIRE(captured.has_value());
+  const auto stage = root.path / "stage";
+  stage_artifacts(*captured, stage);
+  classified->entry.relpath = "restored";
+
+  auto row = biv::repo::restore_entry(git, classified->entry,
+                                      root.path / "partial", stage);
+
+  const std::string row_detail = row ? "" : row.error().detail;
+  INFO(row_detail);
+  REQUIRE(row.has_value());
+  const auto restored = root.path / "partial/restored";
+  CHECK(git_stdout(git_run(git, restored, {"rev-parse", "HEAD"})) ==
+        *classified->entry.sha);
+  CHECK(git_run(git, restored, {"symbolic-ref", "HEAD"}, {}, true).exit_code != 0);
+}
+
+TEST_CASE("restore materializes a root repo beside the live stage directory") {
+  auto git = resolved_git();
+  TempDir root{"restore-root-repo"};
+  const auto source = root.path / "source";
+  init_repo(git, source);
+  auto classified = biv::repo::classify(git, source, one_repo(source));
+  REQUIRE(classified.has_value());
+  CHECK(classified->entry.relpath == ".");
+  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  auto captured = biv::repo::capture(git, classified->entry, root.path / "scratch");
+  REQUIRE(captured.has_value());
+
+  const auto partial = root.path / "partial";
+  const auto stage = partial / ".biv-stage";
+  touch(stage / "keep", "stage remains live\n");
+  stage_artifacts(*captured, stage);
+
+  auto row = biv::repo::restore_entry(git, classified->entry, partial, stage);
+
+  const std::string row_detail = row ? "" : row.error().detail;
+  INFO(row_detail);
+  REQUIRE(row.has_value());
+  CHECK(row->outcome == biv::repo::RepoRestoreOutcome::restored);
+  CHECK(std::filesystem::is_directory(partial / ".git"));
+  CHECK(std::filesystem::is_regular_file(stage / "keep"));
+  CHECK(git_stdout(git_run(git, partial, {"rev-parse", "HEAD"})) ==
+        *classified->entry.sha);
+}
+
+TEST_CASE("restore failures retain the typed engine mapping seam") {
+  auto git = resolved_git();
+  TempDir root{"restore-typed-error"};
+  biv::repo::RepoEntry entry;
+  entry.id = "repo";
+  entry.relpath = "repo";
+  entry.sha = "0123456789012345678901234567890123456789";
+  entry.head_state = biv::repo::HeadState::detached;
+  entry.capture_mode = biv::repo::CaptureMode::full;
+  entry.bundle = std::filesystem::path{"repos/repo/missing.bundle"};
+
+  auto result = biv::repo::restore_entry(git, entry, root.path / "partial",
+                                         root.path / "stage");
+
+  REQUIRE_FALSE(result.has_value());
+  REQUIRE(biv::repo::engine_error_kind(result.error()).has_value());
+  CHECK(*biv::repo::engine_error_kind(result.error()) ==
+        biv::repo::EngineErrorKind::repo_restore_failed);
 }

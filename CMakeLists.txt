@@ -66,6 +66,7 @@ add_library(bivcore STATIC
   src/core/repo/discover.cpp
   src/core/repo/eligibility.cpp
   src/core/repo/git.cpp
+  src/core/repo/restore.cpp
   src/core/report/envelope.cpp
   src/core/scan/scan.cpp
   src/core/support/probe.cpp
