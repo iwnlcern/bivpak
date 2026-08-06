@@ -1,6 +1,7 @@
-# s4-matrix Arm-1 Implementation Plan (rev2)
+# s4-matrix Arm-1 Implementation Plan (rev3)
 
 > **rev2** folds PLAN-REVIEW-IMPLEMENTER-REV1-20260806-004229 (must-revise at `c784387`): R6 residual — the branch DAG is ONE LINEAR STACK (t3 in the ancestry; the "t3 may base main" escape removed; the T3→T8 join holds in every permitted execution). R1–R5 folds untouched.
+> **rev3** folds the orchestrator's T1 disposition (`…T1-RELOCATION-GRANTED-SEAL-MOVES-WITH-ITS-MACHINERY-20260806-014725`, granting the verified blocker `…T1-PROBE-TEST-SCOPE-BLOCKER-20260806-011233`): `tests/test_probe.cpp` enters T1 for MECHANICAL RELOCATION ONLY — within the one test case ("version probe has one traced readiness primitive"), the source-location anchors retarget from `probe.cpp` to `subprocess.cpp`, probe.cpp's half STRENGTHENS to zero-polling-primitives, zero behavioral assertion changes anywhere in the file. **The relocated test is the SUCCESSOR INSTRUMENT of the same invariant: the one-traced-readiness-primitive seal moved with its machinery from probe.cpp to subprocess.cpp; probe.cpp's half strengthened to zero-primitives.** Any edit beyond that one case's location anchors is a NEW deviation, routed before an edit. Narrow amendment; every other rev2 byte stands.
 
 > **rev1** folds PLAN-REVIEW-IMPLEMENTER-REV0-20260806-002313 (must-revise at `5b3c603`): R1 — namespace admission/accounting moved INTO the T5 act head, and Wave C reordered CONSUMER-FIRST (T6 = open side, T7 = pack side; ledger task keys corrected to match); R2 — the ledger/ROADMAP/report/INDEX writes added to the locked file universe with bounded semantics; R3 — the NINE D5 kinds enumerated with a closed-count test (rev0's "eight" was a count error); R4 — `run_argv` gains a spawn-time stderr topology (probe merges at spawn, git separates; stderr byte-exact generically); R5 — `eligibility` optional in the frozen type, `--` delimiter mechanical via typed operands; R6 — stacked-branch PR topology locked with restack and stop rules.
 
@@ -72,7 +73,7 @@ docs/sprints/2026-08-04-s4-step4/ROADMAP.md                     MOD matrix rows 
 
 ### Task T1: generic argv runner extraction
 
-**Files:** Create `src/core/support/subprocess.{hpp,cpp}`, `tests/test_subprocess.cpp`; Modify `src/core/support/probe.{hpp,cpp}`, `CMakeLists.txt` (add sources/tests, explicit paths).
+**Files:** Create `src/core/support/subprocess.{hpp,cpp}`, `tests/test_subprocess.cpp`; Modify `src/core/support/probe.{hpp,cpp}`, `CMakeLists.txt` (add sources/tests, explicit paths), `tests/test_probe.cpp` (rev3 grant: T1.5a's mechanical relocation ONLY — one test case's location anchors + successor note; any other edit is a new deviation).
 
 **Interfaces (Produces — T2 consumes verbatim):**
 ```cpp
@@ -104,10 +105,11 @@ expected<SpawnResult> run_argv(const SpawnRequest&, const ProbeClock& = producti
 - [ ] **T1.3** Implement `subprocess.{hpp,cpp}` by EXTRACTING `probe.cpp:669-880`'s machinery (posix_spawn, Fd hygiene, own-process-group, poll-slice loop, TERM→grace→KILL sweep, post-kill reap) — generalized exactly per D1.1: caller argv/env, split pipes, raw-byte + to-file sinks, per-call budgets, exit-as-data.
 - [ ] **T1.4** Run: `ctest -R subprocess` — expect PASS.
 - [ ] **T1.5** Refactor `run_version_probe` into a thin adapter over `run_argv` using `StderrMode::merge_into_stdout` (the SAME spawn-time dup2 topology the probe has today — source interleaving preserved; UTF-8 sanitize at the adapter; same ProbeEvidence semantics). Re-scope the `probe.hpp:73-76` law comment per D1.1: agent-exec prohibition absolute (operator ruling 062318 cited), git exec governed by the sealed Step-4 contracts — reworded, on the record, never deleted.
-- [ ] **T1.6** Run: `ctest -R probe` — expect PASS with ZERO probe test edits (the acceptance bar: probe contract unchanged).
+- [ ] **T1.5a (rev3, granted relocation):** in `tests/test_probe.cpp`, within the ONE test case "version probe has one traced readiness primitive" ONLY: retarget the source-location anchors from `probe.cpp` to `subprocess.cpp` (the waiter/clock/reap anchors now read `subprocess.cpp`'s bytes), and STRENGTHEN the probe.cpp side to assert ZERO `::poll(`/`::select(`/`::ppoll(` anywhere in `probe.cpp` (the thin-adapter property); add the one-sentence successor note in the test comment: "the one-traced-readiness-primitive seal moved with its machinery from probe.cpp to subprocess.cpp; probe.cpp's half strengthened to zero-primitives." No other line in the file changes.
+- [ ] **T1.6** Run: `ctest -R probe` — expect PASS with ZERO BEHAVIORAL probe-contract edits (the acceptance bar: every behavioral assertion byte-identical; the only delta in `tests/test_probe.cpp` is T1.5a's location anchors + successor note; probe.cpp asserts zero polling primitives).
 - [ ] **T1.7** Commit `s4-matrix/arm1-runner`: `feat(support): extract generic argv runner; probe becomes adapter`.
 
-**Acceptance:** one process-safety implementation (grep: no second posix_spawn site outside subprocess.cpp); probe tests untouched and green; law comment re-scoped with both citations.
+**Acceptance:** one process-safety implementation (grep: no second posix_spawn site outside subprocess.cpp); zero behavioral probe-contract edits — the relocated seal is the successor instrument of the same invariant, probe.cpp's half strengthened to zero-primitives; law comment re-scoped with both citations.
 
 ### Task T2: repo types + git wrapper
 
