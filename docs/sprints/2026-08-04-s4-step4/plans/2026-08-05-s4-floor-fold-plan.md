@@ -42,6 +42,13 @@ NO existing emitter, signature, or serialization behavior changes; a change to a
 Task 1's serializer emits `bytes` through the new unsigned emitter (the `static_cast<int64_t>` narrowing is the defect this amendment exists to fix), and its test matrix gains the `UINT64_MAX` regression asserting the exact unquoted non-negative JSON integer.
 Shared-infra note carried from the grant: the writer is repo-shared leaf infrastructure; this addition rides the floor's act window under the single-owner rule; the matrix pair rebases over it.
 
+**AMENDMENT A2 (2026-08-05, orchestrator ruling `…B1-SCHEMA-LOCK-RECAPTURE-RULE-GRANTED-BOTH-PAIRS-20260805-200505`, the lock-recapture discipline of record for BOTH pairs):**
+`harness/selftest/test_envelope.py` is ADMITTED to the dispatch universe for MECHANICAL LOCK RECAPTURE ONLY.
+At each slice head that changes a locked schema artifact, update ONLY the corresponding `CURRENT_LOCKED_SCHEMA_BLOBS` literal to that slice's reviewed git blob id, in the SAME head — composing with the one-commit laws (B1 now: the envelope entry to the reviewed blob; Task 5/slice A: the envelope entry again; Task 7/slice C: the exit-map entry).
+No harness behavior, scenario logic, or other selftest surface changes; any other edit to the file — or a recapture of a literal whose schema the head did NOT change — is a NEW deviation routed to `s4.orchestrator-planner` before an edit.
+The rule preserves what the lock IS: a staleness tripwire making locked-schema changes decided, never accidental — the recapture rides the review that approved the schema change.
+Distinct instrument, distinct discipline: the frozen open-envelope ORACLE's once-per-window recapture ruling stands unchanged.
+
 ## Five-head topology (P4.3 — locked; no merge authority is assumed anywhere)
 
 Stacked branches, each PR targeting `main`; merges happen only per-PR on the operator's own authority, in order:
