@@ -150,3 +150,16 @@ Beyond the charter fences, three shared clusters get ONE owner per act window:
 row-count pin); (3) the frozen open-envelope oracle — recapture is ONE decision per act
 window, matrix-first at Arm 1, floor after its act lands. `CMakeLists.txt` and shared
 open/cli tests: explicit-path, rebase-before-land discipline.
+
+## In-flight dispositions (implementation phase)
+
+**Task-1 uint64 boundary (floor, 2026-08-05, disposed at this seat `182217`):** the JSON
+writer lacked any unsigned emitter (verified: `src/core/json/writer.hpp:17-20`;
+`value_uint` 0 hits in `src/` at `8981bfd`), so the locked plan's
+`std::optional<std::uint64_t> bytes` narrowed via cast above `INT64_MAX`. Scope
+expansion GRANTED additive-only on exactly `src/core/json/writer.{hpp,cpp}` +
+`tests/test_json_writer.cpp`; delta plan-review approve required; fresh token not
+required. **Shared-infra note: the JSON writer is repo-shared leaf infrastructure — the
+addition rides the floor's act window (single-owner rule); the matrix pair REBASES over
+it before touching writer surfaces.** The implementer's stop-without-editing was the
+standing conditions working — second live catch by the pair's own gates this run.
