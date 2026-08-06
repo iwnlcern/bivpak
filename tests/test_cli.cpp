@@ -552,6 +552,63 @@ TEST_CASE("CLI pack text renders live session warnings and omits warnings-free o
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("CLI pack text derives Codex live and terminal warning controls") {
+  const auto root = std::filesystem::canonical(make_tmp("codex-tail-warnings"));
+  const auto live_source = root / "proj";
+  const auto terminal_source = root / "terminal";
+  const auto codex_store = root / "codex-store";
+  std::filesystem::create_directories(live_source);
+  std::filesystem::create_directories(terminal_source);
+  write_file(live_source / "work.txt", "workspace");
+  write_file(terminal_source / "work.txt", "workspace");
+
+  const auto fixtures = std::filesystem::path{BIV_SOURCE_DIR} / "tests" /
+                        "fixtures" / "codex_store" / "tail_matrix";
+  const auto live_fixture =
+      fixtures /
+      "rollout-session-meta-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1005.jsonl";
+  const auto terminal_fixture =
+      fixtures /
+      "rollout-task-complete-with-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001.jsonl";
+  for (const auto& [fixture, source] :
+       std::array<std::pair<std::filesystem::path, std::filesystem::path>, 2>{
+           {{live_fixture, live_source}, {terminal_fixture, terminal_source}}}) {
+    auto rollout = read_text(fixture);
+    const auto cwd_position = rollout.find("/ws/proj");
+    REQUIRE(cwd_position != std::string::npos);
+    rollout.replace(cwd_position, 8, source.generic_string());
+    write_file(codex_store / "sessions" / "2026" / "08" / "05" /
+                   fixture.filename(),
+               rollout);
+  }
+
+  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR",
+                                (root / "no-claude-store").string()};
+  const ScopedEnv codex_home{"CODEX_HOME", codex_store.string()};
+  const ScopedEnv home{"HOME", root.string()};
+
+  const auto live = run_cmd("pack '" + live_source.string() + "'", root);
+  REQUIRE(live.code == 2);
+  constexpr std::string_view live_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1005";
+  const auto live_line = line_containing(live.out, live_id);
+  CHECK(live_line.find("may") != std::string::npos);
+  CHECK(live_line.find(" is active") == std::string::npos);
+  const auto first_live_id = live.out.find(live_id);
+  REQUIRE(first_live_id != std::string::npos);
+  CHECK(live.out.find(live_id, first_live_id + live_id.size()) ==
+        std::string::npos);
+
+  const auto terminal =
+      run_cmd("pack '" + terminal_source.string() + "'", root);
+  REQUIRE(terminal.code == 0);
+  CHECK(terminal.out.find("warning:") == std::string::npos);
+  CHECK(terminal.out.find("019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001") ==
+        std::string::npos);
+
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("CLI parses open consent specifications") {
   const auto root = make_tmp("consent-valid");
   for (const std::string value : {"yes", "no", "claude-code=yes,codex=no"}) {

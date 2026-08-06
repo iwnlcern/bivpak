@@ -1,0 +1,2 @@
+{"timestamp":"2026-08-05T01:09:00Z","type":"session_meta","payload":{"id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1006","session_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1006","cwd":"/ws/proj","cli_version":"0.144.0"}}
+{"timestamp":"2026-08-05T01:10:00Z","type":"custom_tool_call","payload":{"name":"pending"}}
