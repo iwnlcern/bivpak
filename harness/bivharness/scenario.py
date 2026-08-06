@@ -14,7 +14,7 @@ from jsonschema import Draft202012Validator
 import zstandard
 
 from bivharness.artifact import extract_member, list_members, mutate_in_stream, payload_extent_digests
-from bivharness.compare import assert_members, compare_trees, load_tolerance
+from bivharness.compare import assert_members, assert_repo_state, compare_trees, load_tolerance
 from bivharness.fixtures import materialize
 from bivharness.manifest import validate_manifest
 from bivharness.precheck import pin_env, probe
@@ -665,6 +665,11 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
                 findings.extend(tree_findings)
                 exercised.update({"A", "B", "C"})
                 exercised.update(_classes_for_tree_findings(tree_findings))
+            if expect.get("repo_state"):
+                repo_findings = assert_repo_state(restored, expect["repo_state"])
+                findings.extend(repo_findings)
+                exercised.add("D")
+                exercised.update(_classes_for_tree_findings(repo_findings))
         except (FileNotFoundError, KeyError, json.JSONDecodeError, OSError, ValueError) as exc:
             findings.append(f"artifact inspection failed: {exc}")
     elif not invalids and not expect.get("refusal") and not artifact_ready and not findings:
