@@ -988,7 +988,7 @@ TEST_CASE("version probe has one traced readiness primitive") {
   CHECK(waiter(invalid_descriptor, std::chrono::milliseconds{1}) ==
         biv::support::ReadinessResult::failed);
 
-  // The one-traced-readiness-primitive seal moved with its machinery from
+  // the one-traced-readiness-primitive seal moved with its machinery from
   // probe.cpp to subprocess.cpp; probe.cpp's half strengthened to
   // zero-primitives.
   const auto source_path = fs::path{BIV_SOURCE_DIR} / "src" / "core" /
