@@ -244,3 +244,29 @@ def test_leaked_forbidden_member_fails_class_k(monkeypatch, tmp_path):
 
     assert result.status is Status.FAIL
     assert "expected absent" in result.detail
+
+
+def test_repo_state_expectation_is_consumed(monkeypatch, tmp_path):
+    use_schema_root(monkeypatch, tmp_path)
+    monkeypatch.setenv("STUB_BIV_MODE", "ok")
+    monkeypatch.setattr(
+        "bivharness.scenario.assert_repo_state",
+        lambda _root, _expected: ["D: repo semantic sentinel"],
+    )
+    spec = _basic_spec(
+        tmp_path,
+        classes=["A", "B", "C", "D", "E", "K"],
+        expect={
+            "tree": True,
+            "repo_state": {"repo": {"head_unborn": True}},
+            "members_present": ["manifest.json", "checksums.json", "payload/a.txt"],
+            "members_absent": [],
+            "manifest_variant": "builtin",
+        },
+    )
+
+    result = run_scenario(spec, STUB, tmp_path / "scratch")
+
+    assert result.status is Status.FAIL
+    assert result.classes == ["A", "B", "C", "D", "E", "K"]
+    assert "repo semantic sentinel" in result.detail
