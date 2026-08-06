@@ -61,6 +61,7 @@ add_library(bivcore STATIC
   src/core/open/render.cpp
   src/core/open/sessions.cpp
   src/core/pack/pack.cpp
+  src/core/repo/classify.cpp
   src/core/repo/discover.cpp
   src/core/repo/git.cpp
   src/core/report/envelope.cpp
