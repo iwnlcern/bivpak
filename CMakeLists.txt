@@ -62,6 +62,7 @@ add_library(bivcore STATIC
   src/core/open/sessions.cpp
   src/core/pack/pack.cpp
   src/core/repo/classify.cpp
+  src/core/repo/capture.cpp
   src/core/repo/discover.cpp
   src/core/repo/eligibility.cpp
   src/core/repo/git.cpp
