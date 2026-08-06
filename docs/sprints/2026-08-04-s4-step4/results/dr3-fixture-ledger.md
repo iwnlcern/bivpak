@@ -55,5 +55,5 @@ Sites cite `main@8981bfd` (the audit baseline); instruments are the audit's grep
 | id | seam | task | status |
 |---|---|---|---|
 | L-G1 | `harness/scenarios/shells/d-git-restore.json` (xfail-pending shell) → the first real golden row | T8 | FROZEN |
-| L-G2 | `harness/tolerance/tolerance-v1.json:11-13` (git rows `future-step/unreachable`) → reachable with consumed policies | T3 | FROZEN |
-| L-G3 | `harness/bivharness/compare.py:17-19` (`ALLOWED_POLICIES` git rows) → extended in lockstep with L-G2 | T3 | FROZEN |
+| L-G2 | `harness/tolerance/tolerance-v1.json:11-13` (git rows `future-step/unreachable`) → reachable with consumed policies | T3 | DONE |
+| L-G3 | `harness/bivharness/compare.py:17-19` (`ALLOWED_POLICIES` git rows) → extended in lockstep with L-G2 | T3 | DONE |
