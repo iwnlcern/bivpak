@@ -142,7 +142,7 @@ std::optional<std::string> terminal_tail_type(
   const auto record =
       rollout.substr(record_start, record_end - record_start);
 
-  simdjson::padded_string padded{std::string{record}};
+  simdjson::padded_string padded{record};
   simdjson::dom::parser parser;
   auto object = parse_json_object(parser, padded);
   if (!object) {
@@ -403,6 +403,9 @@ SessionRecord session_for(const Candidate& candidate, const std::vector<Candidat
     artifact_sources.push_back(child.source);
   }
   std::ranges::sort(child_ids);
+  const bool live_at_pack =
+      candidate.live_at_pack ||
+      std::ranges::any_of(children, &Candidate::live_at_pack);
   return SessionRecord{
       .agent = "codex",
       .original_session_id = candidate.id,
@@ -420,7 +423,7 @@ SessionRecord session_for(const Candidate& candidate, const std::vector<Candidat
       .artifacts = std::move(artifacts),
       .artifact_sources = std::move(artifact_sources),
       .agent_version_at_pack = candidate.cli_version,
-      .live_at_pack = candidate.live_at_pack};
+      .live_at_pack = live_at_pack};
 }
 
 const Inventory& codex_inventory() {
@@ -854,7 +857,7 @@ class CodexAdapter final : public AgentAdapter {
                 .path_flavor = rewrite::path_flavor_for(*facts.cwd),
                 .cli_version = facts.cli_version.value_or("unknown"),
                 .parent_id = std::move(facts.parent_id),
-                .live_at_pack = !terminal_tail_type(*text).has_value(),
+                .live_at_pack = !has_terminal_tail_record(*text),
                 .newest_timestamp = newest_rollout_timestamp(*text),
                 .db_updated_at = db_update == db_updates.end()
                                      ? std::nullopt
@@ -933,13 +936,9 @@ class CodexAdapter final : public AgentAdapter {
 
 }  // namespace
 
-namespace codex_testing {
-
-bool rollout_live_at_pack(const std::string_view rollout) {
-  return !terminal_tail_type(rollout).has_value();
+bool has_terminal_tail_record(const std::string_view rollout) {
+  return terminal_tail_type(rollout).has_value();
 }
-
-}  // namespace codex_testing
 
 const AgentAdapter& codex_adapter() {
   static const CodexAdapter adapter;

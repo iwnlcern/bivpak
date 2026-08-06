@@ -43,15 +43,14 @@ int emit_error(std::string_view verb, const biv::BivError& error, bool json) {
 
 void emit_pack_text(const biv::pack::PackReport& report) {
   for (const auto& warning : report.warnings) {
-    if (warning.kind == "SessionLiveAtPack") {
-      std::cout << "warning: session " << warning.path
-                << " may have been live at pack time\n";
-    } else if (warning.kind == "TornTailDropped" && warning.artifact.has_value() &&
-               warning.bytes.has_value()) {
-      std::cout << "warning: torn tail dropped from " << *warning.artifact << ": "
-                << *warning.bytes << " bytes\n";
+    if (warning.kind == biv::pack::kWarningSessionLiveAtPack) {
+      // SessionLiveAtPack line shape: /* m-3 spelling at consumer review */
+      std::cout << biv::pack::warning_text(warning) << '\n';
+    } else if (warning.kind == biv::pack::kWarningTornTailDropped) {
+      // TornTailDropped line shape: /* m-3 spelling at consumer review */
+      std::cout << biv::pack::warning_text(warning) << '\n';
     } else {
-      std::cout << "warning: " << warning.kind << ": " << warning.path << '\n';
+      std::cout << biv::pack::warning_text(warning) << '\n';
     }
   }
   for (const auto& advisory : report.advisories) {

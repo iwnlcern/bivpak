@@ -100,8 +100,8 @@ TEST_CASE("pack warning carrier serializes optional artifact and byte facts") {
   report.source_path = "/tmp/sample";
   report.image_id = "00000000-0000-4000-8000-000000000000";
   report.warnings.push_back(biv::pack::Warning{
-      .kind = "AgentArtifactTornTail",
-      .path = "agents/codex/session.jsonl",
+      .kind = std::string{biv::pack::kWarningTornTailDropped},
+      .path = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee2001",
       .artifact = "agents/codex/session.jsonl",
       .bytes = 42U});
   report.warnings.push_back(biv::pack::Warning{
@@ -135,8 +135,8 @@ TEST_CASE("pack warning bytes serialize uint64 maximum as an unsigned JSON integ
   report.source_path = "/tmp/sample";
   report.image_id = "00000000-0000-4000-8000-000000000000";
   report.warnings.push_back(biv::pack::Warning{
-      .kind = "AgentArtifactTornTail",
-      .path = "agents/codex/session.jsonl",
+      .kind = std::string{biv::pack::kWarningTornTailDropped},
+      .path = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee2001",
       .artifact = "agents/codex/session.jsonl",
       .bytes = std::numeric_limits<std::uint64_t>::max()});
 

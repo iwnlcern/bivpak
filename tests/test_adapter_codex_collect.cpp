@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <csignal>
 #include <cstdint>
@@ -17,12 +18,6 @@
 #include <sqlite3.h>
 
 #include "adapters/codex/codex.hpp"
-
-namespace biv::adapters::codex_testing {
-
-bool rollout_live_at_pack(std::string_view rollout);
-
-}  // namespace biv::adapters::codex_testing
 
 namespace {
 
@@ -397,6 +392,10 @@ TEST_CASE("Codex adapter derives liveness from exactly the final rollout record"
                "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1010", true, true},
       TailCase{"rollout-trailing-blank-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1011.jsonl",
                "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1011", true, true},
+      TailCase{"rollout-lone-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1012.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1012", true, false},
+      TailCase{"rollout-final-record-missing-type-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1013.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1013", true, true},
   };
 
   for (const auto& test_case : cases) {
@@ -404,14 +403,9 @@ TEST_CASE("Codex adapter derives liveness from exactly the final rollout record"
       const auto fixture = tail_fixture_root() / test_case.fixture;
       REQUIRE(fs::is_regular_file(fixture));
       const auto rollout = read_text(fixture);
-      CHECK(biv::adapters::codex_testing::rollout_live_at_pack(rollout) ==
-            test_case.live);
+      CHECK(biv::adapters::has_terminal_tail_record(rollout) ==
+            !test_case.live);
 
-      if (!test_case.collectable) {
-        CHECK(rollout.empty());
-        continue;
-      }
-      REQUIRE_FALSE(rollout.empty());
       const auto root = make_tmp(test_case.id);
       const auto store = root / "codex";
       const auto destination = store / "sessions" / "2026" / "08" / "05" /
@@ -429,12 +423,51 @@ TEST_CASE("Codex adapter derives liveness from exactly the final rollout record"
           biv::adapters::codex_adapter().collect("/ws/proj", stores);
 
       REQUIRE(report.has_value());
+      if (!test_case.collectable) {
+        CHECK(report->sessions.empty());
+        fs::remove_all(root);
+        continue;
+      }
       REQUIRE(report->sessions.size() == 1);
       CHECK(report->sessions.front().original_session_id == test_case.id);
       CHECK(report->sessions.front().live_at_pack == test_case.live);
       fs::remove_all(root);
     }
   }
+}
+
+TEST_CASE("Codex parent liveness includes an absorbed live child") {
+  constexpr std::string_view parent_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1014";
+  constexpr std::string_view child_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1015";
+  const auto root = make_tmp("terminal-parent-live-child");
+  const auto store = root / "codex";
+  const auto sessions = store / "sessions" / "2026" / "08" / "05";
+  fs::create_directories(sessions);
+  for (const auto name : {
+           "rollout-terminal-parent-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1014.jsonl",
+           "rollout-live-child-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1015.jsonl"}) {
+    fs::copy_file(tail_fixture_root() / name, sessions / name);
+  }
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{
+          .kind = "sessions_root", .path = store / "sessions"}},
+      .tier = biv::adapters::DiscoveryTier::defaults,
+      .archived = false}};
+
+  const auto report =
+      biv::adapters::codex_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(report.has_value());
+  REQUIRE(report->sessions.size() == 1);
+  const auto& parent = report->sessions.front();
+  CHECK(parent.original_session_id == parent_id);
+  CHECK(parent.child_ids ==
+        std::vector<std::string>{std::string{child_id}});
+  CHECK(parent.live_at_pack);
+  fs::remove_all(root);
 }
 
 TEST_CASE("Codex adapter matches Windows cwd to its WSL workspace") {

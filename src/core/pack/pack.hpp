@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/manifest/manifest.hpp"
@@ -12,6 +13,13 @@
 #include "core/support/error.hpp"
 
 namespace biv::pack {
+
+inline constexpr std::string_view kWarningSessionLiveAtPack =
+    "SessionLiveAtPack";
+inline constexpr std::string_view kWarningTornTailDropped =
+    "TornTailDropped";
+inline constexpr std::string_view kWarningUnsupportedFileTypeSkipped =
+    "UnsupportedFileTypeSkipped";
 
 struct Advisory {
   std::string kind;
@@ -25,6 +33,8 @@ struct Warning {
   std::optional<std::string> artifact;
   std::optional<std::uint64_t> bytes;
 };
+
+std::string warning_text(const Warning& warning);
 
 struct AgentSessionsSummary {
   std::string agent;

@@ -9,6 +9,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <fcntl.h>
@@ -23,6 +24,7 @@
 
 #include "cli/args.hpp"
 #include "core/open/render.hpp"
+#include "core/pack/pack.hpp"
 
 // The parser otherwise belongs only to the CLI executable target.
 #include "../src/cli/args.cpp"
@@ -556,11 +558,14 @@ TEST_CASE("CLI pack text derives Codex live and terminal warning controls") {
   const auto root = std::filesystem::canonical(make_tmp("codex-tail-warnings"));
   const auto live_source = root / "proj";
   const auto terminal_source = root / "terminal";
+  const auto aggregate_source = root / "aggregate";
   const auto codex_store = root / "codex-store";
   std::filesystem::create_directories(live_source);
   std::filesystem::create_directories(terminal_source);
+  std::filesystem::create_directories(aggregate_source / "sub");
   write_file(live_source / "work.txt", "workspace");
   write_file(terminal_source / "work.txt", "workspace");
+  write_file(aggregate_source / "work.txt", "workspace");
 
   const auto fixtures = std::filesystem::path{BIV_SOURCE_DIR} / "tests" /
                         "fixtures" / "codex_store" / "tail_matrix";
@@ -570,9 +575,18 @@ TEST_CASE("CLI pack text derives Codex live and terminal warning controls") {
   const auto terminal_fixture =
       fixtures /
       "rollout-task-complete-with-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001.jsonl";
+  const auto terminal_parent_fixture =
+      fixtures /
+      "rollout-terminal-parent-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1014.jsonl";
+  const auto live_child_fixture =
+      fixtures /
+      "rollout-live-child-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1015.jsonl";
   for (const auto& [fixture, source] :
-       std::array<std::pair<std::filesystem::path, std::filesystem::path>, 2>{
-           {{live_fixture, live_source}, {terminal_fixture, terminal_source}}}) {
+       std::array<std::pair<std::filesystem::path, std::filesystem::path>, 4>{
+           {{live_fixture, live_source},
+            {terminal_fixture, terminal_source},
+            {terminal_parent_fixture, aggregate_source},
+            {live_child_fixture, aggregate_source}}}) {
     auto rollout = read_text(fixture);
     const auto cwd_position = rollout.find("/ws/proj");
     REQUIRE(cwd_position != std::string::npos);
@@ -606,6 +620,75 @@ TEST_CASE("CLI pack text derives Codex live and terminal warning controls") {
   CHECK(terminal.out.find("019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001") ==
         std::string::npos);
 
+  std::filesystem::remove(root / "terminal.bvpk");
+  const auto terminal_json =
+      run_cmd("pack '" + terminal_source.string() + "' --json", root);
+  REQUIRE(terminal_json.code == 0);
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(terminal_json.out).get(document) == simdjson::SUCCESS);
+  simdjson::dom::array agent_sessions;
+  REQUIRE(document["result"]["manifest"]["agent_sessions"].get(agent_sessions) ==
+          simdjson::SUCCESS);
+  REQUIRE(std::distance(agent_sessions.begin(), agent_sessions.end()) == 1);
+  std::string_view agent;
+  REQUIRE(agent_sessions.at(0)["agent"].get(agent) == simdjson::SUCCESS);
+  CHECK(agent == "codex");
+  std::uint64_t session_count = 0;
+  REQUIRE(agent_sessions.at(0)["session_count"].get(session_count) ==
+          simdjson::SUCCESS);
+  CHECK(session_count == 1U);
+
+  const auto aggregate =
+      run_cmd("pack '" + aggregate_source.string() + "'", root);
+  REQUIRE(aggregate.code == 2);
+  constexpr std::string_view aggregate_parent_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1014";
+  const auto aggregate_line =
+      line_containing(aggregate.out, aggregate_parent_id);
+  CHECK(aggregate_line.find("may have been live") != std::string::npos);
+
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("CLI warning text covers live torn and generic shapes") {
+  CHECK(biv::pack::warning_text(biv::pack::Warning{
+            .kind = std::string{biv::pack::kWarningSessionLiveAtPack},
+            .path = std::string{"id\x1b", 3}}) ==
+        "warning: session id\\x1B may have been live at pack time");
+  CHECK(biv::pack::warning_text(biv::pack::Warning{
+            .kind = std::string{biv::pack::kWarningTornTailDropped},
+            .path = "session-id",
+            .artifact = std::string{"agents/\x7f.jsonl", 14},
+            .bytes = 42U}) ==
+        "warning: torn tail dropped from agents/\\x7F.jsonl: 42 bytes");
+  CHECK(biv::pack::warning_text(biv::pack::Warning{
+            .kind = std::string{"Odd\x01", 4}, .path = "bad\tpath"}) ==
+        "warning: Odd\\x01: bad\\x09path");
+  CHECK(biv::pack::warning_text(
+            biv::pack::Warning{.kind = "GenericWithoutPath"}) ==
+        "warning: GenericWithoutPath");
+}
+
+TEST_CASE("CLI warning text sanitizes a real control-byte filename") {
+  const auto root = std::filesystem::canonical(make_tmp("control-byte-warning"));
+  const auto source = root / "source";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  std::string filename{"bad"};
+  filename.push_back('\x1b');
+  filename += "fifo";
+  REQUIRE(::mkfifo((source / filename).c_str(), 0600) == 0);
+  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR",
+                                (root / "no-claude-store").string()};
+  const ScopedEnv codex_home{"CODEX_HOME", (root / "no-codex-store").string()};
+  const ScopedEnv home{"HOME", root.string()};
+
+  const auto packed = run_cmd("pack '" + source.string() + "'", root);
+
+  REQUIRE(packed.code == 2);
+  CHECK(packed.out.find('\x1b') == std::string::npos);
+  CHECK(packed.out.find("bad\\x1Bfifo") != std::string::npos);
   std::filesystem::remove_all(root);
 }
 
