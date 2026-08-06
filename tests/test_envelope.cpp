@@ -1,5 +1,7 @@
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -125,6 +127,29 @@ TEST_CASE("pack warning carrier serializes optional artifact and byte facts") {
   simdjson::dom::element absent;
   CHECK(warnings.at(1)["artifact"].get(absent) == simdjson::NO_SUCH_FIELD);
   CHECK(warnings.at(1)["bytes"].get(absent) == simdjson::NO_SUCH_FIELD);
+}
+
+TEST_CASE("pack warning bytes serialize uint64 maximum as an unsigned JSON integer") {
+  biv::pack::PackReport report;
+  report.image_path = "/tmp/sample.bvpk";
+  report.source_path = "/tmp/sample";
+  report.image_id = "00000000-0000-4000-8000-000000000000";
+  report.warnings.push_back(biv::pack::Warning{
+      .kind = "AgentArtifactTornTail",
+      .path = "agents/codex/session.jsonl",
+      .artifact = "agents/codex/session.jsonl",
+      .bytes = std::numeric_limits<std::uint64_t>::max()});
+
+  const auto json = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 2);
+  CHECK(json.find("\"bytes\": 18446744073709551615") != std::string::npos);
+  CHECK(json.find("\"bytes\": \"18446744073709551615\"") == std::string::npos);
+
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(json).get(document) == simdjson::SUCCESS);
+  std::uint64_t bytes = 0;
+  REQUIRE(document["warnings"].at(0)["bytes"].get(bytes) == simdjson::SUCCESS);
+  CHECK(bytes == std::numeric_limits<std::uint64_t>::max());
 }
 
 TEST_CASE("pack envelope uses per-kind advisory shapes") {

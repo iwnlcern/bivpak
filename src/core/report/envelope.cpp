@@ -30,7 +30,7 @@ void write_warnings(json::Writer& writer, const std::vector<pack::Warning>& warn
     }
     if (warning.bytes.has_value()) {
       writer.key("bytes");
-      writer.value_int(static_cast<std::int64_t>(*warning.bytes));
+      writer.value_uint(*warning.bytes);
     }
     writer.end_object();
   }

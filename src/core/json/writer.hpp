@@ -16,6 +16,7 @@ class Writer {
   void key(std::string_view key);
   void value_string(std::string_view value);
   void value_int(std::int64_t value);
+  void value_uint(std::uint64_t value);
   void value_bool(bool value);
   void value_null();
   std::string take();
