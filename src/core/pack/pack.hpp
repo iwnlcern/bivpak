@@ -29,7 +29,7 @@ struct Advisory {
 
 struct Warning {
   std::string kind;
-  std::string path;
+  std::string path{};
   std::optional<std::string> artifact{};
   std::optional<std::uint64_t> bytes{};
 };
