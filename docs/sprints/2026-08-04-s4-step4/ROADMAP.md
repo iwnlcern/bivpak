@@ -19,8 +19,8 @@ Work branches from `main@8981bfd`.
 | 1 | Paired independent audits (s4-matrix, s4-floor) + reconcile | DISPATCHED |
 | 2 | FU-1 authoring duty ASSIGNED to s4 (master `230800`); the three-arm ruling folds `TO: operator` at Arm-2 design — design does not close unruled | ASSIGNED |
 | 3 | Addenda F **and G** land — **G: LANDED at pin `12a1c82`/`ef96d2d0…` (VP approve, signal carried `211923`)**; F: PENDING UP, same pin format; the ONE fenced `manifest.cpp` reopening consumes BOTH | G DONE / F PENDING |
-| 4 | Local DESIGN per pair | floor: COMPLETE (rev5 approve `42cdfd94…`); matrix: final fold RELEASED against G's pin (`211923`) — one bounded fold, closed verdict, design-complete expected |
-| 5 | PLAN → plan-review → delegated implementation dispatch per pair | floor: PLAN authorized; matrix: — |
+| 4 | Local DESIGN per pair | BOTH COMPLETE — floor rev5 approve `42cdfd94…`; matrix rev4 approve `802b8499…` at `934fca3` (G pin governing) |
+| 5 | PLAN → plan-review → delegated implementation dispatch per pair | floor: IMPLEMENTING (B1 at PR gate); matrix: PLAN authorized (`220522`, schema act carved out pending F) |
 | 6 | Arm 1 end-to-end + golden harness day one; then Arms 2–5; floor rides after Arm-1 schema act | — |
 | 7 | Receipts executed as arms land (EIGHTEEN: 12 A5 + 6 A7, run-traceable; plans — A7 six in R-4.4/`170500` §3, A5 twelve at `224200`) | — |
 | 8 | Exit: ROADMAP exit test (Arm 5 closure), both addendum seals (VP), R-3.25 both legs in (a)→(b) order, DR-3 decided, clause-1 cold panel at final SHA | — |
