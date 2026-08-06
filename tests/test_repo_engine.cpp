@@ -12,6 +12,7 @@
 
 #include "core/ignore/matcher.hpp"
 #include "core/repo/classify.hpp"
+#include "core/repo/capture.hpp"
 #include "core/repo/discover.hpp"
 #include "core/repo/eligibility.hpp"
 #include "core/repo/git.hpp"
@@ -370,4 +371,126 @@ TEST_CASE("eligibility fetch-probes one advertised unknown tip") {
   REQUIRE(classified->entry.eligibility->proof.has_value());
   CHECK(classified->entry.eligibility->proof->tip_sha == remote_tip);
   CHECK(git_run(git, repo, {"cat-file", "-e"}, {remote_tip}, true).exit_code == 0);
+}
+
+TEST_CASE("capture writes and verifies a full bundle plus a hostile-ref note") {
+  auto git = resolved_git();
+  TempDir root{"capture-full"};
+  const auto repo = root.path / "repo";
+  init_repo(git, repo);
+  const std::string hostile_ref = "refs/notes/hidden-\xe2\x80\xae-cba";
+  const auto head = git_stdout(git_run(git, repo, {"rev-parse", "HEAD"}));
+  git_run(git, repo, {"update-ref", hostile_ref, head});
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+
+  auto result = biv::repo::capture(git, classified->entry, root.path / "scratch");
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->artifacts.size() == 1);
+  CHECK(result->artifacts[0].archive_path ==
+        std::filesystem::path{"repos/repo/repo.bundle"});
+  CHECK(std::filesystem::is_regular_file(result->artifacts[0].disk_path));
+  CHECK(git_run(git, repo, {"bundle", "verify"},
+                {result->artifacts[0].disk_path.string()})
+            .exit_code == 0);
+  REQUIRE(classified->entry.bundle.has_value());
+  REQUIRE(classified->entry.notes.size() == 1);
+  const auto& note =
+      std::get<biv::repo::NonCarriedRefsNote>(classified->entry.notes.front());
+  REQUIRE(note.refs_p1.size() == 1);
+  CHECK(note.refs_p1[0] == "refs/notes/hidden-\\xe2\\x80\\xae-cba");
+  CHECK_FALSE(note.omitted_count.has_value());
+  REQUIRE(result->advisories.size() == 1);
+}
+
+TEST_CASE("capture writes a thin local-ref bundle from advertisement bases") {
+  auto git = resolved_git();
+  TempDir root{"capture-thin"};
+  const auto repo = root.path / "repo";
+  init_repo(git, repo);
+  const auto remote = init_bare_remote(git, root.path);
+  add_remote_and_push(git, repo, remote);
+  git_run(git, repo, {"checkout", "-b", "side"});
+  commit_file(git, repo, "side-only\n", "side-only");
+  git_run(git, repo, {"checkout", "main"});
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(classified->entry.capture_mode == biv::repo::CaptureMode::overlay);
+
+  auto result = biv::repo::capture(git, classified->entry, root.path / "scratch");
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->artifacts.size() == 1);
+  REQUIRE(classified->entry.local_refs_bundle.has_value());
+  CHECK_FALSE(classified->entry.bundle.has_value());
+  const auto heads = git_stdout(git_run(
+      git, repo, {"bundle", "list-heads"}, {result->artifacts[0].disk_path.string()}));
+  CHECK(heads.find("refs/heads/side") != std::string::npos);
+}
+
+TEST_CASE("capture discloses stash-only unborn refs without carrying the ref name") {
+  auto git = resolved_git();
+  TempDir root{"capture-stash-only"};
+  init_repo(git, root.path, false);
+  touch(root.path / "blob", "stash object\n");
+  const auto blob = git_stdout(git_run(git, root.path, {"hash-object", "-w"}, {"blob"}));
+  git_run(git, root.path, {"update-ref", "refs/stash", blob});
+  auto classified = biv::repo::classify(git, root.path, one_repo());
+  REQUIRE(classified.has_value());
+  CHECK(classified->entry.head_state == biv::repo::HeadState::unborn);
+  CHECK(classified->entry.local_refs.empty());
+
+  auto result = biv::repo::capture(git, classified->entry, root.path / "scratch");
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->artifacts.size() == 1);
+  CHECK(classified->entry.notes.empty());
+  REQUIRE(result->advisories.size() == 1);
+  CHECK(result->advisories[0].find("refs/stash") != std::string::npos);
+}
+
+TEST_CASE("non-carried-ref writer obeys eligible bounds and sentinel semantics") {
+  std::vector<std::string> maximum;
+  maximum.reserve(4096);
+  for (std::size_t index = 0; index < 4096; ++index) {
+    maximum.push_back("refs/custom/r" + std::to_string(10000U + index));
+  }
+  maximum.back() = "refs/custom/" + std::string(1012, 'z');
+  auto o1 = biv::repo::build_non_carried_refs_note(maximum);
+  REQUIRE(o1.has_value());
+  CHECK(o1->refs_p1.size() == 4096);
+  CHECK_FALSE(o1->omitted_count.has_value());
+
+  auto first_over = maximum;
+  first_over.push_back("refs/custom/zzzz");
+  auto o2 = biv::repo::build_non_carried_refs_note(first_over);
+  REQUIRE(o2.has_value());
+  CHECK(o2->refs_p1.size() == 4096);
+  CHECK(o2->omitted_count == 1);
+
+  const std::vector<std::string> overlength{
+      "refs/custom/" + std::string(1013, 'x')};
+  auto o3 = biv::repo::build_non_carried_refs_note(overlength);
+  REQUIRE(o3.has_value());
+  CHECK(o3->refs_p1.empty());
+  CHECK(o3->omitted_count == 1);
+
+  const std::vector<std::string> mixed{
+      "refs/custom/z", overlength[0], "refs/custom/a"};
+  auto o4 = biv::repo::build_non_carried_refs_note(mixed);
+  REQUIRE(o4.has_value());
+  CHECK(o4->refs_p1 ==
+        std::vector<std::string>{"refs/custom/a", "refs/custom/z"});
+  CHECK(o4->omitted_count == 1);
+
+  constexpr std::uint64_t sentinel = 9007199254740991ULL;
+  auto o5_at = biv::repo::build_non_carried_refs_note({}, sentinel);
+  auto o5_over = biv::repo::build_non_carried_refs_note({}, sentinel + 1U);
+  REQUIRE(o5_at.has_value());
+  REQUIRE(o5_over.has_value());
+  CHECK(o5_at->omitted_count == sentinel);
+  CHECK(o5_over->omitted_count == sentinel);
 }
