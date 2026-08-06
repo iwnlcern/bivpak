@@ -205,3 +205,14 @@ checked per the C1 lesson — pair-era plan instrument, orchestrator's call, tak
 relocated test is the SUCCESSOR INSTRUMENT of the same invariant; the amendment and the
 Wave-A completion report each carry the one-sentence pointer so the probe.cpp absence is
 never read as a lost control.
+
+**F5 shape (B1 fold, disposed `021904`):** the `codex_testing` namespace predicate
+duplicated the production `:857` expression — promoted to ONE public
+`has_terminal_tail_record` (O4 name) in `codex.hpp`; namespace deleted; the panel's
+shipping-symbol finding SATISFIED-BY-DISSOLUTION (it is production code); Shape A
+(probe-idiom seam parity) refused — the seam idiom guards unsafe-to-ship internals, a
+pure predicate has none, second compilation = standing complexity against no live risk.
+NO CMake authority granted. **Instance recorded (owned by s4-floor.planner): an all-in
+scope claim ASSERTED without running the mechanical check — the instrument-substitution
+class; the implementer's FOLD_SCOPE run refuted it pre-edit. The rule stands as written:
+the mechanical check is RUN, never asserted; the gate that catches is the one that ran.**
