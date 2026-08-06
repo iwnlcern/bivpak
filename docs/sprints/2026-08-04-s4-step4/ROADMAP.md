@@ -18,8 +18,8 @@ Work branches from `main@8981bfd`.
 | 0 | Standup: charter, boots, paired AUDIT dispatches | DONE 2026-08-04 |
 | 1 | Paired independent audits (s4-matrix, s4-floor) + reconcile | DISPATCHED |
 | 2 | FU-1 authoring duty ASSIGNED to s4 (master `230800`); the three-arm ruling folds `TO: operator` at Arm-2 design — design does not close unruled | ASSIGNED |
-| 3 | Addenda F **and G** land (unborn-HEAD ruled option 1, G rev0 authored 2026-08-05; the ONE fenced `manifest.cpp` reopening consumes BOTH after both reviews close); master relays the landing signal — no polling | PENDING UP |
-| 4 | Local DESIGN per pair | floor: COMPLETE (rev5 approve `42cdfd94…`, PROCEED-TO-PLAN issued `145825`); matrix: holds for the pinned F+G closure signal |
+| 3 | Addenda F **and G** land — **G: LANDED at pin `12a1c82`/`ef96d2d0…` (VP approve, signal carried `211923`)**; F: PENDING UP, same pin format; the ONE fenced `manifest.cpp` reopening consumes BOTH | G DONE / F PENDING |
+| 4 | Local DESIGN per pair | floor: COMPLETE (rev5 approve `42cdfd94…`); matrix: final fold RELEASED against G's pin (`211923`) — one bounded fold, closed verdict, design-complete expected |
 | 5 | PLAN → plan-review → delegated implementation dispatch per pair | floor: PLAN authorized; matrix: — |
 | 6 | Arm 1 end-to-end + golden harness day one; then Arms 2–5; floor rides after Arm-1 schema act | — |
 | 7 | Receipts executed as arms land (EIGHTEEN: 12 A5 + 6 A7, run-traceable; plans — A7 six in R-4.4/`170500` §3, A5 twelve at `224200`) | — |
