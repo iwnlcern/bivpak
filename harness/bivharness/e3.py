@@ -72,7 +72,7 @@ _ADAPTER_SOURCE_ANCHORS = {
     ),
     "codex_adapter_file": (
         "src/adapters/codex/codex.cpp",
-        "4fb3b38ca8df11dfc92e735c69ac8717a4920d54724d85cde49a93c24ace56cb",
+        "f00fbde5061fddb961f09148d51061490aacdf57b6eedd8b49ff9abd016d7e12",
     ),
 }
 
