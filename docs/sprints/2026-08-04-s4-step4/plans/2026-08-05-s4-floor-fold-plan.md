@@ -49,6 +49,16 @@ No harness behavior, scenario logic, or other selftest surface changes; any othe
 The rule preserves what the lock IS: a staleness tripwire making locked-schema changes decided, never accidental — the recapture rides the review that approved the schema change.
 Distinct instrument, distinct discipline: the frozen open-envelope ORACLE's once-per-window recapture ruling stands unchanged.
 
+**AMENDMENT A3 (2026-08-06, MASTER-granted C1 anchor recapture with the re-verification obligation; s4 relay `…C1-RECAPTURE-GRANTED-B1-RELEASES-FOUR-CHECKS-20260806-002730`, whose cited master grant §"The obligation, stated operationally" is the binding text):**
+the `_ADAPTER_SOURCE_ANCHORS` literals in `harness/bivharness/e3.py` are ADMITTED per recapture head under the FOUR-CHECK discipline — per head H changing anchored file F, in the same head and its one scoped review:
+(1) the diff shows F's change + the ONE corresponding anchor-literal update and nothing else anchor-side;
+(2) the review re-derives F's whole-file hash at H and matches the new literal;
+(3) for F's leg, each `153958` §4 read-side session literal is mutation-checked — a disposable local mutation goes RED under the harness, is reverted, and is recorded as mutation diff + failing assertion (the receipt form);
+(4) the review states class-scoped that H's own diff touches none of those literals (name the classes, never the bare negative).
+Scope: B1 (codex anchor → the reviewed `f00fbde5…`); B2 both anchors; every Step-4 slice head changing an anchored file; PER-HEAD, never batched, never pre-granted beyond Step 4.
+The claude anchor (until B2) and all C1 behavior otherwise untouched; any other edit to the anchor set or `e3.py` outside the A-slice mirror work is a NEW deviation routed up before an edit.
+Burden-report duty: if the four-check ceremony proves burdensome across the slices, SAY SO in the sitreps — that report is the trigger that re-opens the upstream re-anchoring item (R-3.40 item (11), harness-or-m-2 with VP review); the pair never absorbs the cost silently and never takes the re-anchoring itself.
+
 ## Five-head topology (P4.3 — locked; no merge authority is assumed anywhere)
 
 Stacked branches, each PR targeting `main`; merges happen only per-PR on the operator's own authority, in order:
