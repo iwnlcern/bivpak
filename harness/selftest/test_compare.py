@@ -1,9 +1,12 @@
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from bivharness.compare import assert_members, compare_trees, load_tolerance
+from bivharness.compare import assert_members, assert_repo_state, compare_trees, load_tolerance
+from bivharness.fixtures import materialize
 
 
 def _write(path: Path, data: bytes):
@@ -117,3 +120,218 @@ def test_member_absence_assertion_flags_forbidden_member():
     assert assert_members(["payload/secret.log"], [], ["payload/secret.log"]) == [
         "member present but expected absent: payload/secret.log"
     ]
+
+
+def _matching_git_trees(tmp_path):
+    src = tmp_path / "src"
+    restored = tmp_path / "restored"
+    materialize(
+        {
+            "entries": [
+                {
+                    "type": "git-repo",
+                    "path": "repo",
+                    "commits": [
+                        {"files": {"a.txt": "one\n"}, "message": "first"},
+                        {"files": {"a.txt": "two\n"}, "message": "second"},
+                    ],
+                    "branches": {"keep": 0},
+                }
+            ]
+        },
+        src,
+    )
+    shutil.copytree(src, restored, symlinks=True, copy_function=shutil.copy2)
+    return src, restored
+
+
+def test_compare_trees_composes_additive_roots_with_repo_semantics(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    _write(restored / ".biv/agents/session.json", b"staged\n")
+    subprocess.run(
+        ["git", "-C", str(restored / "repo"), "branch", "-D", "keep"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    findings = compare_trees(src, restored, load_tolerance(), [".biv/agents"])
+
+    assert not any(".biv/agents" in finding for finding in findings)
+    assert any("missing ref: refs/heads/keep" in finding for finding in findings)
+
+
+def test_git_admin_bytes_are_excluded_from_byte_findings(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    (restored / "repo/.git/untracked-admin-byte").write_bytes(b"different")
+
+    assert compare_trees(src, restored, load_tolerance()) == []
+
+
+def test_git_worktree_mtime_drift_is_semantically_ignored(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    os.utime(restored / "repo/a.txt", ns=(1_700_000_000_000_000_000,) * 2)
+
+    assert compare_trees(src, restored, load_tolerance()) == []
+
+
+def test_ignored_repo_payload_mtime_remains_exact(tmp_path):
+    src = tmp_path / "src"
+    restored = tmp_path / "restored"
+    materialize(
+        {
+            "entries": [
+                {
+                    "type": "git-repo",
+                    "path": "repo",
+                    "commits": [
+                        {
+                            "files": {".gitignore": "*.cache\n", "a.txt": "tracked\n"},
+                            "message": "tracked",
+                        }
+                    ],
+                },
+                {"type": "file", "path": "repo/state.cache", "text": "payload\n"},
+            ]
+        },
+        src,
+    )
+    shutil.copytree(src, restored, symlinks=True, copy_function=shutil.copy2)
+    os.utime(restored / "repo/state.cache", ns=(1_700_000_000_000_000_000,) * 2)
+
+    findings = compare_trees(src, restored, load_tolerance())
+    assert any("file-mtime mismatch for repo/state.cache" in item for item in findings)
+
+
+def test_noncarried_git_refs_are_semantically_ignored(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(src / "repo"),
+            "update-ref",
+            "refs/notes/commits",
+            "HEAD",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert compare_trees(src, restored, load_tolerance()) == []
+
+
+def test_repo_semantic_oracle_flags_head_mismatch_and_missing_ref(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    subprocess.run(
+        ["git", "-C", str(restored / "repo"), "checkout", "--detach", "HEAD^"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(restored / "repo"), "branch", "-D", "keep"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    findings = compare_trees(src, restored, load_tolerance())
+    assert any("HEAD mismatch" in item for item in findings)
+    assert any("branch mismatch" in item for item in findings)
+    assert any("missing ref: refs/heads/keep" in item for item in findings)
+
+
+def test_repo_semantic_oracle_ignores_ambient_git_directory(monkeypatch, tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    subprocess.run(
+        ["git", "-C", str(restored / "repo"), "branch", "-D", "keep"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    monkeypatch.setenv("GIT_DIR", str(src / "repo/.git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(src / "repo"))
+
+    findings = compare_trees(src, restored, load_tolerance())
+    assert any("missing ref: refs/heads/keep" in item for item in findings)
+
+
+def test_repo_state_expectation_checks_head_branch_cleanliness_and_refs(tmp_path):
+    src, _ = _matching_git_trees(tmp_path)
+    repo = src / "repo"
+    head = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    keep = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "refs/heads/keep"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    assert assert_repo_state(
+        src,
+        {
+            "repo": {
+                "head_sha": head,
+                "branch": "main",
+                "porcelain_clean": True,
+                "refs": {"refs/heads/keep": keep, "refs/heads/main": head},
+            }
+        },
+    ) == []
+    findings = assert_repo_state(
+        src,
+        {"repo": {"head_sha": "0" * 40, "refs": {"refs/heads/missing": head}}},
+    )
+    assert any("HEAD mismatch" in item for item in findings)
+    assert any("missing ref: refs/heads/missing" in item for item in findings)
+
+
+def test_repo_state_expectation_accepts_unborn_head(tmp_path):
+    root = tmp_path / "root"
+    materialize(
+        {"entries": [{"type": "git-repo", "path": "unborn", "commits": []}]},
+        root,
+    )
+
+    assert assert_repo_state(
+        root,
+        {
+            "unborn": {
+                "head_unborn": True,
+                "branch": "main",
+                "porcelain_clean": True,
+                "refs": {},
+            }
+        },
+    ) == []
+
+
+def test_repo_semantic_oracle_consumes_index_and_remote_policies(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    (restored / "repo/untracked.txt").write_text("dirty\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "-C", str(src / "repo"), "remote", "add", "origin", "https://example.invalid/repo.git"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    findings = compare_trees(src, restored, load_tolerance())
+    assert any("porcelain-v2 is not clean" in item for item in findings)
+    assert any("remote config mismatch" in item for item in findings)
+
+
+def test_unknown_git_tolerance_policy_is_invalid(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    tol = load_tolerance()
+    next(row for row in tol["rows"] if row["name"] == "git-object-id")["policy"] = "surprise"
+
+    with pytest.raises(ValueError, match="unknown tolerance policy"):
+        compare_trees(src, restored, tol)
