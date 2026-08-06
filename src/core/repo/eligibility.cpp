@@ -1,8 +1,10 @@
 #include "core/repo/eligibility.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <iomanip>
+#include <iterator>
 #include <optional>
 #include <sstream>
 #include <string_view>
@@ -24,13 +26,18 @@ struct Verdict {
 
 BivError command_error(const std::filesystem::path& repo,
                        const std::string_view operation) {
-  return BivError{ErrKind::InternalError, repo,
-                  "repo eligibility git invocation failed: " +
-                      std::string{operation}};
+  return make_engine_error(
+      EngineErrorKind::git_invocation_failed, repo,
+      "repo eligibility git invocation failed: " + std::string{operation});
 }
 
 std::string bytes(const std::vector<std::byte>& value) {
-  return {reinterpret_cast<const char*>(value.data()), value.size()};
+  std::string output;
+  output.reserve(value.size());
+  std::ranges::transform(value, std::back_inserter(output), [](const auto byte) {
+    return static_cast<char>(std::to_integer<unsigned char>(byte));
+  });
+  return output;
 }
 
 std::string checked_at_now() {
@@ -47,11 +54,14 @@ expected<support::SpawnResult> invoke(
     const Git& git, const std::filesystem::path& repo,
     std::vector<std::string> args, std::vector<std::string> operands,
     const bool no_lazy_fetch) {
-  auto result = git.run(args, operands,
-                        Git::Opts{.cwd = repo,
-                                  .no_lazy_fetch = no_lazy_fetch});
+  Git::Opts options;
+  options.cwd = repo;
+  options.no_lazy_fetch = no_lazy_fetch;
+  auto result = git.run(args, operands, options);
   if (!result) {
-    return std::unexpected(result.error());
+    return std::unexpected(make_engine_error(
+        EngineErrorKind::git_invocation_failed, repo,
+        "repo eligibility subprocess failed: " + result.error().detail));
   }
   if (result->spawn_failed || result->timed_out || result->io_failed) {
     return std::unexpected(command_error(repo, args.empty() ? "git" : args.front()));
@@ -126,7 +136,7 @@ expected<Verdict> check_ancestry(const Git& git,
                                  const bool no_lazy_fetch) {
   Verdict verdict;
   for (std::size_t index = 0; index < tips.size(); ++index) {
-    const auto& tip = tips[index];
+    const auto& tip = tips.at(index);
     if (sha == tip.sha) {
       verdict.proof = Proof{.remote = tip.remote,
                             .url = tip.url,
@@ -168,17 +178,22 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
     return {};
   }
   if (!entry.sha) {
-    return std::unexpected(BivError{ErrKind::InternalError, entry.relpath,
-                                    "born repo has no HEAD sha"});
+    return std::unexpected(make_engine_error(
+        EngineErrorKind::git_invocation_failed, entry.relpath,
+        "born repo has no HEAD sha"));
   }
 
-  auto promisor = detect_promisor(git, entry.relpath);
+  const auto& repo = entry.engine_source ? entry.engine_source->repo_path
+                                         : entry.relpath;
+
+  auto promisor = detect_promisor(git, repo);
   if (!promisor) {
     return std::unexpected(promisor.error());
   }
 
-  Eligibility eligibility{.method = "ls-remote-ancestry",
-                          .checked_at = checked_at_now()};
+  Eligibility eligibility;
+  eligibility.method = "ls-remote-ancestry";
+  eligibility.checked_at = checked_at_now();
   if (entry.remotes.empty()) {
     eligibility.result = EligibilityResult::no_remote;
     entry.eligibility = std::move(eligibility);
@@ -193,7 +208,7 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
   std::vector<AdvertisedTip> tips;
   std::size_t reachable_remotes = 0;
   for (const auto& remote : entry.remotes) {
-    auto advertisement = invoke(git, entry.relpath,
+    auto advertisement = invoke(git, repo,
                                 {"ls-remote", "--heads", "--tags"},
                                 {remote.url}, *promisor);
     if (!advertisement) {
@@ -208,19 +223,19 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
   if (reachable_remotes == 0) {
     eligibility.result = EligibilityResult::remote_unreachable;
   } else {
-    auto verdict = check_ancestry(git, entry.relpath, *entry.sha, tips, *promisor);
+    auto verdict = check_ancestry(git, repo, *entry.sha, tips, *promisor);
     if (!verdict) {
       return std::unexpected(verdict.error());
     }
     if (!verdict->proof && verdict->first_unknown) {
-      const auto& unknown = tips[*verdict->first_unknown];
-      auto fetched = invoke(git, entry.relpath, {"fetch", "--no-tags"},
+      const auto& unknown = tips.at(*verdict->first_unknown);
+      auto fetched = invoke(git, repo, {"fetch", "--no-tags"},
                             {unknown.url, unknown.ref}, *promisor);
       if (!fetched) {
         return std::unexpected(fetched.error());
       }
       if (fetched->exit_code == 0) {
-        verdict = check_ancestry(git, entry.relpath, *entry.sha, tips, *promisor);
+        verdict = check_ancestry(git, repo, *entry.sha, tips, *promisor);
         if (!verdict) {
           return std::unexpected(verdict.error());
         }
@@ -230,6 +245,7 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
     if (verdict->proof) {
       eligibility.result = EligibilityResult::proven;
       eligibility.proof = verdict->proof;
+      entry.remote = verdict->proof->remote;
     } else if (verdict->first_unknown) {
       eligibility.result = EligibilityResult::unknown_tip;
     } else {
@@ -248,7 +264,7 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
       ref.availability = RefAvailability::repo_bundle_carried;
       continue;
     }
-    auto verdict = check_ancestry(git, entry.relpath, ref.sha, tips, *promisor);
+    auto verdict = check_ancestry(git, repo, ref.sha, tips, *promisor);
     if (!verdict) {
       return std::unexpected(verdict.error());
     }
