@@ -129,7 +129,6 @@ target_sources(biv_tests PRIVATE tests/test_adapter_codex_collect.cpp)
 target_sources(biv_tests PRIVATE tests/test_adapter_codex_install.cpp)
 target_sources(biv_tests PRIVATE tests/test_sessions.cpp)
 target_sources(biv_tests PRIVATE tests/test_render.cpp)
-target_sources(biv_tests PRIVATE tests/test_probe.cpp)
 target_link_libraries(biv_tests PRIVATE
   biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
@@ -140,6 +139,16 @@ target_compile_definitions(biv_tests PRIVATE
   BIV_BINARY_PATH="$<TARGET_FILE:biv>"
   BIV_GENERATED_ENVELOPE_PATH="${BIV_GENERATED_ENVELOPE}")
 add_test(NAME biv_tests COMMAND biv_tests)
+
+add_executable(biv_probe_tests tests/test_probe.cpp)
+target_link_libraries(biv_probe_tests PRIVATE
+  biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
+target_compile_options(biv_probe_tests PRIVATE -Wall -Wextra -Werror)
+target_compile_definitions(biv_probe_tests PRIVATE
+  BIV_PROBE_TESTING=1
+  BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME probe COMMAND biv_probe_tests)
+
 add_test(NAME open_no_rewrite_gate
   COMMAND ${CMAKE_SOURCE_DIR}/tests/check_open_no_rewrite.sh
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

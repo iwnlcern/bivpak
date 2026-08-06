@@ -200,7 +200,7 @@ bool add_close(const SpawnActions& actions, const Fd& fd) {
              const_cast<SpawnActions&>(actions).get(), fd.get()) == 0;
 }
 
-enum class DrainStatus { drained, failed };
+enum class DrainStatus { idle, progress, failed };
 
 DrainStatus drain_once(Fd& fd, ByteCapture& capture) {
   std::array<char, 8192> buffer{};
@@ -208,17 +208,17 @@ DrainStatus drain_once(Fd& fd, ByteCapture& capture) {
     const auto count = ::read(fd.get(), buffer.data(), buffer.size());
     if (count > 0) {
       capture.write(buffer.data(), static_cast<std::size_t>(count));
-      return DrainStatus::drained;
+      return DrainStatus::progress;
     }
     if (count == 0) {
       fd = Fd{};
-      return DrainStatus::drained;
+      return DrainStatus::idle;
     }
     if (errno == EINTR) {
       continue;
     }
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      return DrainStatus::drained;
+      return DrainStatus::idle;
     }
     fd = Fd{};
     return DrainStatus::failed;
@@ -586,16 +586,18 @@ expected<SpawnResult> run_argv_traced(
   };
   const auto drain = [&]() {
     bool failed = false;
+    bool progress = false;
     if (stdout_pipe.has_value() && stdout_pipe->read.valid()) {
-      failed = drain_once(stdout_pipe->read, stdout_capture) ==
-               DrainStatus::failed;
+      const auto status = drain_once(stdout_pipe->read, stdout_capture);
+      failed = status == DrainStatus::failed;
+      progress = status == DrainStatus::progress;
     }
     if (stderr_pipe.has_value() && stderr_pipe->read.valid()) {
-      failed = drain_once(stderr_pipe->read, stderr_capture) ==
-                   DrainStatus::failed ||
-               failed;
+      const auto status = drain_once(stderr_pipe->read, stderr_capture);
+      failed = status == DrainStatus::failed || failed;
+      progress = status == DrainStatus::progress || progress;
     }
-    return !failed;
+    return std::pair{!failed, progress};
   };
   const auto close_reads = [&]() {
     if (stdout_pipe.has_value()) {
@@ -627,7 +629,8 @@ expected<SpawnResult> run_argv_traced(
     if (child.reaped) {
       break;
     }
-    if (!drain()) {
+    const auto [drain_ok, drain_progress] = drain();
+    if (!drain_ok) {
       result.io_failed = true;
       break;
     }
@@ -642,6 +645,9 @@ expected<SpawnResult> run_argv_traced(
     if (requested <= std::chrono::milliseconds::zero()) {
       result.timed_out = true;
       break;
+    }
+    if (drain_progress) {
+      continue;
     }
     const auto fd = read_fd();
     if (fd < 0) {
@@ -660,7 +666,8 @@ expected<SpawnResult> run_argv_traced(
     const auto drain_deadline =
         clock.now() + request.budgets.post_exit_drain;
     while (read_fd() >= 0) {
-      if (!drain()) {
+      const auto [drain_ok, drain_progress] = drain();
+      if (!drain_ok) {
         result.io_failed = true;
         break;
       }
@@ -671,6 +678,9 @@ expected<SpawnResult> run_argv_traced(
       const auto requested = next_slice(drain_deadline);
       if (requested <= std::chrono::milliseconds::zero()) {
         break;
+      }
+      if (drain_progress) {
+        continue;
       }
       const auto readiness = wait_once("post-exit-drain", fd, requested);
       if (readiness == ReadinessResult::failed) {

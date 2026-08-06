@@ -99,6 +99,22 @@ TEST_CASE("run_argv separate topology keeps streams apart") {
   CHECK(as_string(result->stderr_bytes) == "err\n");
 }
 
+TEST_CASE("run_argv drains ready stderr while stdout stays quiet and open") {
+  auto request =
+      shell_request("/usr/bin/head -c 1048576 /dev/zero >&2");
+  request.stderr_cap = 2U * 1024U * 1024U;
+
+  const auto result = biv::support::run_argv(request);
+
+  REQUIRE(result.has_value());
+  CHECK_FALSE(result->timed_out);
+  CHECK_FALSE(result->spawn_failed);
+  CHECK_FALSE(result->io_failed);
+  CHECK(result->exit_code == 0);
+  CHECK(result->stdout_bytes.empty());
+  CHECK(result->stderr_bytes.size() == 1024U * 1024U);
+}
+
 TEST_CASE("run_argv merge topology preserves source write order") {
   auto request =
       shell_request("printf 'a\\n'; printf 'b\\n' >&2; printf 'c\\n'");
