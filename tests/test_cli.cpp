@@ -1075,7 +1075,7 @@ TEST_CASE(
             "' --consent no --agent-bin 'codex=" + loop_pin.string() +
             "' --agent-bin 'claude-code=" + missing_pin.string() + "'",
         root);
-    REQUIRE(stat_text.code == 0);
+    REQUIRE(stat_text.code == 2);
     const auto loop_line =
         line_containing(stat_text.err, loop_pin.generic_string());
     CHECK(loop_line.find("pinned path resolution failed") != std::string::npos);
@@ -1095,7 +1095,7 @@ TEST_CASE(
             "' --consent no --agent-bin 'codex=" + loop_pin.string() +
             "' --agent-bin 'claude-code=" + missing_pin.string() + "' --json",
         root);
-    REQUIRE(stat_json.code == 0);
+    REQUIRE(stat_json.code == 2);
     simdjson::dom::parser stat_parser;
     simdjson::dom::element stat_document;
     REQUIRE(stat_parser.parse(stat_json.out).get(stat_document) ==
@@ -1243,7 +1243,7 @@ TEST_CASE(
           invalid_output_probe.string() +
           "' --agent-bin 'claude-code=" + non_utf8_missing_pin + "' --json",
       root);
-  REQUIRE(invalid_json.code == 0);
+  REQUIRE(invalid_json.code == 2);
   simdjson::dom::parser parser;
   simdjson::dom::element document;
   CHECK(parser.parse(invalid_json.out).get(document) == simdjson::SUCCESS);

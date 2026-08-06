@@ -107,7 +107,7 @@
                     "required": ["agent", "capabilities_verdict", "store_root", "sessions", "activation", "caveats"],
                     "properties": {
                       "agent": {"type": "string"},
-                      "capabilities_verdict": {"enum": ["validated", "unvalidated-host", "unvalidated", "absent"]},
+                      "capabilities_verdict": {"enum": ["readable-newer-than-survey", "readable", "unreadable", "absent"]},
                       "probe": {
                         "type": "object",
                         "required": ["agent", "requested", "executed", "pinned", "outcome", "exit_code", "raw", "parsed"],

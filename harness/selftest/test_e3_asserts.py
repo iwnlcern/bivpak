@@ -10,6 +10,7 @@ import re
 import shutil
 import socket
 import stat
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -29,6 +30,7 @@ from bivharness.e3 import (
     CLAUDE_RESUME_MUTATION,
     CODEX_RESUME_SHAPE,
     CREDENTIAL_ENV_NAMES,
+    VERSION_FLOOR_MIRROR,
     assert_exact_install_delta,
     assert_resume_containment,
     capture_inventory,
@@ -43,7 +45,7 @@ from bivharness.e3 import (
     select_owned_rollout,
     snapshot_store,
     verify_credential_decoys,
-    version_in_validated_range,
+    version_floor_assessment,
 )
 from bivharness.precheck import profile_root_failures
 from bivharness.report import Report, ScenarioResult, Status, serialize_report
@@ -193,14 +195,6 @@ def stable_test_root(tmp_path):
         shutil.rmtree(root, ignore_errors=True)
 
 
-PRODUCT_PREDICATES = {
-    "codex": ("src/adapters/codex/install.cpp", "validated_codex_version"),
-    "claude-code": (
-        "src/adapters/claude_code/install.cpp",
-        "validated_claude_version",
-    ),
-}
-
 TEST_AGENT_BINARIES = {
     "claude-code": "/opt/bivharness-test/bin/claude",
     "codex": "/opt/bivharness-test/bin/codex",
@@ -216,52 +210,69 @@ def deterministic_agent_path(monkeypatch):
     monkeypatch.setattr(e3.shutil, "which", binaries_by_executable.get)
 
 
-def _product_prefixes(repo_root: Path, agent_id: str) -> list[str]:
-    rel, function = PRODUCT_PREDICATES[agent_id]
-    source = (repo_root / rel).read_text(encoding="utf-8")
-    match = re.search(
-        rf"bool\s+{function}\s*\([^)]*\)\s*\{{(.*?)\n\}}",
-        source,
-        re.S,
-    )
-    assert match, f"predicate {function} not found in {rel}"
-    prefixes = re.findall(r'starts_with\("([^"]*)"\)', match.group(1))
-    assert prefixes, f"{function} is no longer a starts_with prefix set"
-    return prefixes
-
-
-def _product_accepts_single_version(repo_root: Path, agent_id: str, version: str) -> bool:
-    return any(version.startswith(prefix) for prefix in _product_prefixes(repo_root, agent_id))
-
-
-def test_scenario_version_sets_mirror_the_product_exactly(repo_root):
+def test_scenario_version_floors_mirror_the_runtime_table_exactly(repo_root):
     spec = json.loads(
         (repo_root / "harness/scenarios-e3/e3-dual-resume.json").read_text(
             encoding="utf-8"
         )
     )
     for agent in spec["agents"]:
-        product = _product_prefixes(repo_root, agent["id"])
-        assert agent["validated_version_prefixes"] == product, (
-            f"{agent['id']}: scenario {agent['validated_version_prefixes']} != product "
-            f"{product}. Mirror the product exactly."
-        )
-        in_range = f"{product[0]}0"
+        floor = VERSION_FLOOR_MIRROR[agent["id"]]
+        assert agent["version_floor"] == floor
+        in_range = floor["min_line"] + ".0"
         out_of_range = "999.999.999"
         for authoritative in (in_range, out_of_range):
-            output = f"{agent['id']} {authoritative}\n"
-            assert version_in_validated_range(output, product) is (
-                _product_accepts_single_version(
-                    repo_root,
-                    agent["id"],
-                    authoritative,
-                )
+            assessment = version_floor_assessment(
+                f"{agent['id']} {authoritative}\n", floor
             )
+            assert assessment is not None
+            assert assessment.at_or_above_min
         for output in (
             f"{agent['id']} {in_range}\nancillary {out_of_range}\n",
             f"ancillary {in_range}\n{agent['id']} {out_of_range}\n",
         ):
-            assert not version_in_validated_range(output, product)
+            assert version_floor_assessment(output, floor) is None
+
+
+def test_version_floor_pin_checker_accepts_exact_rows_and_rejects_drift(
+    repo_root, tmp_path
+):
+    checker = repo_root / "harness/ci/check_version_floor_mirror.py"
+    accepted = subprocess.run(
+        [sys.executable, str(checker), "--root", str(repo_root)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert accepted.returncode == 0, accepted.stderr
+
+    drifted = tmp_path / "drifted"
+    for relative in (
+        "src/adapters/version_floor.cpp",
+        "harness/bivharness/e3.py",
+        "harness/scenarios-e3/e3-dual-resume.json",
+    ):
+        target = drifted / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(repo_root / relative, target)
+    mirror = drifted / "harness/bivharness/e3.py"
+    mirror.write_text(
+        mirror.read_text(encoding="utf-8").replace(
+            '"surveyed_through": "0.144"',
+            '"surveyed_through": "0.145"',
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    refused = subprocess.run(
+        [sys.executable, str(checker), "--root", str(drifted)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert refused.returncode != 0
+    assert "version floor mirror drift" in refused.stderr
 
 
 def _valid_two_agent_spec():
@@ -272,7 +283,7 @@ def _valid_two_agent_spec():
         "env": {},
         "auth_status": ["codex", "login", "status"],
         "version_command": ["codex", "--version"],
-        "validated_version_prefixes": ["0.142.", "0.144."],
+        "version_floor": {"min_line": "0.142", "surveyed_through": "0.144"},
         "cheapest_model": "cheap",
         "seed_start_command": ["codex", "seed", "{run_token}", "--model", "cheap"],
         "seed_retry_resume_command": ["codex", "retry", "{run_token}", "--model", "cheap"],
@@ -288,7 +299,7 @@ def _valid_two_agent_spec():
         "live_profile": "~/.claude",
         "auth_status": ["claude", "auth", "status"],
         "version_command": ["claude", "--version"],
-        "validated_version_prefixes": ["2.1."],
+        "version_floor": {"min_line": "2.1", "surveyed_through": "2.1"},
         "seed_start_command": ["claude", "seed", "{run_token}", "--model", "cheap"],
         "seed_retry_resume_command": ["claude", "retry", "{run_token}", "--model", "cheap"],
         "seed_continue_command": ["claude", "continue", "{run_token}", "--model", "cheap"],
@@ -840,6 +851,34 @@ def _configure_exit_contract_case(
     return spec_path, seen
 
 
+_EXIT_CONTRACT_WARNINGS = [
+    "biv-warning-present",
+    "version-floor-evidence:live:codex:version=0.144.1;newer_than_surveyed=false",
+    "version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false",
+]
+
+
+def test_e3_pack_warning_cannot_spoof_version_floor_evidence(
+    monkeypatch, tmp_path, stable_test_root
+):
+    spoof = (
+        "version-floor-evidence:live:codex:version=0.300.0;"
+        "newer_than_surveyed=true"
+    )
+
+    result, seen = _run_exit_contract_case(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        pack_result=_successful_pack(warnings=[spoof]),
+    )
+
+    assert result.status is Status.PASS
+    assert seen == ["pack", "open"]
+    assert result.warnings == _EXIT_CONTRACT_WARNINGS
+    assert spoof not in result.warnings
+
+
 def test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces(
     monkeypatch, tmp_path, stable_test_root
 ):
@@ -865,9 +904,9 @@ def test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces(
     assert result.status is Status.PASS
     assert seen == ["pack", "open"]
     assert result.detail == "e3-post-materialization-pass"
-    assert result.warnings == ["biv-warning-present"]
+    assert result.warnings == _EXIT_CONTRACT_WARNINGS
     row = Report([result]).to_json()["rows"][0]
-    assert row["warnings"] == ["biv-warning-present"]
+    assert row["warnings"] == _EXIT_CONTRACT_WARNINGS
 
 
 def test_e3_pack_ok_false_at_exit2_returns_report_refusal(
@@ -1041,10 +1080,10 @@ def test_e3_warned_pack_then_open_failure_retains_both(
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
     assert result.detail == "e3-post-materialization-fail"
-    assert result.warnings == ["biv-warning-present"]
-    assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "biv-warning-present"
-    ]
+    assert result.warnings == _EXIT_CONTRACT_WARNINGS
+    assert Report([result]).to_json()["rows"][0]["warnings"] == (
+        _EXIT_CONTRACT_WARNINGS
+    )
 
 
 def test_e3_warned_pack_then_handled_exception_returns_report_refusal(
@@ -1088,7 +1127,7 @@ def test_e3_open_exit2_with_warnings_proceeds(
     assert result.status is Status.PASS
     assert seen == ["pack", "open"]
     assert result.detail == "e3-post-materialization-pass"
-    assert result.warnings == ["biv-warning-present"]
+    assert result.warnings == _EXIT_CONTRACT_WARNINGS
 
 
 def test_e3_open_failure_detail_from_envelope(
@@ -1209,7 +1248,7 @@ def test_e3_open_relative_output_dir_fails_before_workspace_binding(
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
     assert result.detail == "e3-post-materialization-fail"
-    assert result.warnings == ["biv-warning-present"]
+    assert result.warnings == _EXIT_CONTRACT_WARNINGS
 
 
 def test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding(
@@ -1387,9 +1426,9 @@ def test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning(
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
     assert result.detail == "e3-post-materialization-fail"
-    assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "biv-warning-present"
-    ]
+    assert Report([result]).to_json()["rows"][0]["warnings"] == (
+        _EXIT_CONTRACT_WARNINGS
+    )
 
 
 @pytest.mark.parametrize(
@@ -1457,9 +1496,9 @@ def test_e3_open_installed_agent_multiset_must_match_spec(
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
     assert result.detail == "e3-post-materialization-fail"
-    assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "biv-warning-present"
-    ]
+    assert Report([result]).to_json()["rows"][0]["warnings"] == (
+        _EXIT_CONTRACT_WARNINGS
+    )
 
 
 @pytest.mark.parametrize(
@@ -1520,9 +1559,9 @@ def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
     assert result.status is Status.FAIL
     assert seen == ["pack", "open"]
     assert result.detail == "e3-post-materialization-fail"
-    assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "biv-warning-present"
-    ]
+    assert Report([result]).to_json()["rows"][0]["warnings"] == (
+        _EXIT_CONTRACT_WARNINGS
+    )
 
 
 def test_e3_warned_pack_then_malformed_open_result_retains_warning(
@@ -1544,9 +1583,9 @@ def test_e3_warned_pack_then_malformed_open_result_retains_warning(
 
     assert result.status is Status.FAIL
     assert result.detail == "e3-post-materialization-fail"
-    assert Report([result]).to_json()["rows"][0]["warnings"] == [
-        "biv-warning-present"
-    ]
+    assert Report([result]).to_json()["rows"][0]["warnings"] == (
+        _EXIT_CONTRACT_WARNINGS
+    )
 
 
 def test_cli_persists_failed_e3_report_for_malformed_open_result(
@@ -1585,7 +1624,7 @@ def test_cli_persists_failed_e3_report_for_malformed_open_result(
     row = report["rows"][0]
     assert row["status"] == "fail"
     assert row["detail"] == "e3-post-materialization-fail"
-    assert row["warnings"] == ["biv-warning-present"]
+    assert row["warnings"] == _EXIT_CONTRACT_WARNINGS
     assert list(stable_test_root.glob(".bivharness-scratch-*")) == []
 
 
@@ -2352,7 +2391,7 @@ def _host2_agents():
             "env": {"CLAUDE_CONFIG_DIR": "{profile}"},
             "auth_status": ["claude", "auth", "status"],
             "version_command": ["claude", "--version"],
-            "validated_version_prefixes": ["2.1."],
+            "version_floor": {"min_line": "2.1", "surveyed_through": "2.1"},
             "liveness_command": [
                 "claude",
                 "--model",
@@ -2368,7 +2407,7 @@ def _host2_agents():
             "env": {"CODEX_HOME": "{profile}"},
             "auth_status": ["codex", "login", "status"],
             "version_command": ["codex", "--version"],
-            "validated_version_prefixes": ["0.142.", "0.144."],
+            "version_floor": {"min_line": "0.142", "surveyed_through": "0.144"},
         },
     ]
 
@@ -2566,6 +2605,8 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(
             stderr="",
         )
 
+    version_evidence = []
+    credential_guards = e3._CredentialGuards(version_evidence)
     envs = e3.setup_host2_credentials(
         {"agents": _host2_agents()},
         host2,
@@ -2575,6 +2616,7 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(
         e3._CredentialScanner(),
         [],
         {},
+        credential_guards,
     )
 
     assert (host2 / "home").is_dir()
@@ -2588,6 +2630,10 @@ def test_setup_host2_credentials_constructs_profiles_and_runs_liveness(
     assert _agent_basename(calls[-1]) == "claude"
     assert "--no-session-persistence" in calls[-1]
     assert "-p" in calls[-1]
+    assert version_evidence == [
+        "version-floor-evidence:host2:claude-code:version=2.1.202;newer_than_surveyed=false",
+        "version-floor-evidence:host2:codex:version=0.142.5;newer_than_surveyed=false",
+    ]
 
 
 @pytest.mark.parametrize("symlink_case", ("leaf", "ancestor"))
@@ -6270,24 +6316,132 @@ def test_class_j_workspace_memoryless_and_version_predicates(tmp_path):
     app_state = tmp_path / "biv-owned"
     app_state.mkdir()
     assert "bivpak-state-present" in class_j_failures(seed, restored, [app_state])
-    assert version_in_validated_range("claude 2.1.202", ["2.1."])
-    assert not version_in_validated_range("claude 2.2.0", ["2.1."])
-    assert not version_in_validated_range("claude 12.1.202", ["2.1."])
+    floor = {"min_line": "2.1", "surveyed_through": "2.1"}
+    at_survey = version_floor_assessment("claude 2.1.202", floor)
+    assert at_survey is not None
+    assert at_survey.at_or_above_min
+    assert not at_survey.newer_than_surveyed
+    above_survey = version_floor_assessment("claude 2.2.0", floor)
+    assert above_survey is not None
+    assert above_survey.at_or_above_min
+    assert above_survey.newer_than_surveyed
+    assert version_floor_assessment("claude 2.0.5", floor) is not None
 
 
-CX = ["0.142.", "0.144."]
+def test_version_floor_accepts_forward_hosts_and_records_the_watermark():
+    floor = {"min_line": "0.142", "surveyed_through": "0.144"}
+
+    at_min = version_floor_assessment("codex-cli 0.142.5", floor)
+    assert at_min is not None
+    assert at_min.version == "0.142.5"
+    assert at_min.at_or_above_min
+    assert not at_min.newer_than_surveyed
+
+    forward = version_floor_assessment("codex-cli 0.300.0", floor)
+    assert forward is not None
+    assert forward.at_or_above_min
+    assert forward.newer_than_surveyed
+
+    below = version_floor_assessment("codex-cli 0.61.0", floor)
+    assert below is not None
+    assert not below.at_or_above_min
+    assert not below.newer_than_surveyed
+
+    assert version_floor_assessment(
+        "codex-cli 0.145.0\nsandbox-runtime 0.142.9\n", floor
+    ) is None
+    assert version_floor_assessment("codex-cli 0.144.\0", floor) is None
+    assert version_floor_assessment(
+        "codex-cli 0.145.0\0sandbox-runtime unavailable\n", floor
+    ) is None
+
+
+@pytest.mark.parametrize(
+    "output,expected",
+    [
+        ("codex-cli v0.145.0-alpha.1+build\n", "v0.145.0-alpha.1+build"),
+        ("2.1.207.1 (Claude Code)\n", "2.1.207.1"),
+        ("codex-cli 0.145.0\nsandbox-runtime 0.142.9\n", None),
+        ("2.2.0 (Claude Code)\nruntime 2.1.0\n", None),
+        ("codex-cli 0.145.0\0sandbox-runtime unavailable\n", None),
+    ],
+)
+def test_version_floor_full_grammar_and_single_token_parity(output, expected):
+    floor = {"min_line": "0.142", "surveyed_through": "0.144"}
+    assessment = version_floor_assessment(output, floor)
+    assert (assessment.version if assessment is not None else None) == expected
+
+
+def test_version_gate_retains_live_assessments_in_caller_visible_evidence(tmp_path):
+    contexts = [(agent, tmp_path / agent["id"], {}) for agent in _host2_agents()]
+
+    def spawn(command, cwd, env):
+        del cwd, env
+        version = (
+            "2.9.0 (Claude Code)"
+            if _host2_agent_id(command) == "claude-code"
+            else "codex-cli 0.300.0"
+        )
+        return SimpleNamespace(returncode=0, stdout=version, stderr="")
+
+    evidence = []
+    assessments = e3._version_gate_agents(
+        contexts, _host2_binaries(), tmp_path, spawn, "live", evidence
+    )
+
+    assert assessments["codex"].newer_than_surveyed
+    assert assessments["claude-code"].newer_than_surveyed
+    assert evidence == [
+        "version-floor-evidence:live:claude-code:version=2.9.0;newer_than_surveyed=true",
+        "version-floor-evidence:live:codex:version=0.300.0;newer_than_surveyed=true",
+    ]
+    result = e3._result(
+        {"id": "e3", "tier": "E3"}, Status.PASS, "passed", warnings=evidence
+    )
+    assert result.warnings == evidence
+
+
+def test_post_materialization_result_retains_only_safe_version_floor_evidence():
+    evidence = [
+        *e3._version_evidence_rows(
+            "live",
+            {"claude-code": e3.VersionFloorAssessment("2.9.0", True, True)},
+        ),
+        *e3._version_evidence_rows(
+            "host2",
+            {"codex": e3.VersionFloorAssessment("0.144.1", True, False)},
+        ),
+    ]
+    exact_spoof = str(evidence[0])
+    result = e3._typed_post_materialization_result(
+        e3._result(
+            {"id": "e3", "tier": "E3"},
+            Status.PASS,
+            "passed",
+            warnings=[*evidence, exact_spoof, "untrusted-biv-warning"],
+        ),
+        [],
+        [],
+    )
+
+    assert result.warnings == ["biv-warning-present", *map(str, evidence)]
+
+
+CX = {"min_line": "0.142", "surveyed_through": "0.144"}
 STALE_VERSION_PREFIX_KEY = "validated_version_" + "prefix"
 
 
 @pytest.mark.parametrize("version,accepted", [
     ("codex-cli 0.142.5", True),
     ("codex-cli 0.144.1", True),
-    ("codex-cli 0.143.0", False),
-    ("codex-cli 0.145.0", False),
+    ("codex-cli 0.143.0", True),
+    ("codex-cli 0.145.0", True),
     ("codex-cli 0.61.0", False),
 ])
-def test_codex_enumerated_set_is_not_an_inequality(version, accepted):
-    assert version_in_validated_range(version, CX) is accepted
+def test_codex_version_floor_is_a_forward_inequality(version, accepted):
+    assessment = version_floor_assessment(version, CX)
+    assert assessment is not None
+    assert assessment.at_or_above_min is accepted
 
 
 @pytest.mark.parametrize("output", (
@@ -6295,39 +6449,45 @@ def test_codex_enumerated_set_is_not_an_inequality(version, accepted):
     "sandbox-runtime 0.142.9\ncodex-cli 0.145.0\n",
 ))
 def test_version_gate_rejects_ambiguous_multi_token_output(output):
-    assert not version_in_validated_range(output, CX)
+    assert version_floor_assessment(output, CX) is None
 
 
 @pytest.mark.parametrize("version,accepted", [
     ("claude 2.1.202", True),
-    ("claude 2.2.0", False),
-    ("claude 12.1.202", False),
+    ("claude 2.2.0", True),
+    ("claude 12.1.202", True),
+    ("claude 2.0.5", False),
 ])
-def test_claude_single_element_list(version, accepted):
-    assert version_in_validated_range(version, ["2.1."]) is accepted
+def test_claude_version_floor_has_no_survey_ceiling(version, accepted):
+    floor = {"min_line": "2.1", "surveyed_through": "2.1"}
+    assessment = version_floor_assessment(version, floor)
+    assert assessment is not None
+    assert assessment.at_or_above_min is accepted
 
 
-@pytest.mark.parametrize("bad", ["0.142.", "", [], ["0.142.", ""], [None], ("0.142.",)])
-def test_helper_raises_rather_than_character_iterating(bad):
+@pytest.mark.parametrize("bad", ["0.142", "", [], {}, {"min_line": "0.142"},
+                                  {"min_line": "0.142", "surveyed_through": "bad"}])
+def test_version_floor_helper_rejects_malformed_floor_shapes(bad):
     with pytest.raises(TypeError):
-        version_in_validated_range("codex-cli 0.61.0", bad)
+        version_floor_assessment("codex-cli 0.61.0", bad)
 
 
-@pytest.mark.parametrize("bad", ["0.142.", [], ["0.142.", ""], [None]])
-def test_validate_spec_rejects_malformed_prefix_shapes(bad):
+@pytest.mark.parametrize("bad", ["0.142", [], {}, {"min_line": "0.142"},
+                                  {"min_line": "0.142", "surveyed_through": "bad"}])
+def test_validate_spec_rejects_malformed_version_floor_shapes(bad):
     spec = _valid_two_agent_spec()
-    spec["agents"][0]["validated_version_prefixes"] = bad
+    spec["agents"][0]["version_floor"] = bad
     failures = e3._validate_spec(spec)
-    assert any("validated_version_prefixes" in failure for failure in failures)
+    assert any("version_floor" in failure for failure in failures)
 
 
 def test_validate_spec_rejects_a_stale_scalar_only_scenario():
     spec = _valid_two_agent_spec()
     agent = spec["agents"][0]
-    del agent["validated_version_prefixes"]
+    del agent["version_floor"]
     agent[STALE_VERSION_PREFIX_KEY] = "0.142."
     failures = e3._validate_spec(spec)
-    assert any("validated_version_prefixes" in failure for failure in failures)
+    assert any("version_floor" in failure for failure in failures)
 
 
 def test_stale_scenario_is_invalid_before_any_spawn(monkeypatch, tmp_path):
@@ -6340,7 +6500,7 @@ def test_stale_scenario_is_invalid_before_any_spawn(monkeypatch, tmp_path):
     monkeypatch.setattr(e3, "_spawn", fake_spawn)
     spec = _valid_two_agent_spec()
     agent = spec["agents"][0]
-    del agent["validated_version_prefixes"]
+    del agent["version_floor"]
     agent[STALE_VERSION_PREFIX_KEY] = "0.142."
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
@@ -6348,15 +6508,15 @@ def test_stale_scenario_is_invalid_before_any_spawn(monkeypatch, tmp_path):
     result = e3.run_e3(spec_path, Path("biv"), tmp_path / "scratch", dry_run=True)
 
     assert result.status is Status.INVALID
-    assert "validated_version_prefixes" in result.detail
+    assert "version_floor" in result.detail
     assert calls == []
 
 
 CX_MATRIX = [
     ("0.142.5", True),
     ("0.144.1", True),
-    ("0.143.0", False),
-    ("0.145.0", False),
+    ("0.143.0", True),
+    ("0.145.0", True),
     ("0.61.0", False),
 ]
 
@@ -6381,7 +6541,7 @@ def _run_prerun_with_codex_version(monkeypatch, tmp_path, stable_test_root, vers
 
 
 @pytest.mark.parametrize("version,accepted", CX_MATRIX)
-def test_prerun_version_gate_enforces_the_enumerated_set(
+def test_prerun_version_gate_enforces_the_floor(
     monkeypatch, tmp_path, stable_test_root, version, accepted
 ):
     result, calls = _run_prerun_with_codex_version(
@@ -6425,7 +6585,7 @@ def test_prerun_version_gate_rejects_ambiguous_multi_token_output(
 
 
 @pytest.mark.parametrize("version,accepted", CX_MATRIX)
-def test_host2_version_gate_enforces_the_enumerated_set(tmp_path, version, accepted):
+def test_host2_version_gate_enforces_the_floor(tmp_path, version, accepted):
     calls = []
 
     def fake_spawn(command, cwd, env):
@@ -6454,7 +6614,7 @@ def test_host2_version_gate_enforces_the_enumerated_set(tmp_path, version, accep
             "claude-code", "codex", "claude-code", "codex", "claude-code",
         ]
     else:
-        with pytest.raises(ValueError, match="host2 version is outside the validated range"):
+        with pytest.raises(ValueError, match="host2 version is unreadable or below the minimum"):
             e3.setup_host2_credentials(*args)
         expected_agents = ["claude-code", "codex"]
     _assert_host2_binary_ledger(calls, expected_agents)
@@ -7181,9 +7341,10 @@ def _schema_shape_cases():
     add("agent-resume_mutation", scalar, lambda spec, value: spec["agents"][1].__setitem__("resume_mutation", value))
     for field in (
         "auth_status", "version_command", "seed_start_command", "seed_retry_resume_command",
-        "seed_continue_command", "resume_command", "validated_version_prefixes",
+        "seed_continue_command", "resume_command",
     ):
         add(f"agent-{field}", list_of_strings, mutate_agent(field))
+    add("agent-version_floor", mapping, mutate_agent("version_floor"))
     add("agent-liveness_command", list_of_strings, lambda spec, value: spec["agents"][1].__setitem__("liveness_command", value))
     add("agent-env", mapping, mutate_agent("env"))
     return cases
@@ -7351,7 +7512,7 @@ def test_cli_bounds_rejected_agent_ids_in_diagnostics(
     runner_target = tmp_path / "biv"
     spec = _valid_two_agent_spec()
     spec["agents"][0]["id"] = bad_id
-    spec["agents"][0]["validated_version_prefixes"] = []
+    spec["agents"][0]["version_floor"] = {}
     scenario.write_text(json.dumps(spec), encoding="utf-8")
     spawn_calls = []
 
@@ -7375,10 +7536,10 @@ def test_cli_bounds_rejected_agent_ids_in_diagnostics(
     assert report["invalid"] == ["cx-range"]
     assert report["rows"][0]["id"] == "cx-range"
     detail = report["rows"][0]["detail"]
-    assert "agent validated_version_prefixes" in detail
+    assert "agent version_floor" in detail
     unsafe_line = (
-        f"{bad_id} validated_version_prefixes must be a non-empty list of "
-        "non-empty strings"
+        f"{bad_id} version_floor must contain grammar-valid min_line and "
+        "surveyed_through strings"
     )
     assert unsafe_line not in detail.splitlines()
     assert spawn_calls == []
@@ -8406,7 +8567,9 @@ def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_p
     for agent, command in zip(spec["agents"], ("first", "second")):
         agent["auth_status"] = [command, "auth"]
         agent["version_command"] = [command, "version"]
-        agent["validated_version_prefixes"] = ["1.0."]
+        agent["version_floor"] = {
+            "min_line": "1.0", "surveyed_through": "1.0"
+        }
     spec_path = tmp_path / "e3.json"
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
     scratch = Path.home() / ".cache" / f"biv-e3-auth-order-{os.getpid()}"
@@ -8454,6 +8617,7 @@ def _run_argv_barrier_flow(
     exception_leak_payload=None,
     scratch_leak_payload=None,
     credential_guard_mutation=None,
+    post_gate_setup_failure=False,
     profile_topology="nested",
     preexisting_profile_symlink=None,
     controlled_sentinel=CONTROLLED_RUNTIME_SENTINEL,
@@ -8571,7 +8735,7 @@ def _run_argv_barrier_flow(
                 wrong_host2_version == agent_name
                 and Path(cwd) == scratch / "host2"
             ):
-                version = "9.9.9"
+                version = "0.1.0"
             return SimpleNamespace(returncode=0, stdout=version, stderr="")
         if command[1:] in (["login", "status"], ["auth", "status"]):
             return SimpleNamespace(returncode=0, stdout="authenticated", stderr="")
@@ -8639,7 +8803,7 @@ def _run_argv_barrier_flow(
                 output=exception_leak_payload.encode(),
                 stderr=b"exceptional-attempt-stderr",
             )
-        if phase == leak_phase:
+        if leak_phase is not None and phase == leak_phase:
             return SimpleNamespace(
                 returncode=result.returncode,
                 stdout=result.stdout,
@@ -8662,6 +8826,8 @@ def _run_argv_barrier_flow(
         lifecycle_events.append(
             ("materializer", "claude-code", None, Path(dest))
         )
+        if post_gate_setup_failure:
+            raise RuntimeError("synthetic post-gate setup failure")
         return real_keychain_materializer(service, account, dest, **kwargs)
 
     def recording_file_materializer(source, dest, **kwargs):
@@ -8746,6 +8912,12 @@ def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_b
     )
 
     assert result.status is Status.PASS
+    assert set(result.warnings) == {
+        "version-floor-evidence:live:codex:version=0.144.1;newer_than_surveyed=false",
+        "version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false",
+        "version-floor-evidence:host2:codex:version=0.144.1;newer_than_surveyed=false",
+        "version-floor-evidence:host2:claude-code:version=2.1.210;newer_than_surveyed=false",
+    }
     assert setup_calls
     agent_ledger = _agent_ledger(ledger, binaries)
     assert all(
@@ -8845,6 +9017,45 @@ def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_b
     assert agent_ledger[14][1] == agent_ledger[15][1]
     assert agent_ledger[16][1] == agent_ledger[17][1]
     assert agent_ledger[18][1] == agent_ledger[19][1]
+
+
+_HOST2_VERSION_EVIDENCE = {
+    "version-floor-evidence:host2:codex:version=0.144.1;newer_than_surveyed=false",
+    "version-floor-evidence:host2:claude-code:version=2.1.210;newer_than_surveyed=false",
+}
+
+
+def test_run_e3_post_gate_setup_failure_retains_host2_version_evidence(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, _, _, _, _, _, lifecycle_events = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        post_gate_setup_failure=True,
+    )
+
+    assert result.status is Status.INVALID
+    assert _HOST2_VERSION_EVIDENCE <= set(result.warnings)
+    assert [event[:2] for event in lifecycle_events] == [
+        ("version", "codex"),
+        ("version", "claude-code"),
+        ("materializer", "claude-code"),
+    ]
+
+
+def test_run_e3_open_exception_retains_host2_version_evidence(
+    monkeypatch, tmp_path, stable_test_root
+):
+    result, *_ = _run_argv_barrier_flow(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        unexpected_phase="open",
+    )
+
+    assert result.status is Status.INVALID
+    assert _HOST2_VERSION_EVIDENCE <= set(result.warnings)
 
 
 @pytest.mark.parametrize("leak_phase", ("auth", "liveness", "open", "resume"))
@@ -9192,7 +9403,7 @@ def test_e3_spec_validation_rejects_dead_or_wrong_resume_shape():
         "live_profile": "~/.agent",
         "auth_status": ["agent", "auth"],
         "version_command": ["agent", "version"],
-        "validated_version_prefixes": ["1.0."],
+        "version_floor": {"min_line": "1.0", "surveyed_through": "1.0"},
         "seed_start_command": ["agent", "seed"],
         "seed_continue_command": ["agent", "continue"],
         "ownership_glob": "*.jsonl",

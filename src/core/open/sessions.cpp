@@ -7,6 +7,7 @@
 
 #include "adapters/registry.hpp"
 #include "adapters/secure_io.hpp"
+#include "adapters/version_floor.hpp"
 
 namespace biv::core_sessions {
 
@@ -71,7 +72,7 @@ std::optional<ErrKind> kind_for_row(const SessionRowReport::Row row, const std::
   if (reason == "containment_refused" || reason == "verify-hits") {
     return ErrKind::ContainmentRefused;
   }
-  if (reason == "store-absent" || reason == "not-validated") {
+  if (reason == "store-absent") {
     return ErrKind::AgentNotValidatedFailed;
   }
   return ErrKind::SessionInstallFailed;
@@ -210,6 +211,27 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
     if (eligible.empty()) {
       continue;
     }
+    const bool absent = !agent.caps.has_value() || !agent.store.has_value() ||
+                        agent.caps->verdict() ==
+                            adapters::Capabilities::Verdict::absent;
+    const bool unreadable =
+        agent.caps.has_value() &&
+        agent.caps->verdict() == adapters::Capabilities::Verdict::unreadable;
+    if (absent || unreadable) {
+      for (const auto& entry : eligible) {
+        outcome.rows.push_back(SessionRowReport{
+            .agent = entry.agent,
+            .image_session_id = entry.original_session_ids.primary,
+            .row = SessionRowReport::Row::agent_not_validated_failed,
+            .reason = absent ? "store-absent" : "host-version-unreadable",
+            .installed_session_id = std::nullopt,
+            .host_version_unverified = false,
+            .activation_suppressed = true,
+            .live_at_pack = entry.live_at_pack,
+            .detail = std::nullopt});
+      }
+      continue;
+    }
     if (!decision_for(consent, agent.agent)) {
       for (const auto& entry : eligible) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
@@ -224,24 +246,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       }
       continue;
     }
-    const auto caps = agent.caps.value_or(adapters::Capabilities{});
-    const auto target_store = agent.store.value_or(adapters::Store{});
-    if (!agent.caps.has_value() || caps.verdict == adapters::Capabilities::Verdict::unvalidated ||
-        caps.verdict == adapters::Capabilities::Verdict::absent || !agent.store.has_value()) {
-      const bool absent = !agent.store.has_value() || caps.verdict == adapters::Capabilities::Verdict::absent;
-      for (const auto& entry : eligible) {
-        outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
-                                                .image_session_id = entry.original_session_ids.primary,
-                                                .row = SessionRowReport::Row::agent_not_validated_failed,
-                                                .reason = absent ? "store-absent" : "not-validated",
-                                                .installed_session_id = std::nullopt,
-                                                .host_version_unverified = false,
-                                                .activation_suppressed = true,
-                                                .live_at_pack = entry.live_at_pack,
-                                                .detail = std::nullopt});
-      }
-      continue;
-    }
+    const auto& caps = *agent.caps;
+    const auto& target_store = *agent.store;
     if (store_write_bits_absent(target_store.root)) {
       for (const auto& entry : eligible) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
@@ -304,7 +310,9 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                               .reason = row.reason,
                               .installed_session_id = installed_id(installed->id_map, row.image_session_id),
                               .host_version_unverified = row.host_version_unverified,
-                              .activation_suppressed = verify_hits,
+                              .activation_suppressed =
+                                  row.outcome == adapters::InstallSessionOutcome::Outcome::failed ||
+                                  verify_hits,
                               .live_at_pack = false,
                               .detail = row.detail};
       const auto source = std::ranges::find_if(manifest.agent_sessions, [&](const auto& entry) {
@@ -316,6 +324,16 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       if (verify_hits) {
         report.row = SessionRowReport::Row::containment_refused;
         report.reason = "verify-hits";
+      } else if (row.outcome ==
+                     adapters::InstallSessionOutcome::Outcome::failed &&
+                 row.detail == adapters::version_floor::kBasisNewerThanHost) {
+        report.row = SessionRowReport::Row::agent_not_validated_failed;
+        report.reason = "basis-newer-than-host";
+      } else if (row.outcome ==
+                     adapters::InstallSessionOutcome::Outcome::failed &&
+                 row.detail == adapters::version_floor::kBasisUnorderable) {
+        report.row = SessionRowReport::Row::agent_not_validated_failed;
+        report.reason = "basis-unorderable";
       } else if (row.outcome == adapters::InstallSessionOutcome::Outcome::installed) {
         report.row = SessionRowReport::Row::installed;
         report.reason.reset();

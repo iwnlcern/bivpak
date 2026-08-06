@@ -164,7 +164,141 @@ class ScopedEnv {
   std::optional<std::string> old_value_;
 };
 
+void write_agent_session(const std::filesystem::path& store,
+                         const std::filesystem::path& source,
+                         const std::string_view agent,
+                         const std::string_view session_id,
+                         const std::string_view version) {
+  if (agent == "codex") {
+    write_file(store / "sessions" / "2026" / "08" / "06" /
+                   ("rollout-2026-08-06T01-00-00-" +
+                    std::string{session_id} + ".jsonl"),
+               "{\"timestamp\":\"2026-08-06T01:00:00Z\",\"type\":"
+               "\"session_meta\",\"payload\":{\"id\":\"" +
+                   std::string{session_id} + "\",\"session_id\":\"" +
+                   std::string{session_id} + "\",\"cwd\":\"" +
+                   source.generic_string() + "\",\"cli_version\":\"" +
+                   std::string{version} + "\"}}\n");
+    return;
+  }
+  write_file(store / "projects" / "project" /
+                 (std::string{session_id} + ".jsonl"),
+             "{\"type\":\"user\",\"cwd\":\"" +
+                 source.generic_string() + "\",\"sessionId\":\"" +
+                 std::string{session_id} + "\",\"version\":\"" +
+                 std::string{version} + "\"}\n");
+}
+
 }  // namespace
+
+TEST_CASE("Task 6 pack omits known below-minimum sessions and reports every floor fact") {
+  struct Case {
+    std::string_view agent;
+    std::string_view session_id;
+    std::string_view version;
+    std::string_view minimum;
+  };
+  for (const auto& test : std::array{
+           Case{"codex", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee6100", "0.61.0",
+                "0.142"},
+           Case{"claude-code", "aaaaaaaa-1111-4000-8000-000000000205",
+                "2.0.5", "2.1"},
+       }) {
+    CAPTURE(test.agent);
+    const auto root = make_tmp("below-min-" + std::string{test.agent});
+    const auto source = root / "proj";
+    const auto codex_store = root / "codex";
+    const auto claude_store = root / "claude";
+    std::filesystem::create_directories(source);
+    write_file(source / "work.txt", "workspace");
+    write_agent_session(test.agent == "codex" ? codex_store : claude_store,
+                        source, test.agent, test.session_id, test.version);
+    const ScopedEnv home{"HOME", (root / "home").string()};
+    const ScopedEnv codex_home{"CODEX_HOME", codex_store.string()};
+    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", claude_store.string()};
+
+    const auto report = biv::pack::pack(source);
+
+    REQUIRE(report.has_value());
+    // FX-VF-P1/*/not-in-image
+    CHECK(report->agent_sessions.empty());
+    CHECK(report->agent_sessions_summary.empty());
+    const auto members = read_archive(root / "proj.bvpk");
+    CHECK(std::ranges::none_of(members, [&](const ArchiveMember& member) {
+      return member.meta.path.starts_with("agents/" + std::string{test.agent} +
+                                          "/");
+    }));
+    auto manifest = biv::manifest::parse(as_span(members.at(0).data));
+    REQUIRE(manifest.has_value());
+    CHECK(manifest->agent_sessions.empty());
+
+    const auto warning = std::ranges::find_if(
+        report->warnings, [&](const biv::pack::Warning& candidate) {
+          return candidate.kind == "SessionBelowMinimumOmitted" &&
+                 candidate.path == test.session_id;
+        });
+    // FX-VF-P1/*/skip-report-default-visible and report-names-{version,min,reason}
+    REQUIRE(warning != report->warnings.end());
+    const auto visible = biv::pack::warning_text(*warning);
+    CHECK(visible.find(test.session_id) != std::string::npos);
+    CHECK(visible.find(test.version) != std::string::npos);
+    CHECK(visible.find(test.minimum) != std::string::npos);
+    CHECK(visible.find("below-minimum") != std::string::npos);
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("Task 6 pack keeps minimum and forward-known sessions at entry schema one") {
+  struct Case {
+    std::string_view key;
+    std::string_view agent;
+    std::string_view session_id;
+    std::string_view version;
+  };
+  for (const auto& test : std::array{
+           Case{"P2", "codex", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1425",
+                "0.142.5"},
+           Case{"P2", "claude-code",
+                "aaaaaaaa-1111-4000-8000-000000000217", "2.1.207"},
+           Case{"P4", "codex", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee3000",
+                "0.300.0"},
+           Case{"P4", "claude-code",
+                "aaaaaaaa-1111-4000-8000-000000000290", "2.9.0"},
+           Case{"P3", "codex", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0003",
+                "unknown"},
+       }) {
+    CAPTURE(test.key, test.agent);
+    const auto root =
+        make_tmp(std::string{test.key} + "-schema-one-" + std::string{test.agent});
+    const auto source = root / "proj";
+    const auto codex_store = root / "codex";
+    const auto claude_store = root / "claude";
+    std::filesystem::create_directories(source);
+    write_file(source / "work.txt", "workspace");
+    write_agent_session(test.agent == "codex" ? codex_store : claude_store,
+                        source, test.agent, test.session_id, test.version);
+    const ScopedEnv home{"HOME", (root / "home").string()};
+    const ScopedEnv codex_home{"CODEX_HOME", codex_store.string()};
+    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", claude_store.string()};
+
+    const auto report = biv::pack::pack(source);
+
+    REQUIRE(report.has_value());
+    REQUIRE(report->agent_sessions.size() == 1);
+    CHECK(report->agent_sessions.front().agent_version_at_pack == test.version);
+    CHECK(report->agent_sessions.front().entry_schema == 1);
+    const auto members = read_archive(root / "proj.bvpk");
+    auto manifest = biv::manifest::parse(as_span(members.at(0).data));
+    REQUIRE(manifest.has_value());
+    REQUIRE(manifest->agent_sessions.size() == 1);
+    CHECK(manifest->agent_sessions.front().entry_schema == 1);
+    CHECK(std::ranges::any_of(members, [&](const ArchiveMember& member) {
+      return member.meta.path.starts_with("agents/" + std::string{test.agent} +
+                                          "/");
+    }));
+    std::filesystem::remove_all(root);
+  }
+}
 
 TEST_CASE("pack writes manifest, checksums, and payload extents") {
   const auto root = make_tmp("happy");

@@ -25,7 +25,7 @@
       "agents": [
         {
           "agent": "codex",
-          "capabilities_verdict": "validated",
+          "capabilities_verdict": "readable",
           "probe": {
             "agent": "codex",
             "requested": "/opt/codex",
@@ -43,7 +43,7 @@
         },
         {
           "agent": "claude-code",
-          "capabilities_verdict": "unvalidated-host",
+          "capabilities_verdict": "unreadable",
           "probe": {
             "agent": "claude-code",
             "requested": null,
@@ -55,6 +55,24 @@
             "parsed": null
           },
           "store_root": "/tmp/claude",
+          "sessions": [],
+          "activation": [],
+          "caveats": []
+        },
+        {
+          "agent": "codex",
+          "capabilities_verdict": "readable-newer-than-survey",
+          "probe": {
+            "agent": "codex",
+            "requested": null,
+            "executed": "/usr/local/bin/codex",
+            "pinned": false,
+            "outcome": "ok",
+            "exit_code": 0,
+            "raw": "codex-cli 0.300.0\n",
+            "parsed": "0.300.0"
+          },
+          "store_root": "/tmp/codex-forward",
           "sessions": [],
           "activation": [],
           "caveats": []

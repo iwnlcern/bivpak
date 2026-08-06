@@ -18,6 +18,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "adapters/codex/codex.hpp"
+#include "adapters/version_floor.hpp"
 #include "core/support/probe.hpp"
 
 namespace {
@@ -177,13 +178,10 @@ std::map<std::string, std::vector<std::byte>> codex_members() {
 biv::adapters::InstallTarget target_for(
     fs::path workspace, fs::path store, std::map<std::string, std::vector<std::byte>>& members,
     biv::adapters::Capabilities capabilities = [] {
-      biv::adapters::Capabilities value;
-      value.agent_version = "unknown";
-      value.validated_range = "0.142.x, 0.144.x";
-      value.verdict = biv::adapters::Capabilities::Verdict::unvalidated_host;
-      value.long_path_keys_pinned = true;
-      value.per_verb = {.collect = true, .install = true, .rewrite = true};
-      return value;
+      return biv::adapters::Capabilities::from_probe(
+          biv::adapters::Capabilities::Verdict::readable,
+          std::optional<std::string>{"0.144.4"}, false, true,
+          {.collect = true, .install = true, .rewrite = true});
     }()) {
   return biv::adapters::InstallTarget{
       .workspace_root = std::move(workspace),
@@ -202,6 +200,214 @@ biv::adapters::InstallTarget target_for(
 }
 
 }  // namespace
+
+TEST_CASE("version floor parses the complete bounded grammar") {
+  using biv::adapters::version_floor::extract_single_version;
+  using biv::adapters::version_floor::parse_grammar;
+
+  for (const auto version : {"0.144.4", "v2.1.207", "0.145.0-alpha.1+build",
+                             "2", "2.1.207.1", "00.144.0002"}) {
+    CAPTURE(version);
+    CHECK(parse_grammar(version).has_value());
+  }
+
+  const std::string nul_bearing{"0.144.\0", 7U};
+  for (const auto& version : {std::string{}, std::string{"null"},
+                              std::string{"unknown"}, nul_bearing,
+                              std::string{"0.14x"}, std::string{"0.144.x7"},
+                              std::string{"0.1234567890"},
+                              std::string{"0.1.2.3.4"}}) {
+    CAPTURE(version);
+    CHECK_FALSE(parse_grammar(version).has_value());
+  }
+
+  CHECK(extract_single_version("codex-cli v0.145.0-alpha.1+build\n") ==
+        std::optional<std::string>{"v0.145.0-alpha.1+build"});
+  CHECK(extract_single_version("2.1.207.1 (Claude Code)\n") ==
+        std::optional<std::string>{"2.1.207.1"});
+  CHECK_FALSE(extract_single_version(
+                  "codex-cli 0.145.0\nsandbox-runtime 0.142.9\n")
+                  .has_value());
+  constexpr char nul_delimited_raw[] =
+      "codex-cli 0.145.0\0sandbox-runtime unavailable\n";
+  const std::string nul_delimited_output{nul_delimited_raw,
+                                         sizeof(nul_delimited_raw) - 1U};
+  CHECK_FALSE(extract_single_version(nul_delimited_output).has_value());
+  CHECK_FALSE(extract_single_version("codex-cli 0.145.\n").has_value());
+}
+
+TEST_CASE("version floor compares only the numeric major-minor line") {
+  using biv::adapters::version_floor::Order;
+  using biv::adapters::version_floor::compare_line;
+  using biv::adapters::version_floor::parse_grammar;
+
+  const auto order = [](const std::string_view left,
+                        const std::string_view right) {
+    const auto parsed_left = parse_grammar(left);
+    const auto parsed_right = parse_grammar(right);
+    REQUIRE(parsed_left.has_value());
+    REQUIRE(parsed_right.has_value());
+    return compare_line(*parsed_left, *parsed_right);
+  };
+
+  CHECK(order("0.142.99", "0.144.0") == Order::less);
+  CHECK(order("0.144.0-alpha", "0.144.999+build") == Order::equal);
+  CHECK(order("2.1", "0.300.0") == Order::greater);
+  CHECK(order("1", "1.0.9.5") == Order::equal);
+  CHECK(order("00.144.2", "0.144.9") == Order::equal);
+}
+
+TEST_CASE("version floor centralizes admission policy for both adapters") {
+  struct Case {
+    std::string_view agent;
+    std::string_view host;
+    std::string_view image;
+    bool admitted;
+    bool host_version_unverified;
+    std::string_view detail;
+  };
+  constexpr Case cases[]{
+      {"codex", "0.144.4", "0.142.5", true, false, {}},
+      {"codex", "0.144.4", "0.145.0", false, false,
+       "basis_newer_than_host"},
+      {"codex", "unknown", "0.142.5", false, false,
+       "basis_unorderable"},
+      {"codex", "0.144.4", "unknown", false, false,
+       "basis_unorderable"},
+      {"codex", "0.300.0", "0.145.0", true, true, {}},
+      {"claude-code", "2.1.211", "2.1.202", true, false, {}},
+      {"claude-code", "2.9.0", "2.2.0", true, true, {}},
+      // The pack MIN is not an open-side admission invariant (§A7.4).
+      {"codex", "0.61.0", "0.61.0", true, false, {}},
+  };
+
+  for (const auto& test : cases) {
+    DYNAMIC_SECTION(test.agent << " host " << test.host << " image "
+                               << test.image) {
+      const auto admission = biv::adapters::version_floor::admit(
+          {.agent = test.agent,
+           .host_version = test.host,
+           .image_version = test.image});
+      CHECK(admission.admitted == test.admitted);
+      CHECK(admission.host_version_unverified ==
+            test.host_version_unverified);
+      CHECK(admission.detail == test.detail);
+    }
+  }
+}
+
+TEST_CASE("FX-VF-O2 codex direction refusal is per-session and transports detail") {
+  const auto root = make_tmp("fx-vf-o2");
+  auto members = std::map<std::string, std::vector<std::byte>>{};
+  auto target = target_for(root / "workspace", root / "codex", members);
+  target.capabilities = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"0.142.5"}, false, true,
+      {.collect = true, .install = true, .rewrite = true});
+  auto newer = codex_entry("019faaaa-bbbb-7ccc-8ddd-eeeeeeee0201", "unused");
+  newer.agent_version_at_pack = "0.145.0";
+  newer.children.clear();
+  newer.artifacts.clear();
+  auto older = codex_entry("019faaaa-bbbb-7ccc-8ddd-eeeeeeee0202", "unused");
+  older.agent_version_at_pack = "0.142.1";
+  older.children.clear();
+  older.artifacts.clear();
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{newer, older});
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.at(0).detail ==
+        std::optional<std::string>{std::string{
+            biv::adapters::version_floor::kBasisNewerThanHost}});
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Codex admission refuses an unparseable host version through InstallTarget") {
+  const auto root = make_tmp("host-unparseable");
+  auto members = std::map<std::string, std::vector<std::byte>>{};
+  auto capabilities = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"unknown"}, false, true,
+      {.collect = true, .install = true, .rewrite = true});
+  auto target = target_for(root / "workspace", root / "codex", members,
+                           std::move(capabilities));
+  auto record =
+      codex_entry("019faaaa-bbbb-7ccc-8ddd-eeeeeeee0402", "unused");
+  record.children.clear();
+  record.artifacts.clear();
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{record});
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK_FALSE(result->sessions.front().host_version_unverified);
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("FX-VF-O4 and FX-MG-7 codex hostile bases refuse before ordering") {
+  const std::string nul_bearing{"0.144.\0", 7U};
+  const std::string control_bearing{"0.144.\x1f", 7U};
+  const std::vector<std::pair<std::string, std::string>> cases{
+      {"basis-absent", ""},
+      {"basis-null", "null"},
+      {"basis-nul-bearing", nul_bearing},
+      {"basis-non-numeric", "0.14x"},
+      {"basis-overlong-patch", "0.144.1234567890"},
+      {"basis-control-bearing", control_bearing},
+      {"basis-unicode-bearing", "0.144.\xE2\x98\x83"},
+      {"basis-line-valid-but-unparseable", "0.144."}};
+
+  for (const auto& [name, basis] : cases) {
+    DYNAMIC_SECTION(name) {
+      const auto root = make_tmp("fx-vf-o4-" + name);
+      auto members = std::map<std::string, std::vector<std::byte>>{};
+      auto target = target_for(root / "workspace", root / "codex", members);
+      target.capabilities = biv::adapters::Capabilities::from_probe(
+          biv::adapters::Capabilities::Verdict::readable,
+          std::optional<std::string>{"0.142.5"}, false, true,
+          {.collect = true, .install = true, .rewrite = true});
+      auto record =
+          codex_entry("019faaaa-bbbb-7ccc-8ddd-eeeeeeee0401", "unused");
+      record.agent_version_at_pack = basis;
+      record.children.clear();
+      record.artifacts.clear();
+
+      const auto result = biv::adapters::codex_adapter().install(
+          target, biv::adapters::Consent::yes, std::vector{record});
+
+      REQUIRE(result.has_value());
+      REQUIRE(result->sessions.size() == 1U);
+      CHECK(result->sessions.front().outcome ==
+            biv::adapters::InstallSessionOutcome::Outcome::failed);
+      CHECK(result->sessions.front().reason ==
+            std::optional<std::string>{"not-validated"});
+      CHECK(result->sessions.front().detail ==
+            std::optional<std::string>{std::string{
+                biv::adapters::version_floor::kBasisUnorderable}});
+      CHECK(result->id_map.empty());
+      CHECK(result->activation.empty());
+      fs::remove_all(root);
+    }
+  }
+}
 
 TEST_CASE(
     "Codex install rewrites parent and child rollouts with coherent "
@@ -468,7 +674,7 @@ TEST_CASE("FX-CX-144 discover collect install preserves new rollout variants") {
   fs::remove_all(root);
 }
 
-TEST_CASE("Task 3 Codex install keeps the existing unverified image-version gate") {
+TEST_CASE("Codex install uses grammar and direction instead of an allowlist") {
   const auto root = make_tmp("capability-gate");
   const auto workspace = root / "workspace";
   fs::create_directories(workspace);
@@ -485,7 +691,7 @@ TEST_CASE("Task 3 Codex install keeps the existing unverified image-version gate
   REQUIRE(supported->sessions.size() == 1);
   CHECK(supported->mode == biv::adapters::InstallResult::Mode::host_installed);
   CHECK(supported->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::installed);
-  CHECK(supported->sessions.front().host_version_unverified);
+  CHECK_FALSE(supported->sessions.front().host_version_unverified);
   REQUIRE(supported->activation.size() == 1);
 
   const auto unknown_image_store = root / "unknown-image-codex";
@@ -501,26 +707,34 @@ TEST_CASE("Task 3 Codex install keeps the existing unverified image-version gate
   REQUIRE(unknown->sessions.size() == 1);
   CHECK(unknown->sessions.front().outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(unknown->sessions.front().reason ==
+        std::optional<std::string>{"not-validated"});
   CHECK(unknown->sessions.front().detail ==
-        std::optional<std::string>{"capability_refused"});
+        std::optional<std::string>{"basis_unorderable"});
   CHECK_FALSE(unknown->sessions.front().host_version_unverified);
   CHECK(unknown->id_map.empty());
   CHECK(unknown->activation.empty());
   CHECK(relative_files(unknown_image_store).empty());
 
-  const auto unvalidated_store = root / "unvalidated-codex";
-  fs::create_directories(unvalidated_store);
-  auto unvalidated_caps = supported_target.capabilities;
-  unvalidated_caps.verdict = biv::adapters::Capabilities::Verdict::unvalidated;
-  auto unvalidated_target = target_for(workspace, unvalidated_store, members, unvalidated_caps);
-  const auto unvalidated = adapter.install(unvalidated_target, biv::adapters::Consent::yes, valid_records);
-  REQUIRE(unvalidated.has_value());
-  REQUIRE(unvalidated->sessions.size() == 1);
-  CHECK(unvalidated->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::failed);
-  CHECK(unvalidated->sessions.front().detail == std::optional<std::string>{"capability_refused"});
-  CHECK(unvalidated->id_map.empty());
-  CHECK(unvalidated->activation.empty());
-  CHECK_FALSE(fs::exists(unvalidated_store / "sessions"));
+  const auto forward_store = root / "forward-codex";
+  fs::create_directories(forward_store);
+  auto forward_caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"0.300.0"}, true, true,
+      {.collect = true, .install = true, .rewrite = true});
+  auto forward_target =
+      target_for(workspace, forward_store, members, std::move(forward_caps));
+  const auto forward = adapter.install(
+      forward_target, biv::adapters::Consent::yes, valid_records);
+  REQUIRE(forward.has_value());
+  REQUIRE(forward->sessions.size() == 1);
+  CHECK(forward->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(forward->sessions.front().host_version_unverified);
+  CHECK_FALSE(forward->sessions.front().detail.has_value());
+  REQUIRE(forward->id_map.size() == 1U);
+  REQUIRE(forward->activation.size() == 1U);
+  CHECK(fs::exists(forward_store / "sessions"));
   fs::remove_all(root);
 }
 
@@ -652,6 +866,59 @@ TEST_CASE("Codex install refuses nonzero rewrite verification before writing") {
   fs::remove_all(root);
 }
 
+TEST_CASE(
+    "Codex rewrite verification preserves a sibling capability refusal") {
+  const auto root = make_tmp("verify-refusal-cohort");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = codex_members();
+  auto hostile = bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"
+                                   "\"id\":\""} +
+                       std::string{kParent} + "\",\"session_id\":\"" +
+                       std::string{kParent} + "\",\"cwd\":\"/ws/proj\"}}");
+  hostile.push_back(static_cast<std::byte>(0xff));
+  hostile.push_back(static_cast<std::byte>('\n'));
+  members.at(parent_artifact()) = std::move(hostile);
+  auto target = target_for(workspace, store, members);
+  auto refused =
+      codex_entry("019faaaa-bbbb-7ccc-8ddd-eeeeeeee9005");
+  refused.agent_version_at_pack = "unknown";
+  refused.children.clear();
+  refused.artifacts.clear();
+  const std::vector<biv::manifest::AgentSessionEntry> records{refused,
+                                                              codex_entry()};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2U);
+  const auto row_for = [&](const std::string_view id) {
+    return std::ranges::find_if(result->sessions, [&](const auto& row) {
+      return row.image_session_id == id;
+    });
+  };
+  const auto refused_row = row_for(refused.original_session_ids.primary);
+  const auto verify_row = row_for(codex_entry().original_session_ids.primary);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(verify_row != result->sessions.end());
+  CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK(verify_row->reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(verify_row->detail ==
+        std::optional<std::string>{"rewrite_verify_failed"});
+  CHECK(verify_row->verify.origin_path_hits > 0U);
+  CHECK(verify_row->verify.origin_id_hits > 0U);
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(relative_files(store).empty());
+  fs::remove_all(root);
+}
+
 TEST_CASE("Codex install refuses every unverifiable escaped origin line") {
   struct HostileLine {
     std::string name;
@@ -766,18 +1033,28 @@ TEST_CASE("Task 3 Codex capabilities parse probe output and ignore store version
     biv::adapters::Capabilities::Verdict verdict;
     std::optional<std::string> parsed;
     biv::support::ProbeOutcome outcome;
+    bool newer_than_survey;
   };
   const std::vector<ProbeCase> cases{
-      {"codex-cli 0.144.4\n", biv::adapters::Capabilities::Verdict::validated, "0.144.4",
-       biv::support::ProbeOutcome::ok},
-      {"codex-cli 0.142.9 trailing text ", biv::adapters::Capabilities::Verdict::validated, "0.142.9",
-       biv::support::ProbeOutcome::ok},
-      {"codex-cli 0.145.0\n", biv::adapters::Capabilities::Verdict::unvalidated, "0.145.0",
-       biv::support::ProbeOutcome::ok},
-      {"not a version", biv::adapters::Capabilities::Verdict::unvalidated_host, std::nullopt,
-       biv::support::ProbeOutcome::unparseable},
-      {"", biv::adapters::Capabilities::Verdict::unvalidated_host, std::nullopt,
-       biv::support::ProbeOutcome::unparseable}};
+      {"codex-cli 0.144.4\n", biv::adapters::Capabilities::Verdict::readable, "0.144.4",
+       biv::support::ProbeOutcome::ok, false},
+      {"codex-cli 0.142.9 trailing text ", biv::adapters::Capabilities::Verdict::readable, "0.142.9",
+       biv::support::ProbeOutcome::ok, false},
+      {"codex-cli 0.145.0\n", biv::adapters::Capabilities::Verdict::readable, "0.145.0",
+       biv::support::ProbeOutcome::ok, true},
+      {"codex-cli v0.145.0-alpha.1+build\n",
+       biv::adapters::Capabilities::Verdict::readable,
+       "v0.145.0-alpha.1+build", biv::support::ProbeOutcome::ok, true},
+      {"codex-cli 0.145.0.1\n",
+       biv::adapters::Capabilities::Verdict::readable, "0.145.0.1",
+       biv::support::ProbeOutcome::ok, true},
+      {"codex-cli 0.145.0\nsandbox-runtime 0.142.9\n",
+       biv::adapters::Capabilities::Verdict::unreadable, std::nullopt,
+       biv::support::ProbeOutcome::unparseable, false},
+      {"not a version", biv::adapters::Capabilities::Verdict::unreadable, std::nullopt,
+       biv::support::ProbeOutcome::unparseable, false},
+      {"", biv::adapters::Capabilities::Verdict::unreadable, std::nullopt,
+       biv::support::ProbeOutcome::unparseable, false}};
 
   for (const auto& probe_case : cases) {
     DYNAMIC_SECTION(probe_case.raw) {
@@ -823,9 +1100,9 @@ TEST_CASE("Task 3 Codex capabilities parse probe output and ignore store version
       const auto caps = biv::adapters::codex_adapter().capabilities(host);
 
       CHECK(observations == 1);
-      CHECK(caps.validated_range == "0.142.x, 0.144.x");
-      CHECK(caps.verdict == probe_case.verdict);
-      CHECK(caps.agent_version == probe_case.parsed.value_or("unknown"));
+      CHECK(caps.verdict() == probe_case.verdict);
+      CHECK(caps.agent_version() == probe_case.parsed.value_or("unknown"));
+      CHECK(caps.newer_than_survey() == probe_case.newer_than_survey);
       REQUIRE(caps.probe.has_value());
       CHECK(caps.probe->parsed == probe_case.parsed);
       CHECK(caps.probe->outcome == probe_case.outcome);
@@ -871,9 +1148,9 @@ TEST_CASE("Task 3 Codex capabilities preserve not-found and timeout evidence") {
       const auto caps = biv::adapters::codex_adapter().capabilities(host);
 
       CHECK(observations == 1);
-      CHECK(caps.verdict ==
-            biv::adapters::Capabilities::Verdict::unvalidated_host);
-      CHECK(caps.agent_version == "unknown");
+      CHECK(caps.verdict() ==
+            biv::adapters::Capabilities::Verdict::absent);
+      CHECK(caps.agent_version() == "unknown");
       REQUIRE(caps.probe.has_value());
       CHECK(caps.probe->outcome == outcome);
       CHECK_FALSE(caps.probe->parsed.has_value());
@@ -894,8 +1171,8 @@ TEST_CASE("Task 3 Codex capabilities preserve not-found and timeout evidence") {
 
   const auto caps = biv::adapters::codex_adapter().capabilities(host);
 
-  CHECK(caps.verdict ==
-        biv::adapters::Capabilities::Verdict::unvalidated_host);
+  CHECK(caps.verdict() ==
+        biv::adapters::Capabilities::Verdict::absent);
   CHECK_FALSE(caps.probe.has_value());
   fs::remove_all(root);
 
@@ -932,9 +1209,7 @@ TEST_CASE("Task 3 Codex capabilities preserve not-found and timeout evidence") {
   fs::remove_all(error_root);
 }
 
-TEST_CASE(
-    "Task 3 Codex probe verdict is orthogonal to store availability and "
-    "failures") {
+TEST_CASE("Task 5 Codex absent store dominates readable probe") {
   const auto root = make_tmp("probe-store-orthogonal");
   const auto& adapter = biv::adapters::codex_adapter();
   const biv::adapters::Env env{.getenv = [](std::string_view) -> std::optional<std::string> { return std::nullopt; },
@@ -959,7 +1234,9 @@ TEST_CASE(
 
   const auto caps = adapter.capabilities(working_host);
   CHECK(observations == 1);
-  CHECK(caps.verdict == biv::adapters::Capabilities::Verdict::validated);
+  CHECK(caps.verdict() == biv::adapters::Capabilities::Verdict::absent);
+  CHECK(caps.agent_version() == "unknown");
+  CHECK_FALSE(caps.newer_than_survey());
   CHECK_FALSE(caps.per_verb.collect);
   CHECK_FALSE(caps.per_verb.install);
   CHECK_FALSE(caps.per_verb.rewrite);
@@ -981,7 +1258,7 @@ TEST_CASE(
       },
       .pinned_bins = {}};
   const auto failed = adapter.capabilities(failed_host);
-  CHECK(failed.verdict == biv::adapters::Capabilities::Verdict::unvalidated_host);
+  CHECK(failed.verdict() == biv::adapters::Capabilities::Verdict::unreadable);
   REQUIRE(failed.probe.has_value());
   CHECK(failed.probe->outcome == biv::support::ProbeOutcome::nonzero_exit);
   CHECK(failed.per_verb.collect);
@@ -1003,12 +1280,10 @@ TEST_CASE(
     marker << "{\"version\":\"0.61.0\"}\n";
   }
   auto members = codex_members();
-  biv::adapters::Capabilities capabilities;
-  capabilities.agent_version = "0.144.4";
-  capabilities.validated_range = "0.142.x, 0.144.x";
-  capabilities.verdict = biv::adapters::Capabilities::Verdict::validated;
-  capabilities.long_path_keys_pinned = true;
-  capabilities.per_verb = {.collect = true, .install = true, .rewrite = true};
+  auto capabilities = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"0.144.4"}, false, true,
+      {.collect = true, .install = true, .rewrite = true});
   auto target = target_for(workspace, store, members, std::move(capabilities));
 
   const auto installed = biv::adapters::codex_adapter().install(
@@ -1056,9 +1331,9 @@ TEST_CASE("Codex preserves a capability refusal through a containment publish fa
   REQUIRE(refused_row != result->sessions.end());
   REQUIRE(cohort_row != result->sessions.end());
 
-  CHECK(refused_row->reason == std::optional<std::string>{"error"});
+  CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
   CHECK(refused_row->detail ==
-        std::optional<std::string>{"capability_refused"});
+        std::optional<std::string>{"basis_unorderable"});
   CHECK(cohort_row->reason ==
         std::optional<std::string>{"containment_refused"});
 
@@ -1097,9 +1372,9 @@ TEST_CASE("Codex preserves a capability refusal through an ambient publish fault
   REQUIRE(refused_row != result->sessions.end());
   REQUIRE(cohort_row != result->sessions.end());
 
-  CHECK(refused_row->reason == std::optional<std::string>{"error"});
+  CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
   CHECK(refused_row->detail ==
-        std::optional<std::string>{"capability_refused"});
+        std::optional<std::string>{"basis_unorderable"});
   CHECK(cohort_row->outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
   CHECK(cohort_row->reason == std::optional<std::string>{"error"});
