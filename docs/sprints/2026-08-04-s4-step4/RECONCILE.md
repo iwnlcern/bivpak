@@ -163,3 +163,14 @@ required. **Shared-infra note: the JSON writer is repo-shared leaf infrastructur
 addition rides the floor's act window (single-owner rule); the matrix pair REBASES over
 it before touching writer surfaces.** The implementer's stop-without-editing was the
 standing conditions working — second live catch by the pair's own gates this run.
+
+**Locked-schema blob-lock discipline (RULING OF RECORD, both pairs — disposed `200505`):**
+`harness/selftest/test_envelope.py`'s `CURRENT_LOCKED_SCHEMA_BLOBS` recaptures
+MECHANICALLY, literal-for-literal, in the SAME reviewed head that changes the
+corresponding locked schema (envelope schema / exit map) — the recapture rides the
+review that approved the schema change, so lock-green is always a reviewed decision.
+Recapturing a literal whose schema the head did not change, or any other edit to the
+file, is a deviation. Binds the floor slices (B1/A/C) and the matrix Arm-1 schema act
+identically, inside whichever act window owns the schema file. DISTINCT from the frozen
+open-envelope ORACLE's once-per-window recapture rule, which stands unchanged —
+different instrument, different discipline.
