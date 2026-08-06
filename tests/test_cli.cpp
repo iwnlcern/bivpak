@@ -506,6 +506,52 @@ TEST_CASE("CLI reports warning and refusal exit classes") {
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("CLI pack text renders live session warnings and omits warnings-free output") {
+  const auto root = std::filesystem::canonical(make_tmp("text-warnings"));
+  const auto live_source = root / "proj";
+  const auto clean_source = root / "clean";
+  const auto claude_store = root / "claude-store";
+  std::filesystem::create_directories(live_source);
+  std::filesystem::create_directories(clean_source);
+  write_file(live_source / "work.txt", "workspace");
+  write_file(clean_source / "work.txt", "workspace");
+
+  const auto fixture = std::filesystem::path{BIV_SOURCE_DIR} / "tests" /
+                       "fixtures" / "claude_store" / "projects" / "-ws-proj" /
+                       "aaaaaaaa-1111-4000-8000-000000000001.jsonl";
+  auto transcript = read_text(fixture);
+  for (size_t position = 0;
+       (position = transcript.find("/ws/proj", position)) != std::string::npos;) {
+    transcript.replace(position, 8, live_source.generic_string());
+    position += live_source.generic_string().size();
+  }
+  write_file(claude_store / "projects" / "-ws-proj" / fixture.filename(), transcript);
+  auto live_fact = read_text(std::filesystem::path{BIV_SOURCE_DIR} / "tests" /
+                             "fixtures" / "claude_store" / "sessions" / "12345.json");
+  const auto cwd_position = live_fact.find("/ws/proj");
+  REQUIRE(cwd_position != std::string::npos);
+  live_fact.replace(cwd_position, 8, live_source.generic_string());
+  write_file(claude_store / "sessions" / "12345.json", live_fact);
+
+  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", claude_store.string()};
+  const ScopedEnv codex_home{"CODEX_HOME", (root / "no-codex-store").string()};
+  const ScopedEnv home{"HOME", root.string()};
+
+  const auto live = run_cmd("pack '" + live_source.string() + "'", root);
+  REQUIRE(live.code == 2);
+  const auto live_line = line_containing(live.out, "aaaaaaaa-1111-4000-8000-000000000001");
+  CHECK(live_line.find("may") != std::string::npos);
+  CHECK(live_line.find(" is active") == std::string::npos);
+  CHECK(live.out.find("aaaaaaaa-1111-4000-8000-000000000001", live.out.find(
+      "aaaaaaaa-1111-4000-8000-000000000001") + 1U) == std::string::npos);
+
+  const auto clean = run_cmd("pack '" + clean_source.string() + "'", root);
+  REQUIRE(clean.code == 0);
+  CHECK(clean.out.find("warning:") == std::string::npos);
+
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("CLI parses open consent specifications") {
   const auto root = make_tmp("consent-valid");
   for (const std::string value : {"yes", "no", "claude-code=yes,codex=no"}) {
