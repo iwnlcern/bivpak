@@ -42,8 +42,11 @@ endforeach()
 
 option(BIV_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 
-add_library(biv_support STATIC src/core/support/portability.cpp)
+add_library(biv_support STATIC
+  src/core/support/portability.cpp
+  src/core/support/subprocess.cpp)
 target_include_directories(biv_support PUBLIC src)
+target_link_libraries(biv_support PUBLIC Threads::Threads)
 target_compile_options(biv_support PRIVATE -Wall -Wextra -Werror)
 
 add_library(bivcore STATIC
@@ -88,9 +91,16 @@ target_link_libraries(biv PRIVATE bivcore biv_adapters)
 target_compile_options(biv PRIVATE -Wall -Wextra -Werror)
 
 enable_testing()
+add_executable(biv_subprocess_tests tests/test_subprocess.cpp)
+target_include_directories(biv_subprocess_tests PRIVATE src)
+target_link_libraries(biv_subprocess_tests PRIVATE
+  biv_support Catch2::Catch2WithMain)
+target_compile_options(biv_subprocess_tests PRIVATE -Wall -Wextra -Werror)
+add_test(NAME subprocess COMMAND biv_subprocess_tests)
+
 add_library(biv_probe_test_seam STATIC src/core/support/probe.cpp)
 target_include_directories(biv_probe_test_seam PUBLIC src)
-target_link_libraries(biv_probe_test_seam PRIVATE Threads::Threads)
+target_link_libraries(biv_probe_test_seam PRIVATE biv_support Threads::Threads)
 target_compile_options(biv_probe_test_seam PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_probe_test_seam PRIVATE
   BIV_PROBE_TESTING=1
@@ -104,7 +114,8 @@ add_executable(biv_tests
   tests/test_manifest.cpp
   tests/test_scan.cpp
   tests/test_portability.cpp
-  tests/test_support.cpp)
+  tests/test_support.cpp
+  tests/test_probe.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_writer.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_reader.cpp)
 target_sources(biv_tests PRIVATE tests/test_pack.cpp)
@@ -118,7 +129,6 @@ target_sources(biv_tests PRIVATE tests/test_adapter_codex_collect.cpp)
 target_sources(biv_tests PRIVATE tests/test_adapter_codex_install.cpp)
 target_sources(biv_tests PRIVATE tests/test_sessions.cpp)
 target_sources(biv_tests PRIVATE tests/test_render.cpp)
-target_sources(biv_tests PRIVATE tests/test_probe.cpp)
 target_link_libraries(biv_tests PRIVATE
   biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
@@ -129,6 +139,16 @@ target_compile_definitions(biv_tests PRIVATE
   BIV_BINARY_PATH="$<TARGET_FILE:biv>"
   BIV_GENERATED_ENVELOPE_PATH="${BIV_GENERATED_ENVELOPE}")
 add_test(NAME biv_tests COMMAND biv_tests)
+
+add_executable(biv_probe_tests tests/test_probe.cpp)
+target_link_libraries(biv_probe_tests PRIVATE
+  biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
+target_compile_options(biv_probe_tests PRIVATE -Wall -Wextra -Werror)
+target_compile_definitions(biv_probe_tests PRIVATE
+  BIV_PROBE_TESTING=1
+  BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME probe COMMAND biv_probe_tests)
+
 add_test(NAME open_no_rewrite_gate
   COMMAND ${CMAKE_SOURCE_DIR}/tests/check_open_no_rewrite.sh
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
