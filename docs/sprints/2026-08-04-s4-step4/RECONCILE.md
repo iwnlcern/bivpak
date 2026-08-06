@@ -174,3 +174,15 @@ file, is a deviation. Binds the floor slices (B1/A/C) and the matrix Arm-1 schem
 identically, inside whichever act window owns the schema file. DISTINCT from the frozen
 open-envelope ORACLE's once-per-window recapture rule, which stands unchanged —
 different instrument, different discipline.
+
+**C1 whole-file anchor recapture (RULING OF RECORD, master `002520` via `002730` —
+distinct from the A2 blob-lock ruling):** `_ADAPTER_SOURCE_ANCHORS` in
+`harness/bivharness/e3.py` recaptures per slice head that changes an anchored file —
+one literal, same reviewed head — PLUS the non-perturbation re-verification: the s3
+fold's RED-arm coverage re-run for the changed leg (each `153958` §4 read-side session
+literal mutation-checked RED and receipted) and a class-scoped statement that the head's
+diff touches none of them. The A2 analogue deliberately did NOT carry: A2 records an
+authorized schema change; C1 attests non-perturbation over the F-4-forbidden surface,
+so the re-green uses the instrument's native evidence class. B2 inherits (both anchors);
+per-head, never batched; option 2b (re-anchor to the protected surface) is upstream
+R-3.40 item (11), re-opened by REPORTED ceremony burden.
