@@ -39,14 +39,14 @@ FOLD_SCOPE_RESULT: all-in
 DONE_WITH_CONCERNS
 
 The complete F1-F9 fold is committed and pushed at
-`ff63e52605c7ab2f8749808643a26c0c65bc33ba` on
+`ff63e521d8ae5229a831aab8718a3fa58205f40f` on
 `s4-floor/b1-codex-liveness`; draft PR #15 points to that exact head. The semantic
 fold is `80d6f79b41ce51c509e3e1e46dba2ba40a4a1cc8`. Three later same-scope commits
 close diagnostics exposed only by the current-head Linux CI toolchain:
 
-- `b1c64df6c4b709bd1c8518bf95b3ff4d31b9aa0` defaults the optional warning facts;
+- `b1c64dfb6c4b709bd1c8518bf95b3ff4d31b9aa0` defaults the optional warning facts;
 - `9854dcac41c5ea793d95c41b10014fbcadbaab42` defaults the omittable warning path;
-- `ff63e52605c7ab2f8749808643a26c0c65bc33ba` collapses identical formatter-call
+- `ff63e521d8ae5229a831aab8718a3fa58205f40f` collapses identical formatter-call
   branches while retaining both m-3 consumer spelling markers.
 
 None of those follow-ups changes `src/adapters/codex/codex.cpp`, so the last-step C1
@@ -147,14 +147,14 @@ report does not smooth over the scar.
 ## Requested next action and holds
 
 Planner targeted re-check is requested at exact PR head
-`ff63e52605c7ab2f8749808643a26c0c65bc33ba` for the F1 fixture, F2 control-byte
+`ff63e521d8ae5229a831aab8718a3fa58205f40f` for the F1 fixture, F2 control-byte
 witness, F3 JSON witness, promoted-predicate relink/F5 dissolution, and the
 post-fold panel-at-SHA record. Slice A is not restacked until that re-check and a
 subsequent addressed re-dispatch. No merge or release action is taken or authorized.
 
-ACTIONS_GIT_REF: B1 fold `80d6f79b41ce51c509e3e1e46dba2ba40a4a1cc8` plus current-head diagnostic closures `b1c64df6c4b709bd1c8518bf95b3ff4d31b9aa0`, `9854dcac41c5ea793d95c41b10014fbcadbaab42`, and `ff63e52605c7ab2f8749808643a26c0c65bc33ba`; PR #15 updated at exact head ff63e52; docs receipts committed at dd62e97; this relay and append-only INDEX row are committed on the docs lane after author-side lint, with SHA in the commit record
+ACTIONS_GIT_REF: B1 fold `80d6f79b41ce51c509e3e1e46dba2ba40a4a1cc8` plus current-head diagnostic closures `b1c64dfb6c4b709bd1c8518bf95b3ff4d31b9aa0`, `9854dcac41c5ea793d95c41b10014fbcadbaab42`, and `ff63e521d8ae5229a831aab8718a3fa58205f40f`; PR #15 updated at exact head ff63e52; docs receipts committed at dd62e97; this relay and append-only INDEX row are committed on the docs lane after author-side lint, with SHA in the commit record
 FINAL_GIT_STATUS_SHORT: B1 worktree clean at ff63e52 and equal to origin/s4-floor/b1-codex-liveness; docs lane clean at dd62e97 before this relay and INDEX append
 
 CARRY LIST:
 - `.relays/s4/s4-floor-impl/REVIEW-FOLD-IMPLEMENTER-B1-F1-F9-FILED-20260806-042441.md` → `s4-floor.planner`
-- `https://github.com/iwnlcern/bivpak/pull/15` at `ff63e52605c7ab2f8749808643a26c0c65bc33ba` → targeted re-check only; merge/release held
+- `https://github.com/iwnlcern/bivpak/pull/15` at `ff63e521d8ae5229a831aab8718a3fa58205f40f` → targeted re-check only; merge/release held
