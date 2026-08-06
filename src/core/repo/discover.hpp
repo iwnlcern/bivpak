@@ -18,6 +18,7 @@ struct RepoBoundary {
 };
 
 struct Discovery {
+  std::filesystem::path root;
   std::vector<RepoBoundary> repos;
 };
 

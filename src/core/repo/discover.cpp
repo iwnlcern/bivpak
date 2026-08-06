@@ -12,8 +12,7 @@ BivError discovery_error(const std::filesystem::path& path,
                   error.value()};
 }
 
-expected<void> walk(const std::filesystem::path& root,
-                    const std::filesystem::path& directory,
+expected<void> walk(const std::filesystem::path& directory,
                     const ignore::Matcher& matcher,
                     const std::optional<std::size_t> parent,
                     Discovery& result) {
@@ -44,7 +43,8 @@ expected<void> walk(const std::filesystem::path& root,
     if (name == ".git" || name == ".biv") {
       continue;
     }
-    const auto rel = std::filesystem::relative(child.path(), root, status_error);
+    const auto rel =
+        std::filesystem::relative(child.path(), result.root, status_error);
     if (status_error) {
       return std::unexpected(discovery_error(child.path(), status_error));
     }
@@ -61,14 +61,14 @@ expected<void> walk(const std::filesystem::path& root,
     status_error.clear();
     if (std::filesystem::is_directory(marker_status) ||
         std::filesystem::is_regular_file(marker_status)) {
-      const auto kind = std::filesystem::is_regular_file(marker_status)
-                            ? RepoKind::submodule
-                            : (parent ? RepoKind::nested : RepoKind::repo);
+      // A .git file is also the normal marker for a linked worktree. Only the
+      // parent index's 160000 mode can authoritatively identify a submodule.
+      const auto kind = parent ? RepoKind::nested : RepoKind::repo;
       result.repos.push_back(
           RepoBoundary{.relpath = rel, .kind = kind, .parent_index = parent});
       next_parent = result.repos.size() - 1U;
     }
-    if (auto nested = walk(root, child.path(), matcher, next_parent, result); !nested) {
+    if (auto nested = walk(child.path(), matcher, next_parent, result); !nested) {
       return nested;
     }
   }
@@ -80,6 +80,7 @@ expected<void> walk(const std::filesystem::path& root,
 expected<Discovery> discover(const std::filesystem::path& root,
                              const ignore::Matcher& matcher) {
   Discovery result;
+  result.root = root.lexically_normal();
   std::error_code error;
   if (!std::filesystem::is_directory(root, error) || error) {
     return std::unexpected(discovery_error(root, error));
@@ -88,10 +89,12 @@ expected<Discovery> discover(const std::filesystem::path& root,
   const auto marker_status = std::filesystem::symlink_status(marker, error);
   if (!error && (std::filesystem::is_directory(marker_status) ||
                  std::filesystem::is_regular_file(marker_status))) {
-    result.repos.push_back(RepoBoundary{.relpath = ".", .kind = RepoKind::repo});
+    result.repos.push_back(RepoBoundary{.relpath = ".",
+                                        .kind = RepoKind::repo,
+                                        .parent_index = std::nullopt});
   }
   error.clear();
-  if (auto walked = walk(root, root, matcher,
+  if (auto walked = walk(root, matcher,
                          result.repos.empty()
                              ? std::optional<std::size_t>{}
                              : std::optional<std::size_t>{0U},

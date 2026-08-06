@@ -5,6 +5,7 @@
 #include <ctime>
 #include <fstream>
 #include <iomanip>
+#include <iterator>
 #include <sstream>
 #include <string_view>
 
@@ -13,13 +14,18 @@ namespace {
 
 BivError command_error(const std::filesystem::path& repo,
                        const std::string_view operation) {
-  return BivError{ErrKind::InternalError, repo,
-                  "repo classification git invocation failed: " +
-                      std::string{operation}};
+  return make_engine_error(
+      EngineErrorKind::git_invocation_failed, repo,
+      "repo classification git invocation failed: " + std::string{operation});
 }
 
 std::string bytes(const std::vector<std::byte>& value) {
-  return {reinterpret_cast<const char*>(value.data()), value.size()};
+  std::string output;
+  output.reserve(value.size());
+  std::ranges::transform(value, std::back_inserter(output), [](const auto byte) {
+    return static_cast<char>(std::to_integer<unsigned char>(byte));
+  });
+  return output;
 }
 
 std::string trim_newline(std::string value) {
@@ -33,10 +39,14 @@ expected<support::SpawnResult> invoke(const Git& git,
                                       const std::filesystem::path& repo,
                                       std::vector<std::string> args,
                                       const bool no_lazy_fetch = false) {
-  auto result = git.run(args, {}, Git::Opts{.cwd = repo,
-                                            .no_lazy_fetch = no_lazy_fetch});
+  Git::Opts options;
+  options.cwd = repo;
+  options.no_lazy_fetch = no_lazy_fetch;
+  auto result = git.run(args, {}, options);
   if (!result) {
-    return std::unexpected(result.error());
+    return std::unexpected(make_engine_error(
+        EngineErrorKind::git_invocation_failed, repo,
+        "repo classification subprocess failed: " + result.error().detail));
   }
   if (result->spawn_failed || result->timed_out || result->io_failed) {
     return std::unexpected(command_error(repo, args.empty() ? "git" : args.front()));
@@ -120,6 +130,52 @@ bool promisor_enabled(const std::string& output) {
   return false;
 }
 
+void append_nul_paths(const std::string& output,
+                      std::vector<std::filesystem::path>& paths) {
+  std::size_t cursor = 0;
+  while (cursor < output.size()) {
+    const auto end = output.find('\0', cursor);
+    if (end != cursor) {
+      paths.emplace_back(output.substr(cursor, end - cursor));
+    }
+    if (end == std::string::npos) {
+      break;
+    }
+    cursor = end + 1U;
+  }
+}
+
+expected<std::vector<std::filesystem::path>> snapshot_penumbra(
+    const Git& git, const std::filesystem::path& repo,
+    const bool no_lazy_fetch) {
+  std::vector<std::filesystem::path> paths;
+  for (const auto& args :
+       {std::vector<std::string>{"ls-files", "--others", "--exclude-standard", "-z"},
+        std::vector<std::string>{"ls-files", "--others", "--ignored",
+                                 "--exclude-standard", "-z"}}) {
+    auto listed = invoke(git, repo, args, no_lazy_fetch);
+    if (!listed || listed->exit_code != 0) {
+      return std::unexpected(listed ? command_error(repo, "ls-files penumbra")
+                                    : listed.error());
+    }
+    append_nul_paths(bytes(listed->stdout_bytes), paths);
+  }
+  std::ranges::sort(paths);
+  paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+  return paths;
+}
+
+expected<void> record_penumbra(const Git& git, EngineSourceState& source_state,
+                               const bool promisor,
+                               const std::filesystem::path& repo) {
+  auto snapshot = snapshot_penumbra(git, repo, promisor);
+  if (!snapshot) {
+    return std::unexpected(snapshot.error());
+  }
+  source_state.penumbra_paths = std::move(*snapshot);
+  return {};
+}
+
 }  // namespace
 
 expected<Classification> classify(const Git& git,
@@ -127,7 +183,22 @@ expected<Classification> classify(const Git& git,
                                   const Discovery& discovery) {
   Classification result;
   result.entry.id = repo.filename().string();
-  result.entry.relpath = repo;
+  auto& source_state = result.entry.engine_source.emplace();
+  source_state.repo_path = repo;
+  if (!discovery.root.empty()) {
+    std::error_code relative_error;
+    result.entry.relpath =
+        std::filesystem::relative(repo, discovery.root, relative_error);
+    if (relative_error) {
+      return std::unexpected(make_engine_error(
+          EngineErrorKind::git_invocation_failed, repo,
+          "repo classification could not derive relative path"));
+    }
+  } else if (discovery.repos.size() == 1U) {
+    result.entry.relpath = discovery.repos.front().relpath;
+  } else {
+    result.entry.relpath = repo.filename();
+  }
 
   auto promisor = invoke(
       git, repo,
@@ -139,25 +210,6 @@ expected<Classification> classify(const Git& git,
   result.promisor =
       promisor->exit_code == 0 && promisor_enabled(bytes(promisor->stdout_bytes));
 
-  const auto nested = std::ranges::find_if(discovery.repos, [](const auto& boundary) {
-    return boundary.kind == RepoKind::nested;
-  });
-  if (nested != discovery.repos.end()) {
-    result.fence = Classification::Fence::nested;
-    result.issue = EngineIssue{.kind = EngineErrorKind::repo_nested_unsupported,
-                               .paths = {nested->relpath}};
-    return result;
-  }
-  const auto submodule = std::ranges::find_if(discovery.repos, [](const auto& boundary) {
-    return boundary.kind == RepoKind::submodule;
-  });
-  if (submodule != discovery.repos.end()) {
-    result.fence = Classification::Fence::submodule;
-    result.issue = EngineIssue{.kind = EngineErrorKind::repo_submodule_unsupported,
-                               .paths = {submodule->relpath}};
-    return result;
-  }
-
   auto index = invoke(git, repo, {"ls-files", "-s", "-z"}, result.promisor);
   if (!index || index->exit_code != 0) {
     return std::unexpected(index ? command_error(repo, "ls-files -s")
@@ -166,7 +218,19 @@ expected<Classification> classify(const Git& git,
   if (const auto gitlink = first_gitlink_path(bytes(index->stdout_bytes))) {
     result.fence = Classification::Fence::submodule;
     result.issue = EngineIssue{.kind = EngineErrorKind::repo_submodule_unsupported,
-                               .paths = {*gitlink}};
+                               .paths = {*gitlink},
+                               .detail = {}};
+    return result;
+  }
+
+  const auto nested = std::ranges::find_if(discovery.repos, [](const auto& boundary) {
+    return boundary.kind == RepoKind::nested;
+  });
+  if (nested != discovery.repos.end()) {
+    result.fence = Classification::Fence::nested;
+    result.issue = EngineIssue{.kind = EngineErrorKind::repo_nested_unsupported,
+                               .paths = {nested->relpath},
+                               .detail = {}};
     return result;
   }
 
@@ -197,7 +261,8 @@ expected<Classification> classify(const Git& git,
     paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
     result.fence = Classification::Fence::unmerged;
     result.issue = EngineIssue{.kind = EngineErrorKind::unmerged_index_unrepresentable,
-                               .paths = std::move(paths)};
+                               .paths = std::move(paths),
+                               .detail = {}};
     return result;
   }
 
@@ -221,11 +286,54 @@ expected<Classification> classify(const Git& git,
       result.entry.branch = trim_newline(bytes(branch->stdout_bytes));
     }
     if (!ref_pairs.empty()) {
+      for (const auto& [name, sha] : ref_pairs) {
+        if (name.starts_with("refs/heads/") || name.starts_with("refs/tags/")) {
+          result.entry.local_refs.push_back(LocalRef{
+              .ref = name,
+              .sha = sha,
+              .availability = RefAvailability::bundle_carried,
+              .proof = std::nullopt});
+        }
+      }
       result.entry.capture_mode = CaptureMode::full;
       result.entry.eligibility = Eligibility{
           .method = "ls-remote-ancestry",
           .result = EligibilityResult::unborn_head,
-          .checked_at = checked_at_now()};
+          .checked_at = checked_at_now(),
+          .proof = std::nullopt};
+
+      auto remotes = invoke(git, repo, {"remote"}, result.promisor);
+      if (!remotes || remotes->exit_code != 0) {
+        return std::unexpected(remotes ? command_error(repo, "remote")
+                                       : remotes.error());
+      }
+      const auto remote_names = bytes(remotes->stdout_bytes);
+      std::size_t cursor = 0;
+      while (cursor < remote_names.size()) {
+        const auto end = remote_names.find('\n', cursor);
+        const auto name = remote_names.substr(cursor, end - cursor);
+        if (!name.empty()) {
+          auto url = invoke(git, repo, {"remote", "get-url", name}, result.promisor);
+          if (!url || url->exit_code != 0) {
+            return std::unexpected(
+                url ? command_error(repo, "remote get-url") : url.error());
+          }
+          result.entry.remotes.push_back(
+              Remote{.name = name, .url = trim_newline(bytes(url->stdout_bytes))});
+        }
+        if (end == std::string::npos) {
+          break;
+        }
+        cursor = end + 1U;
+      }
+      if (!result.entry.remotes.empty()) {
+        result.entry.remote = result.entry.remotes.front().name;
+      }
+    }
+    if (auto recorded =
+            record_penumbra(git, source_state, result.promisor, repo);
+        !recorded) {
+      return std::unexpected(recorded.error());
     }
     return result;
   }
@@ -242,7 +350,10 @@ expected<Classification> classify(const Git& git,
   for (const auto& [name, sha] : ref_pairs) {
     if (name.starts_with("refs/heads/") || name.starts_with("refs/tags/")) {
       result.entry.local_refs.push_back(LocalRef{
-          .ref = name, .sha = sha, .availability = RefAvailability::bundle_carried});
+          .ref = name,
+          .sha = sha,
+          .availability = RefAvailability::bundle_carried,
+          .proof = std::nullopt});
     }
   }
 
@@ -279,8 +390,15 @@ expected<Classification> classify(const Git& git,
   if (!dirt->stdout_bytes.empty()) {
     result.entry.dirty = true;
     result.fence = Classification::Fence::dirty;
-    result.issue = EngineIssue{.kind = EngineErrorKind::repo_dirty_unsupported};
+    result.issue = EngineIssue{.kind = EngineErrorKind::repo_dirty_unsupported,
+                               .paths = {},
+                               .detail = {}};
     return result;
+  }
+
+  if (auto recorded = record_penumbra(git, source_state, result.promisor, repo);
+      !recorded) {
+    return std::unexpected(recorded.error());
   }
 
   auto shallow = invoke(git, repo, {"rev-parse", "--is-shallow-repository"},
@@ -289,7 +407,9 @@ expected<Classification> classify(const Git& git,
     return std::unexpected(shallow ? command_error(repo, "is-shallow") : shallow.error());
   }
   if (trim_newline(bytes(shallow->stdout_bytes)) == "true") {
-    Shallow metadata{.sha = *result.entry.sha};
+    Shallow metadata{.sha = *result.entry.sha,
+                     .boundary = {},
+                     .remote_urls = {}};
     const auto shallow_file = repo / ".git/shallow";
     std::ifstream input{shallow_file};
     std::string boundary;
