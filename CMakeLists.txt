@@ -42,8 +42,11 @@ endforeach()
 
 option(BIV_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 
-add_library(biv_support STATIC src/core/support/portability.cpp)
+add_library(biv_support STATIC
+  src/core/support/portability.cpp
+  src/core/support/subprocess.cpp)
 target_include_directories(biv_support PUBLIC src)
+target_link_libraries(biv_support PUBLIC Threads::Threads)
 target_compile_options(biv_support PRIVATE -Wall -Wextra -Werror)
 
 add_library(bivcore STATIC
@@ -89,9 +92,16 @@ target_link_libraries(biv PRIVATE bivcore biv_adapters)
 target_compile_options(biv PRIVATE -Wall -Wextra -Werror)
 
 enable_testing()
+add_executable(biv_subprocess_tests tests/test_subprocess.cpp)
+target_include_directories(biv_subprocess_tests PRIVATE src)
+target_link_libraries(biv_subprocess_tests PRIVATE
+  biv_support Catch2::Catch2WithMain)
+target_compile_options(biv_subprocess_tests PRIVATE -Wall -Wextra -Werror)
+add_test(NAME subprocess COMMAND biv_subprocess_tests)
+
 add_library(biv_probe_test_seam STATIC src/core/support/probe.cpp)
 target_include_directories(biv_probe_test_seam PUBLIC src)
-target_link_libraries(biv_probe_test_seam PRIVATE Threads::Threads)
+target_link_libraries(biv_probe_test_seam PRIVATE biv_support Threads::Threads)
 target_compile_options(biv_probe_test_seam PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_probe_test_seam PRIVATE
   BIV_PROBE_TESTING=1
