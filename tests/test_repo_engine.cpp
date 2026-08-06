@@ -13,6 +13,7 @@
 #include "core/ignore/matcher.hpp"
 #include "core/repo/classify.hpp"
 #include "core/repo/discover.hpp"
+#include "core/repo/eligibility.hpp"
 #include "core/repo/git.hpp"
 
 namespace {
@@ -94,6 +95,21 @@ void commit_file(const biv::repo::Git& git, const std::filesystem::path& repo,
 biv::repo::Discovery one_repo() {
   return biv::repo::Discovery{.repos = {biv::repo::RepoBoundary{
                                    .relpath = ".", .kind = biv::repo::RepoKind::repo}}};
+}
+
+std::filesystem::path init_bare_remote(const biv::repo::Git& git,
+                                       const std::filesystem::path& root) {
+  const auto remote = root / "remote.git";
+  std::filesystem::create_directories(remote);
+  git_run(git, remote, {"init", "--bare"});
+  return remote;
+}
+
+void add_remote_and_push(const biv::repo::Git& git,
+                         const std::filesystem::path& repo,
+                         const std::filesystem::path& remote) {
+  git_run(git, repo, {"remote", "add"}, {"origin", remote.string()});
+  git_run(git, repo, {"push", "-u", "origin", "main"});
 }
 
 }  // namespace
@@ -234,6 +250,10 @@ TEST_CASE("classification records shallow promisor source without a bundle") {
   init_repo(git, root.path);
   git_run(git, root.path, {"remote", "add"},
           {"origin", "https://example.invalid/r.git"});
+  git_run(git, root.path, {"config", "remote.origin.promisor", "false"});
+  auto disabled = biv::repo::classify(git, root.path, one_repo());
+  REQUIRE(disabled.has_value());
+  CHECK_FALSE(disabled->promisor);
   git_run(git, root.path, {"config", "remote.origin.promisor", "true"});
   const auto head = git_stdout(git_run(git, root.path, {"rev-parse", "HEAD"}));
   touch(root.path / ".git/shallow", head + "\n");
@@ -248,4 +268,106 @@ TEST_CASE("classification records shallow promisor source without a bundle") {
   REQUIRE(result->entry.notes.size() == 1);
   CHECK(std::holds_alternative<biv::repo::PromisorSourceNote>(
       result->entry.notes.front()));
+}
+
+TEST_CASE("eligibility proves HEAD from one advertisement snapshot") {
+  auto git = resolved_git();
+  TempDir root{"eligibility-proven"};
+  const auto repo = root.path / "repo";
+  init_repo(git, repo);
+  const auto remote = init_bare_remote(git, root.path);
+  add_remote_and_push(git, repo, remote);
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+
+  auto result = biv::repo::run_eligibility(git, classified->entry);
+
+  REQUIRE(result.has_value());
+  REQUIRE(classified->entry.eligibility.has_value());
+  CHECK(classified->entry.eligibility->result == biv::repo::EligibilityResult::proven);
+  CHECK(classified->entry.capture_mode == biv::repo::CaptureMode::overlay);
+  REQUIRE(classified->entry.eligibility->proof.has_value());
+  CHECK(classified->entry.eligibility->proof->remote == "origin");
+  CHECK(classified->entry.eligibility->proof->url == remote.string());
+  REQUIRE(classified->entry.local_refs.size() == 1);
+  CHECK(classified->entry.local_refs[0].availability ==
+        biv::repo::RefAvailability::remote_proven);
+  REQUIRE(classified->entry.local_refs[0].proof.has_value());
+}
+
+TEST_CASE("eligibility forces full capture for an unpushed HEAD") {
+  auto git = resolved_git();
+  TempDir root{"eligibility-unpushed"};
+  const auto repo = root.path / "repo";
+  init_repo(git, repo);
+  const auto remote = init_bare_remote(git, root.path);
+  add_remote_and_push(git, repo, remote);
+  commit_file(git, repo, "unpushed\n", "unpushed");
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+
+  auto result = biv::repo::run_eligibility(git, classified->entry);
+
+  REQUIRE(result.has_value());
+  REQUIRE(classified->entry.eligibility.has_value());
+  CHECK(classified->entry.eligibility->result ==
+        biv::repo::EligibilityResult::sha_unpushed);
+  CHECK(classified->entry.capture_mode == biv::repo::CaptureMode::full);
+  CHECK(classified->entry.local_refs[0].availability ==
+        biv::repo::RefAvailability::repo_bundle_carried);
+}
+
+TEST_CASE("eligibility distinguishes absent and unreachable remotes") {
+  auto git = resolved_git();
+  TempDir root{"eligibility-remote-failures"};
+  const auto no_remote_repo = root.path / "none";
+  init_repo(git, no_remote_repo);
+  auto no_remote = biv::repo::classify(git, no_remote_repo, one_repo());
+  REQUIRE(no_remote.has_value());
+  REQUIRE(biv::repo::run_eligibility(git, no_remote->entry).has_value());
+  REQUIRE(no_remote->entry.eligibility.has_value());
+  CHECK(no_remote->entry.eligibility->result ==
+        biv::repo::EligibilityResult::no_remote);
+  CHECK(no_remote->entry.capture_mode == biv::repo::CaptureMode::full);
+
+  const auto unreachable_repo = root.path / "unreachable";
+  init_repo(git, unreachable_repo);
+  git_run(git, unreachable_repo, {"remote", "add"},
+          {"origin", (root.path / "missing.git").string()});
+  auto unreachable = biv::repo::classify(git, unreachable_repo, one_repo());
+  REQUIRE(unreachable.has_value());
+  REQUIRE(biv::repo::run_eligibility(git, unreachable->entry).has_value());
+  REQUIRE(unreachable->entry.eligibility.has_value());
+  CHECK(unreachable->entry.eligibility->result ==
+        biv::repo::EligibilityResult::remote_unreachable);
+  CHECK(unreachable->entry.capture_mode == biv::repo::CaptureMode::full);
+}
+
+TEST_CASE("eligibility fetch-probes one advertised unknown tip") {
+  auto git = resolved_git();
+  TempDir root{"eligibility-fetch-probe"};
+  const auto repo = root.path / "repo";
+  init_repo(git, repo);
+  const auto remote = init_bare_remote(git, root.path);
+  add_remote_and_push(git, repo, remote);
+
+  const auto publisher = root.path / "publisher";
+  git_run(git, root.path, {"clone"}, {remote.string(), publisher.string()});
+  git_run(git, publisher, {"checkout", "-b", "main", "origin/main"});
+  commit_file(git, publisher, "remote descendant\n", "remote descendant");
+  git_run(git, publisher, {"push", "origin", "main"});
+  const auto remote_tip =
+      git_stdout(git_run(git, publisher, {"rev-parse", "HEAD"}));
+  REQUIRE(git_run(git, repo, {"cat-file", "-e"}, {remote_tip}, true).exit_code != 0);
+
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+  auto result = biv::repo::run_eligibility(git, classified->entry);
+
+  REQUIRE(result.has_value());
+  REQUIRE(classified->entry.eligibility.has_value());
+  CHECK(classified->entry.eligibility->result == biv::repo::EligibilityResult::proven);
+  REQUIRE(classified->entry.eligibility->proof.has_value());
+  CHECK(classified->entry.eligibility->proof->tip_sha == remote_tip);
+  CHECK(git_run(git, repo, {"cat-file", "-e"}, {remote_tip}, true).exit_code == 0);
 }
