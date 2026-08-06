@@ -32,6 +32,23 @@ enum class RefAvailability {
   repo_bundle_carried
 };
 
+enum class EngineErrorKind {
+  repo_dirty_unsupported,
+  repo_nested_unsupported,
+  repo_submodule_unsupported,
+  unmerged_index_unrepresentable,
+  ref_uncapturable,
+  promisor_objects_unavailable,
+  git_invocation_failed,
+  repo_restore_failed
+};
+
+struct EngineIssue {
+  EngineErrorKind kind{EngineErrorKind::git_invocation_failed};
+  std::vector<std::filesystem::path> paths;
+  std::string detail;
+};
+
 struct Remote {
   std::string name;
   std::string url;
@@ -55,6 +72,8 @@ struct NonCarriedRefsNote {
   std::vector<std::string> refs_p1;
   std::optional<std::uint64_t> omitted_count;
 };
+
+struct PromisorSourceNote {};
 
 struct Eligibility {
   std::string method;
@@ -103,7 +122,8 @@ struct UnknownNote {
   std::string verbatim_json;
 };
 
-using RepoNote = std::variant<NonCarriedRefsNote, UnknownNote>;
+using RepoNote =
+    std::variant<NonCarriedRefsNote, PromisorSourceNote, UnknownNote>;
 
 struct RepoEntry {
   std::string id;
