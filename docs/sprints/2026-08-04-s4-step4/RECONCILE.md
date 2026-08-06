@@ -194,3 +194,14 @@ item 9), 2 × voided-`154105` (the path-2 operator waiver), 3 × lock-path FALSE
 the RELAY ROOT; both artifacts verified present at HEAD; routed UP as the third
 root-walk instrument item this run). Exact-file lint remains the operative per-artifact
 gate; a new red of any OTHER class re-engages the orchestrator before dispatch.
+
+**T1 probe-seal relocation (matrix, disposed `014725`):** the s3-pack-era
+"one traced readiness primitive" test seals its machinery to `probe.cpp` by SOURCE-TEXT
+assertion — invisible to the audit's call-graph instruments (the instrument-scope class,
+test-side member). Admission granted for mechanical relocation only: the seal MOVES WITH
+ITS MACHINERY to `subprocess.cpp`; probe.cpp's half strengthens to zero-polling-
+primitives (the thin-adapter property); behavioral assertions byte-identical. Provenance
+checked per the C1 lesson — pair-era plan instrument, orchestrator's call, taken. The
+relocated test is the SUCCESSOR INSTRUMENT of the same invariant; the amendment and the
+Wave-A completion report each carry the one-sentence pointer so the probe.cpp absence is
+never read as a lost control.
