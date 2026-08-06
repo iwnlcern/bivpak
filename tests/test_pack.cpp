@@ -412,7 +412,8 @@ TEST_CASE("pack carries duplicate-store warning and A5 pick into the envelope") 
   CHECK(report->agent_sessions.front().provenance.store_root ==
         default_store.generic_string());
   CHECK(std::ranges::any_of(report->warnings, [&](const biv::pack::Warning& warning) {
-    return warning.kind == "SessionDuplicateStore" && warning.path == session_id;
+    return warning.kind == "SessionDuplicateStore" && warning.path == session_id &&
+           !warning.artifact.has_value() && !warning.bytes.has_value();
   }));
   const auto json = biv::report::envelope("pack", *report, std::nullopt,
                                           std::nullopt, 2);
