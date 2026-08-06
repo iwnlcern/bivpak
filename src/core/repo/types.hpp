@@ -5,8 +5,11 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
+
+#include "core/support/error.hpp"
 
 namespace biv::repo {
 
@@ -32,6 +35,75 @@ enum class RefAvailability {
   repo_bundle_carried
 };
 
+enum class EngineErrorKind {
+  repo_dirty_unsupported,
+  repo_nested_unsupported,
+  repo_submodule_unsupported,
+  unmerged_index_unrepresentable,
+  ref_uncapturable,
+  promisor_objects_unavailable,
+  git_invocation_failed,
+  repo_restore_failed
+};
+
+struct EngineIssue {
+  EngineErrorKind kind{EngineErrorKind::git_invocation_failed};
+  std::vector<std::filesystem::path> paths;
+  std::string detail;
+};
+
+inline constexpr std::string_view engine_error_name(
+    const EngineErrorKind kind) noexcept {
+  switch (kind) {
+    case EngineErrorKind::repo_dirty_unsupported:
+      return "repo-dirty-unsupported";
+    case EngineErrorKind::repo_nested_unsupported:
+      return "repo-nested-unsupported";
+    case EngineErrorKind::repo_submodule_unsupported:
+      return "repo-submodule-unsupported";
+    case EngineErrorKind::unmerged_index_unrepresentable:
+      return "unmerged-index-unrepresentable";
+    case EngineErrorKind::ref_uncapturable:
+      return "ref-uncapturable";
+    case EngineErrorKind::promisor_objects_unavailable:
+      return "promisor-objects-unavailable";
+    case EngineErrorKind::git_invocation_failed:
+      return "git-invocation-failed";
+    case EngineErrorKind::repo_restore_failed:
+      return "repo-restore-failed";
+  }
+  return "git-invocation-failed";
+}
+
+inline BivError make_engine_error(const EngineErrorKind kind,
+                                  const std::filesystem::path& path,
+                                  std::string detail) {
+  BivError error{ErrKind::InternalError, path.string(), std::move(detail)};
+  error.facts.emplace("repo_engine_kind", std::string{engine_error_name(kind)});
+  return error;
+}
+
+inline std::optional<EngineErrorKind> engine_error_kind(
+    const BivError& error) {
+  const auto fact = error.facts.find("repo_engine_kind");
+  if (fact == error.facts.end()) {
+    return std::nullopt;
+  }
+  for (const auto kind : {EngineErrorKind::repo_dirty_unsupported,
+                          EngineErrorKind::repo_nested_unsupported,
+                          EngineErrorKind::repo_submodule_unsupported,
+                          EngineErrorKind::unmerged_index_unrepresentable,
+                          EngineErrorKind::ref_uncapturable,
+                          EngineErrorKind::promisor_objects_unavailable,
+                          EngineErrorKind::git_invocation_failed,
+                          EngineErrorKind::repo_restore_failed}) {
+    if (fact->second == engine_error_name(kind)) {
+      return kind;
+    }
+  }
+  return std::nullopt;
+}
+
 struct Remote {
   std::string name;
   std::string url;
@@ -55,6 +127,8 @@ struct NonCarriedRefsNote {
   std::vector<std::string> refs_p1;
   std::optional<std::uint64_t> omitted_count;
 };
+
+struct PromisorSourceNote {};
 
 struct Eligibility {
   std::string method;
@@ -103,7 +177,15 @@ struct UnknownNote {
   std::string verbatim_json;
 };
 
-using RepoNote = std::variant<NonCarriedRefsNote, UnknownNote>;
+using RepoNote =
+    std::variant<NonCarriedRefsNote, PromisorSourceNote, UnknownNote>;
+
+// Transient engine state. This is deliberately not a manifest field; T5 serializes
+// only the schema members below and uses this state while packing the source tree.
+struct EngineSourceState {
+  std::filesystem::path repo_path;
+  std::vector<std::filesystem::path> penumbra_paths;
+};
 
 struct RepoEntry {
   std::string id;
@@ -125,6 +207,7 @@ struct RepoEntry {
   std::optional<Shallow> shallow;
   std::nullptr_t sparse{nullptr};
   std::vector<RepoNote> notes;
+  std::optional<EngineSourceState> engine_source;
 };
 
 }  // namespace biv::repo
