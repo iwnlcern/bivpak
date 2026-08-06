@@ -59,6 +59,13 @@ Scope: B1 (codex anchor → the reviewed `f00fbde5…`); B2 both anchors; every 
 The claude anchor (until B2) and all C1 behavior otherwise untouched; any other edit to the anchor set or `e3.py` outside the A-slice mirror work is a NEW deviation routed up before an edit.
 Burden-report duty: if the four-check ceremony proves burdensome across the slices, SAY SO in the sitreps — that report is the trigger that re-opens the upstream re-anchoring item (R-3.40 item (11), harness-or-m-2 with VP review); the pair never absorbs the cost silently and never takes the re-anchoring itself.
 
+**AMENDMENT A4 (2026-08-06, orchestrator grant `…F5-SHAPE-B-GRANTED-DISSOLVE-NOT-ENGINEER-20260806-021904`, the B1-fold F5 closure):**
+`src/adapters/codex/codex.hpp` is ADMITTED to the B1 fold universe for EXACTLY one promotion — declaring ONE ordinary public predicate `bool has_terminal_tail_record(std::string_view)` and nothing else in the header.
+In `codex.cpp` (already in-universe): the definition renames/retypes to match; the production call site uses the public predicate (one polarity, one implementation); the `codex_testing` namespace and the test-file hand redeclaration are DELETED; tests consume the public API.
+NO CMake authority is granted — Shape A (a second-compilation seam target) is REFUSED: the seam idiom exists for unsafe-to-ship internals, and a pure predicate exercised by every pack has none.
+Fold-report obligations carried verbatim in substance: the shipping-symbol finding records SATISFIED-BY-DISSOLUTION with the rationale (it IS production code; the test-only framing was the namespace wrapper's artifact); O4's rename and F5's one-polarity half record as closed by the same promotion; the empty-rollout row's coverage is shown intact through the public predicate; the post-fold head owes its targeted panel-at-SHA record.
+The B1 fold runs WHOLE (F1-F9 one pass) only after the Implementer's delta concurrence on this amendment (bare verdict, scoped to the amendment's text).
+
 ## Five-head topology (P4.3 — locked; no merge authority is assumed anywhere)
 
 Stacked branches, each PR targeting `main`; merges happen only per-PR on the operator's own authority, in order:
