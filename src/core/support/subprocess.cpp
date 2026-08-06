@@ -13,6 +13,8 @@
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
+#include <functional>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <new>
@@ -69,6 +71,8 @@ class SpawnActions {
 
   SpawnActions(const SpawnActions&) = delete;
   SpawnActions& operator=(const SpawnActions&) = delete;
+  SpawnActions(SpawnActions&&) = delete;
+  SpawnActions& operator=(SpawnActions&&) = delete;
 
   [[nodiscard]] bool valid() const noexcept { return initialized_; }
   [[nodiscard]] posix_spawn_file_actions_t* get() noexcept { return &value_; }
@@ -89,6 +93,8 @@ class SpawnAttributes {
 
   SpawnAttributes(const SpawnAttributes&) = delete;
   SpawnAttributes& operator=(const SpawnAttributes&) = delete;
+  SpawnAttributes(SpawnAttributes&&) = delete;
+  SpawnAttributes& operator=(SpawnAttributes&&) = delete;
 
   [[nodiscard]] bool valid() const noexcept { return initialized_; }
   [[nodiscard]] posix_spawnattr_t* get() noexcept { return &value_; }
@@ -115,13 +121,17 @@ class ByteCapture {
       : bytes_{bytes}, cap_{cap} {}
 
   void write(const char* data, const std::size_t size) {
-    const auto retained = std::min(size, cap_ - std::min(cap_, bytes_.size()));
-    const auto* begin = reinterpret_cast<const std::byte*>(data);
-    bytes_.insert(bytes_.end(), begin, begin + retained);
+    auto& bytes = bytes_.get();
+    const auto retained = std::min(size, cap_ - std::min(cap_, bytes.size()));
+    const std::string_view input{data, retained};
+    std::ranges::transform(
+        input, std::back_inserter(bytes), [](const unsigned char value) {
+          return static_cast<std::byte>(value);
+        });
   }
 
  private:
-  std::vector<std::byte>& bytes_;
+  std::reference_wrapper<std::vector<std::byte>> bytes_;
   std::size_t cap_;
 };
 
@@ -130,7 +140,9 @@ BivError invalid_request(const std::string_view detail) {
 }
 
 SpawnResult spawn_failure() {
-  return SpawnResult{.spawn_failed = true};
+  auto result = SpawnResult{};
+  result.spawn_failed = true;
+  return result;
 }
 
 bool valid_runtime(const SpawnRequest& request, const ProbeClock& clock,
@@ -194,10 +206,9 @@ std::optional<Pipe> make_pipe() {
   return pipe;
 }
 
-bool add_close(const SpawnActions& actions, const Fd& fd) {
+bool add_close(SpawnActions& actions, const Fd& fd) {
   return !fd.valid() ||
-         ::posix_spawn_file_actions_addclose(
-             const_cast<SpawnActions&>(actions).get(), fd.get()) == 0;
+         ::posix_spawn_file_actions_addclose(actions.get(), fd.get()) == 0;
 }
 
 enum class DrainStatus { idle, progress, failed };
@@ -342,11 +353,9 @@ std::string_view readiness_name(const ReadinessResult result) {
 }
 
 void settle_exit_code(SpawnResult& result, const ChildState& child) {
-  if (!child.status_available) {
-    result.spawn_failed = true;
-  } else if (WIFEXITED(child.status)) {
+  if (child.status_available && WIFEXITED(child.status)) {
     result.exit_code = WEXITSTATUS(child.status);
-  } else if (WIFSIGNALED(child.status)) {
+  } else if (child.status_available && WIFSIGNALED(child.status)) {
     result.exit_code = 128 + WTERMSIG(child.status);
   } else {
     result.spawn_failed = true;
@@ -475,10 +484,14 @@ expected<SpawnResult> run_argv_traced(
 
   const int stdout_target = request.stdout_file.has_value()
                                 ? stdout_file.get()
-                                : stdout_pipe->write.get();
-  const int stderr_target = request.stderr_mode == StderrMode::merge_into_stdout
-                                ? stdout_target
-                                : stderr_pipe->write.get();
+                                : stdout_pipe.value().write.get();
+  int stderr_target = stdout_target;
+  if (request.stderr_mode == StderrMode::separate) {
+    if (!stderr_pipe.has_value()) {
+      return spawn_failure();
+    }
+    stderr_target = stderr_pipe->write.get();
+  }
   const bool actions_ok =
       ::posix_spawn_file_actions_adddup2(actions.get(), null_input.get(),
                                          STDIN_FILENO) == 0 &&

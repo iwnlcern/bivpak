@@ -115,7 +115,8 @@ add_executable(biv_tests
   tests/test_manifest.cpp
   tests/test_scan.cpp
   tests/test_portability.cpp
-  tests/test_support.cpp)
+  tests/test_support.cpp
+  tests/test_probe.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_writer.cpp)
 target_sources(biv_tests PRIVATE tests/test_tar_reader.cpp)
 target_sources(biv_tests PRIVATE tests/test_pack.cpp)
