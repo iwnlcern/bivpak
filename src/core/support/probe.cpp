@@ -5,8 +5,6 @@
 
 #if defined(__APPLE__)
 #include <crt_externs.h>
-#else
-extern char** environ;
 #endif
 
 #include <algorithm>
@@ -14,6 +12,7 @@ extern char** environ;
 #include <cerrno>
 #include <cstddef>
 #include <filesystem>
+#include <iterator>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -213,17 +212,22 @@ std::vector<std::string> parent_environment() {
   if (entries == nullptr) {
     return result;
   }
-  for (; *entries != nullptr; ++entries) {
-    result.emplace_back(*entries);
+  for (auto** current = entries; *current != nullptr;
+       current = std::next(current)) {
+    result.emplace_back(*current);
   }
   return result;
 }
 
 std::string sanitize_capture(const std::vector<std::byte>& bytes,
                              const std::size_t limit) {
-  const auto* data = reinterpret_cast<const char*>(bytes.data());
+  std::string data;
+  data.reserve(bytes.size());
+  std::ranges::transform(bytes, std::back_inserter(data), [](const auto byte) {
+    return static_cast<char>(std::to_integer<unsigned char>(byte));
+  });
   Utf8Capture capture{limit};
-  capture.write(std::string_view{data, bytes.size()});
+  capture.write(data);
   capture.finish();
   return capture.take();
 }
