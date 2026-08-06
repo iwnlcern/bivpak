@@ -43,15 +43,9 @@ int emit_error(std::string_view verb, const biv::BivError& error, bool json) {
 
 void emit_pack_text(const biv::pack::PackReport& report) {
   for (const auto& warning : report.warnings) {
-    if (warning.kind == biv::pack::kWarningSessionLiveAtPack) {
-      // SessionLiveAtPack line shape: /* m-3 spelling at consumer review */
-      std::cout << biv::pack::warning_text(warning) << '\n';
-    } else if (warning.kind == biv::pack::kWarningTornTailDropped) {
-      // TornTailDropped line shape: /* m-3 spelling at consumer review */
-      std::cout << biv::pack::warning_text(warning) << '\n';
-    } else {
-      std::cout << biv::pack::warning_text(warning) << '\n';
-    }
+    // SessionLiveAtPack line shape: /* m-3 spelling at consumer review */
+    // TornTailDropped line shape: /* m-3 spelling at consumer review */
+    std::cout << biv::pack::warning_text(warning) << '\n';
   }
   for (const auto& advisory : report.advisories) {
     if (advisory.kind == "prune-summary") {
