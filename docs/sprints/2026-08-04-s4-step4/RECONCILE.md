@@ -216,3 +216,14 @@ NO CMake authority granted. **Instance recorded (owned by s4-floor.planner): an 
 scope claim ASSERTED without running the mechanical check — the instrument-substitution
 class; the implementer's FOLD_SCOPE run refuted it pre-edit. The rule stands as written:
 the mechanical check is RUN, never asserted; the gate that catches is the one that ran.**
+
+**Wave-A panel dispositions (disposed `161034`):** REVIEW-FOLD authorized for the
+five-lens must-fix set (record durable at `reviews/2026-08-07-s4-matrix-wave-a-panel-66250856.md`).
+Security #1's ALLOWLIST half: ANSWERED-BY-SEALED-RECORD — addendum-D `:26-28` deleted
+the SR-M14 mechanism by OPERATOR ruling; un-foldable at every s4 seat; the lens argument
+routed to its owners without an s4 hold; the hygiene half folds. The mutating
+eligibility fetch: NOT SANCTIONED (pack-engine `:88` ls-remote method; unprovable ⇒
+honest-unknown ⇒ `capture_mode: full`; the DNA consent line independently decisive).
+Root-repo "." second staging: conformance fold under design criterion 4. Nested
+fencing / zero-ref capture_mode / reset-vs-checkout: pair answers from the sealed/pinned
+bytes with citations; undecidable cells route back named.
