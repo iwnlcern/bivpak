@@ -335,3 +335,15 @@ at 54a6c54): routed UP, recommend folding the enum validation into Arm-1's schem
 window), m-1 if sealed-schema; do NOT touch manifest.cpp. In-universe BL2 fold proceeds; the
 replacement head owes a TARGETED RE-PANEL on the rewrite/verify surface (BL2-1/2 change
 verify semantics), affirmed — the cumulative panel rule on a security-semantics change.
+
+**Origin-disclosure family RULED (master `144700`) — one invariant, three mechanisms:** the
+packer's identity must never reach the recipient's store, served by (1) layout
+destination-keying (ADDENDUM-10/ROUTED-3), (2) content-scan soundness (BL2-1/2), (3) refusal
+radius (B2-1). **B2-1 ruled per-session** for the origin-leak class (BL2-4 released) — keep
+the code's per-session radius, GATED on BL2-1/2 + the targeted re-panel confirming scan
+soundness with m-4 addressed; containment preserved (whole-set was over-refusal, not a
+guarantee). **B2-2 = MATRIX SCHEMA-ACT OBLIGATION:** `locator`/`discovery_tier` are the
+SEALED F64 enum (`SEAL-PACKAGE:53,60`, m-1-owned), so enum validation on read is
+implementation hardening (not an addendum) folding into Arm-1's schema act (F+G manifest.cpp
+window), m-1 confirming members, m-4 addressed. Floor does not touch manifest.cpp. The
+rewrite/verify targeted re-panel (BL2-1/2 change verify semantics) is master-endorsed.
