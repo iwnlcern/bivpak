@@ -117,22 +117,26 @@ struct ChildState {
 
 class ByteCapture {
  public:
-  ByteCapture(std::vector<std::byte>& bytes, const std::size_t cap)
-      : bytes_{bytes}, cap_{cap} {}
+  ByteCapture(std::vector<std::byte>& bytes, const std::size_t cap,
+              bool& output_incomplete)
+      : bytes_{bytes}, cap_{cap}, output_incomplete_{output_incomplete} {}
 
   void write(const char* data, const std::size_t size) {
-    auto& bytes = bytes_.get();
-    const auto retained = std::min(size, cap_ - std::min(cap_, bytes.size()));
+    const auto retained =
+        std::min(size, cap_ - std::min(cap_, bytes_.size()));
+    output_incomplete_ = output_incomplete_ || retained != size;
+    bytes_.reserve(bytes_.size() + retained);
     const std::string_view input{data, retained};
     std::ranges::transform(
-        input, std::back_inserter(bytes), [](const unsigned char value) {
+        input, std::back_inserter(bytes_), [](const unsigned char value) {
           return static_cast<std::byte>(value);
         });
   }
 
  private:
-  std::reference_wrapper<std::vector<std::byte>> bytes_;
+  std::vector<std::byte>& bytes_;
   std::size_t cap_;
+  bool& output_incomplete_;
 };
 
 BivError invalid_request(const std::string_view detail) {
@@ -214,7 +218,7 @@ bool add_close(SpawnActions& actions, const Fd& fd) {
 enum class DrainStatus { idle, progress, failed };
 
 DrainStatus drain_once(Fd& fd, ByteCapture& capture) {
-  std::array<char, 8192> buffer{};
+  std::array<char, 8192> buffer;
   for (;;) {
     const auto count = ::read(fd.get(), buffer.data(), buffer.size());
     if (count > 0) {
@@ -548,8 +552,10 @@ expected<SpawnResult> run_argv_traced(
   null_input = Fd{};
 
   SpawnResult result;
-  ByteCapture stdout_capture{result.stdout_bytes, request.stdout_cap};
-  ByteCapture stderr_capture{result.stderr_bytes, request.stderr_cap};
+  ByteCapture stdout_capture{result.stdout_bytes, request.stdout_cap,
+                             result.output_incomplete};
+  ByteCapture stderr_capture{result.stderr_bytes, request.stderr_cap,
+                             result.output_incomplete};
   ChildState child;
   bool ownership_failed = false;
 

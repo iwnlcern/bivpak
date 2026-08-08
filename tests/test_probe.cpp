@@ -19,30 +19,12 @@
 #include <vector>
 
 #include "core/support/probe.hpp"
+#include "support/temp_dir.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
-
-class TempDir {
- public:
-  explicit TempDir(const std::string_view name)
-      : path_{fs::temp_directory_path() / ("biv-probe-" + std::string{name} +
-                                           "-" + std::to_string(::getpid()))} {
-    fs::remove_all(path_);
-    fs::create_directories(path_);
-  }
-
-  ~TempDir() { fs::remove_all(path_); }
-
-  TempDir(const TempDir&) = delete;
-  TempDir& operator=(const TempDir&) = delete;
-
-  const fs::path& path() const { return path_; }
-
- private:
-  fs::path path_;
-};
+using biv::test_support::TempDir;
 
 fs::path write_executable(const fs::path& path, const std::string_view body) {
   fs::create_directories(path.parent_path());

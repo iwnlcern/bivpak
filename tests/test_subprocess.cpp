@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -11,33 +12,12 @@
 #include <vector>
 
 #include "core/support/subprocess.hpp"
+#include "support/temp_dir.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
-
-class TempDir {
- public:
-  explicit TempDir(const std::string_view name)
-      : path_{fs::temp_directory_path() /
-              ("biv-subprocess-" + std::string{name} + "-" +
-               std::to_string(::getpid()) + "-" +
-               std::to_string(next_id_++))} {
-    fs::remove_all(path_);
-    fs::create_directories(path_);
-  }
-
-  ~TempDir() { fs::remove_all(path_); }
-
-  TempDir(const TempDir&) = delete;
-  TempDir& operator=(const TempDir&) = delete;
-
-  const fs::path& path() const { return path_; }
-
- private:
-  inline static std::size_t next_id_{0};
-  fs::path path_;
-};
+using biv::test_support::TempDir;
 
 biv::support::SpawnRequest shell_request(const std::string& script) {
   return biv::support::SpawnRequest{
@@ -73,18 +53,39 @@ bool process_is_gone(const pid_t pid) {
 }  // namespace
 
 TEST_CASE("run_argv echoes caller argv and full environment") {
-  auto request = shell_request("printf '%s\\n' \"$MARK\"");
+  REQUIRE(::setenv("BIV_PARENT_LEAK", "ambient-only", 1) == 0);
+  auto request = shell_request(
+      "printf '%s|' \"$MARK\"; "
+      "if printenv BIV_PARENT_LEAK >/dev/null 2>&1; then "
+      "printf leak; else printf isolated; fi");
   request.env = {"MARK=x1"};
 
   const auto result = biv::support::run_argv(request);
+  REQUIRE(::unsetenv("BIV_PARENT_LEAK") == 0);
 
   REQUIRE(result.has_value());
   CHECK_FALSE(result->spawn_failed);
   CHECK_FALSE(result->timed_out);
   CHECK_FALSE(result->io_failed);
   CHECK(result->exit_code == 0);
-  CHECK(as_string(result->stdout_bytes) == "x1\n");
+  CHECK(as_string(result->stdout_bytes) == "x1|isolated");
   CHECK(result->stderr_bytes.empty());
+}
+
+TEST_CASE("run_argv marks both captured streams incomplete at their caps") {
+  auto request =
+      shell_request("printf 'abcdef'; printf 'uvwxyz' >&2");
+  request.stdout_cap = 3U;
+  request.stderr_cap = 3U;
+
+  const auto result = biv::support::run_argv(request);
+
+  REQUIRE(result.has_value());
+  CHECK(result->exit_code == 0);
+  CHECK_FALSE(result->io_failed);
+  CHECK(result->output_incomplete);
+  CHECK(as_string(result->stdout_bytes) == "abc");
+  CHECK(as_string(result->stderr_bytes) == "uvw");
 }
 
 TEST_CASE("run_argv separate topology keeps streams apart") {

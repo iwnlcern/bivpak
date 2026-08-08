@@ -29,6 +29,7 @@ struct SpawnResult {
   bool timed_out{false};
   bool spawn_failed{false};
   bool io_failed{false};
+  bool output_incomplete{false};
   std::vector<std::byte> stdout_bytes;
   std::vector<std::byte> stderr_bytes;
 };
