@@ -387,17 +387,23 @@ manifest::AgentSessionEntry manifest_entry_for(const adapters::SessionRecord& se
   std::vector<manifest::SessionChild> children;
   std::vector<std::string> parent_artifacts;
   for (const auto& child_id : session.child_ids) {
-    const ChildArtifactMatcher child_matcher{.child_id = child_id};
     std::vector<std::string> child_artifacts;
-    for (const auto& artifact : session.artifacts) {
-      if (child_matcher.matches(artifact)) {
-        child_artifacts.push_back(artifact);
+    for (const auto& [mapped_child, artifact] : session.child_artifact_map) {
+      if (mapped_child == child_id) child_artifacts.push_back(artifact);
+    }
+    if (child_artifacts.empty()) {
+      const ChildArtifactMatcher child_matcher{.child_id = child_id};
+      for (const auto& artifact : session.artifacts) {
+        if (child_matcher.matches(artifact)) child_artifacts.push_back(artifact);
       }
     }
     children.push_back(manifest::SessionChild{.original_id = child_id, .artifacts = std::move(child_artifacts)});
   }
   for (const auto& artifact : session.artifacts) {
-    const bool belongs_to_child = std::ranges::any_of(session.child_ids, [&](const std::string& child_id) {
+    const bool explicitly_mapped = std::ranges::any_of(session.child_artifact_map, [&](const auto& mapping) {
+      return mapping.second == artifact;
+    });
+    const bool belongs_to_child = explicitly_mapped || std::ranges::any_of(session.child_ids, [&](const std::string& child_id) {
       return ChildArtifactMatcher{.child_id = child_id}.matches(artifact);
     });
     if (!belongs_to_child) {
@@ -540,9 +546,6 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     if (!stores) {
       return cleanup_error(stores.error());
     }
-    if (stores->empty()) {
-      continue;
-    }
     auto collected = adapter->collect(source, *stores);
     if (!collected) {
       return cleanup_error(collected.error());
@@ -604,6 +607,14 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       if (session.live_at_pack) {
         report.warnings.push_back(Warning{.kind = std::string{kWarningSessionLiveAtPack},
                                           .path = session.original_session_id});
+      }
+      for (const auto& torn_tail : session.torn_tails) {
+        report.warnings.push_back(Warning{.kind = torn_tail.retained
+                                                     ? "TornTailRetained"
+                                                     : std::string{kWarningTornTailDropped},
+                                          .path = session.original_session_id,
+                                          .artifact = torn_tail.artifact,
+                                          .bytes = torn_tail.bytes});
       }
       auto entry = manifest_entry_for(session, source, created.rfc3339);
       if (entry.artifacts.empty()) {
@@ -742,6 +753,13 @@ std::string warning_text(const Warning& warning) {
     return "warning: torn tail dropped from " +
            terminal_safe(*warning.artifact) + ": " +
            std::to_string(*warning.bytes) + " bytes";
+  }
+  if (warning.kind == "TornTailRetained" &&
+      warning.artifact.has_value() && warning.bytes.has_value()) {
+    return "warning: torn tail retained in " +
+           terminal_safe(*warning.artifact) + ": " +
+           std::to_string(*warning.bytes) +
+           " bytes; install will refuse this session";
   }
   auto rendered = "warning: " + terminal_safe(warning.kind);
   if (!warning.path.empty()) {

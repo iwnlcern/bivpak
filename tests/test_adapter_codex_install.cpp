@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <cstddef>
@@ -202,7 +203,7 @@ std::map<std::string, std::vector<std::byte>> codex_members() {
           "{\"timestamp\":\"2026-07-06T01:05:00Z\",\"type\":\"session_"
           "meta\",\"payload\":"
           "{\"id\":\""} +
-      std::string{kChild} + "\",\"session_id\":\"" + std::string{kChild} +
+      std::string{kChild} + "\",\"session_id\":\"" + std::string{kParent} +
       "\",\"cwd\":\"/ws/proj/sub\",\"cli_version\":\"0.142.5\","
       "\"parent_thread_id\":\"" +
       std::string{kParent} +
@@ -685,6 +686,122 @@ TEST_CASE(
   fs::remove_all(root);
 }
 
+TEST_CASE("FX-VF-O1 Codex installs a re-packed staged artifact identity") {
+  constexpr std::string_view provenance_id = "cx-0001";
+  constexpr std::string_view child_provenance_id = "cx-child-0001";
+  constexpr std::string_view staged_id =
+      "019f1d8c-e200-7000-8000-000000000001";
+  constexpr std::string_view staged_child_id =
+      "019f1d8c-e200-7000-8000-000000000002";
+  const auto root = make_tmp("repacked-staged-identity");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = codex_entry(std::string{provenance_id},
+                            std::string{child_provenance_id});
+  record.provenance.locator = "staging";
+  record.provenance.discovery_tier = "staged";
+  record.artifacts = {"agents/codex/" + std::string{staged_id} + ".jsonl"};
+  record.children.front().artifacts = {
+      "agents/codex/" + std::string{staged_child_id} + ".jsonl"};
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      record.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{staged_id} + "\",\"session_id\":\"" +
+            std::string{staged_id} + "\",\"cwd\":\"/ws/proj\"," +
+            "\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace(
+      record.children.front().artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{staged_child_id} + "\",\"session_id\":\"" +
+            std::string{staged_id} + "\",\"parent_thread_id\":\"" +
+            std::string{staged_id} + "\",\"cwd\":\"/ws/proj\"," +
+            "\"cli_version\":\"0.142.5\"}}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == provenance_id);
+  REQUIRE(result->id_map.front().children.size() == 1U);
+  CHECK(result->id_map.front().children.front().first == child_provenance_id);
+  const auto files = relative_files(store);
+  REQUIRE(files.size() == 2U);
+  const auto installed =
+      read_text(store / files.front()) + read_text(store / files.back());
+  CHECK(installed.find(staged_id) == std::string::npos);
+  CHECK(installed.find(staged_child_id) == std::string::npos);
+  CHECK(installed.find(provenance_id) == std::string::npos);
+  CHECK(installed.find(child_provenance_id) == std::string::npos);
+  CHECK(installed.find(result->id_map.front().installed_session_id) !=
+        std::string::npos);
+  CHECK(installed.find(result->id_map.front().children.front().second) !=
+        std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "B2 composed Codex descendant staging path uses the exact final workspace") {
+  constexpr std::string_view staged_id =
+      "019f1d8c-e200-7000-8000-000000000011";
+  const auto root = make_tmp("descendant-staging-path");
+  const auto original_workspace = root / "original-workspace";
+  const auto staging_workspace = original_workspace / "staging-workspace";
+  const auto final_workspace = root / "final-workspace";
+  const auto incorrectly_rewritten = final_workspace / "staging-workspace";
+  const auto store = root / "codex";
+  fs::create_directories(final_workspace);
+  fs::create_directories(store);
+
+  auto record = codex_entry(std::string{staged_id}, "unused-child");
+  record.original_path = original_workspace.generic_string();
+  record.normalized_path_key = record.original_path;
+  record.provenance.store_root = staging_workspace.generic_string();
+  record.provenance.locator = "staging";
+  record.provenance.discovery_tier = "staged";
+  record.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      record.artifacts.front(),
+      bytes(std::string{
+                "{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{staged_id} + "\",\"session_id\":\"" +
+            std::string{staged_id} + "\",\"cwd\":\"" +
+            staging_workspace.generic_string() +
+            "\",\"cli_version\":\"0.142.5\"}}\n"));
+  auto target = target_for(final_workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.front().verify.origin_path_hits == 0U);
+  REQUIRE(result->id_map.size() == 1U);
+  const auto files = relative_files(store);
+  REQUIRE(files.size() == 1U);
+  const auto installed = read_text(store / files.front());
+  CHECK(installed.find("\"cwd\":\"" + final_workspace.generic_string() +
+                       "\"") != std::string::npos);
+  CHECK(installed.find("\"cwd\":\"" + incorrectly_rewritten.generic_string() +
+                       "\"") == std::string::npos);
+  CHECK(installed.find(original_workspace.generic_string()) ==
+        std::string::npos);
+  CHECK(installed.find(staging_workspace.generic_string()) ==
+        std::string::npos);
+  fs::remove_all(root);
+}
+
 TEST_CASE(
     "Codex consent-no reports an unwritable workspace without a staged artifact") {
   const auto root = make_tmp("consent-no-unwritable");
@@ -719,7 +836,7 @@ TEST_CASE(
   fs::remove_all(root);
 }
 
-TEST_CASE("Codex install rewrites escaped values without changing keys or numbers") {
+TEST_CASE("Codex install rewrites escaped values and origin path keys") {
   const auto root = make_tmp("escaped-values");
   const auto workspace = root / "workspace";
   const auto store = root / "codex";
@@ -753,7 +870,10 @@ TEST_CASE("Codex install rewrites escaped values without changing keys or number
   });
   REQUIRE(parent_file != files.end());
   const auto installed = read_text(store / *parent_file);
-  CHECK(installed.find("\"/ws/proj\":\"key-must-not-change\"") !=
+  CHECK(installed.find("\"" + workspace.generic_string() +
+                       "\":\"key-must-not-change\"") !=
+        std::string::npos);
+  CHECK(installed.find("\"/ws/proj\":\"key-must-not-change\"") ==
         std::string::npos);
   CHECK(installed.find(workspace.generic_string()) != std::string::npos);
   CHECK(installed.find("\"decimal\":0.1") != std::string::npos);
@@ -1072,7 +1192,7 @@ TEST_CASE("Codex install refuses parent symlinks without visible writes") {
   fs::remove_all(root);
 }
 
-TEST_CASE("Codex install refuses nonzero rewrite verification before writing") {
+TEST_CASE("Codex install refuses non-UTF8 JSONL before writing") {
   const auto root = make_tmp("verify-refuse");
   const auto workspace = root / "workspace";
   const auto store = root / "codex";
@@ -1096,8 +1216,12 @@ TEST_CASE("Codex install refuses nonzero rewrite verification before writing") {
   REQUIRE(result->sessions.size() == 1);
   CHECK(result->sessions.front().outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
-  CHECK(result->sessions.front().verify.origin_path_hits > 0);
-  CHECK(result->sessions.front().verify.origin_id_hits > 0);
+  CHECK(result->sessions.front().verify.origin_path_hits == 0U);
+  CHECK(result->sessions.front().verify.origin_id_hits == 0U);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"undecodable_line"});
   CHECK(result->id_map.empty());
   CHECK(result->activation.empty());
   CHECK(relative_files(store).empty());
@@ -1111,22 +1235,29 @@ TEST_CASE(
   const auto store = root / "codex";
   fs::create_directories(workspace);
   fs::create_directories(store);
-  auto members = codex_members();
-  auto hostile = bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"
-                                   "\"id\":\""} +
-                       std::string{kParent} + "\",\"session_id\":\"" +
-                       std::string{kParent} + "\",\"cwd\":\"/ws/proj\"}}");
-  hostile.push_back(static_cast<std::byte>(0xff));
-  hostile.push_back(static_cast<std::byte>('\n'));
-  members.at(parent_artifact()) = std::move(hostile);
-  auto target = target_for(workspace, store, members);
   auto refused =
       codex_entry("019faaaa-bbbb-7ccc-8ddd-eeeeeeee9005");
   refused.agent_version_at_pack = "unknown";
+  refused.original_path = "/capability-origin";
+  refused.normalized_path_key = refused.original_path;
   refused.children.clear();
   refused.artifacts.clear();
-  const std::vector<biv::manifest::AgentSessionEntry> records{refused,
-                                                              codex_entry()};
+  auto verify = codex_entry();
+  verify.original_path = "/verify-origin";
+  verify.normalized_path_key = verify.original_path;
+  verify.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      verify.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"
+                        "\"id\":\""} +
+            std::string{kParent} + "\",\"session_id\":\"" +
+            std::string{kParent} +
+            "\",\"cwd\":\"/verify-origin\",\"foreign_path\":"
+            "\"/capability-origin\",\"foreign_id\":\"" +
+            refused.original_session_ids.primary + "\"}}\n"));
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{refused, verify};
 
   const auto result = biv::adapters::codex_adapter().install(
       target, biv::adapters::Consent::yes, records);
@@ -1139,21 +1270,160 @@ TEST_CASE(
     });
   };
   const auto refused_row = row_for(refused.original_session_ids.primary);
-  const auto verify_row = row_for(codex_entry().original_session_ids.primary);
+  const auto verify_row = row_for(verify.original_session_ids.primary);
   REQUIRE(refused_row != result->sessions.end());
   REQUIRE(verify_row != result->sessions.end());
   CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
   CHECK(refused_row->detail ==
         std::optional<std::string>{"basis_unorderable"});
-  CHECK(verify_row->reason ==
-        std::optional<std::string>{"containment_refused"});
-  CHECK(verify_row->detail ==
-        std::optional<std::string>{"rewrite_verify_failed"});
+  CHECK(verify_row->reason == std::optional<std::string>{"verify-hits"});
+  CHECK(verify_row->detail == std::optional<std::string>{"origin_path"});
   CHECK(verify_row->verify.origin_path_hits > 0U);
   CHECK(verify_row->verify.origin_id_hits > 0U);
   CHECK(result->id_map.empty());
   CHECK(result->activation.empty());
   CHECK(relative_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "A2 Codex image union includes staged primary aliases before version admission") {
+  constexpr std::string_view refused_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9011";
+  constexpr std::string_view staged_alias =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9012";
+  constexpr std::string_view recipient_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9013";
+  const auto root = make_tmp("version-refused-staged-primary-alias");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto refused = codex_entry(std::string{refused_id});
+  refused.provenance.locator = "staging";
+  refused.provenance.discovery_tier = "staged";
+  refused.agent_version_at_pack = "unknown";
+  refused.children.clear();
+  refused.artifacts = {
+      "agents/codex/" + std::string{staged_alias} + ".jsonl"};
+  auto recipient = codex_entry(std::string{recipient_id});
+  recipient.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      refused.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"} +
+            "\"id\":\"" + std::string{staged_alias} +
+            "\",\"session_id\":\"" + std::string{staged_alias} +
+            "\",\"cwd\":\"/srv/alpha\",\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace(
+      recipient.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"} +
+            "\"id\":\"" + std::string{recipient_id} +
+            "\",\"session_id\":\"" + std::string{recipient_id} +
+            "\",\"cwd\":\"/ws/proj\",\"foreign_id\":\"" +
+            std::string{staged_alias} +
+            "\",\"cli_version\":\"0.142.5\"}}\n"));
+  auto target = target_for(workspace, store, members);
+  const std::array records{refused, recipient};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  const auto refused_row = std::ranges::find(
+      result->sessions, refused_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  const auto recipient_row = std::ranges::find(
+      result->sessions, recipient_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(recipient_row != result->sessions.end());
+  CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK(recipient_row->reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(recipient_row->detail == std::optional<std::string>{"origin_id"});
+  CHECK(recipient_row->verify.origin_id_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "F-5 Codex image union includes staged child artifact aliases before version admission") {
+  constexpr std::string_view refused_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9021";
+  constexpr std::string_view staged_primary =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9022";
+  constexpr std::string_view original_child =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9023";
+  constexpr std::string_view staged_child =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9024";
+  constexpr std::string_view recipient_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee9025";
+  const auto root = make_tmp("version-refused-staged-child-alias");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto refused = codex_entry(std::string{refused_id},
+                             std::string{original_child});
+  refused.provenance.locator = "staging";
+  refused.provenance.discovery_tier = "staged";
+  refused.agent_version_at_pack = "unknown";
+  refused.artifacts = {
+      "agents/codex/" + std::string{staged_primary} + ".jsonl"};
+  refused.children.front().artifacts = {
+      "agents/codex/" + std::string{staged_child} + ".jsonl"};
+  auto recipient = codex_entry(std::string{recipient_id});
+  recipient.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      refused.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"} +
+            "\"id\":\"" + std::string{staged_primary} +
+            "\",\"session_id\":\"" + std::string{staged_primary} +
+            "\",\"cwd\":\"/srv/alpha\",\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace(
+      refused.children.front().artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"} +
+            "\"id\":\"" + std::string{staged_child} +
+            "\",\"session_id\":\"" + std::string{staged_child} +
+            "\",\"cwd\":\"/srv/alpha\",\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace(
+      recipient.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{"} +
+            "\"id\":\"" + std::string{recipient_id} +
+            "\",\"session_id\":\"" + std::string{recipient_id} +
+            "\",\"cwd\":\"/ws/proj\",\"foreign_id\":\"" +
+            std::string{staged_child} +
+            "\",\"cli_version\":\"0.142.5\"}}\n"));
+  auto target = target_for(workspace, store, members);
+  const std::array records{refused, recipient};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  const auto refused_row = std::ranges::find(
+      result->sessions, refused_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  const auto recipient_row = std::ranges::find(
+      result->sessions, recipient_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(recipient_row != result->sessions.end());
+  CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK(recipient_row->reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(recipient_row->detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(recipient_row->verify.origin_id_hits > 0U);
   fs::remove_all(root);
 }
 
@@ -1191,9 +1461,9 @@ TEST_CASE("Codex install refuses every unverifiable escaped origin line") {
       CHECK(result->sessions.front().outcome ==
             biv::adapters::InstallSessionOutcome::Outcome::failed);
       CHECK(result->sessions.front().reason ==
-            std::optional<std::string>{"containment_refused"});
+            std::optional<std::string>{"verify-hits"});
       CHECK(result->sessions.front().detail ==
-            std::optional<std::string>{"rewrite_verify_failed"});
+            std::optional<std::string>{"undecodable_line"});
       CHECK(result->id_map.empty());
       CHECK(result->activation.empty());
       CHECK(relative_files(store).empty());
@@ -1243,6 +1513,7 @@ TEST_CASE("Codex rewrite applies pair rewrites and reports non-UTF8 skips") {
           .original_session_id = entry.original_session_ids.primary,
           .parent_id = std::nullopt,
           .child_ids = {std::string{kChild}},
+          .child_artifact_map = {},
           .original_path = entry.original_path,
           .normalized_path_key = entry.normalized_path_key,
           .normalization_scheme = entry.normalization_scheme,
@@ -1250,6 +1521,7 @@ TEST_CASE("Codex rewrite applies pair rewrites and reports non-UTF8 skips") {
           .provenance = entry.provenance,
           .artifacts = {parent_artifact(), child_artifact()},
           .artifact_sources = {},
+          .torn_tails = {},
           .agent_version_at_pack = entry.agent_version_at_pack,
           .live_at_pack = false}};
   const auto& adapter = biv::adapters::codex_adapter();
@@ -1620,5 +1892,672 @@ TEST_CASE("Codex preserves a capability refusal through an ambient publish fault
 
   CHECK(result->id_map.empty());
   CHECK(result->activation.empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex install refuses a retained undecodable JSONL line") {
+  const auto root = make_tmp("undecodable-line");
+  auto members = codex_members();
+  members[parent_artifact()] = bytes("{bad\n");
+  auto target = target_for(root / "workspace", root / "store", members);
+  const auto result = biv::adapters::codex_install(
+      target, biv::adapters::Consent::no,
+      std::vector<biv::manifest::AgentSessionEntry>{codex_entry()});
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().reason == std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.front().detail == std::optional<std::string>{"undecodable_line"});
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex install accepts an empty JSONL artifact as zero records") {
+  const auto root = make_tmp("empty-jsonl");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = codex_members();
+  members.at(child_artifact()).clear();
+  auto target = target_for(workspace, store, members);
+
+  const auto installed = biv::adapters::codex_install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{codex_entry()});
+
+  REQUIRE(installed.has_value());
+  REQUIRE(installed->sessions.size() == 1U);
+  CHECK(installed->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(installed->sessions.front().verify.artifacts_checked == 2U);
+  REQUIRE(installed->id_map.size() == 1U);
+  REQUIRE(installed->id_map.front().children.size() == 1U);
+  const auto files = relative_files(store);
+  REQUIRE(files.size() == 2U);
+  const auto child_file = std::ranges::find_if(files, [&](const auto& file) {
+    return file.find(installed->id_map.front().children.front().second) !=
+           std::string::npos;
+  });
+  REQUIRE(child_file != files.end());
+  CHECK(fs::is_empty(store / *child_file));
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex non-staged artifact identity mismatch refuses the whole set") {
+  constexpr std::string_view wrong_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0999";
+  const auto root = make_tmp("identity-mismatch");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto record = codex_entry();
+  record.children.clear();
+  record.artifacts = {"agents/codex/" + std::string{wrong_id} + ".jsonl"};
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(record.artifacts.front(), std::vector<std::byte>{});
+  auto target = target_for(workspace, store, members);
+
+  const auto installed = biv::adapters::codex_install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{record});
+
+  REQUIRE(installed.has_value());
+  REQUIRE(installed->sessions.size() == 1U);
+  CHECK(installed->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(installed->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(installed->id_map.empty());
+  CHECK(installed->activation.empty());
+  CHECK(relative_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Codex preserves an undecodable refusal through an ambient publish fault") {
+  constexpr std::string_view refused_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0911";
+  constexpr std::string_view cohort_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0912";
+  const auto root = make_tmp("verify-refusal-ambient-fault");
+  const auto workspace = root / "workspace";
+  fs::create_directories(workspace);
+  auto refused = codex_entry(std::string{refused_id});
+  auto cohort = codex_entry(std::string{cohort_id});
+  refused.children.clear();
+  cohort.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(refused.artifacts.front(), bytes("{bad\n"));
+  members.emplace(
+      cohort.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{cohort_id} + "\",\"session_id\":\"" +
+            std::string{cohort_id} + "\",\"cwd\":\"/ws/proj\"," +
+            "\"cli_version\":\"0.142.5\"}}\n"));
+  auto target = target_for(workspace, root / "never-created", members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{refused, cohort});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  const auto refused_row = std::ranges::find(
+      result->sessions, refused_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  const auto cohort_row = std::ranges::find(
+      result->sessions, cohort_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(cohort_row != result->sessions.end());
+  CHECK(refused_row->reason == std::optional<std::string>{"verify-hits"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"undecodable_line"});
+  CHECK(cohort_row->reason == std::optional<std::string>{"error"});
+  CHECK(cohort_row->detail == std::optional<std::string>{"ENOENT"});
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex verifies every session against the image origin union") {
+  constexpr std::string_view first_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0011";
+  constexpr std::string_view second_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0012";
+  const auto root = make_tmp("image-origin-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto first = codex_entry(std::string{first_id}, "unused-first-child");
+  auto second = codex_entry(std::string{second_id}, "unused-second-child");
+  first.children.clear();
+  second.children.clear();
+  first.original_path = "/srv/alpha";
+  first.normalized_path_key = first.original_path;
+  second.original_path = "/srv/beta";
+  second.normalized_path_key = second.original_path;
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      first.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{first_id} +
+            R"(","session_id":")" + std::string{first_id} +
+            R"(","cwd":"/srv/alpha"}})" + "\n"));
+  members.emplace(
+      second.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{second_id} +
+            R"(","session_id":")" + std::string{second_id} +
+            R"(","cwd":"/srv/beta","foreign_path":"/srv/alpha","foreign_id":")" +
+            std::string{first_id} + R"("}})" + "\n"));
+  auto target = target_for(workspace, store, members);
+  const std::vector records{first, second};
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(1).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(1).detail ==
+        std::optional<std::string>{"origin_path"});
+  CHECK(result->sessions.at(1).verify.origin_path_hits > 0U);
+  CHECK(result->sessions.at(1).verify.origin_id_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE("B2 image union includes Codex manifest parent session IDs") {
+  constexpr std::string_view origin_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0411";
+  constexpr std::string_view recipient_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0412";
+  constexpr std::string_view parent_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0413";
+  const auto root = make_tmp("image-origin-parent-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto parent = codex_entry(std::string{parent_id}, "unused-parent-child");
+  auto origin = codex_entry(std::string{origin_id}, "unused-origin-child");
+  auto recipient =
+      codex_entry(std::string{recipient_id}, "unused-recipient-child");
+  parent.children.clear();
+  origin.children.clear();
+  recipient.children.clear();
+  origin.original_session_ids.parent = std::string{parent_id};
+  parent.original_path = "/srv/parent";
+  parent.normalized_path_key = parent.original_path;
+  origin.original_path = "/srv/alpha";
+  origin.normalized_path_key = origin.original_path;
+  recipient.original_path = "/srv/beta";
+  recipient.normalized_path_key = recipient.original_path;
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      parent.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{parent_id} + R"(","session_id":")" +
+            std::string{parent_id} + R"(","cwd":"/srv/parent"}})" + "\n"));
+  members.emplace(
+      origin.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{origin_id} + R"(","session_id":")" +
+            std::string{origin_id} + R"(","cwd":"/srv/alpha","parent_thread_id":")" +
+            std::string{parent_id} + R"("}})" + "\n"));
+  members.emplace(
+      recipient.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{recipient_id} + R"(","session_id":")" +
+            std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreign_id":")" +
+            std::string{parent_id} + R"("}})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes,
+      std::array{parent, origin, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 3U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.at(1).verify.origin_id_hits == 0U);
+  REQUIRE(result->id_map.size() == 2U);
+  const auto parent_map = std::ranges::find_if(
+      result->id_map, [&](const biv::adapters::IdMapEntry& entry) {
+        return entry.image_session_id == parent_id;
+      });
+  const auto origin_map = std::ranges::find_if(
+      result->id_map, [&](const biv::adapters::IdMapEntry& entry) {
+        return entry.image_session_id == origin_id;
+      });
+  REQUIRE(parent_map != result->id_map.end());
+  REQUIRE(origin_map != result->id_map.end());
+  const auto files = relative_files(store);
+  const auto origin_file = std::ranges::find_if(
+      files, [&](const std::string& file) {
+        return file.find(origin_map->installed_session_id) != std::string::npos;
+      });
+  REQUIRE(origin_file != files.end());
+  const auto origin_text = read_text(store / *origin_file);
+  CHECK(origin_text.find(parent_map->installed_session_id) !=
+        std::string::npos);
+  CHECK(origin_text.find(parent_id) == std::string::npos);
+  CHECK(result->sessions.at(2).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(2).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(2).detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(result->sessions.at(2).verify.origin_id_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE("B2 image union includes Codex manifest child session IDs") {
+  constexpr std::string_view origin_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0421";
+  constexpr std::string_view recipient_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0422";
+  constexpr std::string_view child_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0423";
+  const auto root = make_tmp("image-origin-child-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto origin = codex_entry(std::string{origin_id}, std::string{child_id});
+  auto recipient =
+      codex_entry(std::string{recipient_id}, "unused-recipient-child");
+  origin.children.front().artifacts.clear();
+  origin.agent_version_at_pack = "999.0.0";
+  recipient.children.clear();
+  origin.original_path = "/srv/alpha";
+  origin.normalized_path_key = origin.original_path;
+  recipient.original_path = "/srv/beta";
+  recipient.normalized_path_key = recipient.original_path;
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      origin.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{origin_id} + R"(","session_id":")" +
+            std::string{origin_id} + R"(","cwd":"/srv/alpha"}})" + "\n"));
+  members.emplace(
+      recipient.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{recipient_id} + R"(","session_id":")" +
+            std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreign_id":")" +
+            std::string{child_id} + R"("}})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{origin, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(1).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(1).detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(result->sessions.at(1).verify.origin_id_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE("B2 image union includes Codex parent IDs from refused rows") {
+  constexpr std::string_view origin_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0431";
+  constexpr std::string_view recipient_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0432";
+  constexpr std::string_view parent_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0433";
+  const auto root = make_tmp("image-origin-parent-refused-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto origin = codex_entry(std::string{origin_id}, "unused-origin-child");
+  auto recipient =
+      codex_entry(std::string{recipient_id}, "unused-recipient-child");
+  origin.children.clear();
+  recipient.children.clear();
+  origin.agent_version_at_pack = "999.0.0";
+  origin.original_session_ids.parent = std::string{parent_id};
+  origin.original_session_ids.parent_in_image = false;
+  origin.original_path = "/srv/alpha";
+  origin.normalized_path_key = origin.original_path;
+  recipient.original_path = "/srv/beta";
+  recipient.normalized_path_key = recipient.original_path;
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      origin.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{origin_id} + R"(","session_id":")" +
+            std::string{origin_id} +
+            R"(","cwd":"/srv/alpha","parent_thread_id":")" +
+            std::string{parent_id} + R"("}})" + "\n"));
+  members.emplace(
+      recipient.artifacts.front(),
+      bytes(std::string{R"({"type":"session_meta","payload":{"id":")"} +
+            std::string{recipient_id} + R"(","session_id":")" +
+            std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreign_id":")" +
+            std::string{parent_id} + R"("}})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{origin, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(1).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(1).detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(result->sessions.at(1).verify.origin_id_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex mixed verify failures preserve rows and publish clean siblings") {
+  const auto root = make_tmp("mixed-verify-radius");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  constexpr std::string_view undecodable_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0901";
+  constexpr std::string_view verify_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0902";
+  constexpr std::string_view clean_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0903";
+  constexpr std::string_view capability_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0904";
+
+  auto undecodable = codex_entry(std::string{undecodable_id});
+  auto verify = codex_entry(std::string{verify_id});
+  auto clean = codex_entry(std::string{clean_id});
+  auto capability = codex_entry(std::string{capability_id});
+  for (auto* record : {&undecodable, &verify, &clean, &capability}) {
+    record->children.clear();
+  }
+  undecodable.original_path = "/undecodable-origin";
+  verify.original_path = "/verify-origin";
+  clean.original_path = "/clean-origin";
+  capability.original_path = "/capability-origin";
+  capability.agent_version_at_pack = "unknown";
+
+  const auto transcript = [](const std::string_view id,
+                             const std::string_view cwd) {
+    return bytes(std::string{"{\"timestamp\":\"2026-07-06T01:00:00Z\","} +
+                 "\"type\":\"session_meta\",\"payload\":{\"id\":\"" +
+                 std::string{id} + "\",\"session_id\":\"" +
+                 std::string{id} + "\",\"cwd\":\"" + std::string{cwd} +
+                 "\",\"cli_version\":\"0.142.5\"}}\n");
+  };
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace("agents/codex/" + std::string{undecodable_id} + ".jsonl",
+                  bytes("{bad\n"));
+  members.emplace("agents/codex/" + std::string{verify_id} + ".jsonl",
+                  bytes(std::string{"{\"timestamp\":\"2026-07-06T01:00:00Z\","} +
+                        "\"type\":\"session_meta\",\"payload\":{\"id\":\"" +
+                        std::string{verify_id} + "\",\"session_id\":\"" +
+                        std::string{verify_id} +
+                        "\",\"cwd\":\"/verify-origin\"," +
+                        "\"foreign_path\":\"/verify-origin2\"," +
+                        "\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace("agents/codex/" + std::string{clean_id} + ".jsonl",
+                  transcript(clean_id, "/clean-origin"));
+  members.emplace("agents/codex/" + std::string{capability_id} + ".jsonl",
+                  transcript(capability_id, "/capability-origin"));
+
+  auto target = target_for(workspace, store, members);
+  const std::vector records{undecodable, verify, clean, capability};
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 4U);
+  const auto row_for = [&](const std::string_view id) {
+    return std::ranges::find(result->sessions, id,
+                             &biv::adapters::InstallSessionOutcome::image_session_id);
+  };
+  const auto undecodable_row = row_for(undecodable_id);
+  const auto verify_row = row_for(verify_id);
+  const auto clean_row = row_for(clean_id);
+  const auto capability_row = row_for(capability_id);
+  REQUIRE(undecodable_row != result->sessions.end());
+  REQUIRE(verify_row != result->sessions.end());
+  REQUIRE(clean_row != result->sessions.end());
+  REQUIRE(capability_row != result->sessions.end());
+  CHECK(undecodable_row->reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(undecodable_row->detail ==
+        std::optional<std::string>{"undecodable_line"});
+  CHECK(verify_row->reason == std::optional<std::string>{"verify-hits"});
+  CHECK(verify_row->detail == std::optional<std::string>{"origin_path"});
+  CHECK(verify_row->verify.origin_path_hits > 0U);
+  CHECK(clean_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(clean_row->reason.has_value());
+  CHECK(capability_row->reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(capability_row->detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == clean_id);
+  REQUIRE(result->activation.size() == 1U);
+  CHECK(result->activation.front().command ==
+        "codex resume " + result->id_map.front().installed_session_id);
+  const auto files = relative_files(store);
+  REQUIRE(files.size() == 1U);
+  CHECK(files.front().find(result->id_map.front().installed_session_id) !=
+        std::string::npos);
+  const auto installed = read_text(store / files.front());
+  CHECK(installed.find("/clean-origin") == std::string::npos);
+  CHECK(installed.find(workspace.generic_string()) != std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "R-6 Codex consent-no checks both payload identity arms and stages a clean sibling") {
+  constexpr std::string_view refused_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a01";
+  constexpr std::string_view foreign_session_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a02";
+  constexpr std::string_view clean_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a03";
+  constexpr std::string_view wrong_id_record =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a04";
+  constexpr std::string_view foreign_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a05";
+  const auto root = make_tmp("codex-divergent-payload-identities");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto refused = codex_entry(std::string{refused_id});
+  auto clean = codex_entry(std::string{clean_id});
+  auto wrong_id = codex_entry(std::string{wrong_id_record});
+  refused.children.clear();
+  clean.children.clear();
+  wrong_id.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      refused.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{refused_id} + "\",\"session_id\":\"" +
+            std::string{foreign_session_id} +
+            "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace(
+      clean.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{clean_id} + "\",\"session_id\":\"" +
+            std::string{clean_id} +
+            "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace(
+      wrong_id.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{foreign_id} + "\",\"session_id\":\"" +
+            std::string{wrong_id_record} +
+            "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::no,
+      std::array{refused, clean, wrong_id});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 3U);
+  const auto refused_row = std::ranges::find(
+      result->sessions, refused_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  const auto clean_row = std::ranges::find(
+      result->sessions, clean_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  const auto wrong_id_row = std::ranges::find(
+      result->sessions, wrong_id_record,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(clean_row != result->sessions.end());
+  REQUIRE(wrong_id_row != result->sessions.end());
+  CHECK(refused_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(refused_row->reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"staged_identity_mismatch"});
+  CHECK(clean_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK(wrong_id_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(wrong_id_row->reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(wrong_id_row->detail ==
+        std::optional<std::string>{"staged_identity_mismatch"});
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == clean_id);
+  CHECK(relative_files(workspace / ".biv/agents/codex").size() == 1U);
+  CHECK(relative_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "R-5 Codex preserves a typed identity refusal over an earlier verify hit") {
+  constexpr std::string_view parent_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a11";
+  constexpr std::string_view child_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a12";
+  constexpr std::string_view foreign_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a13";
+  const auto root = make_tmp("codex-typed-refusal-precedence");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = codex_entry(std::string{parent_id}, std::string{child_id});
+  record.original_path = "/typed-origin";
+  record.normalized_path_key = record.original_path;
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      record.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{parent_id} + "\",\"session_id\":\"" +
+            std::string{parent_id} +
+            "\",\"cwd\":\"/typed-origin\",\"foreign_path\":"
+            "\"/typed-origin-suffix\",\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace(
+      record.children.front().artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{child_id} + "\",\"session_id\":\"" +
+            std::string{foreign_id} + "\",\"parent_thread_id\":\"" +
+            std::string{parent_id} +
+            "\",\"cwd\":\"/typed-origin\",\"cli_version\":\"0.142.5\"}}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::no,
+      std::array{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"staged_identity_mismatch"});
+  CHECK(result->sessions.front().verify.origin_path_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "R-1b Codex refuses an unrecoverable separately mapped parent lineage") {
+  constexpr std::string_view parent_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a21";
+  constexpr std::string_view child_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0a22";
+  const auto root = make_tmp("codex-unrecoverable-parent-lineage");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto parent = codex_entry(std::string{parent_id}, "unused-parent-child");
+  auto child = codex_entry(std::string{child_id}, "unused-child-child");
+  parent.children.clear();
+  child.children.clear();
+  child.original_session_ids.parent = std::string{parent_id};
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      parent.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{parent_id} +
+            "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n"));
+  members.emplace(
+      child.artifacts.front(),
+      bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+            std::string{child_id} +
+            "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::no, std::array{parent, child});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(1).reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->sessions.at(1).detail ==
+        std::optional<std::string>{"staged_identity_mismatch"});
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == parent_id);
   fs::remove_all(root);
 }

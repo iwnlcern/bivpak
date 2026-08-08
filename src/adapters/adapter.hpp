@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -72,6 +73,9 @@ struct SessionRecord {
   std::string original_session_id;
   std::optional<std::string> parent_id;
   std::vector<std::string> child_ids;
+  // Staged artifacts are minted while the manifest child identity remains the
+  // image-side original.  This explicit association avoids name heuristics.
+  std::vector<std::pair<std::string, std::string>> child_artifact_map;
   std::string original_path;
   std::string normalized_path_key;
   std::string normalization_scheme;
@@ -85,6 +89,12 @@ struct SessionRecord {
         const std::function<expected<void>(std::span<const std::byte>)>&)> stream;
   };
   std::vector<ArtifactSource> artifact_sources;
+  struct TornTail {
+    std::string artifact;
+    std::uint64_t bytes{0};
+    bool retained{false};
+  };
+  std::vector<TornTail> torn_tails;
   std::string agent_version_at_pack;
   bool live_at_pack{false};
 };
@@ -168,6 +178,57 @@ struct InstallVerify {
   size_t origin_id_hits{0};
   size_t artifacts_checked{0};
 };
+
+inline constexpr std::size_t BIV_JSONL_MAX_LINE_BYTES = 67108864U;
+
+inline bool valid_utf8(std::string_view text) {
+  for (std::size_t i = 0; i < text.size();) {
+    const auto lead = static_cast<unsigned char>(text.at(i));
+    std::size_t width = 0;
+    std::uint32_t point = 0;
+    if (lead <= 0x7fU) { width = 1; point = lead; }
+    else if (lead >= 0xc2U && lead <= 0xdfU) { width = 2; point = lead & 0x1fU; }
+    else if (lead >= 0xe0U && lead <= 0xefU) { width = 3; point = lead & 0x0fU; }
+    else if (lead >= 0xf0U && lead <= 0xf4U) { width = 4; point = lead & 0x07U; }
+    else return false;
+    if (i + width > text.size()) return false;
+    for (std::size_t j = 1; j < width; ++j) {
+      const auto next = static_cast<unsigned char>(text.at(i + j));
+      if ((next & 0xc0U) != 0x80U) return false;
+      point = (point << 6U) | (next & 0x3fU);
+    }
+    if ((width == 2 && point < 0x80U) || (width == 3 && point < 0x800U) ||
+        (width == 4 && point < 0x10000U) ||
+        (point >= 0xd800U && point <= 0xdfffU) || point > 0x10ffffU) return false;
+    i += width;
+  }
+  return true;
+}
+
+template <class ParseJson>
+inline bool strict_jsonl_decodable(const std::span<const std::byte> bytes,
+                                   ParseJson parse_json) {
+  std::size_t start = 0;
+  for (std::size_t i = 0; i <= bytes.size(); ++i) {
+    if (i != bytes.size() &&
+        bytes.subspan(i, 1U).front() != std::byte{'\n'}) {
+      continue;
+    }
+    // An empty artifact has zero records; so does the final empty segment
+    // produced by a trailing newline.
+    if (i == bytes.size() && start == i) break;
+    const auto length = i - start;
+    if (length > BIV_JSONL_MAX_LINE_BYTES) return false;
+    std::string line;
+    line.reserve(length);
+    for (std::size_t j = start; j < i; ++j) {
+      line.push_back(static_cast<char>(bytes.subspan(j, 1U).front()));
+    }
+    if (!valid_utf8(line) || !parse_json(line)) return false;
+    start = i + 1U;
+  }
+  return true;
+}
 
 struct InstallSessionOutcome {
   std::string image_session_id;

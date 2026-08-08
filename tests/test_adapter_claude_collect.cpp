@@ -162,6 +162,105 @@ TEST_CASE("Claude adapter collects only matching cwd transcript and subagent art
   CHECK(snapshot_tree(root) == before);
 }
 
+TEST_CASE("Claude collector rejects subtree files outside its three classes") {
+  const auto root = make_tmp("subtree-class-set");
+  const auto store = root / "claude_store";
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-000000000077";
+  const auto project = store / "projects" / "-ws-proj";
+  const auto session_dir = project / session_id;
+  write_file(project / (std::string{session_id} + ".jsonl"),
+             std::string{R"({"type":"user","cwd":"/ws/proj","sessionId":")"} +
+                 std::string{session_id} +
+                 R"(","version":"2.1.202"})" + "\n");
+  write_file(session_dir / "subagents" / "agent-a01.jsonl", "{}\n");
+  write_file(session_dir / "subagents" / "agent-a01.meta.json", "{}\n");
+  write_file(session_dir / "tool-results" / "nested" / "result.txt",
+             "tool output\n");
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{
+          .kind = "sessions_root", .path = store / "projects"}},
+      .tier = biv::adapters::DiscoveryTier::defaults,
+      .archived = false}};
+
+  const auto allowed =
+      biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(allowed);
+  REQUIRE(allowed->sessions.size() == 1U);
+  CHECK(allowed->sessions.front().artifacts.size() == 4U);
+
+  const auto offending = session_dir / "notes.md";
+  write_file(offending, "not an installable subtree class\n");
+  const auto refused =
+      biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+
+  REQUIRE_FALSE(refused);
+  CHECK(refused.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(refused.error().path == offending.generic_string());
+  CHECK(refused.error().detail == "unsupported_subtree_artifact");
+  fs::remove_all(root);
+}
+
+TEST_CASE("CB2 Claude live collect covers flat bare and slug hex plus nested "
+          "bare hex layouts") {
+  const auto root = make_tmp("nested-subagent-reality-shape");
+  const auto store = root / "claude_store";
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-000000000078";
+  const auto project = store / "projects" / "-ws-proj";
+  const auto flat_bare_relative =
+      std::string{session_id} + "/subagents/agent-a00e74f5f82549807.jsonl";
+  const auto flat_slug_relative =
+      std::string{session_id} +
+      "/subagents/agent-explore-b00e74f5f82549807.jsonl";
+  const auto nested_bare_relative =
+      std::string{session_id} +
+      "/subagents/workflows/wf-a/agent-c00e74f5f82549807.jsonl";
+  const auto flat_bare_artifact = "agents/claude-code/" + flat_bare_relative;
+  const auto flat_slug_artifact = "agents/claude-code/" + flat_slug_relative;
+  const auto nested_bare_artifact =
+      "agents/claude-code/" + nested_bare_relative;
+  write_file(project / (std::string{session_id} + ".jsonl"),
+             std::string{R"({"type":"user","cwd":"/ws/proj","sessionId":")"} +
+                 std::string{session_id} +
+                 R"(","version":"2.1.202"})" + "\n");
+  write_file(project / flat_bare_relative,
+             std::string{R"({"type":"assistant","sessionId":")"} +
+                 std::string{session_id} +
+                 R"(","agentId":"agent-a00e74f5f82549807"})" + "\n");
+  write_file(project / flat_slug_relative,
+             std::string{R"({"type":"assistant","sessionId":")"} +
+                 std::string{session_id} +
+                 R"(","agentId":"agent-explore-b00e74f5f82549807"})" + "\n");
+  write_file(project / nested_bare_relative,
+             std::string{R"({"type":"assistant","sessionId":")"} +
+                 std::string{session_id} +
+                 R"(","agentId":"agent-c00e74f5f82549807"})" + "\n");
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{
+          .kind = "sessions_root", .path = store / "projects"}},
+      .tier = biv::adapters::DiscoveryTier::defaults,
+      .archived = false}};
+
+  const auto report =
+      biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(report);
+  REQUIRE(report->sessions.size() == 1U);
+  const auto& record = report->sessions.front();
+  CHECK(contains_artifact(record, flat_bare_artifact));
+  CHECK(contains_artifact(record, flat_slug_artifact));
+  CHECK(contains_artifact(record, nested_bare_artifact));
+  CHECK(record.child_ids ==
+        std::vector<std::string>{"agent-a00e74f5f82549807",
+                                 "agent-explore-b00e74f5f82549807"});
+  CHECK(record.child_artifact_map.empty());
+  fs::remove_all(root);
+}
+
 TEST_CASE("Claude adapter keys membership on the first cwd record") {
   const auto root = make_tmp("first-cwd");
   const auto store = root / "claude_store";
@@ -335,5 +434,126 @@ TEST_CASE("Claude collected sources stay fd-bound across a leaf swap") {
   CHECK(streamed.find("DO_NOT_COLLECT_SWAPPED_CREDENTIAL") == std::string::npos);
   CHECK(streamed.find("aaaaaaaa-1111-4000-8000-000000000001") !=
         std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude collect applies all four torn-tail branches") {
+  struct TailCase {
+    std::string_view name;
+    std::string_view tail;
+    std::string_view expected;
+    bool live;
+    bool dropped;
+  };
+  const std::array cases{
+      TailCase{"empty", "", "", true, false},
+      TailCase{"valid", "{\"type\":\"assistant\"}", "{\"type\":\"assistant\"}\n", true, false},
+      TailCase{"invalid-live", "{bad", "", true, true},
+      TailCase{"invalid-terminal", "{bad", "{bad", false, false},
+  };
+  for (const auto& test_case : cases) {
+    DYNAMIC_SECTION(test_case.name) {
+      const auto root = make_tmp("torn-tail-" + std::string{test_case.name});
+      const auto store = root / "claude";
+      const auto id = std::string{"aaaaaaaa-1111-4000-8000-000000000120"};
+      const auto prefix = std::string{"{\"type\":\"user\",\"cwd\":\"/ws/proj\",\"sessionId\":\""} +
+                          id + "\",\"version\":\"2.1.202\"}\n";
+      write_file(store / "projects" / "project" / (id + ".jsonl"),
+                 prefix + std::string{test_case.tail});
+      write_file(store / "sessions" / (id + ".json"),
+                 std::string{"{\"sessionId\":\""} + id + "\",\"status\":\"" +
+                     (test_case.live ? "running" : "completed") + "\"}");
+      const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+          .root = store, .locators = {{.kind = "sessions_root", .path = store / "projects"}}}};
+      const auto report = biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+      REQUIRE(report);
+      REQUIRE(report->sessions.size() == 1U);
+      const auto& record = report->sessions.front();
+      CHECK(record.live_at_pack == test_case.live);
+      std::string bytes;
+      REQUIRE(record.artifact_sources.front().stream(
+          [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+            for (const auto byte : chunk) bytes.push_back(static_cast<char>(byte));
+            return {};
+          }));
+      CHECK(bytes == prefix + std::string{test_case.expected});
+      const auto has_invalid_tail = test_case.dropped || test_case.name == "invalid-terminal";
+      REQUIRE(record.torn_tails.size() == (has_invalid_tail ? 1U : 0U));
+      if (has_invalid_tail) {
+        CHECK(record.torn_tails.front().artifact == "agents/claude-code/" + id + ".jsonl");
+        CHECK(record.torn_tails.front().bytes == test_case.tail.size());
+      }
+      fs::remove_all(root);
+    }
+  }
+}
+
+TEST_CASE("Claude collect never inspects an invalid interior segment") {
+  const auto root = make_tmp("torn-tail-interior");
+  const auto store = root / "claude";
+  const auto id = std::string{"aaaaaaaa-1111-4000-8000-000000000121"};
+  const auto bytes = std::string{"{\"type\":\"user\",\"cwd\":\"/ws/proj\",\"sessionId\":\""} +
+                     id + "\",\"version\":\"2.1.202\"}\n{bad\n{\"type\":\"assistant\"}";
+  write_file(store / "projects" / "project" / (id + ".jsonl"), bytes);
+  write_file(store / "sessions" / (id + ".json"),
+             "{\"sessionId\":\"" + id + "\",\"status\":\"running\"}");
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store, .locators = {{.kind = "sessions_root", .path = store / "projects"}}}};
+  const auto report = biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+  REQUIRE(report);
+  REQUIRE(report->sessions.size() == 1U);
+  CHECK(report->sessions.front().live_at_pack);
+  std::string streamed;
+  REQUIRE(report->sessions.front().artifact_sources.front().stream(
+      [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+        for (const auto byte : chunk) {
+          streamed.push_back(static_cast<char>(byte));
+        }
+        return {};
+      }));
+  CHECK(streamed == bytes + "\n");
+  CHECK(report->sessions.front().torn_tails.empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude collect drops a whole-file invalid live subtree segment") {
+  const auto root = make_tmp("torn-tail-whole-invalid");
+  const auto store = root / "claude";
+  const auto id = std::string{"aaaaaaaa-1111-4000-8000-000000000122"};
+  const auto tail = std::string{"{bad"};
+  const auto artifact = "agents/claude-code/" + id +
+                        "/subagents/agent-a01.jsonl";
+  write_file(store / "projects" / "project" / (id + ".jsonl"),
+             "{\"type\":\"user\",\"cwd\":\"/ws/proj\",\"sessionId\":\"" +
+                 id + "\",\"version\":\"2.1.202\"}\n");
+  write_file(store / "projects" / "project" / id / "subagents" /
+                 "agent-a01.jsonl",
+             tail);
+  write_file(store / "sessions" / (id + ".json"),
+             "{\"sessionId\":\"" + id + "\",\"status\":\"running\"}");
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {{.kind = "sessions_root", .path = store / "projects"}}}};
+
+  const auto report = biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(report);
+  REQUIRE(report->sessions.size() == 1U);
+  const auto& record = report->sessions.front();
+  const auto source_index = std::ranges::find(record.artifacts, artifact) -
+                            record.artifacts.begin();
+  REQUIRE(source_index < static_cast<std::ptrdiff_t>(record.artifact_sources.size()));
+  std::string streamed;
+  REQUIRE(record.artifact_sources.at(static_cast<std::size_t>(source_index)).stream(
+      [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+        for (const auto byte : chunk) streamed.push_back(static_cast<char>(byte));
+        return {};
+      }));
+  CHECK(streamed.empty());
+  CHECK(record.artifact_sources.at(static_cast<std::size_t>(source_index)).size == 0U);
+  const auto fact = std::ranges::find(record.torn_tails, artifact,
+                                     &biv::adapters::SessionRecord::TornTail::artifact);
+  REQUIRE(fact != record.torn_tails.end());
+  CHECK(fact->bytes == tail.size());
   fs::remove_all(root);
 }

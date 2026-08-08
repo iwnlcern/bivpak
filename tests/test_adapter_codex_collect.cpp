@@ -19,6 +19,14 @@
 
 #include "adapters/codex/codex.hpp"
 
+namespace biv::adapters {
+void normalize_torn_jsonl_artifacts(
+    std::vector<std::string>& artifacts,
+    std::vector<SessionRecord::ArtifactSource>& sources,
+    bool live,
+    std::vector<SessionRecord::TornTail>& torn_tails);
+}
+
 namespace {
 
 namespace fs = std::filesystem;
@@ -470,6 +478,224 @@ TEST_CASE("Codex parent liveness includes an absorbed live child") {
   fs::remove_all(root);
 }
 
+TEST_CASE("Codex collect trims only a live invalid final segment") {
+  struct TailCase {
+    std::string_view name;
+    std::string_view tail;
+    std::string_view expected;
+    bool live;
+    bool dropped;
+  };
+  const std::array cases{
+      TailCase{"empty", "", "", true, false},
+      TailCase{"valid", "{\"type\":\"task_complete\"}",
+               "{\"type\":\"task_complete\"}\n", false, false},
+      // This liveness assertion deliberately rides B1's real final-record
+      // derivation; do not replace it with a test-only live flag.
+      TailCase{"invalid-live", "{bad", "", true, true},
+  };
+  for (const auto& test_case : cases) {
+    DYNAMIC_SECTION(test_case.name) {
+      const auto root = make_tmp("torn-tail-" + std::string{test_case.name});
+      const auto store = root / "codex";
+      const auto id = std::string{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1020"};
+      const auto prefix = std::string{"{\"timestamp\":\"2026-08-05T00:00:00Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+                          id + "\",\"session_id\":\"" + id +
+                          "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n";
+      const auto path = store / "sessions" / "2026" / "08" / "05" /
+                        ("rollout-2026-08-05T00-00-00-" + id + ".jsonl");
+      write_file(path, prefix + std::string{test_case.tail});
+      const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+          .root = store,
+          .locators = {{.kind = "sessions_root", .path = store / "sessions"}},
+          .tier = biv::adapters::DiscoveryTier::defaults}};
+      const auto report = biv::adapters::codex_adapter().collect("/ws/proj", stores);
+      REQUIRE(report);
+      REQUIRE(report->sessions.size() == 1U);
+      const auto& record = report->sessions.front();
+      CHECK(record.live_at_pack == test_case.live);
+      REQUIRE(record.artifact_sources.size() == 1U);
+      std::string bytes;
+      REQUIRE(record.artifact_sources.front().stream(
+          [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+            for (const auto byte : chunk) bytes.push_back(static_cast<char>(byte));
+            return {};
+          }));
+      CHECK(bytes == prefix + std::string{test_case.expected});
+      REQUIRE(record.torn_tails.size() == (test_case.dropped ? 1U : 0U));
+      if (test_case.dropped) {
+        CHECK(record.torn_tails.front().artifact == "agents/codex/" + id + ".jsonl");
+        CHECK(record.torn_tails.front().bytes == test_case.tail.size());
+      }
+      fs::remove_all(root);
+    }
+  }
+}
+
+TEST_CASE("Codex tail normalizer retains an invalid non-live final segment") {
+  const auto path = fs::path{"/virtual/branch-4.jsonl"};
+  const std::string prefix{"{\"type\":\"task_complete\"}\n"};
+  const std::string tail{"{bad"};
+  std::vector<std::string> artifacts{"agents/codex/branch-4.jsonl"};
+  std::vector<biv::adapters::SessionRecord::ArtifactSource> sources{
+      {.path = path,
+       .size = static_cast<std::uint64_t>(prefix.size() + tail.size()),
+       .stream = [bytes = prefix + tail](const auto& sink) {
+         return sink(std::as_bytes(std::span<const char>{bytes.data(), bytes.size()}));
+       }}};
+  std::vector<biv::adapters::SessionRecord::TornTail> facts;
+
+  biv::adapters::normalize_torn_jsonl_artifacts(artifacts, sources, false, facts);
+
+  std::string retained;
+  REQUIRE(sources.front().stream([&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+    for (const auto byte : chunk) retained.push_back(static_cast<char>(byte));
+    return {};
+  }));
+  CHECK(retained == prefix + tail);
+  REQUIRE(facts.size() == 1U);
+  CHECK(facts.front().artifact == "agents/codex/branch-4.jsonl");
+  CHECK(facts.front().bytes == tail.size());
+}
+
+TEST_CASE("Codex tail normalizer drops a whole-file invalid live segment") {
+  const auto path = fs::path{"/virtual/whole-invalid.jsonl"};
+  const std::string tail{"{bad"};
+  std::vector<std::string> artifacts{"agents/codex/whole-invalid.jsonl"};
+  std::vector<biv::adapters::SessionRecord::ArtifactSource> sources{
+      {.path = path,
+       .size = static_cast<std::uint64_t>(tail.size()),
+       .stream = [tail](const auto& sink) {
+         return sink(std::as_bytes(
+             std::span<const char>{tail.data(), tail.size()}));
+       }}};
+  std::vector<biv::adapters::SessionRecord::TornTail> facts;
+
+  biv::adapters::normalize_torn_jsonl_artifacts(artifacts, sources, true,
+                                                 facts);
+
+  std::string retained;
+  REQUIRE(sources.front().stream(
+      [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+        for (const auto byte : chunk) {
+          retained.push_back(static_cast<char>(byte));
+        }
+        return {};
+      }));
+  CHECK(retained.empty());
+  CHECK(sources.front().size == 0U);
+  REQUIRE(facts.size() == 1U);
+  CHECK(facts.front().artifact == artifacts.front());
+  CHECK(facts.front().bytes == tail.size());
+}
+
+TEST_CASE("Codex tail normalizer keeps multi-artifact facts paired") {
+  const std::array tails{std::string{"{bad"}, std::string{"{worse"}};
+  std::vector<std::string> artifacts{"agents/codex/parent.jsonl",
+                                     "agents/codex/child.jsonl"};
+  std::vector<biv::adapters::SessionRecord::ArtifactSource> sources;
+  for (std::size_t i = 0; i < tails.size(); ++i) {
+    sources.push_back(
+        {.path = fs::path{"/virtual"} / fs::path{artifacts.at(i)}.filename(),
+         .size = static_cast<std::uint64_t>(tails.at(i).size()),
+         .stream = [tail = tails.at(i)](const auto& sink) {
+           return sink(std::as_bytes(
+               std::span<const char>{tail.data(), tail.size()}));
+         }});
+  }
+  std::vector<biv::adapters::SessionRecord::TornTail> facts;
+
+  biv::adapters::normalize_torn_jsonl_artifacts(artifacts, sources, true,
+                                                 facts);
+
+  REQUIRE(facts.size() == 2U);
+  for (std::size_t i = 0; i < facts.size(); ++i) {
+    CHECK(facts.at(i).artifact == artifacts.at(i));
+    CHECK(facts.at(i).bytes == tails.at(i).size());
+    CHECK(sources.at(i).size == 0U);
+  }
+}
+
+TEST_CASE("Codex collect keeps a terminal child under a live parent intact") {
+  const auto root = make_tmp("live-parent-terminal-child");
+  const auto store = root / "codex";
+  const std::string parent_id{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1031"};
+  const std::string child_id{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1032"};
+  const std::string parent =
+      "{\"timestamp\":\"2026-08-05T00:00:00Z\",\"type\":\"session_meta\","
+      "\"payload\":{\"id\":\"" +
+      parent_id +
+      "\",\"session_id\":\"" + parent_id +
+      "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}";
+  const std::string child =
+      "{\"timestamp\":\"2026-08-05T00:01:00Z\",\"type\":\"session_meta\","
+      "\"payload\":{\"id\":\"" +
+      child_id + "\",\"session_id\":\"" + parent_id +
+      "\",\"cwd\":\"/ws/proj/sub\",\"cli_version\":\"0.142.5\","
+      "\"parent_thread_id\":\"" + parent_id +
+      "\"}}\n{\"type\":\"task_complete\"}";
+  write_file(store / "sessions" / "2026" / "08" / "05" /
+                 ("rollout-2026-08-05T00-00-00-" + parent_id + ".jsonl"),
+             parent);
+  write_file(store / "sessions" / "2026" / "08" / "05" /
+                 ("rollout-2026-08-05T00-01-00-" + child_id + ".jsonl"),
+             child);
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {{.kind = "sessions_root", .path = store / "sessions"}}}};
+
+  const auto report =
+      biv::adapters::codex_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(report.has_value());
+  REQUIRE(report->sessions.size() == 1U);
+  const auto& record = report->sessions.front();
+  CHECK(record.live_at_pack);
+  CHECK(record.child_ids == std::vector<std::string>{child_id});
+  REQUIRE(record.artifact_sources.size() == 2U);
+  CHECK(record.torn_tails.empty());
+  const std::array expected{parent + "\n", child + "\n"};
+  for (std::size_t i = 0; i < record.artifact_sources.size(); ++i) {
+    std::string streamed;
+    REQUIRE(record.artifact_sources.at(i).stream(
+        [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+          for (const auto byte : chunk) {
+            streamed.push_back(static_cast<char>(byte));
+          }
+          return {};
+        }));
+    CHECK(streamed == expected.at(i));
+  }
+  fs::remove_all(root);
+}
+
+TEST_CASE("Codex collect never inspects an invalid interior segment") {
+  const auto root = make_tmp("torn-tail-interior");
+  const auto store = root / "codex";
+  const auto id = std::string{"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1021"};
+  const auto bytes = std::string{"{\"timestamp\":\"2026-08-05T00:00:00Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+                     id + "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n{bad\n{\"type\":\"event_msg\",\"payload\":{\"type\":\"user_message\",\"message\":\"x\"}}";
+  write_file(store / "sessions" / "2026" / "08" / "05" /
+                 ("rollout-2026-08-05T00-00-00-" + id + ".jsonl"), bytes);
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store, .locators = {{.kind = "sessions_root", .path = store / "sessions"}}}};
+  const auto report = biv::adapters::codex_adapter().collect("/ws/proj", stores);
+  REQUIRE(report);
+  REQUIRE(report->sessions.size() == 1U);
+  CHECK(report->sessions.front().live_at_pack);
+  std::string streamed;
+  REQUIRE(report->sessions.front().artifact_sources.front().stream(
+      [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+        for (const auto byte : chunk) {
+          streamed.push_back(static_cast<char>(byte));
+        }
+        return {};
+      }));
+  CHECK(streamed == bytes + "\n");
+  CHECK(report->sessions.front().torn_tails.empty());
+  fs::remove_all(root);
+}
+
 TEST_CASE("Codex adapter matches Windows cwd to its WSL workspace") {
   const auto root = make_tmp("windows-wsl");
   const auto store = root / "codex_store";
@@ -576,7 +802,7 @@ TEST_CASE("Codex adapter keeps dangling parent ids for manifest emission") {
                  ("rollout-2026-07-06T11-00-00-" + child + ".jsonl"),
              "{\"timestamp\":\"2026-07-06T11:00:00Z\",\"type\":\"session_"
              "meta\",\"payload\":{\"id\":\"" +
-                 child + "\",\"session_id\":\"" + child +
+                 child + "\",\"session_id\":\"" + missing_parent +
                  "\",\"cwd\":\"/ws/proj/"
                  "sub\",\"cli_version\":\"0.142.5\",\"parent_thread_id\":\"" +
                  missing_parent + "\"}}\n");
@@ -595,6 +821,64 @@ TEST_CASE("Codex adapter keeps dangling parent ids for manifest emission") {
   CHECK(report->sessions.front().original_session_id == child);
   REQUIRE(report->sessions.front().parent_id.has_value());
   CHECK(*report->sessions.front().parent_id == missing_parent);
+  fs::remove_all(root);
+}
+
+TEST_CASE("X-2 Codex warns when a rollout has session_id but no id") {
+  const auto root = make_tmp("session-id-without-id");
+  const auto store = root / "codex";
+  constexpr std::string_view session_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee7011";
+  const auto rollout =
+      store / "sessions/2026/07/06/rollout-2026-07-06T11-00-00-019faaaa-"
+              "bbbb-7ccc-8ddd-eeeeeeee7011.jsonl";
+  write_file(rollout,
+             std::string{"{\"timestamp\":\"2026-07-06T11:00:00Z\","
+                         "\"type\":\"session_meta\",\"payload\":{"
+                         "\"session_id\":\""} +
+                 std::string{session_id} +
+                 "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n");
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{.kind = "sessions_root",
+                                               .path = store / "sessions"}},
+      .tier = biv::adapters::DiscoveryTier::defaults,
+      .archived = false}};
+  const auto report =
+      biv::adapters::codex_adapter().collect("/ws/proj", stores);
+  REQUIRE(report);
+  CHECK(report->sessions.empty());
+  CHECK(std::ranges::any_of(report->warnings, [&](const std::string& warning) {
+    return warning == "SessionIdWithoutId:" + rollout.generic_string();
+  }));
+  fs::remove_all(root);
+}
+
+TEST_CASE("X-2 Codex suppresses session_id warnings outside the source root") {
+  const auto root = make_tmp("out-of-scope-session-id-without-id");
+  const auto store = root / "codex";
+  const auto rollout =
+      store / "sessions/2026/07/06/rollout-2026-07-06T11-00-00-019faaaa-"
+              "bbbb-7ccc-8ddd-eeeeeeee7012.jsonl";
+  write_file(rollout,
+             "{\"timestamp\":\"2026-07-06T11:00:00Z\","
+             "\"type\":\"session_meta\",\"payload\":{"
+             "\"session_id\":\"019faaaa-bbbb-7ccc-8ddd-eeeeeeee7012\","
+             "\"cwd\":\"/other/project\",\"cli_version\":\"0.142.5\"}}\n");
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{.kind = "sessions_root",
+                                               .path = store / "sessions"}},
+      .tier = biv::adapters::DiscoveryTier::defaults,
+      .archived = false}};
+  const auto report =
+      biv::adapters::codex_adapter().collect("/ws/proj", stores);
+  REQUIRE(report);
+  CHECK(report->sessions.empty());
+  CHECK_FALSE(std::ranges::any_of(
+      report->warnings, [&](const std::string& warning) {
+        return warning == "SessionIdWithoutId:" + rollout.generic_string();
+      }));
   fs::remove_all(root);
 }
 

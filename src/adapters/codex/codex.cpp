@@ -1,9 +1,11 @@
 #include "adapters/codex/codex.hpp"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cerrno>
 #include <cstdint>
+#include <ctime>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -33,15 +35,23 @@
 
 namespace biv::adapters {
 
+void normalize_torn_jsonl_artifacts(
+    std::vector<std::string>& artifacts,
+    std::vector<SessionRecord::ArtifactSource>& sources,
+    bool live,
+    std::vector<SessionRecord::TornTail>& torn_tails);
+
 namespace {
 
 namespace fs = std::filesystem;
 
 struct RolloutFacts {
   std::optional<std::string> id;
+  std::optional<std::string> session_id;
   std::optional<std::string> cwd;
   std::optional<std::string> cli_version;
   std::optional<std::string> parent_id;
+  std::vector<std::string> parent_ids;
   std::string newest_timestamp;
   fs::file_time_type mtime{};
 };
@@ -172,6 +182,50 @@ expected<std::string> source_text(const SessionRecord::ArtifactSource& source) {
   return text;
 }
 
+SessionRecord::ArtifactSource text_source(const fs::path& path, std::string bytes) {
+  return SessionRecord::ArtifactSource{
+      .path = path,
+      .size = static_cast<std::uint64_t>(bytes.size()),
+      .stream = [bytes = std::move(bytes)](const secure_io::ByteSink& sink) {
+        return sink(std::as_bytes(std::span<const char>{bytes.data(), bytes.size()}));
+      }};
+}
+
+bool valid_json(const std::string_view text) {
+  simdjson::padded_string padded{text};
+  simdjson::dom::parser parser;
+  simdjson::dom::element value;
+  return !parser.parse(padded).get(value);
+}
+
+void normalize_torn_jsonl_artifacts_impl(std::vector<std::string>& artifacts,
+                                         std::vector<SessionRecord::ArtifactSource>& sources,
+                                         const bool live,
+                                         std::vector<SessionRecord::TornTail>& torn_tails) {
+  for (std::size_t i = 0; i < sources.size(); ++i) {
+    if (!artifacts.at(i).ends_with(".jsonl")) continue;
+    auto bytes = source_text(sources.at(i));
+    if (!bytes) continue;
+    const auto split = bytes->rfind('\n');
+    const auto tail_start = split == std::string::npos ? 0U : split + 1U;
+    const auto tail = std::string_view{*bytes}.substr(tail_start);
+    if (tail.empty()) continue;
+    if (valid_json(tail)) {
+      bytes->push_back('\n');
+      sources.at(i) = text_source(sources.at(i).path, std::move(*bytes));
+    } else if (live) {
+      torn_tails.push_back(SessionRecord::TornTail{.artifact = artifacts.at(i),
+                                                    .bytes = tail.size()});
+      bytes->resize(tail_start);
+      sources.at(i) = text_source(sources.at(i).path, std::move(*bytes));
+    } else {
+      torn_tails.push_back(SessionRecord::TornTail{.artifact = artifacts.at(i),
+                                                    .bytes = tail.size(),
+                                                    .retained = true});
+    }
+  }
+}
+
 RolloutFacts inspect_rollout_head(const std::string_view rollout) {
   RolloutFacts facts;
   std::istringstream input{std::string{rollout}};
@@ -193,21 +247,23 @@ RolloutFacts inspect_rollout_head(const std::string_view rollout) {
     }
     if (!facts.id.has_value()) {
       facts.id = object_string(*payload, "id");
-      if (!facts.id.has_value()) {
-        facts.id = object_string(*payload, "session_id");
-      }
     }
+    if (!facts.session_id.has_value()) facts.session_id = object_string(*payload, "session_id");
     if (!facts.cwd.has_value()) {
       facts.cwd = object_string(*payload, "cwd");
     }
     if (!facts.cli_version.has_value()) {
       facts.cli_version = object_string(*payload, "cli_version");
     }
-    if (!facts.parent_id.has_value()) {
-      facts.parent_id = object_string(*payload, "parent_thread_id");
-      if (!facts.parent_id.has_value()) {
-        facts.parent_id = nested_parent_id(*payload);
-      }
+    if (const auto direct = object_string(*payload, "parent_thread_id");
+        direct.has_value()) {
+      facts.parent_ids.push_back(*direct);
+    }
+    if (const auto nested = nested_parent_id(*payload); nested.has_value()) {
+      facts.parent_ids.push_back(*nested);
+    }
+    if (!facts.parent_ids.empty()) {
+      facts.parent_id = facts.parent_ids.front();
     }
     return facts;
   }
@@ -406,11 +462,14 @@ SessionRecord session_for(const Candidate& candidate, const std::vector<Candidat
   const bool live_at_pack =
       candidate.live_at_pack ||
       std::ranges::any_of(children, &Candidate::live_at_pack);
+  std::vector<SessionRecord::TornTail> torn_tails;
+  normalize_torn_jsonl_artifacts(artifacts, artifact_sources, live_at_pack, torn_tails);
   return SessionRecord{
       .agent = "codex",
       .original_session_id = candidate.id,
       .parent_id = candidate.parent_id,
       .child_ids = std::move(child_ids),
+      .child_artifact_map = {},
       .original_path = candidate.cwd,
       .normalized_path_key = candidate.normalized_path_key,
       .normalization_scheme = "codex-cwd/v1",
@@ -422,8 +481,343 @@ SessionRecord session_for(const Candidate& candidate, const std::vector<Candidat
                      .archived = candidate.store.archived},
       .artifacts = std::move(artifacts),
       .artifact_sources = std::move(artifact_sources),
+      .torn_tails = std::move(torn_tails),
       .agent_version_at_pack = candidate.cli_version,
       .live_at_pack = live_at_pack};
+}
+
+bool staged_path_equivalent(const std::string_view left,
+                            const std::string_view right) {
+  return rewrite::path_is_same_or_descendant(
+             {.candidate = left, .root = right}) &&
+         rewrite::path_is_same_or_descendant(
+             {.candidate = right, .root = left});
+}
+
+std::string claude_project_key_for_staged_path(const std::string_view path) {
+  std::string key{path};
+  for (char& value : key) {
+    const bool alphanumeric =
+        (value >= '0' && value <= '9') ||
+        (value >= 'A' && value <= 'Z') ||
+        (value >= 'a' && value <= 'z');
+    if (!alphanumeric) value = '-';
+  }
+  return key;
+}
+
+expected<std::string> resolve_codex_staged_original_path(
+    const fs::path& source_root, const rewrite::StagedSidecar& staged,
+    const fs::path& sidecar) {
+  std::vector<std::vector<std::string>> origin_classes;
+  for (const auto& pair : staged.path_pairs) {
+    const auto& origin = pair.first;
+    const auto existing = std::ranges::find_if(
+        origin_classes, [&](const auto& path_class) {
+          return staged_path_equivalent(path_class.front(), origin);
+        });
+    if (existing == origin_classes.end()) {
+      origin_classes.push_back({origin});
+    } else {
+      existing->push_back(origin);
+    }
+  }
+
+  std::set<std::size_t> claude_classes;
+  const auto claude_projects =
+      source_root / ".biv/agents/claude-code/projects";
+  for (const auto& row : staged.rows) {
+    if (row.agent != "claude-code") continue;
+    for (std::size_t index = 0; index < origin_classes.size(); ++index) {
+      for (const auto& origin : origin_classes.at(index)) {
+        const auto expected =
+            claude_projects / claude_project_key_for_staged_path(origin) /
+            (row.minted + ".jsonl");
+        std::error_code status_error;
+        const auto status = fs::symlink_status(expected, status_error);
+        if (status_error) {
+          if (status_error == std::errc::no_such_file_or_directory) continue;
+          return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                          expected.string(),
+                                          status_error.message()});
+        }
+        if (status.type() == fs::file_type::regular) {
+          claude_classes.insert(index);
+          break;
+        }
+      }
+    }
+  }
+
+  std::vector<std::size_t> unclaimed_classes;
+  for (std::size_t index = 0; index < origin_classes.size(); ++index) {
+    if (!claude_classes.contains(index)) unclaimed_classes.push_back(index);
+  }
+  // A9 carries a global pair set, not a row-to-pair edge. A producer-valid
+  // sidecar proves every Codex row shares a path only when there is one class.
+  const auto codex_row_count = std::ranges::count_if(
+      staged.rows, [](const auto& row) { return row.agent == "codex"; });
+  const bool sole_global_class = origin_classes.size() == 1U;
+  const bool sole_unclaimed_for_one_codex =
+      origin_classes.size() > 1U && codex_row_count == 1 &&
+      unclaimed_classes.size() == 1U;
+  if (!sole_global_class && !sole_unclaimed_for_one_codex) {
+    return std::unexpected(BivError{ErrKind::ParseError, sidecar.string(),
+                                    "invalid_staged_sidecar"});
+  }
+  const auto selected =
+      sole_global_class ? 0U : unclaimed_classes.front();
+  // The parser sorted the pairs, so this is a stable spelling of the proven
+  // equivalence class rather than a row-cardinality association.
+  return origin_classes.at(selected).front();
+}
+
+int uuid_hex_value(const char value) {
+  if (value >= '0' && value <= '9') return value - '0';
+  if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+  return -1;
+}
+
+std::optional<std::uint64_t> uuidv7_milliseconds(
+    const std::string_view id) {
+  if (id.size() != 36U || id.at(8) != '-' || id.at(13) != '-' ||
+      id.at(18) != '-' || id.at(23) != '-' || id.at(14) != '7' ||
+      (id.at(19) != '8' && id.at(19) != '9' && id.at(19) != 'a' &&
+       id.at(19) != 'b')) {
+    return std::nullopt;
+  }
+  std::uint64_t milliseconds = 0;
+  std::size_t timestamp_digits = 0;
+  for (std::size_t index = 0; index < id.size(); ++index) {
+    if (index == 8U || index == 13U || index == 18U || index == 23U) {
+      continue;
+    }
+    const int digit = uuid_hex_value(id.at(index));
+    if (digit < 0) return std::nullopt;
+    if (timestamp_digits < 12U) {
+      milliseconds = (milliseconds << 4U) |
+                     static_cast<std::uint64_t>(digit);
+      ++timestamp_digits;
+    }
+  }
+  return milliseconds;
+}
+
+std::optional<fs::path> expected_codex_staged_path(
+    const fs::path& root, const std::string_view id) {
+  const auto milliseconds = uuidv7_milliseconds(id);
+  if (!milliseconds) return std::nullopt;
+  const std::time_t seconds =
+      static_cast<std::time_t>(*milliseconds / 1000U);
+  std::tm timestamp{};
+  if (gmtime_r(&seconds, &timestamp) == nullptr) return std::nullopt;
+  std::array<char, 32> year{};
+  std::array<char, 32> month{};
+  std::array<char, 32> day{};
+  std::array<char, 32> stamp{};
+  if (std::strftime(year.data(), year.size(), "%Y", &timestamp) == 0U ||
+      std::strftime(month.data(), month.size(), "%m", &timestamp) == 0U ||
+      std::strftime(day.data(), day.size(), "%d", &timestamp) == 0U ||
+      std::strftime(stamp.data(), stamp.size(), "%Y-%m-%dT%H-%M-%S",
+                    &timestamp) == 0U) {
+    return std::nullopt;
+  }
+  return root / "sessions" / year.data() / month.data() / day.data() /
+         ("rollout-" + std::string{stamp.data()} + "-" + std::string{id} +
+          ".jsonl");
+}
+
+expected<fs::path> locate_codex_staged_artifact(
+    const fs::path& root, const std::string_view id,
+    const fs::path& sidecar) {
+  const auto expected = expected_codex_staged_path(root, id);
+  if (!expected) {
+    return std::unexpected(BivError{ErrKind::ParseError, sidecar.string(),
+                                    "invalid_staged_sidecar"});
+  }
+  std::vector<fs::path> matches;
+  std::error_code error;
+  if (!fs::exists(root, error)) {
+    return std::unexpected(BivError{ErrKind::ParseError, root.string(),
+                                    "missing_staged_artifact"});
+  }
+  for (fs::recursive_directory_iterator it{root, fs::directory_options::none,
+                                            error},
+       end;
+       !error && it != end; it.increment(error)) {
+    const auto filename = it->path().filename().generic_string();
+    if (it->path().extension() != ".jsonl" ||
+        filename.find(id) == std::string::npos) {
+      continue;
+    }
+    if (it->is_symlink(error) || !it->is_regular_file(error)) {
+      return std::unexpected(BivError{ErrKind::ContainmentRefused,
+                                      it->path().string(),
+                                      "containment_refused"});
+    }
+    matches.push_back(it->path().lexically_normal());
+  }
+  if (error) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    root.string(), error.message()});
+  }
+  if (matches.size() != 1U ||
+      matches.front() != expected->lexically_normal()) {
+    return std::unexpected(BivError{ErrKind::ParseError, root.string(),
+                                    "missing_staged_artifact"});
+  }
+  return matches.front();
+}
+
+expected<void> append_staged_session(CollectReport& report,
+                                     const fs::path& source_root) {
+  const auto sidecar = source_root / ".biv/agents/manifest.json";
+  std::error_code exists_error;
+  const auto status = fs::symlink_status(sidecar, exists_error);
+  if (status.type() == fs::file_type::not_found) {
+    if (exists_error &&
+        exists_error != std::errc::no_such_file_or_directory) {
+      return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                      sidecar.string(),
+                                      exists_error.message()});
+    }
+    return {};
+  }
+  auto input = open_artifact_source(sidecar);
+  if (!input) return std::unexpected(input.error());
+  auto json = source_text(*input);
+  if (!json) return std::unexpected(json.error());
+  auto staged = rewrite::parse_staged_sidecar(sidecar, *json, source_root);
+  if (!staged) return std::unexpected(staged.error());
+
+  if (std::ranges::none_of(staged->rows, [](const auto& row) {
+        return row.agent == "codex";
+      })) {
+    return {};
+  }
+
+  std::string inferred_original_path;
+  if (!staged->rows.front().original_path.has_value()) {
+    auto inferred =
+        resolve_codex_staged_original_path(source_root, *staged, sidecar);
+    if (!inferred) return std::unexpected(inferred.error());
+    inferred_original_path = std::move(*inferred);
+  }
+
+  const auto root = source_root / ".biv/agents/codex";
+  for (const auto& row : staged->rows) {
+    if (row.agent != "codex") continue;
+    const std::string& original_path = row.original_path.has_value()
+                                           ? *row.original_path
+                                           : inferred_original_path;
+    auto main_path = locate_codex_staged_artifact(root, row.minted, sidecar);
+    if (!main_path) return std::unexpected(main_path.error());
+    auto main_source = open_artifact_source(*main_path);
+    if (!main_source) return std::unexpected(main_source.error());
+    auto main_text = source_text(*main_source);
+    if (!main_text) return std::unexpected(main_text.error());
+    const auto facts = inspect_rollout_head(*main_text);
+    const std::optional<std::string_view> referenced_parent =
+        !facts.parent_ids.empty()
+            ? std::optional<std::string_view>{facts.parent_ids.front()}
+        : facts.session_id.has_value() && *facts.session_id != row.minted
+            ? std::optional<std::string_view>{*facts.session_id}
+            : std::nullopt;
+    const auto staged_parent =
+        !referenced_parent.has_value()
+            ? staged->rows.end()
+            : std::ranges::find_if(staged->rows, [&](const auto& candidate) {
+                return candidate.agent == "codex" &&
+                       candidate.minted == *referenced_parent;
+              });
+    const bool parent_is_staged = staged_parent != staged->rows.end();
+    const bool parent_ids_match = std::ranges::all_of(
+        facts.parent_ids, [&](const auto& parent_id) {
+          return parent_is_staged && parent_id == staged_parent->minted;
+        });
+    const std::string_view installed_parent_id =
+        parent_is_staged ? std::string_view{staged_parent->minted}
+                         : std::string_view{row.minted};
+    if ((facts.id.has_value() && *facts.id != row.minted) ||
+        (!facts.parent_ids.empty() && !parent_ids_match) ||
+        (facts.session_id.has_value() &&
+         *facts.session_id != row.minted &&
+         *facts.session_id != installed_parent_id)) {
+      report.warnings.push_back("StagedSessionIdentityMismatch:" +
+                                main_path->generic_string());
+      continue;
+    }
+    if (!facts.cli_version.has_value()) {
+      report.warnings.push_back("StagedSessionVersionMissing:" +
+                                main_path->generic_string());
+      continue;
+    }
+
+    std::vector<std::string> artifacts{artifact_for(row.minted)};
+    std::vector<SessionRecord::ArtifactSource> sources{
+        std::move(*main_source)};
+    std::vector<std::string> child_ids;
+    std::vector<std::pair<std::string, std::string>> child_artifact_map;
+    bool child_live = false;
+    bool child_identity_mismatch = false;
+    for (const auto& [child_original, child_minted] : row.children) {
+      auto child_path =
+          locate_codex_staged_artifact(root, child_minted, sidecar);
+      if (!child_path) return std::unexpected(child_path.error());
+      auto child_source = open_artifact_source(*child_path);
+      if (!child_source) return std::unexpected(child_source.error());
+      auto child_text = source_text(*child_source);
+      if (!child_text) return std::unexpected(child_text.error());
+      const auto child_facts = inspect_rollout_head(*child_text);
+      if ((child_facts.id.has_value() && *child_facts.id != child_minted) ||
+          (child_facts.session_id.has_value() &&
+           *child_facts.session_id != child_minted &&
+           *child_facts.session_id != row.minted) ||
+          std::ranges::any_of(
+              child_facts.parent_ids,
+              [&](const auto& parent_id) { return parent_id != row.minted; })) {
+        report.warnings.push_back("StagedSessionIdentityMismatch:" +
+                                  child_path->generic_string());
+        child_identity_mismatch = true;
+        break;
+      }
+      child_live = child_live || !has_terminal_tail_record(*child_text);
+      child_ids.push_back(child_original);
+      const auto artifact = artifact_for(child_minted);
+      child_artifact_map.emplace_back(child_original, artifact);
+      artifacts.push_back(artifact);
+      sources.push_back(std::move(*child_source));
+    }
+    if (child_identity_mismatch) {
+      continue;
+    }
+
+    const bool live = !has_terminal_tail_record(*main_text) || child_live;
+    std::vector<SessionRecord::TornTail> tails;
+    normalize_torn_jsonl_artifacts(artifacts, sources, live, tails);
+    report.sessions.push_back(SessionRecord{
+        .agent = "codex",
+        .original_session_id = row.original,
+        .parent_id = parent_is_staged
+                         ? std::optional<std::string>{staged_parent->original}
+                         : std::nullopt,
+        .child_ids = std::move(child_ids),
+        .child_artifact_map = std::move(child_artifact_map),
+        .original_path = original_path,
+        .normalized_path_key = rewrite::normalized_path_key(original_path),
+        .normalization_scheme = "codex-cwd/v1",
+        .path_flavor = rewrite::path_flavor_for(original_path),
+        .provenance = {.store_root = source_root.generic_string(),
+                       .locator = "staging",
+                       .discovery_tier = "staged",
+                       .archived = false},
+        .artifacts = std::move(artifacts),
+        .artifact_sources = std::move(sources),
+        .torn_tails = std::move(tails),
+        .agent_version_at_pack = *facts.cli_version,
+        .live_at_pack = live});
+  }
+  return {};
 }
 
 const Inventory& codex_inventory() {
@@ -780,6 +1174,9 @@ class CodexAdapter final : public AgentAdapter {
   expected<CollectReport> collect(const fs::path& source_root, std::span<const Store> stores) const override {
     try {
       CollectReport report;
+      if (auto staged = append_staged_session(report, source_root); !staged) {
+        return std::unexpected(staged.error());
+      }
       std::vector<std::pair<std::string, std::string>> db_warnings;
       std::map<std::string, std::vector<Candidate>> grouped;
       for (const auto& store : stores) {
@@ -840,10 +1237,17 @@ class CodexAdapter final : public AgentAdapter {
               return std::unexpected(text.error());
             }
             auto facts = inspect_rollout_head(*text);
-            if (!facts.id || !facts.cwd ||
-                !rewrite::path_is_same_or_descendant(rewrite::PathMembership{
+            const bool in_source_root =
+                facts.cwd.has_value() &&
+                rewrite::path_is_same_or_descendant(rewrite::PathMembership{
                     .candidate = *facts.cwd,
-                    .root = source_root.generic_string()})) {
+                    .root = source_root.generic_string()});
+            if (in_source_root && !facts.id.has_value() &&
+                facts.session_id.has_value()) {
+              report.warnings.push_back("SessionIdWithoutId:" +
+                                        path.generic_string());
+            }
+            if (!facts.id || !in_source_root) {
               continue;
             }
             const auto mtime = fs::last_write_time(path, ec);
@@ -938,6 +1342,14 @@ class CodexAdapter final : public AgentAdapter {
 
 bool has_terminal_tail_record(const std::string_view rollout) {
   return terminal_tail_type(rollout).has_value();
+}
+
+void normalize_torn_jsonl_artifacts(
+    std::vector<std::string>& artifacts,
+    std::vector<SessionRecord::ArtifactSource>& sources,
+    const bool live,
+    std::vector<SessionRecord::TornTail>& torn_tails) {
+  normalize_torn_jsonl_artifacts_impl(artifacts, sources, live, torn_tails);
 }
 
 const AgentAdapter& codex_adapter() {

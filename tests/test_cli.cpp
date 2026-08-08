@@ -670,6 +670,45 @@ TEST_CASE("CLI warning text covers live torn and generic shapes") {
         "warning: GenericWithoutPath");
 }
 
+TEST_CASE("CLI pack carries a live torn tail into text and JSON warnings") {
+  const auto root = std::filesystem::canonical(make_tmp("torn-tail-route"));
+  const auto source = root / "proj";
+  const auto store = root / "codex";
+  constexpr std::string_view id = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee7920";
+  constexpr std::string_view tail = "{bad";
+  const auto artifact = "agents/codex/" + std::string{id} + ".jsonl";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace");
+  write_file(store / "sessions" / "2026" / "08" / "06" /
+                 ("rollout-2026-08-06T01-00-00-" + std::string{id} + ".jsonl"),
+             "{\"timestamp\":\"2026-08-06T01:00:00Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"" +
+                 std::string{id} + "\",\"cwd\":\"" + source.generic_string() +
+                 "\",\"cli_version\":\"0.142.5\"}}\n" + std::string{tail});
+  const ScopedEnv codex_home{"CODEX_HOME", store.string()};
+  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", (root / "no-claude").string()};
+  const auto text = run_cmd("pack '" + source.string() + "'", root);
+  REQUIRE(text.code == 2);
+  CHECK(text.out.find("warning: torn tail dropped from " + artifact + ": 4 bytes") != std::string::npos);
+  std::filesystem::remove(root / "proj.bvpk");
+  const auto json = run_cmd("pack '" + source.string() + "' --json", root);
+  REQUIRE(json.code == 2);
+  simdjson::dom::parser parser; simdjson::dom::element document;
+  REQUIRE(parser.parse(json.out).get(document) == simdjson::SUCCESS);
+  simdjson::dom::array warnings;
+  REQUIRE(document["warnings"].get(warnings) == simdjson::SUCCESS);
+  const auto found = std::ranges::find_if(warnings, [](const simdjson::dom::element warning) {
+    std::string_view kind; return warning["kind"].get(kind) == simdjson::SUCCESS && kind == "TornTailDropped";
+  });
+  REQUIRE(found != warnings.end());
+  std::string_view kind, path, member; std::uint64_t bytes = 0;
+  REQUIRE((*found)["kind"].get(kind) == simdjson::SUCCESS);
+  REQUIRE((*found)["path"].get(path) == simdjson::SUCCESS);
+  REQUIRE((*found)["artifact"].get(member) == simdjson::SUCCESS);
+  REQUIRE((*found)["bytes"].get(bytes) == simdjson::SUCCESS);
+  CHECK(kind == "TornTailDropped"); CHECK(path == id); CHECK(member == artifact); CHECK(bytes == tail.size());
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("CLI warning text sanitizes a real control-byte filename") {
   const auto root = std::filesystem::canonical(make_tmp("control-byte-warning"));
   const auto source = root / "source";

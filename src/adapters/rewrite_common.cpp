@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,6 +36,93 @@ struct ReplacementText {
 struct Needle {
   std::string_view value;
 };
+
+enum class RawNeedleKind { path, id };
+
+struct RawNeedle {
+  std::string_view from;
+  std::string_view to;
+  RawNeedleKind kind{RawNeedleKind::path};
+};
+
+bool path_token_byte(const char value) {
+  return (value >= 'A' && value <= 'Z') ||
+         (value >= 'a' && value <= 'z') ||
+         (value >= '0' && value <= '9') || value == '_' || value == '-' ||
+         value == '.' || value == ':' || value == '/' || value == '\\';
+}
+
+bool id_token_byte(const char value) {
+  return (value >= '0' && value <= '9') ||
+         (value >= 'a' && value <= 'z') ||
+         (value >= 'A' && value <= 'Z') || value == '-' || value == '_';
+}
+
+bool matches_at(const std::span<const std::byte> bytes,
+                const std::size_t position, const std::string_view needle) {
+  if (needle.empty() || position + needle.size() > bytes.size()) {
+    return false;
+  }
+  for (std::size_t offset = 0; offset < needle.size(); ++offset) {
+    if (static_cast<char>(
+            bytes.subspan(position + offset, 1U).front()) !=
+        needle.at(offset)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool replacement_boundary_ok(const std::span<const std::byte> bytes,
+                             const std::size_t position,
+                             const RawNeedle needle) {
+  const auto before = [&](const auto predicate) {
+    return position == 0U ||
+           !predicate(static_cast<char>(
+               bytes.subspan(position - 1U, 1U).front()));
+  };
+  const auto after_position = position + needle.from.size();
+  const auto after = [&](const auto predicate) {
+    return after_position >= bytes.size() ||
+           !predicate(static_cast<char>(
+               bytes.subspan(after_position, 1U).front()));
+  };
+  if (needle.kind == RawNeedleKind::id) {
+    return before(id_token_byte) && after(id_token_byte);
+  }
+  if (!before(path_token_byte)) {
+    return false;
+  }
+  if (after_position >= bytes.size()) {
+    return true;
+  }
+  const char next =
+      static_cast<char>(bytes.subspan(after_position, 1U).front());
+  return next == '/' || next == '\\' || !path_token_byte(next);
+}
+
+std::vector<RawNeedle> replacement_needles(
+    const PathPairsView path_pairs, const IdPairsView id_pairs) {
+  std::vector<RawNeedle> needles;
+  needles.reserve(path_pairs.values.size() + id_pairs.values.size());
+  for (const auto& [from, to] : path_pairs.values) {
+    if (!from.empty()) {
+      needles.push_back(
+          RawNeedle{.from = from, .to = to, .kind = RawNeedleKind::path});
+    }
+  }
+  for (const auto& [from, to] : id_pairs.values) {
+    if (!from.empty()) {
+      needles.push_back(
+          RawNeedle{.from = from, .to = to, .kind = RawNeedleKind::id});
+    }
+  }
+  std::stable_sort(needles.begin(), needles.end(),
+                   [](const RawNeedle lhs, const RawNeedle rhs) {
+                     return lhs.from.size() > rhs.from.size();
+                   });
+  return needles;
+}
 
 bool ascii_alpha(const char value) {
   return (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
@@ -237,12 +325,21 @@ void append_unique_pair(ReplacementPairs& pairs, std::pair<std::string, std::str
   }
 }
 
-void replace_all(std::string& text, const ReplacementText replacement) {
+void replace_id_all(std::string& text, const ReplacementText replacement) {
   if (replacement.from.empty()) {
     return;
   }
   size_t pos = 0;
   while ((pos = text.find(replacement.from, pos)) != std::string::npos) {
+    const auto before_ok =
+        pos == 0U || !id_token_byte(text.at(pos - 1U));
+    const auto after = pos + replacement.from.size();
+    const auto after_ok =
+        after >= text.size() || !id_token_byte(text.at(after));
+    if (!before_ok || !after_ok) {
+      pos += replacement.from.size();
+      continue;
+    }
     text.replace(pos, replacement.from.size(), replacement.to);
     pos += replacement.to.size();
   }
@@ -302,12 +399,22 @@ std::string json_string_content(const std::string_view value) {
 
 std::string apply_replacements(std::string value, const PathPairsView pair_set,
                                const IdPairsView id_map) {
+  std::vector<const std::pair<std::string, std::string>*> path_pairs;
+  path_pairs.reserve(pair_set.values.size());
   for (const auto& pair : pair_set.values) {
+    path_pairs.push_back(&pair);
+  }
+  std::stable_sort(path_pairs.begin(), path_pairs.end(),
+                   [](const auto* lhs, const auto* rhs) {
+                     return lhs->first.size() > rhs->first.size();
+                   });
+  for (const auto* pair : path_pairs) {
     replace_path_all(value,
-                     ReplacementText{.from = pair.first, .to = pair.second});
+                     ReplacementText{.from = pair->first, .to = pair->second});
   }
   for (const auto& pair : id_map.values) {
-    replace_all(value, ReplacementText{.from = pair.first, .to = pair.second});
+    replace_id_all(value,
+                   ReplacementText{.from = pair.first, .to = pair.second});
   }
   return value;
 }
@@ -400,11 +507,13 @@ class JsonValueRewriter {
  public:
   JsonValueRewriter(const std::string_view input, const PathPairsView pair_set,
                     const IdPairsView id_map,
-                    std::vector<std::string>* decoded_values = nullptr)
+                    std::vector<std::string>* decoded_values = nullptr,
+                    const bool decode_keys = false)
       : input_{input},
         pair_set_{pair_set},
         id_map_{id_map},
-        decoded_values_{decoded_values} {
+        decoded_values_{decoded_values},
+        decode_keys_{decode_keys} {
     output_.reserve(input.size());
   }
 
@@ -441,10 +550,22 @@ class JsonValueRewriter {
     return std::nullopt;
   }
 
-  bool raw_string() {
+  bool key_string() {
     const auto end = string_end();
     if (!end.has_value()) return false;
-    output_.append(input_.substr(position_, *end - position_ + 1U));
+    if (!decode_keys_) {
+      output_.append(input_.substr(position_, *end - position_ + 1U));
+      position_ = *end + 1U;
+      return true;
+    }
+    auto decoded = decode_json_string(
+        input_.substr(position_ + 1U, *end - position_ - 1U));
+    if (!decoded.has_value()) return false;
+    if (decoded_values_ != nullptr) decoded_values_->push_back(*decoded);
+    output_.push_back('"');
+    output_ += json_string_content(
+        apply_replacements(std::move(*decoded), pair_set_, id_map_));
+    output_.push_back('"');
     position_ = *end + 1U;
     return true;
   }
@@ -472,7 +593,7 @@ class JsonValueRewriter {
       return true;
     }
     while (position_ < input_.size()) {
-      if (!raw_string()) return false;
+      if (!key_string()) return false;
       whitespace();
       if (position_ >= input_.size() || input_.at(position_) != ':') return false;
       output_.push_back(input_.at(position_++));
@@ -537,6 +658,7 @@ class JsonValueRewriter {
   PathPairsView pair_set_;
   IdPairsView id_map_;
   std::vector<std::string>* decoded_values_;
+  bool decode_keys_{false};
   std::size_t position_{0};
   std::string output_;
 };
@@ -621,7 +743,25 @@ size_t count_hits_text(const std::string_view haystack, const Needle needle) {
   return hits;
 }
 
+InstallVerify verify_bare_bytes(const std::span<const std::byte> input,
+                                const OriginPathsView origin_paths,
+                                const OriginIdsView origin_ids) {
+  InstallVerify verify{.artifacts_checked = 1U};
+  for (const auto& origin : origin_paths.values) {
+    verify.origin_path_hits += count_hits_bytes(input, Needle{origin});
+  }
+  for (const auto& id : origin_ids.values) {
+    verify.origin_id_hits += count_hits_bytes(input, Needle{id});
+  }
+  return verify;
+}
+
 }  // namespace
+
+bool claude_staged_subtree_artifact(const std::string_view relative) {
+  return relative.ends_with(".jsonl") || relative.ends_with(".txt") ||
+         relative.ends_with(".meta.json");
+}
 
 manifest::PathFlavor path_flavor_for(const std::string_view path) {
   if (wsl_mount_path(path)) {
@@ -679,6 +819,27 @@ ReplacementPairs derive_pair_set(const std::string_view original_path,
   return pairs;
 }
 
+ReplacementPairs derive_install_pair_set(
+    const manifest::AgentSessionEntry& record,
+    const std::string_view target_path,
+    const manifest::PathFlavor target_flavor) {
+  auto pairs = derive_pair_set(record.original_path, record.path_flavor,
+                               target_path, target_flavor);
+  const bool staged = record.provenance.locator == "staging" &&
+                      record.provenance.discovery_tier == "staged";
+  if (!staged || record.provenance.store_root.empty()) {
+    return pairs;
+  }
+  auto staging_pairs = derive_pair_set(
+      record.provenance.store_root,
+      path_flavor_for(record.provenance.store_root), target_path,
+      target_flavor);
+  for (auto& pair : staging_pairs) {
+    append_unique_pair(pairs, std::move(pair));
+  }
+  return pairs;
+}
+
 RewriteLineResult rewrite_jsonl_line(const std::string_view line,
                                       const PathPairsView pair_set,
                                       const IdPairsView id_map) {
@@ -691,7 +852,8 @@ RewriteLineResult rewrite_jsonl_line(const std::string_view line,
   if (parser.parse(padded).get(root)) {
     return RewriteLineResult{.line = std::string{line}};
   }
-  auto rewritten = JsonValueRewriter{line, pair_set, id_map}.run();
+  auto rewritten =
+      JsonValueRewriter{line, pair_set, id_map, nullptr, true}.run();
   return RewriteLineResult{
       .line = rewritten.has_value() ? std::move(*rewritten) : std::string{line}};
 }
@@ -730,6 +892,187 @@ RewriteBytesResult rewrite_jsonl_bytes(const std::span<const std::byte> bytes,
   return result;
 }
 
+std::vector<std::byte> rewrite_raw_text_bytes(const RawTextBytesView input,
+                                              const PathPairsView path_pairs,
+                                              const IdPairsView id_pairs) {
+  const auto needles = replacement_needles(path_pairs, id_pairs);
+  std::vector<std::byte> output;
+  output.reserve(input.values.size());
+  for (std::size_t position = 0; position < input.values.size();) {
+    const auto match = std::ranges::find_if(needles, [&](const RawNeedle needle) {
+      return matches_at(input.values, position, needle.from) &&
+             replacement_boundary_ok(input.values, position, needle);
+    });
+    if (match == needles.end()) {
+      output.push_back(input.values.subspan(position, 1U).front());
+      ++position;
+      continue;
+    }
+    for (const char value : match->to) {
+      output.push_back(static_cast<std::byte>(value));
+    }
+    position += match->from.size();
+  }
+  return output;
+}
+
+InstallVerify verify_raw_text_bytes(const RawTextBytesView input,
+                                    const OriginPathsView origin_paths,
+                                    const OriginIdsView origin_ids) {
+  return verify_bare_bytes(input.values, origin_paths, origin_ids);
+}
+
+InstallVerify verify_whole_document_bytes(const ArtifactBytesView input,
+                                          const OriginPathsView origin_paths,
+                                          const OriginIdsView origin_ids) {
+  auto verify = verify_bare_bytes(input.values, origin_paths, origin_ids);
+  const std::string document = string_from_bytes(input.values);
+  if (!valid_utf8(document)) return verify;
+
+  simdjson::padded_string padded{document};
+  simdjson::dom::parser parser;
+  simdjson::dom::element root;
+  if (parser.parse(padded).get(root)) return verify;
+
+  std::vector<std::string> decoded_strings;
+  const auto decoded = JsonValueRewriter{
+      document, PathPairsView{}, IdPairsView{}, &decoded_strings, true}
+                           .run();
+  if (!decoded.has_value()) return verify;
+  for (const auto& value : decoded_strings) {
+    for (const auto& origin : origin_paths.values) {
+      verify.origin_path_hits += count_hits_text(value, Needle{origin});
+    }
+    for (const auto& id : origin_ids.values) {
+      verify.origin_id_hits += count_hits_text(value, Needle{id});
+    }
+  }
+  return verify;
+}
+
+expected<StagedSidecar> parse_staged_sidecar(
+    const std::filesystem::path& sidecar, const std::string_view json,
+    const std::filesystem::path& source_root) {
+  const auto invalid = [&]() -> expected<StagedSidecar> {
+    return std::unexpected(BivError{ErrKind::ParseError, sidecar.string(),
+                                    "invalid_staged_sidecar"});
+  };
+  simdjson::padded_string padded{json};
+  simdjson::dom::parser parser;
+  simdjson::dom::element root;
+  simdjson::dom::object document;
+  simdjson::dom::array maps;
+  simdjson::dom::array provenance_values;
+  simdjson::dom::array pair_values;
+  if (parser.parse(padded).get(root) || root.get(document) ||
+      document.at_key("id_map").get(maps) ||
+      document.at_key("provenance_chain").get(provenance_values) ||
+      document.at_key("pair_set_applied").get(pair_values) ||
+      maps.size() == 0U || provenance_values.size() == 0U ||
+      pair_values.size() == 0U) {
+    return invalid();
+  }
+
+  std::set<std::string> provenance;
+  for (const auto value : provenance_values) {
+    std::string_view id;
+    if (value.get(id) || id.empty() || !provenance.emplace(id).second) {
+      return invalid();
+    }
+  }
+
+  StagedSidecar parsed;
+  std::set<std::pair<std::string, std::string>> unique_pairs;
+  for (const auto value : pair_values) {
+    simdjson::dom::array pair;
+    std::string_view original_path;
+    std::string_view target_path;
+    if (value.get(pair) || pair.size() != 2U ||
+        pair.at(0).get(original_path) || pair.at(1).get(target_path) ||
+        original_path.empty() || target_path != source_root.generic_string()) {
+      return invalid();
+    }
+    std::pair<std::string, std::string> owned{original_path, target_path};
+    if (!unique_pairs.insert(owned).second) {
+      return invalid();
+    }
+    parsed.path_pairs.push_back(std::move(owned));
+  }
+
+  std::set<std::string> required_provenance;
+  std::set<std::string> image_ids;
+  std::set<std::string> installed_ids;
+  std::size_t rows_with_original_path = 0U;
+  for (const auto value : maps) {
+    simdjson::dom::object object;
+    std::string_view agent;
+    std::string_view original;
+    std::string_view minted;
+    simdjson::dom::array children;
+    if (value.get(object) || object.at_key("agent").get(agent) ||
+        object.at_key("image_session_id").get(original) ||
+        object.at_key("installed_session_id").get(minted) ||
+        object.at_key("children").get(children) ||
+        (agent != "codex" && agent != "claude-code") || original.empty() ||
+        minted.empty() || !image_ids.emplace(original).second ||
+        !installed_ids.emplace(minted).second) {
+      return invalid();
+    }
+    std::optional<std::string> original_path;
+    std::size_t original_path_members = 0U;
+    for (const auto field : object) {
+      if (field.key != "original_path") {
+        continue;
+      }
+      ++original_path_members;
+      std::string_view candidate;
+      if (original_path_members != 1U || field.value.get(candidate) ||
+          candidate.empty()) {
+        return invalid();
+      }
+      original_path = std::string{candidate};
+    }
+    if (original_path.has_value()) {
+      const auto audited = std::pair{*original_path,
+                                     source_root.generic_string()};
+      if (!unique_pairs.contains(audited)) {
+        return invalid();
+      }
+      ++rows_with_original_path;
+    }
+    StagedMapRow row{.agent = std::string{agent},
+                     .original = std::string{original},
+                     .minted = std::string{minted},
+                     .original_path = std::move(original_path),
+                     .children = {}};
+    required_provenance.emplace(original);
+    for (const auto child_value : children) {
+      simdjson::dom::array child;
+      std::string_view child_original;
+      std::string_view child_minted;
+      if (child_value.get(child) || child.size() != 2U ||
+          child.at(0).get(child_original) || child.at(1).get(child_minted) ||
+          child_original.empty() || child_minted.empty() ||
+          !image_ids.emplace(child_original).second ||
+          !installed_ids.emplace(child_minted).second) {
+        return invalid();
+      }
+      required_provenance.emplace(child_original);
+      row.children.emplace_back(child_original, child_minted);
+    }
+    parsed.rows.push_back(std::move(row));
+  }
+  if (rows_with_original_path != 0U &&
+      rows_with_original_path != parsed.rows.size()) {
+    return invalid();
+  }
+  if (required_provenance != provenance) {
+    return invalid();
+  }
+  std::ranges::sort(parsed.path_pairs);
+  return parsed;
+}
+
 InstallVerify verify_scan(const std::span<const std::byte> artifact_bytes,
                           const OriginPathsView pair_set_origins,
                           const OriginIdsView origin_ids) {
@@ -749,7 +1092,7 @@ InstallVerify verify_scan(const std::span<const std::byte> artifact_bytes,
       if (!parser.parse(padded).get(root)) {
         std::vector<std::string> values;
         auto parsed = JsonValueRewriter{line, PathPairsView{}, IdPairsView{},
-                                        &values}
+                                        &values, true}
                           .run();
         if (parsed.has_value()) {
           decoded = true;

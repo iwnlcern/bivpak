@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -39,6 +41,27 @@ struct OriginIdsView {
   std::span<const std::string> values;
 };
 
+struct RawTextBytesView {
+  std::span<const std::byte> values;
+};
+
+struct ArtifactBytesView {
+  std::span<const std::byte> values;
+};
+
+struct StagedMapRow {
+  std::string agent;
+  std::string original;
+  std::string minted;
+  std::optional<std::string> original_path;
+  std::vector<std::pair<std::string, std::string>> children;
+};
+
+struct StagedSidecar {
+  std::vector<StagedMapRow> rows;
+  std::vector<std::pair<std::string, std::string>> path_pairs;
+};
+
 struct PathMembership {
   std::string_view candidate;
   std::string_view root;
@@ -48,10 +71,14 @@ ReplacementPairs derive_pair_set(std::string_view original_path,
                                   manifest::PathFlavor original_flavor,
                                   std::string_view target_path,
                                   manifest::PathFlavor target_flavor);
+ReplacementPairs derive_install_pair_set(
+    const manifest::AgentSessionEntry& record, std::string_view target_path,
+    manifest::PathFlavor target_flavor);
 
 manifest::PathFlavor path_flavor_for(std::string_view path);
 std::string normalized_path_key(std::string_view path);
 bool path_is_same_or_descendant(PathMembership membership);
+bool claude_staged_subtree_artifact(std::string_view relative);
 
 RewriteLineResult rewrite_jsonl_line(std::string_view line,
                                      PathPairsView pair_set,
@@ -59,6 +86,20 @@ RewriteLineResult rewrite_jsonl_line(std::string_view line,
 RewriteBytesResult rewrite_jsonl_bytes(std::span<const std::byte> bytes,
                                        PathPairsView pair_set,
                                        IdPairsView id_map);
+
+std::vector<std::byte> rewrite_raw_text_bytes(RawTextBytesView input,
+                                              PathPairsView path_pairs,
+                                              IdPairsView id_pairs);
+InstallVerify verify_raw_text_bytes(RawTextBytesView input,
+                                    OriginPathsView origin_paths,
+                                    OriginIdsView origin_ids);
+InstallVerify verify_whole_document_bytes(ArtifactBytesView input,
+                                          OriginPathsView origin_paths,
+                                          OriginIdsView origin_ids);
+
+expected<StagedSidecar> parse_staged_sidecar(
+    const std::filesystem::path& sidecar, std::string_view json,
+    const std::filesystem::path& source_root);
 
 InstallVerify verify_scan(std::span<const std::byte> artifact_bytes,
                           OriginPathsView pair_set_origins,
