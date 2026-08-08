@@ -96,35 +96,54 @@ expected<std::vector<std::string>> repo_local_command_config_keys(
     const Git& git, const std::filesystem::path& repo) {
   static constexpr std::string_view kCommandKeyPattern =
       R"(^(filter\..*\.(clean|smudge|process)|diff\..*\.(command|textconv)|merge\..*\.driver)$)";
-  auto defined = invoke_git(
-      git, repo,
-      {"config", "--local", "--null", "--name-only", "--get-regexp",
-       std::string{kCommandKeyPattern}},
-      {}, "config-command-drivers");
-  if (!defined) {
-    return std::unexpected(defined.error());
-  }
-  if (defined->exit_code == 1) {
-    return std::vector<std::string>{};
-  }
-  if (defined->exit_code != 0) {
-    return std::unexpected(git_invocation_failure(
-        repo, "config-command-drivers", defined->exit_code,
-        "git config command-driver enumeration failed"));
-  }
-
   std::vector<std::string> keys;
-  const auto output = git_bytes(defined->stdout_bytes);
-  std::size_t cursor = 0;
-  while (cursor < output.size()) {
-    const auto end = output.find('\0', cursor);
-    if (end == std::string::npos) {
-      break;
+  const auto collect = [&](const std::string_view scope) -> expected<void> {
+    auto defined = invoke_git(
+        git, repo,
+        {"config", std::string{scope}, "--includes", "--null", "--name-only",
+         "--get-regexp", std::string{kCommandKeyPattern}},
+        {}, "config-command-drivers");
+    if (!defined) {
+      return std::unexpected(defined.error());
     }
-    if (end != cursor) {
-      keys.emplace_back(output.substr(cursor, end - cursor));
+    if (defined->exit_code == 1) {
+      return {};
     }
-    cursor = end + 1U;
+    if (scope == "--worktree" && defined->exit_code == 128) {
+      const auto detail = git_bytes(defined->stderr_bytes);
+      if (detail.find(
+              "--worktree cannot be used with multiple working trees unless") !=
+              std::string::npos &&
+          detail.find("worktreeConfig is enabled") != std::string::npos) {
+        return {};
+      }
+    }
+    if (defined->exit_code != 0) {
+      return std::unexpected(git_invocation_failure(
+          repo, "config-command-drivers", defined->exit_code,
+          "git config command-driver enumeration failed"));
+    }
+
+    const auto output = git_bytes(defined->stdout_bytes);
+    std::size_t cursor = 0;
+    while (cursor < output.size()) {
+      const auto end = output.find('\0', cursor);
+      if (end == std::string::npos) {
+        break;
+      }
+      if (end != cursor) {
+        keys.emplace_back(output.substr(cursor, end - cursor));
+      }
+      cursor = end + 1U;
+    }
+    return {};
+  };
+
+  if (auto local = collect("--local"); !local) {
+    return std::unexpected(local.error());
+  }
+  if (auto worktree = collect("--worktree"); !worktree) {
+    return std::unexpected(worktree.error());
   }
   std::ranges::sort(keys);
   keys.erase(std::unique(keys.begin(), keys.end()), keys.end());

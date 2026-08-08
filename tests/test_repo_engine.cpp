@@ -260,6 +260,100 @@ TEST_CASE("classification neutralizes repo-local clean filter commands") {
   CHECK_FALSE(std::filesystem::exists(marker));
 }
 
+TEST_CASE("classification neutralizes clean filters from local includes") {
+  auto git = resolved_git();
+  TempDir root{"classify-included-filter-command"};
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo);
+  touch(repo / ".gitattributes", "* filter=evil\n");
+  git_run(git, repo, {"add"}, {".gitattributes"});
+  git_run(git, repo,
+          {"-c", "user.name=Biv Test", "-c",
+           "user.email=biv@example.invalid", "commit", "-m",
+           "attributes"});
+
+  const auto marker = root.path() / "included-clean-filter-ran";
+  const auto driver = root.path() / "evil-included-clean.sh";
+  touch(driver, "#!/bin/sh\n: > '" + marker.string() + "'\ncat\n");
+  std::filesystem::permissions(
+      driver, std::filesystem::perms::owner_read |
+                  std::filesystem::perms::owner_write |
+                  std::filesystem::perms::owner_exec,
+      std::filesystem::perm_options::replace);
+  const auto included = repo / ".git/evil-include";
+  git_run(git, repo,
+          {"config", "--file", included.string(), "filter.evil.clean",
+           driver.string()});
+  git_run(git, repo,
+          {"config", "--local", "include.path", "evil-include"});
+  REQUIRE_FALSE(std::filesystem::exists(marker));
+
+  auto result = biv::repo::classify(git, repo, one_repo());
+
+  REQUIRE(result.has_value());
+  CHECK(result->fence == biv::repo::Classification::Fence::none);
+  REQUIRE(result->entry.engine_source.has_value());
+  CHECK(result->entry.engine_source->neutralized_git_config_keys ==
+        std::vector<std::string>{"filter.evil.clean"});
+  CHECK_FALSE(std::filesystem::exists(marker));
+}
+
+TEST_CASE("classification neutralizes clean filters from worktree config") {
+  auto git = resolved_git();
+  TempDir root{"classify-worktree-filter-command"};
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo);
+  touch(repo / ".gitattributes", "* filter=evil\n");
+  git_run(git, repo, {"add"}, {".gitattributes"});
+  git_run(git, repo,
+          {"-c", "user.name=Biv Test", "-c",
+           "user.email=biv@example.invalid", "commit", "-m",
+           "attributes"});
+
+  const auto marker = root.path() / "worktree-clean-filter-ran";
+  const auto driver = root.path() / "evil-worktree-clean.sh";
+  touch(driver, "#!/bin/sh\n: > '" + marker.string() + "'\ncat\n");
+  std::filesystem::permissions(
+      driver, std::filesystem::perms::owner_read |
+                  std::filesystem::perms::owner_write |
+                  std::filesystem::perms::owner_exec,
+      std::filesystem::perm_options::replace);
+  git_run(git, repo,
+          {"config", "--local", "core.repositoryformatversion", "1"});
+  git_run(git, repo,
+          {"config", "--local", "extensions.worktreeConfig", "true"});
+  git_run(git, repo,
+          {"config", "--worktree", "filter.evil.clean", driver.string()});
+  REQUIRE_FALSE(std::filesystem::exists(marker));
+
+  auto result = biv::repo::classify(git, repo, one_repo());
+
+  REQUIRE(result.has_value());
+  CHECK(result->fence == biv::repo::Classification::Fence::none);
+  REQUIRE(result->entry.engine_source.has_value());
+  CHECK(result->entry.engine_source->neutralized_git_config_keys ==
+        std::vector<std::string>{"filter.evil.clean"});
+  CHECK_FALSE(std::filesystem::exists(marker));
+}
+
+TEST_CASE(
+    "classification treats disabled worktree config as empty in linked worktrees") {
+  auto git = resolved_git();
+  TempDir root{"classify-disabled-worktree-config"};
+  const auto repo = root.path() / "repo";
+  const auto linked = root.path() / "linked";
+  init_repo(git, repo);
+  git_run(git, repo,
+          {"worktree", "add", "-b", "linked", linked.string()});
+
+  auto result = biv::repo::classify(git, linked, one_repo());
+
+  REQUIRE(result.has_value());
+  CHECK(result->fence == biv::repo::Classification::Fence::none);
+  REQUIRE(result->entry.engine_source.has_value());
+  CHECK(result->entry.engine_source->neutralized_git_config_keys.empty());
+}
+
 TEST_CASE("classification detects gitlinks from the parent index") {
   auto git = resolved_git();
   TempDir root{"classify-gitlink"};
