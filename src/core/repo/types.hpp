@@ -43,6 +43,7 @@ enum class EngineErrorKind {
   ref_uncapturable,
   promisor_objects_unavailable,
   git_invocation_failed,
+  git_budget_expired,
   repo_restore_failed
 };
 
@@ -69,6 +70,8 @@ inline constexpr std::string_view engine_error_name(
       return "promisor-objects-unavailable";
     case EngineErrorKind::git_invocation_failed:
       return "git-invocation-failed";
+    case EngineErrorKind::git_budget_expired:
+      return "git-budget-expired";
     case EngineErrorKind::repo_restore_failed:
       return "repo-restore-failed";
   }
@@ -83,8 +86,7 @@ inline BivError make_engine_error(const EngineErrorKind kind,
   return error;
 }
 
-inline std::optional<EngineErrorKind> engine_error_kind(
-    const BivError& error) {
+inline std::optional<EngineErrorKind> engine_error_kind(const BivError& error) {
   const auto fact = error.facts.find("repo_engine_kind");
   if (fact == error.facts.end()) {
     return std::nullopt;
@@ -96,6 +98,7 @@ inline std::optional<EngineErrorKind> engine_error_kind(
                           EngineErrorKind::ref_uncapturable,
                           EngineErrorKind::promisor_objects_unavailable,
                           EngineErrorKind::git_invocation_failed,
+                          EngineErrorKind::git_budget_expired,
                           EngineErrorKind::repo_restore_failed}) {
     if (fact->second == engine_error_name(kind)) {
       return kind;
@@ -180,8 +183,9 @@ struct UnknownNote {
 using RepoNote =
     std::variant<NonCarriedRefsNote, PromisorSourceNote, UnknownNote>;
 
-// Transient engine state. This is deliberately not a manifest field; T5 serializes
-// only the schema members below and uses this state while packing the source tree.
+// Transient engine state. This is deliberately not a manifest field; T5
+// serializes only the schema members below and uses this state while packing
+// the source tree.
 struct EngineSourceState {
   std::filesystem::path repo_path;
   std::vector<std::filesystem::path> penumbra_paths;
@@ -199,6 +203,9 @@ struct RepoEntry {
   HeadState head_state{HeadState::detached};
   bool dirty{false};
   CaptureMode capture_mode{CaptureMode::full};
+  // Classification-time policy carried across later pack-side Git calls;
+  // never serialized as a manifest field.
+  bool promisor{false};
   std::optional<Eligibility> eligibility;
   std::vector<LocalRef> local_refs;
   std::optional<std::filesystem::path> local_refs_bundle;

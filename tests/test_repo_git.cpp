@@ -1,6 +1,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
@@ -11,8 +12,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include <catch2/catch_test_macros.hpp>
 
 #include "core/repo/git.hpp"
 #include "core/repo/types.hpp"
@@ -97,8 +96,7 @@ RepoHistory make_two_commit_repo(const biv::repo::Git& git,
       as_string(run_ok(git, {"rev-parse", "HEAD"}, {}, opts).stdout_bytes);
 
   const auto trim = [](std::string value) {
-    while (!value.empty() &&
-           (value.back() == '\n' || value.back() == '\r')) {
+    while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
       value.pop_back();
     }
     return value;
@@ -106,8 +104,7 @@ RepoHistory make_two_commit_repo(const biv::repo::Git& git,
   return RepoHistory{.first = trim(first), .second = trim(second)};
 }
 
-bool has_env(const std::vector<std::string>& env,
-             const std::string_view item) {
+bool has_env(const std::vector<std::string>& env, const std::string_view item) {
   return std::ranges::find(env, item) != env.end();
 }
 
@@ -212,8 +209,8 @@ TEST_CASE("Git run pins environment away from hostile user and repo config") {
       git, {"var", "GIT_COMMITTER_IDENT"}, {}, restore_opts);
   CHECK(has_env(restore_request.env, "GIT_CONFIG_GLOBAL=/dev/null"));
 
-  const auto identity = run_ok(git, {"var", "GIT_COMMITTER_IDENT"}, {},
-                               restore_opts);
+  const auto identity =
+      run_ok(git, {"var", "GIT_COMMITTER_IDENT"}, {}, restore_opts);
   CHECK(as_string(identity.stdout_bytes).find("Local Fixture") !=
         std::string::npos);
   CHECK(as_string(identity.stdout_bytes).find("Hostile Global Identity") ==
@@ -241,30 +238,39 @@ TEST_CASE("Git returns merge-base non-ancestry exit one as data") {
 TEST_CASE("Git request pins no-lazy-fetch and mechanically delimits operands") {
   TempDir root{"request"};
   const auto git = resolve_git(root.path());
-  const auto opts = biv::repo::Git::Opts{
-      .cwd = root.path(),
-      .no_lazy_fetch = true,
-      .isolate_global_config = false,
-      .stderr_mode = biv::support::StderrMode::separate,
-      .stdout_file = std::nullopt,
-      .budget = std::chrono::milliseconds{1234}};
+  const auto opts =
+      biv::repo::Git::Opts{.cwd = root.path(),
+                           .no_lazy_fetch = true,
+                           .isolate_global_config = false,
+                           .stderr_mode = biv::support::StderrMode::separate,
+                           .stdout_file = std::nullopt,
+                           .budget = std::chrono::milliseconds{1234}};
 
   const auto request = biv::repo::git_testing::build_spawn_request(
       git, {"status", "--porcelain"}, {"-rf"}, opts);
 
   CHECK(has_env(request.env, "GIT_NO_LAZY_FETCH=1"));
+  CHECK(has_env(request.env, "GIT_PROTOCOL_FROM_USER=0"));
   REQUIRE(request.argv.size() >= 7U);
   const std::vector<std::string> expected_tail{"status", "--porcelain", "--",
                                                "-rf"};
-  CHECK(std::equal(expected_tail.begin(), expected_tail.end(),
-                   request.argv.end() -
-                       static_cast<std::ptrdiff_t>(expected_tail.size())));
+  CHECK(std::equal(
+      expected_tail.begin(), expected_tail.end(),
+      request.argv.end() - static_cast<std::ptrdiff_t>(expected_tail.size())));
   CHECK(request.budgets.probe_wall == std::chrono::milliseconds{1234});
 
   const auto ordinary = biv::repo::git_testing::build_spawn_request(
       git, {"status"}, {}, biv::repo::Git::Opts{});
   CHECK_FALSE(has_env(ordinary.env, "GIT_NO_LAZY_FETCH=1"));
+  CHECK(has_env(ordinary.env, "GIT_PROTOCOL_FROM_USER=0"));
   CHECK(std::ranges::find(ordinary.argv, "--") == ordinary.argv.end());
+
+  auto transport_opts = biv::repo::Git::Opts{};
+  transport_opts.allow_user_protocol = true;
+  const auto transport = biv::repo::git_testing::build_spawn_request(
+      git, {"ls-remote"}, {"file:///owned-input"}, transport_opts);
+  CHECK(has_env(transport.env, "GIT_PROTOCOL_FROM_USER=1"));
+  CHECK_FALSE(has_env(transport.env, "GIT_PROTOCOL_FROM_USER=0"));
 }
 
 TEST_CASE("RepoEntry preserves unknown notes verbatim for JSON re-emission") {
@@ -278,7 +284,8 @@ TEST_CASE("RepoEntry preserves unknown notes verbatim for JSON re-emission") {
 
   const auto copied = entry;
   REQUIRE(copied.notes.size() == 1U);
-  const auto* unknown = std::get_if<biv::repo::UnknownNote>(&copied.notes.front());
+  const auto* unknown =
+      std::get_if<biv::repo::UnknownNote>(&copied.notes.front());
   REQUIRE(unknown != nullptr);
   CHECK(unknown->kind == "zz-future");
   CHECK(unknown->verbatim_json == raw);
@@ -290,16 +297,15 @@ TEST_CASE("Git streams cat-file stdout to a file") {
   const auto repo = root.path() / "repo";
   static_cast<void>(make_two_commit_repo(git, repo));
   const auto output = root.path() / "blob.out";
-  const auto opts = biv::repo::Git::Opts{
-      .cwd = repo,
-      .no_lazy_fetch = false,
-      .isolate_global_config = false,
-      .stderr_mode = biv::support::StderrMode::separate,
-      .stdout_file = output,
-      .budget = std::chrono::seconds{10}};
+  const auto opts =
+      biv::repo::Git::Opts{.cwd = repo,
+                           .no_lazy_fetch = false,
+                           .isolate_global_config = false,
+                           .stderr_mode = biv::support::StderrMode::separate,
+                           .stdout_file = output,
+                           .budget = std::chrono::seconds{10}};
 
-  const auto result =
-      git.run({"cat-file", "blob"}, {"HEAD:tracked.txt"}, opts);
+  const auto result = git.run({"cat-file", "blob"}, {"HEAD:tracked.txt"}, opts);
 
   REQUIRE(result.has_value());
   CHECK(result->exit_code == 0);

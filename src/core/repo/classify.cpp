@@ -1,13 +1,11 @@
 #include "core/repo/classify.hpp"
 
 #include <algorithm>
-#include <chrono>
-#include <ctime>
 #include <fstream>
-#include <iomanip>
 #include <iterator>
-#include <sstream>
 #include <string_view>
+
+#include "core/repo/git_exec.hpp"
 
 namespace biv::repo {
 namespace {
@@ -19,39 +17,12 @@ BivError command_error(const std::filesystem::path& repo,
       "repo classification git invocation failed: " + std::string{operation});
 }
 
-std::string bytes(const std::vector<std::byte>& value) {
-  std::string output;
-  output.reserve(value.size());
-  std::ranges::transform(value, std::back_inserter(output), [](const auto byte) {
-    return static_cast<char>(std::to_integer<unsigned char>(byte));
-  });
-  return output;
-}
-
-std::string trim_newline(std::string value) {
-  while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
-    value.pop_back();
-  }
-  return value;
-}
-
 expected<support::SpawnResult> invoke(const Git& git,
                                       const std::filesystem::path& repo,
                                       std::vector<std::string> args,
                                       const bool no_lazy_fetch = false) {
-  Git::Opts options;
-  options.cwd = repo;
-  options.no_lazy_fetch = no_lazy_fetch;
-  auto result = git.run(args, {}, options);
-  if (!result) {
-    return std::unexpected(make_engine_error(
-        EngineErrorKind::git_invocation_failed, repo,
-        "repo classification subprocess failed: " + result.error().detail));
-  }
-  if (result->spawn_failed || result->timed_out || result->io_failed) {
-    return std::unexpected(command_error(repo, args.empty() ? "git" : args.front()));
-  }
-  return result;
+  return invoke_git(git, repo, args, {}, args.empty() ? "git" : args.front(),
+                    GitInvokeOptions{.promisor = no_lazy_fetch});
 }
 
 std::vector<std::pair<std::string, std::string>> parse_ref_pairs(
@@ -78,16 +49,6 @@ std::vector<std::pair<std::string, std::string>> parse_ref_pairs(
   return refs;
 }
 
-std::string checked_at_now() {
-  const auto now = std::chrono::system_clock::now();
-  const auto value = std::chrono::system_clock::to_time_t(now);
-  std::tm utc{};
-  ::gmtime_r(&value, &utc);
-  std::ostringstream output;
-  output << std::put_time(&utc, "%Y-%m-%dT%H:%M:%SZ");
-  return output.str();
-}
-
 std::optional<std::filesystem::path> first_gitlink_path(
     const std::string& output) {
   std::size_t cursor = 0;
@@ -106,69 +67,11 @@ std::optional<std::filesystem::path> first_gitlink_path(
   return std::nullopt;
 }
 
-bool promisor_enabled(const std::string& output) {
-  std::size_t cursor = 0;
-  while (cursor < output.size()) {
-    const auto end = output.find('\n', cursor);
-    const auto row = output.substr(cursor, end - cursor);
-    const auto separator = row.find_first_of(" \t");
-    if (separator != std::string::npos) {
-      const auto key = row.substr(0U, separator);
-      const auto value = row.substr(separator + 1U);
-      if (key.ends_with(".partialclonefilter") ||
-          (key.ends_with(".promisor") &&
-           (value == "true" || value == "yes" || value == "on" ||
-            value == "1"))) {
-        return true;
-      }
-    }
-    if (end == std::string::npos) {
-      break;
-    }
-    cursor = end + 1U;
-  }
-  return false;
-}
-
-void append_nul_paths(const std::string& output,
-                      std::vector<std::filesystem::path>& paths) {
-  std::size_t cursor = 0;
-  while (cursor < output.size()) {
-    const auto end = output.find('\0', cursor);
-    if (end != cursor) {
-      paths.emplace_back(output.substr(cursor, end - cursor));
-    }
-    if (end == std::string::npos) {
-      break;
-    }
-    cursor = end + 1U;
-  }
-}
-
-expected<std::vector<std::filesystem::path>> snapshot_penumbra(
-    const Git& git, const std::filesystem::path& repo,
-    const bool no_lazy_fetch) {
-  std::vector<std::filesystem::path> paths;
-  for (const auto& args :
-       {std::vector<std::string>{"ls-files", "--others", "--exclude-standard", "-z"},
-        std::vector<std::string>{"ls-files", "--others", "--ignored",
-                                 "--exclude-standard", "-z"}}) {
-    auto listed = invoke(git, repo, args, no_lazy_fetch);
-    if (!listed || listed->exit_code != 0) {
-      return std::unexpected(listed ? command_error(repo, "ls-files penumbra")
-                                    : listed.error());
-    }
-    append_nul_paths(bytes(listed->stdout_bytes), paths);
-  }
-  std::ranges::sort(paths);
-  paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
-  return paths;
-}
-
 expected<void> record_penumbra(const Git& git, EngineSourceState& source_state,
                                const bool promisor,
                                const std::filesystem::path& repo) {
-  auto snapshot = snapshot_penumbra(git, repo, promisor);
+  auto snapshot =
+      snapshot_penumbra(git, repo, GitInvokeOptions{.promisor = promisor});
   if (!snapshot) {
     return std::unexpected(snapshot.error());
   }
@@ -200,32 +103,35 @@ expected<Classification> classify(const Git& git,
     result.entry.relpath = repo.filename();
   }
 
-  auto promisor = invoke(
-      git, repo,
-      {"config", "--get-regexp",
-       "^(remote\\..*\\.promisor|remote\\..*\\.partialclonefilter)$"});
+  auto promisor =
+      invoke(git, repo,
+             {"config", "--get-regexp",
+              "^(remote\\..*\\.promisor|remote\\..*\\.partialclonefilter)$"});
   if (!promisor) {
     return std::unexpected(promisor.error());
   }
-  result.promisor =
-      promisor->exit_code == 0 && promisor_enabled(bytes(promisor->stdout_bytes));
+  result.entry.promisor =
+      promisor->exit_code == 0 &&
+      promisor_config_enabled(git_bytes(promisor->stdout_bytes));
 
-  auto index = invoke(git, repo, {"ls-files", "-s", "-z"}, result.promisor);
+  auto index =
+      invoke(git, repo, {"ls-files", "-s", "-z"}, result.entry.promisor);
   if (!index || index->exit_code != 0) {
     return std::unexpected(index ? command_error(repo, "ls-files -s")
                                  : index.error());
   }
-  if (const auto gitlink = first_gitlink_path(bytes(index->stdout_bytes))) {
+  if (const auto gitlink = first_gitlink_path(git_bytes(index->stdout_bytes))) {
     result.fence = Classification::Fence::submodule;
-    result.issue = EngineIssue{.kind = EngineErrorKind::repo_submodule_unsupported,
-                               .paths = {*gitlink},
-                               .detail = {}};
+    result.issue =
+        EngineIssue{.kind = EngineErrorKind::repo_submodule_unsupported,
+                    .paths = {*gitlink},
+                    .detail = {}};
     return result;
   }
 
-  const auto nested = std::ranges::find_if(discovery.repos, [](const auto& boundary) {
-    return boundary.kind == RepoKind::nested;
-  });
+  const auto nested = std::ranges::find_if(
+      discovery.repos,
+      [](const auto& boundary) { return boundary.kind == RepoKind::nested; });
   if (nested != discovery.repos.end()) {
     result.fence = Classification::Fence::nested;
     result.issue = EngineIssue{.kind = EngineErrorKind::repo_nested_unsupported,
@@ -234,14 +140,15 @@ expected<Classification> classify(const Git& git,
     return result;
   }
 
-  auto unmerged = invoke(git, repo, {"ls-files", "-u", "-z"}, result.promisor);
+  auto unmerged =
+      invoke(git, repo, {"ls-files", "-u", "-z"}, result.entry.promisor);
   if (!unmerged) {
     return std::unexpected(unmerged.error());
   }
   if (unmerged->exit_code != 0) {
     return std::unexpected(command_error(repo, "ls-files -u"));
   }
-  const auto unmerged_output = bytes(unmerged->stdout_bytes);
+  const auto unmerged_output = git_bytes(unmerged->stdout_bytes);
   if (!unmerged_output.empty()) {
     std::vector<std::filesystem::path> paths;
     std::size_t cursor = 0;
@@ -260,66 +167,72 @@ expected<Classification> classify(const Git& git,
     std::ranges::sort(paths);
     paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
     result.fence = Classification::Fence::unmerged;
-    result.issue = EngineIssue{.kind = EngineErrorKind::unmerged_index_unrepresentable,
-                               .paths = std::move(paths),
-                               .detail = {}};
+    result.issue =
+        EngineIssue{.kind = EngineErrorKind::unmerged_index_unrepresentable,
+                    .paths = std::move(paths),
+                    .detail = {}};
     return result;
   }
 
-  auto head = invoke(git, repo, {"rev-parse", "--verify", "HEAD"}, result.promisor);
+  auto head = invoke(git, repo, {"rev-parse", "--verify", "HEAD"},
+                     result.entry.promisor);
   if (!head) {
     return std::unexpected(head.error());
   }
   auto refs = invoke(git, repo,
                      {"for-each-ref", "--format=%(refname)%00%(objectname)%00"},
-                     result.promisor);
+                     result.entry.promisor);
   if (!refs || refs->exit_code != 0) {
-    return std::unexpected(refs ? command_error(repo, "for-each-ref") : refs.error());
+    return std::unexpected(refs ? command_error(repo, "for-each-ref")
+                                : refs.error());
   }
-  const auto ref_pairs = parse_ref_pairs(bytes(refs->stdout_bytes));
+  const auto ref_pairs = parse_ref_pairs(git_bytes(refs->stdout_bytes));
   if (head->exit_code != 0) {
     result.entry.head_state = HeadState::unborn;
     result.entry.sha.reset();
-    auto branch = invoke(git, repo, {"symbolic-ref", "--quiet", "--short", "HEAD"},
-                         result.promisor);
+    auto branch =
+        invoke(git, repo, {"symbolic-ref", "--quiet", "--short", "HEAD"},
+               result.entry.promisor);
     if (branch && branch->exit_code == 0) {
-      result.entry.branch = trim_newline(bytes(branch->stdout_bytes));
+      result.entry.branch = trim_git_newline(git_bytes(branch->stdout_bytes));
     }
     if (!ref_pairs.empty()) {
       for (const auto& [name, sha] : ref_pairs) {
         if (name.starts_with("refs/heads/") || name.starts_with("refs/tags/")) {
-          result.entry.local_refs.push_back(LocalRef{
-              .ref = name,
-              .sha = sha,
-              .availability = RefAvailability::bundle_carried,
-              .proof = std::nullopt});
+          result.entry.local_refs.push_back(
+              LocalRef{.ref = name,
+                       .sha = sha,
+                       .availability = RefAvailability::bundle_carried,
+                       .proof = std::nullopt});
         }
       }
       result.entry.capture_mode = CaptureMode::full;
-      result.entry.eligibility = Eligibility{
-          .method = "ls-remote-ancestry",
-          .result = EligibilityResult::unborn_head,
-          .checked_at = checked_at_now(),
-          .proof = std::nullopt};
+      result.entry.eligibility =
+          Eligibility{.method = "ls-remote-ancestry",
+                      .result = EligibilityResult::unborn_head,
+                      .checked_at = git_checked_at_now(),
+                      .proof = std::nullopt};
 
-      auto remotes = invoke(git, repo, {"remote"}, result.promisor);
+      auto remotes = invoke(git, repo, {"remote"}, result.entry.promisor);
       if (!remotes || remotes->exit_code != 0) {
         return std::unexpected(remotes ? command_error(repo, "remote")
                                        : remotes.error());
       }
-      const auto remote_names = bytes(remotes->stdout_bytes);
+      const auto remote_names = git_bytes(remotes->stdout_bytes);
       std::size_t cursor = 0;
       while (cursor < remote_names.size()) {
         const auto end = remote_names.find('\n', cursor);
         const auto name = remote_names.substr(cursor, end - cursor);
         if (!name.empty()) {
-          auto url = invoke(git, repo, {"remote", "get-url", name}, result.promisor);
+          auto url = invoke(git, repo, {"remote", "get-url", name},
+                            result.entry.promisor);
           if (!url || url->exit_code != 0) {
-            return std::unexpected(
-                url ? command_error(repo, "remote get-url") : url.error());
+            return std::unexpected(url ? command_error(repo, "remote get-url")
+                                       : url.error());
           }
           result.entry.remotes.push_back(
-              Remote{.name = name, .url = trim_newline(bytes(url->stdout_bytes))});
+              Remote{.name = name,
+                     .url = trim_git_newline(git_bytes(url->stdout_bytes))});
         }
         if (end == std::string::npos) {
           break;
@@ -331,48 +244,52 @@ expected<Classification> classify(const Git& git,
       }
     }
     if (auto recorded =
-            record_penumbra(git, source_state, result.promisor, repo);
+            record_penumbra(git, source_state, result.entry.promisor, repo);
         !recorded) {
       return std::unexpected(recorded.error());
     }
     return result;
   }
 
-  result.entry.sha = trim_newline(bytes(head->stdout_bytes));
-  auto branch = invoke(git, repo, {"symbolic-ref", "--quiet", "--short", "HEAD"},
-                       result.promisor);
+  result.entry.sha = trim_git_newline(git_bytes(head->stdout_bytes));
+  auto branch =
+      invoke(git, repo, {"symbolic-ref", "--quiet", "--short", "HEAD"},
+             result.entry.promisor);
   if (branch && branch->exit_code == 0) {
     result.entry.head_state = HeadState::branch;
-    result.entry.branch = trim_newline(bytes(branch->stdout_bytes));
+    result.entry.branch = trim_git_newline(git_bytes(branch->stdout_bytes));
   } else {
     result.entry.head_state = HeadState::detached;
   }
   for (const auto& [name, sha] : ref_pairs) {
     if (name.starts_with("refs/heads/") || name.starts_with("refs/tags/")) {
-      result.entry.local_refs.push_back(LocalRef{
-          .ref = name,
-          .sha = sha,
-          .availability = RefAvailability::bundle_carried,
-          .proof = std::nullopt});
+      result.entry.local_refs.push_back(
+          LocalRef{.ref = name,
+                   .sha = sha,
+                   .availability = RefAvailability::bundle_carried,
+                   .proof = std::nullopt});
     }
   }
 
-  auto remotes = invoke(git, repo, {"remote"}, result.promisor);
+  auto remotes = invoke(git, repo, {"remote"}, result.entry.promisor);
   if (!remotes || remotes->exit_code != 0) {
-    return std::unexpected(remotes ? command_error(repo, "remote") : remotes.error());
+    return std::unexpected(remotes ? command_error(repo, "remote")
+                                   : remotes.error());
   }
-  std::string remote_names = bytes(remotes->stdout_bytes);
+  std::string remote_names = git_bytes(remotes->stdout_bytes);
   std::size_t cursor = 0;
   while (cursor < remote_names.size()) {
     const auto end = remote_names.find('\n', cursor);
     const auto name = remote_names.substr(cursor, end - cursor);
     if (!name.empty()) {
-      auto url = invoke(git, repo, {"remote", "get-url", name}, result.promisor);
+      auto url =
+          invoke(git, repo, {"remote", "get-url", name}, result.entry.promisor);
       if (!url || url->exit_code != 0) {
-        return std::unexpected(url ? command_error(repo, "remote get-url") : url.error());
+        return std::unexpected(url ? command_error(repo, "remote get-url")
+                                   : url.error());
       }
-      result.entry.remotes.push_back(
-          Remote{.name = name, .url = trim_newline(bytes(url->stdout_bytes))});
+      result.entry.remotes.push_back(Remote{
+          .name = name, .url = trim_git_newline(git_bytes(url->stdout_bytes))});
     }
     if (end == std::string::npos) {
       break;
@@ -383,7 +300,8 @@ expected<Classification> classify(const Git& git,
     result.entry.remote = result.entry.remotes.front().name;
   }
 
-  auto dirt = invoke(git, repo, {"status", "--porcelain=v2", "-z"}, result.promisor);
+  auto dirt = invoke(git, repo, {"status", "--porcelain=v2", "-z"},
+                     result.entry.promisor);
   if (!dirt || dirt->exit_code != 0) {
     return std::unexpected(dirt ? command_error(repo, "status") : dirt.error());
   }
@@ -396,20 +314,21 @@ expected<Classification> classify(const Git& git,
     return result;
   }
 
-  if (auto recorded = record_penumbra(git, source_state, result.promisor, repo);
+  if (auto recorded =
+          record_penumbra(git, source_state, result.entry.promisor, repo);
       !recorded) {
     return std::unexpected(recorded.error());
   }
 
   auto shallow = invoke(git, repo, {"rev-parse", "--is-shallow-repository"},
-                        result.promisor);
+                        result.entry.promisor);
   if (!shallow || shallow->exit_code != 0) {
-    return std::unexpected(shallow ? command_error(repo, "is-shallow") : shallow.error());
+    return std::unexpected(shallow ? command_error(repo, "is-shallow")
+                                   : shallow.error());
   }
-  if (trim_newline(bytes(shallow->stdout_bytes)) == "true") {
-    Shallow metadata{.sha = *result.entry.sha,
-                     .boundary = {},
-                     .remote_urls = {}};
+  if (trim_git_newline(git_bytes(shallow->stdout_bytes)) == "true") {
+    Shallow metadata{
+        .sha = *result.entry.sha, .boundary = {}, .remote_urls = {}};
     const auto shallow_file = repo / ".git/shallow";
     std::ifstream input{shallow_file};
     std::string boundary;
@@ -422,7 +341,7 @@ expected<Classification> classify(const Git& git,
       metadata.remote_urls.push_back(remote.url);
     }
     result.entry.shallow = std::move(metadata);
-    if (result.promisor) {
+    if (result.entry.promisor) {
       result.entry.notes.emplace_back(PromisorSourceNote{});
     }
   }
