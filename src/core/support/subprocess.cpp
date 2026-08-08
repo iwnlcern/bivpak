@@ -125,7 +125,6 @@ class ByteCapture {
     const auto retained =
         std::min(size, cap_ - std::min(cap_, bytes_.size()));
     output_incomplete_ = output_incomplete_ || retained != size;
-    bytes_.reserve(bytes_.size() + retained);
     const std::string_view input{data, retained};
     std::ranges::transform(
         input, std::back_inserter(bytes_), [](const unsigned char value) {
