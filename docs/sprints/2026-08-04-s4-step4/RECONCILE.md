@@ -347,3 +347,13 @@ SEALED F64 enum (`SEAL-PACKAGE:53,60`, m-1-owned), so enum validation on read is
 implementation hardening (not an addendum) folding into Arm-1's schema act (F+G manifest.cpp
 window), m-1 confirming members, m-4 addressed. Floor does not touch manifest.cpp. The
 rewrite/verify targeted re-panel (BL2-1/2 change verify semantics) is master-endorsed.
+
+**B2 rewrite_common expansion GRANTED (`150142`):** `src/adapters/rewrite_common.{hpp,cpp}`
+admitted to the B2 universe for BL2-2 (independent raw-text verifier + typed-span API
+relocation out of adapter.hpp) and BL2-7 (shared staging-sidecar schema/parser owner) ONLY.
+Verified: genuine deviation (absent from plan), charter-reserved shared module already
+linked+built (no new TU/CMake), absent from matrix plan (adapter-side, no cross-pair
+collision), no refusal-radius/design/schema change. A6-part-2 class. Any third file/new
+TU/CMake/manifest = new deviation. Owned fold-relay miss (instrument-substitution) accepted;
+eighth clean pair-gate catch. BL2-2 is mechanism (2) scan-soundness — the condition B2-1
+per-session rests on.
