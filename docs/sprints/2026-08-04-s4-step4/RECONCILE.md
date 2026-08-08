@@ -324,3 +324,14 @@ main unprotected so no remote check gates. My reframe correction + (a) concurren
 receipted as a clean own. LOW include.path note concurred as implementer discretion. The
 `010259` merge-gate relay trips R-3.40 item (12)'s known lock-path false red — referents
 confirmed present, not a real miss.
+
+**B2 panel above-pair items (`143259`):** ONE origin-disclosure FAMILY routed UP coherently
+(B2's content-leak Criticals BL2-1/2 + slice-C ROUTED-3 layout leak + the refusal radius).
+B2-1 (radius narrowed whole-set→per-session): HELD at BL2-4, security-posture call for
+master/operator — per-session recommended CONDITIONAL on sound clean-sibling scan (which
+BL2-1/2 restore), ruled coherently with ROUTED-3. B2-2 (`manifest.cpp:255-257` reads
+locator/discovery_tier with no enum validation → image-controlled rekey privilege, verified
+at 54a6c54): routed UP, recommend folding the enum validation into Arm-1's schema act (F+G
+window), m-1 if sealed-schema; do NOT touch manifest.cpp. In-universe BL2 fold proceeds; the
+replacement head owes a TARGETED RE-PANEL on the rewrite/verify surface (BL2-1/2 change
+verify semantics), affirmed — the cumulative panel rule on a security-semantics change.
