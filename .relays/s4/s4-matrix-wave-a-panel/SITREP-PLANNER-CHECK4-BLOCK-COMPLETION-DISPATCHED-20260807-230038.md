@@ -68,7 +68,7 @@ Everything else in the window is verified. Stack open; B/C/D F-fenced.
 ACTIONS_GIT_REF: docs lane only — the check-#4 record + this relay + the completion dispatch relay + INDEX rows, committed on main with explicit paths (SHA in the commit record); no product edit; the stack is untouched.
 FINAL_GIT_STATUS_SHORT:
 none — clean tree
-Fresh at 20260807-225742 before the writes; the record, the two relays, and the INDEX rows are the working-tree delta at commit time and are named above.
+Fresh at 20260807-230038 before the writes; the record, the two relays, and the INDEX rows are the working-tree delta at commit time and are named above.
 
 CARRY LIST (D-8.5):
-- `.relays/s4/s4-matrix-wave-a-panel/SITREP-PLANNER-CHECK4-BLOCK-COMPLETION-DISPATCHED-20260807-225742.md` → TO `s4.orchestrator-planner`
+- `.relays/s4/s4-matrix-wave-a-panel/SITREP-PLANNER-CHECK4-BLOCK-COMPLETION-DISPATCHED-20260807-230038.md` → TO `s4.orchestrator-planner`

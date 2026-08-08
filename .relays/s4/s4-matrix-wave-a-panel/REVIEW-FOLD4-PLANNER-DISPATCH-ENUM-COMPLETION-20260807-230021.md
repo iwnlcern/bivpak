@@ -76,7 +76,7 @@ replacement head. File your `PHASE: REVIEW-FOLD` report with FOLD_SCOPE,
 condition 1 is met at the final head.
 
 ACTIONS_GIT_REF: none — no product/test edit by this seat; this routing relay + its INDEX row are the only writes, docs-lane.
-FINAL_GIT_STATUS_SHORT: none — clean tree; fresh at 20260807-225742, this relay + INDEX row the only delta at commit time.
+FINAL_GIT_STATUS_SHORT: none — clean tree; fresh at 20260807-230021, this relay + INDEX row the only delta at commit time.
 
 CARRY LIST (D-8.5):
-- `.relays/s4/s4-matrix-wave-a-panel/REVIEW-FOLD4-PLANNER-DISPATCH-ENUM-COMPLETION-20260807-225742.md` → TO `s4-matrix.implementer`
+- `.relays/s4/s4-matrix-wave-a-panel/REVIEW-FOLD4-PLANNER-DISPATCH-ENUM-COMPLETION-20260807-230021.md` → TO `s4-matrix.implementer`
