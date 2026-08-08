@@ -28,10 +28,14 @@ expected<support::SpawnResult> invoke(const Git& git,
                                       const std::filesystem::path& repo,
                                       std::vector<std::string> args,
                                       std::vector<std::string> operands,
-                                      const bool no_lazy_fetch) {
+                                      const bool no_lazy_fetch,
+                                      const std::span<const std::string>
+                                          empty_config_keys) {
   return invoke_git(git, repo, args, operands,
                     args.empty() ? "git" : args.front(),
-                    GitInvokeOptions{.promisor = no_lazy_fetch});
+                    GitInvokeOptions{
+                        .promisor = no_lazy_fetch,
+                        .empty_config_keys = empty_config_keys});
 }
 
 expected<void> make_directories(const std::filesystem::path& path) {
@@ -73,13 +77,18 @@ BivError ref_uncapturable_error(const std::filesystem::path& repo,
 expected<void> require_bundle_source_ref(const Git& git,
                                          const std::filesystem::path& repo,
                                          const LocalRef& ref,
-                                         const bool promisor) {
+                                         const bool promisor,
+                                         const std::span<const std::string>
+                                             empty_config_keys) {
   if (!valid_ref_name(ref.ref) || !valid_object_id(ref.sha)) {
     return std::unexpected(ref_uncapturable_error(repo, ref.ref));
   }
   auto actual =
       invoke_git(git, repo, {"show-ref", "--verify", "--hash"}, {ref.ref},
-                 "capture-ref-route", GitInvokeOptions{.promisor = promisor});
+                 "capture-ref-route",
+                 GitInvokeOptions{
+                     .promisor = promisor,
+                     .empty_config_keys = empty_config_keys});
   if (!actual) {
     return std::unexpected(actual.error());
   }
@@ -92,11 +101,14 @@ expected<void> require_bundle_source_ref(const Git& git,
 
 expected<void> verify_bundle(const Git& git, const std::filesystem::path& repo,
                              const std::filesystem::path& bundle,
-                             const bool promisor) {
+                             const bool promisor,
+                             const std::span<const std::string>
+                                 empty_config_keys) {
   auto verified = invoke_git(
       git, repo, {"bundle", "verify"}, {bundle.string()}, "bundle-verify",
       GitInvokeOptions{.promisor = promisor,
-                       .call_class = GitCallClass::bundle});
+                       .call_class = GitCallClass::bundle,
+                       .empty_config_keys = empty_config_keys});
   if (!verified) {
     return std::unexpected(verified.error());
   }
@@ -130,12 +142,17 @@ std::vector<std::string> parse_ref_names(const std::string& output) {
 expected<void> run_penumbra_oracle(const Git& git, const RepoEntry& entry,
                                    const std::filesystem::path& repo,
                                    const bool no_lazy_fetch,
+                                   const std::span<const std::string>
+                                       empty_config_keys,
                                    CaptureResult& result) {
   if (!entry.engine_source) {
     return {};
   }
-  auto current =
-      snapshot_penumbra(git, repo, GitInvokeOptions{.promisor = no_lazy_fetch});
+  auto current = snapshot_penumbra(
+      git, repo,
+      GitInvokeOptions{
+          .promisor = no_lazy_fetch,
+          .empty_config_keys = empty_config_keys});
   if (!current) {
     return std::unexpected(current.error());
   }
@@ -234,8 +251,13 @@ expected<CaptureResult> capture(const Git& git, RepoEntry& entry,
   const auto repo =
       entry.engine_source ? entry.engine_source->repo_path : entry.relpath;
   const auto promisor = entry.promisor;
+  std::span<const std::string> empty_config_keys;
+  if (entry.engine_source) {
+    empty_config_keys = entry.engine_source->neutralized_git_config_keys;
+  }
 
-  if (auto oracle = run_penumbra_oracle(git, entry, repo, promisor, result);
+  if (auto oracle = run_penumbra_oracle(git, entry, repo, promisor,
+                                        empty_config_keys, result);
       !oracle) {
     return std::unexpected(oracle.error());
   }
@@ -251,7 +273,8 @@ expected<CaptureResult> capture(const Git& git, RepoEntry& entry,
 
   if (entry.capture_mode == CaptureMode::full) {
     for (const auto& ref : entry.local_refs) {
-      if (auto routed = require_bundle_source_ref(git, repo, ref, promisor);
+      if (auto routed = require_bundle_source_ref(git, repo, ref, promisor,
+                                                  empty_config_keys);
           !routed) {
         return std::unexpected(routed.error());
       }
@@ -265,7 +288,8 @@ expected<CaptureResult> capture(const Git& git, RepoEntry& entry,
     auto bundled =
         invoke_git(git, repo, args, {}, "bundle-create-full",
                    GitInvokeOptions{.promisor = promisor,
-                                    .call_class = GitCallClass::bundle});
+                                    .call_class = GitCallClass::bundle,
+                                    .empty_config_keys = empty_config_keys});
     if (!bundled) {
       return std::unexpected(bundled.error());
     }
@@ -274,7 +298,8 @@ expected<CaptureResult> capture(const Git& git, RepoEntry& entry,
           git_invocation_failure(repo, "bundle-create-full", bundled->exit_code,
                                  "bundle create --all failed"));
     }
-    if (auto verified = verify_bundle(git, repo, *disk_path, promisor);
+    if (auto verified = verify_bundle(git, repo, *disk_path, promisor,
+                                      empty_config_keys);
         !verified) {
       return std::unexpected(verified.error());
     }
@@ -289,7 +314,7 @@ expected<CaptureResult> capture(const Git& git, RepoEntry& entry,
     }
 
     auto refs = invoke(git, repo, {"for-each-ref", "--format=%(refname)%00"},
-                       {}, promisor);
+                       {}, promisor, empty_config_keys);
     if (!refs || refs->exit_code != 0) {
       return std::unexpected(
           refs ? git_invocation_failure(repo, "for-each-ref", refs->exit_code,
@@ -324,7 +349,8 @@ expected<CaptureResult> capture(const Git& git, RepoEntry& entry,
   }
   for (const auto& ref : entry.local_refs) {
     if (ref.availability == RefAvailability::bundle_carried) {
-      if (auto routed = require_bundle_source_ref(git, repo, ref, promisor);
+      if (auto routed = require_bundle_source_ref(git, repo, ref, promisor,
+                                                  empty_config_keys);
           !routed) {
         return std::unexpected(routed.error());
       }
@@ -358,7 +384,8 @@ expected<CaptureResult> capture(const Git& git, RepoEntry& entry,
   auto bundled =
       invoke_git(git, repo, args, {}, "bundle-create-thin",
                  GitInvokeOptions{.promisor = promisor,
-                                  .call_class = GitCallClass::bundle});
+                                  .call_class = GitCallClass::bundle,
+                                  .empty_config_keys = empty_config_keys});
   if (!bundled) {
     return std::unexpected(bundled.error());
   }
@@ -367,7 +394,8 @@ expected<CaptureResult> capture(const Git& git, RepoEntry& entry,
                                                   bundled->exit_code,
                                                   "thin bundle create failed"));
   }
-  if (auto verified = verify_bundle(git, repo, *disk_path, promisor);
+  if (auto verified = verify_bundle(git, repo, *disk_path, promisor,
+                                    empty_config_keys);
       !verified) {
     return std::unexpected(verified.error());
   }

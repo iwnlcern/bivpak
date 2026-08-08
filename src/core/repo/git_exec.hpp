@@ -22,6 +22,7 @@ struct GitInvokeOptions {
   bool allow_user_protocol{false};
   GitCallClass call_class{GitCallClass::local};
   std::optional<std::chrono::milliseconds> budget_override;
+  std::span<const std::string> empty_config_keys;
 };
 
 expected<support::SpawnResult> invoke_git(const Git& git,
@@ -51,6 +52,9 @@ std::string trim_git_newline(std::string value);
 std::string git_checked_at_now();
 bool promisor_config_enabled(std::string_view output);
 bool missing_object_failure(const support::SpawnResult& result);
+
+expected<std::vector<std::string>> repo_local_command_config_keys(
+    const Git& git, const std::filesystem::path& repo);
 
 expected<std::vector<std::filesystem::path>> snapshot_penumbra(
     const Git& git, const std::filesystem::path& repo,

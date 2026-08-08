@@ -63,6 +63,8 @@ expected<support::SpawnResult> invoke_git(
   git_options.no_lazy_fetch = options.promisor;
   git_options.isolate_global_config = options.restore;
   git_options.allow_user_protocol = options.allow_user_protocol;
+  git_options.empty_config_keys.assign(options.empty_config_keys.begin(),
+                                       options.empty_config_keys.end());
   git_options.budget =
       options.budget_override.value_or(budget_for(options.call_class));
   auto result = git.run(args, operands, git_options);
@@ -88,6 +90,45 @@ expected<support::SpawnResult> invoke_git(
         "promisor object unavailable", result->exit_code));
   }
   return result;
+}
+
+expected<std::vector<std::string>> repo_local_command_config_keys(
+    const Git& git, const std::filesystem::path& repo) {
+  static constexpr std::string_view kCommandKeyPattern =
+      R"(^(filter\..*\.(clean|smudge|process)|diff\..*\.(command|textconv)|merge\..*\.driver)$)";
+  auto defined = invoke_git(
+      git, repo,
+      {"config", "--local", "--null", "--name-only", "--get-regexp",
+       std::string{kCommandKeyPattern}},
+      {}, "config-command-drivers");
+  if (!defined) {
+    return std::unexpected(defined.error());
+  }
+  if (defined->exit_code == 1) {
+    return std::vector<std::string>{};
+  }
+  if (defined->exit_code != 0) {
+    return std::unexpected(git_invocation_failure(
+        repo, "config-command-drivers", defined->exit_code,
+        "git config command-driver enumeration failed"));
+  }
+
+  std::vector<std::string> keys;
+  const auto output = git_bytes(defined->stdout_bytes);
+  std::size_t cursor = 0;
+  while (cursor < output.size()) {
+    const auto end = output.find('\0', cursor);
+    if (end == std::string::npos) {
+      break;
+    }
+    if (end != cursor) {
+      keys.emplace_back(output.substr(cursor, end - cursor));
+    }
+    cursor = end + 1U;
+  }
+  std::ranges::sort(keys);
+  keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
+  return keys;
 }
 
 BivError git_invocation_failure(const std::filesystem::path& repo,
