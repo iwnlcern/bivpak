@@ -20,7 +20,7 @@ Work branches from `main@8981bfd`.
 | 2 | FU-1 authoring duty ASSIGNED to s4 (master `230800`); the three-arm ruling folds `TO: operator` at Arm-2 design — design does not close unruled | ASSIGNED |
 | 3 | Addenda F **and G** land — **G: LANDED at pin `12a1c82`/`ef96d2d0…` (VP approve, signal carried `211923`)**; F: PENDING UP, same pin format; the ONE fenced `manifest.cpp` reopening consumes BOTH | G DONE / F PENDING |
 | 4 | Local DESIGN per pair | BOTH COMPLETE — floor rev5 approve `42cdfd94…`; matrix rev4 approve `802b8499…` at `934fca3` (G pin governing) |
-| 5 | PLAN → plan-review → delegated implementation dispatch per pair | floor: B1 COMPLETE pair-side — PR #15 at `ff63e52`, merge-blocked solely on the routed `.github` count gates; slice A restacking. matrix: Wave A at T1 amendment (probe-seal relocation granted) |
+| 5 | PLAN → implement → panel → merge-gate | floor: B1 #15, slice A #21, slice C #22 (`ec9a2db`) all bar-ready/routed; B2 seeding. matrix: Wave-A stack #16/#17/#19/#20 panel-clean pending check-5. **ALL SEVEN PRs blocked from green remote CI by the stale `.github` count gate — escalated UP as critical path.** |
 | 6 | Arm 1 end-to-end + golden harness day one; then Arms 2–5; floor rides after Arm-1 schema act | — |
 | 7 | Receipts executed as arms land (EIGHTEEN: 12 A5 + 6 A7, run-traceable; plans — A7 six in R-4.4/`170500` §3, A5 twelve at `224200`) | — |
 | 8 | Exit: ROADMAP exit test (Arm 5 closure), both addendum seals (VP), R-3.25 both legs in (a)→(b) order, DR-3 decided, clause-1 cold panel at final SHA | — |
