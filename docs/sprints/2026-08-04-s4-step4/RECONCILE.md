@@ -249,3 +249,22 @@ RepoRestoreRow does not structurally separate WARNING-class (exit 2) from
 ADVISORY-class (exit 0) rows; the future open.cpp exit mapping must send
 Ok-row-with-outcome=failed+divergence to exit 2 (D5.3), never exit 4 (D5.2), without
 string-matching. capture_mode cell: unchanged, awaiting m-1, value unblessed.
+
+**Config-exec class closed structurally (matrix, `215010`):** third panel round on the
+hostile-repo-local-config code-execution class (M1 3 keys → S-1 2 keys → `filter.*.clean`
+via `git status`). Fixed-key enumeration is a treadmill; directed the STRUCTURAL closure
+under the standing M1/S-1 endorsement — enumerate DEFINED drivers, inject empty overrides,
+NEUTRALIZE-FOUND (fail-closed would narrow pack-any-directory; classify is read-only so
+neutralizing during status is safe). Trust-posture lever offered to the operator UP
+(non-blocking, parallel to addendum-D). **Durable lesson: a security class defended by
+fixed enumeration wants a structural closure or a posture ruling, never an Nth list.**
+
+**Slice-C above-pair items (`215012`):** ROUTED-1 (A6 `tree:false` breach) accepted as the
+planner's owned instrument-substitution miss — fix in-universe BL-2, bound restated, grant
+not reopened. ROUTED-2 (extract-side `.biv` refusal in open.cpp): live vector closed
+in-universe by BL-1; the defense-in-depth half HELD + routed UP (open.cpp is matrix
+territory + a possible sealed-restore-behavior change — not mine to assign). ROUTED-3
+(claude consent-no stages under the PACKER'S origin path — leaks packer home/client name
+into the recipient tree, a confidentiality concern): HELD + routed UP as a sealed §A9
+decision, option (a) recommended (dest-key as consent-yes already does). Both held items
+non-blocking; the BL fold proceeds.
