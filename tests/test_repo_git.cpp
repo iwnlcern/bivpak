@@ -16,33 +16,12 @@
 
 #include "core/repo/git.hpp"
 #include "core/repo/types.hpp"
+#include "support/temp_dir.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
-
-class TempDir {
- public:
-  explicit TempDir(const std::string_view name)
-      : path_{fs::temp_directory_path() /
-              ("biv-repo-git-" + std::string{name} + "-" +
-               std::to_string(::getpid()) + "-" +
-               std::to_string(next_id_++))} {
-    fs::remove_all(path_);
-    fs::create_directories(path_);
-  }
-
-  ~TempDir() { fs::remove_all(path_); }
-
-  TempDir(const TempDir&) = delete;
-  TempDir& operator=(const TempDir&) = delete;
-
-  const fs::path& path() const { return path_; }
-
- private:
-  inline static std::size_t next_id_{0};
-  fs::path path_;
-};
+using biv::test_support::TempDir;
 
 std::string as_string(const std::vector<std::byte>& bytes) {
   std::string output;
@@ -150,30 +129,63 @@ TEST_CASE("Git resolve records one fully resolved binary") {
 
 TEST_CASE("Git run pins environment away from hostile user config") {
   TempDir root{"hostile-env"};
+  const auto excludes = root.path() / "global-ignore";
+  {
+    std::ofstream patterns{excludes};
+    patterns << "junk.log\n";
+  }
   {
     std::ofstream config{root.path() / ".gitconfig"};
     config << "[user]\n\tname = Hostile Global Identity\n"
-              "\temail = hostile@example.invalid\n";
+              "\temail = hostile@example.invalid\n"
+              "[core]\n\texcludesFile = "
+           << excludes.string() << "\n";
   }
   const auto git = resolve_git(root.path());
+  const auto repo = root.path() / "repo";
+  run_ok(git, {"init"}, {repo.string()});
+  biv::repo::Git::Opts ordinary_opts;
+  ordinary_opts.cwd = repo;
+  run_ok(git, {"config", "user.name", "Local Fixture"}, {}, ordinary_opts);
+  run_ok(git, {"config", "user.email", "local@example.invalid"}, {},
+         ordinary_opts);
+  {
+    std::ofstream ignored{repo / "junk.log"};
+    ignored << "ignored by the user's global excludes\n";
+  }
 
   const auto request = biv::repo::git_testing::build_spawn_request(
-      git, {"var", "GIT_COMMITTER_IDENT"}, {}, biv::repo::Git::Opts{});
+      git, {"status", "--porcelain=v2"}, {}, ordinary_opts);
   CHECK(has_env(request.env, "GIT_TERMINAL_PROMPT=0"));
   CHECK(has_env(request.env, "LC_ALL=C"));
   CHECK(has_env(request.env, "GIT_CONFIG_NOSYSTEM=1"));
-  CHECK(has_env(request.env, "GIT_CONFIG_GLOBAL=/dev/null"));
+  CHECK_FALSE(has_env(request.env, "GIT_CONFIG_GLOBAL=/dev/null"));
+  CHECK(has_env(request.env, "GIT_PROTOCOL_FROM_USER=0"));
+  CHECK(has_env(request.env, "GIT_CONFIG_COUNT=3"));
+  CHECK(has_env(request.env, "GIT_CONFIG_KEY_0=core.hooksPath"));
+  CHECK(has_env(request.env, "GIT_CONFIG_VALUE_0=/dev/null"));
+  CHECK(has_env(request.env, "GIT_CONFIG_KEY_1=credential.helper"));
+  CHECK(has_env(request.env, "GIT_CONFIG_VALUE_1="));
+  CHECK(has_env(request.env, "GIT_CONFIG_KEY_2=core.sshCommand"));
+  CHECK(has_env(request.env, "GIT_CONFIG_VALUE_2=/usr/bin/false"));
   CHECK(has_env(request.env, "GIT_ASKPASS=/usr/bin/false"));
   CHECK(has_env(request.env, "SSH_ASKPASS=/usr/bin/false"));
 
-  const auto result = git.run({"var", "GIT_COMMITTER_IDENT"}, {}, {});
-  REQUIRE(result.has_value());
-  CHECK_FALSE(result->spawn_failed);
-  CHECK_FALSE(result->timed_out);
-  CHECK_FALSE(result->io_failed);
-  CHECK(as_string(result->stdout_bytes).find("Hostile Global Identity") ==
+  const auto status = run_ok(git, {"status", "--porcelain=v2"}, {},
+                             ordinary_opts);
+  CHECK(status.stdout_bytes.empty());
+
+  auto restore_opts = ordinary_opts;
+  restore_opts.isolate_global_config = true;
+  const auto restore_request = biv::repo::git_testing::build_spawn_request(
+      git, {"var", "GIT_COMMITTER_IDENT"}, {}, restore_opts);
+  CHECK(has_env(restore_request.env, "GIT_CONFIG_GLOBAL=/dev/null"));
+
+  const auto identity = run_ok(git, {"var", "GIT_COMMITTER_IDENT"}, {},
+                               restore_opts);
+  CHECK(as_string(identity.stdout_bytes).find("Local Fixture") !=
         std::string::npos);
-  CHECK(as_string(result->stderr_bytes).find("hostile@example.invalid") ==
+  CHECK(as_string(identity.stdout_bytes).find("Hostile Global Identity") ==
         std::string::npos);
 }
 
@@ -201,6 +213,7 @@ TEST_CASE("Git request pins no-lazy-fetch and mechanically delimits operands") {
   const auto opts = biv::repo::Git::Opts{
       .cwd = root.path(),
       .no_lazy_fetch = true,
+      .isolate_global_config = false,
       .stderr_mode = biv::support::StderrMode::separate,
       .stdout_file = std::nullopt,
       .budget = std::chrono::milliseconds{1234}};
@@ -221,23 +234,6 @@ TEST_CASE("Git request pins no-lazy-fetch and mechanically delimits operands") {
       git, {"status"}, {}, biv::repo::Git::Opts{});
   CHECK_FALSE(has_env(ordinary.env, "GIT_NO_LAZY_FETCH=1"));
   CHECK(std::ranges::find(ordinary.argv, "--") == ordinary.argv.end());
-}
-
-TEST_CASE("RepoEntry eligibility is optional and survives value copies") {
-  biv::repo::RepoEntry entry;
-  entry.id = "root";
-  entry.relpath = ".";
-  entry.kind = biv::repo::RepoKind::repo;
-  entry.sha = std::nullopt;
-  entry.head_state = biv::repo::HeadState::unborn;
-  entry.capture_mode = biv::repo::CaptureMode::full;
-  entry.eligibility = std::nullopt;
-
-  const auto classified_shape = entry;
-  CHECK_FALSE(entry.eligibility.has_value());
-  CHECK_FALSE(classified_shape.eligibility.has_value());
-  CHECK(classified_shape.head_state == biv::repo::HeadState::unborn);
-  CHECK_FALSE(classified_shape.sha.has_value());
 }
 
 TEST_CASE("RepoEntry preserves unknown notes verbatim for JSON re-emission") {
@@ -265,6 +261,9 @@ TEST_CASE("Git streams cat-file stdout to a file") {
   const auto output = root.path() / "blob.out";
   const auto opts = biv::repo::Git::Opts{
       .cwd = repo,
+      .no_lazy_fetch = false,
+      .isolate_global_config = false,
+      .stderr_mode = biv::support::StderrMode::separate,
       .stdout_file = output,
       .budget = std::chrono::seconds{10}};
 

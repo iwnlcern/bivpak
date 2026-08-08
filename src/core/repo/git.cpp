@@ -68,14 +68,21 @@ expected<Git> Git::resolve(const support::Getenv& getenv) {
   }
 
   std::vector<std::string> env;
-  env.reserve(10U);
+  env.reserve(18U);
   env.emplace_back("PATH=" + *path_value);
   append_if_present(env, getenv, "HOME");
   append_if_present(env, getenv, "TMPDIR");
   env.emplace_back("GIT_TERMINAL_PROMPT=0");
+  env.emplace_back("GIT_PROTOCOL_FROM_USER=0");
   env.emplace_back("LC_ALL=C");
   env.emplace_back("GIT_CONFIG_NOSYSTEM=1");
-  env.emplace_back("GIT_CONFIG_GLOBAL=/dev/null");
+  env.emplace_back("GIT_CONFIG_COUNT=3");
+  env.emplace_back("GIT_CONFIG_KEY_0=core.hooksPath");
+  env.emplace_back("GIT_CONFIG_VALUE_0=/dev/null");
+  env.emplace_back("GIT_CONFIG_KEY_1=credential.helper");
+  env.emplace_back("GIT_CONFIG_VALUE_1=");
+  env.emplace_back("GIT_CONFIG_KEY_2=core.sshCommand");
+  env.emplace_back("GIT_CONFIG_VALUE_2=/usr/bin/false");
   env.emplace_back("GIT_ASKPASS=/usr/bin/false");
   env.emplace_back("SSH_ASKPASS=/usr/bin/false");
   return Git{std::move(*executable), std::move(env)};
@@ -99,6 +106,9 @@ support::SpawnRequest Git::build_spawn_request(
   }
 
   auto env = base_env_;
+  if (opts.isolate_global_config) {
+    env.emplace_back("GIT_CONFIG_GLOBAL=/dev/null");
+  }
   if (opts.no_lazy_fetch) {
     env.emplace_back("GIT_NO_LAZY_FETCH=1");
   }
