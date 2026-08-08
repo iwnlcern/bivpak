@@ -21,7 +21,7 @@ Work branches from `main@8981bfd`.
 | 3 | Addenda F **and G** land — **G: LANDED at pin `12a1c82`/`ef96d2d0…` (VP approve, signal carried `211923`)**; F: PENDING UP, same pin format; the ONE fenced `manifest.cpp` reopening consumes BOTH | G DONE / F PENDING |
 | 4 | Local DESIGN per pair | BOTH COMPLETE — floor rev5 approve `42cdfd94…`; matrix rev4 approve `802b8499…` at `934fca3` (G pin governing) |
 | 5 | PLAN → implement → panel → merge-gate | floor: B1 #15, slice A #21, slice C #22 (`ec9a2db`) all bar-ready/routed; B2 seeding. matrix: Wave-A stack #16/#17/#19/#20 panel-clean pending check-5. Slice C + matrix Wave-A condition-3 verified; B1/A content-ready. The `.github` count gate reddens remote Actions but `main` is UNPROTECTED (no required checks) so it gates NOTHING — a cosmetic red, R-3.48 hygiene; local-Docker is the validation leg (charter `9d933a9`). Merges await the operator's token, not the gate. |
-| 6 | Arm 1 end-to-end + golden harness day one; then Arms 2–5; floor rides after Arm-1 schema act | — |
+| 6 | Arm 1 end-to-end + golden harness day one; then Arms 2–5; floor rides after Arm-1 schema act | matrix Wave-A (Arm-1 non-schema) + condition-3 banked `cb1f6254`; floor B1/A/C condition-3 banked; both await operator token; Waves B/C/D + schema act F+G-fenced |
 | 7 | Receipts executed as arms land (EIGHTEEN: 12 A5 + 6 A7, run-traceable; plans — A7 six in R-4.4/`170500` §3, A5 twelve at `224200`) | — |
 | 8 | Exit: ROADMAP exit test (Arm 5 closure), both addendum seals (VP), R-3.25 both legs in (a)→(b) order, DR-3 decided, clause-1 cold panel at final SHA | — |
 

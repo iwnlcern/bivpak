@@ -314,3 +314,13 @@ master (banked; C is third in the floor stack B1→A→C). The remaining decisio
 operator's small typed call: remote-green a wanted signal (fix the gate first) or superseded
 by local-Docker (merge on local-green; gate fix = unhurried hygiene) — master recommends the
 latter; no candidate's content waits either way.
+
+**Both bar candidates condition-3 VERIFIED and banked (master `010500` slice C, `012600`
+matrix Wave-A; each reproduced at master's seat at the bytes):** slice C `ec9a2db` (third
+in floor stack B1→A→C) and matrix Wave-A `cb1f6254` (product delta = git_exec.cpp +
+test_repo_engine.cpp, fences live, exclusions clean). Neither at condition 4. Both wait
+only on the operator's CI-leg (a)/(b) call and then the operator's token per stack order;
+main unprotected so no remote check gates. My reframe correction + (a) concurrence
+receipted as a clean own. LOW include.path note concurred as implementer discretion. The
+`010259` merge-gate relay trips R-3.40 item (12)'s known lock-path false red — referents
+confirmed present, not a real miss.
