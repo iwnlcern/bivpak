@@ -127,7 +127,7 @@ TEST_CASE("Git resolve records one fully resolved binary") {
   CHECK(request.argv.front() == git.executable().string());
 }
 
-TEST_CASE("Git run pins environment away from hostile user config") {
+TEST_CASE("Git run pins environment away from hostile user and repo config") {
   TempDir root{"hostile-env"};
   const auto excludes = root.path() / "global-ignore";
   {
@@ -153,6 +153,22 @@ TEST_CASE("Git run pins environment away from hostile user config") {
     std::ofstream ignored{repo / "junk.log"};
     ignored << "ignored by the user's global excludes\n";
   }
+  const auto fsmonitor_marker = root.path() / "fsmonitor-ran";
+  const auto fsmonitor = root.path() / "hostile-fsmonitor.sh";
+  {
+    std::ofstream script{fsmonitor};
+    script << "#!/bin/sh\n"
+              ": > '"
+           << fsmonitor_marker.string() << "'\n"
+              "printf '\\n'\n";
+  }
+  fs::permissions(fsmonitor,
+                  fs::perms::owner_read | fs::perms::owner_write |
+                      fs::perms::owner_exec,
+                  fs::perm_options::replace);
+  run_ok(git, {"config", "core.fsmonitor", fsmonitor.string()}, {},
+         ordinary_opts);
+  REQUIRE_FALSE(fs::exists(fsmonitor_marker));
 
   const auto request = biv::repo::git_testing::build_spawn_request(
       git, {"status", "--porcelain=v2"}, {}, ordinary_opts);
@@ -161,19 +177,24 @@ TEST_CASE("Git run pins environment away from hostile user config") {
   CHECK(has_env(request.env, "GIT_CONFIG_NOSYSTEM=1"));
   CHECK_FALSE(has_env(request.env, "GIT_CONFIG_GLOBAL=/dev/null"));
   CHECK(has_env(request.env, "GIT_PROTOCOL_FROM_USER=0"));
-  CHECK(has_env(request.env, "GIT_CONFIG_COUNT=3"));
+  CHECK(has_env(request.env, "GIT_CONFIG_COUNT=5"));
   CHECK(has_env(request.env, "GIT_CONFIG_KEY_0=core.hooksPath"));
   CHECK(has_env(request.env, "GIT_CONFIG_VALUE_0=/dev/null"));
   CHECK(has_env(request.env, "GIT_CONFIG_KEY_1=credential.helper"));
   CHECK(has_env(request.env, "GIT_CONFIG_VALUE_1="));
   CHECK(has_env(request.env, "GIT_CONFIG_KEY_2=core.sshCommand"));
   CHECK(has_env(request.env, "GIT_CONFIG_VALUE_2=/usr/bin/false"));
+  CHECK(has_env(request.env, "GIT_CONFIG_KEY_3=core.fsmonitor"));
+  CHECK(has_env(request.env, "GIT_CONFIG_VALUE_3="));
+  CHECK(has_env(request.env, "GIT_CONFIG_KEY_4=core.alternateRefsCommand"));
+  CHECK(has_env(request.env, "GIT_CONFIG_VALUE_4="));
   CHECK(has_env(request.env, "GIT_ASKPASS=/usr/bin/false"));
   CHECK(has_env(request.env, "SSH_ASKPASS=/usr/bin/false"));
 
   const auto status = run_ok(git, {"status", "--porcelain=v2"}, {},
                              ordinary_opts);
   CHECK(status.stdout_bytes.empty());
+  CHECK_FALSE(fs::exists(fsmonitor_marker));
 
   auto restore_opts = ordinary_opts;
   restore_opts.isolate_global_config = true;

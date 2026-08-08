@@ -68,7 +68,7 @@ expected<Git> Git::resolve(const support::Getenv& getenv) {
   }
 
   std::vector<std::string> env;
-  env.reserve(18U);
+  env.reserve(22U);
   env.emplace_back("PATH=" + *path_value);
   append_if_present(env, getenv, "HOME");
   append_if_present(env, getenv, "TMPDIR");
@@ -76,13 +76,17 @@ expected<Git> Git::resolve(const support::Getenv& getenv) {
   env.emplace_back("GIT_PROTOCOL_FROM_USER=0");
   env.emplace_back("LC_ALL=C");
   env.emplace_back("GIT_CONFIG_NOSYSTEM=1");
-  env.emplace_back("GIT_CONFIG_COUNT=3");
+  env.emplace_back("GIT_CONFIG_COUNT=5");
   env.emplace_back("GIT_CONFIG_KEY_0=core.hooksPath");
   env.emplace_back("GIT_CONFIG_VALUE_0=/dev/null");
   env.emplace_back("GIT_CONFIG_KEY_1=credential.helper");
   env.emplace_back("GIT_CONFIG_VALUE_1=");
   env.emplace_back("GIT_CONFIG_KEY_2=core.sshCommand");
   env.emplace_back("GIT_CONFIG_VALUE_2=/usr/bin/false");
+  env.emplace_back("GIT_CONFIG_KEY_3=core.fsmonitor");
+  env.emplace_back("GIT_CONFIG_VALUE_3=");
+  env.emplace_back("GIT_CONFIG_KEY_4=core.alternateRefsCommand");
+  env.emplace_back("GIT_CONFIG_VALUE_4=");
   env.emplace_back("GIT_ASKPASS=/usr/bin/false");
   env.emplace_back("SSH_ASKPASS=/usr/bin/false");
   return Git{std::move(*executable), std::move(env)};
