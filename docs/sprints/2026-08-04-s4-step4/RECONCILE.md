@@ -289,3 +289,12 @@ key dismissed as unreachable by the classify/capture command set (R-4.6 refineme
 UP). Check-#5 NEGATIVE CONTROL required: `git config --worktree` fatals on an ordinary repo
 (worktree config disabled), so classify must stay GREEN there — check asserts both bypasses
 RED AND ordinary-repo green. Lever now belt-and-suspenders, not stop-the-treadmill.
+
+**Matrix Wave-A panel-clean (`010300`, cb1f6254):** condition 1 MET — full panel + four
+targeted checks, cumulative-window chain 66250856→cb1f6254; R-4.6 command-exec class closed
+across {direct, include, worktree} with the ordinary-repo negative control green (the
+`git config --worktree` fatal special-cased, locale-anchored). Product delta at the final
+check = `git_exec.cpp` + `test_repo_engine.cpp`. Routed UP as the second bar candidate
+(joins slice C; both blocked on the count gate for remote CI). **Tracked-discretion:** an
+attacker `include.path`→user-global-gitconfig widens the neutralized-keys REPORT (exec-safe,
+read-only, cosmetic) — implementer discretion, becomes directed only on operator request.
