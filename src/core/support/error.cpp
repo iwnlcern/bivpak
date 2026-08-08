@@ -44,6 +44,8 @@ const char* to_string(const ErrKind kind) noexcept {
       return "UnknownAgentSkipped";
     case ErrKind::SessionsConsentSkipped:
       return "SessionsConsentSkipped";
+    case ErrKind::SessionsStaged:
+      return "SessionsStaged";
     case ErrKind::AgentNotValidatedFailed:
       return "AgentNotValidatedFailed";
     case ErrKind::InternalError:

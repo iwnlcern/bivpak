@@ -1278,6 +1278,10 @@ TEST_CASE(
   REQUIRE(deny_summary != std::string::npos);
   CHECK(deny_text.out.find("Session import summary:", deny_summary + 1U) ==
         std::string::npos);
+  CHECK(deny_text.out.find("-> staged", deny_summary) != std::string::npos);
+  CHECK(deny_text.out.find(
+            "Staged sessions were not installed into host stores; inspect the workspace staging area before use.",
+            deny_summary) != std::string::npos);
 
   const auto per_agent_json = run_cmd(
       "open '" + image.string() +

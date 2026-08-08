@@ -48,6 +48,7 @@ struct SessionRowReport {
     session_install_failed,
     unknown_agent_skipped,
     sessions_consent_skipped,
+    sessions_staged, /* m-3 spelling at consumer review */
     agent_not_validated_failed,
   } row{Row::failed};
   std::optional<std::string> reason;

@@ -1,5 +1,6 @@
 #include "core/open/render.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstdint>
@@ -161,6 +162,8 @@ std::string row_name(const core_sessions::SessionRowReport::Row row) {
     case core_sessions::SessionRowReport::Row::unknown_agent_skipped:
     case core_sessions::SessionRowReport::Row::sessions_consent_skipped:
       return "skipped";
+    case core_sessions::SessionRowReport::Row::sessions_staged:
+      return "staged";
     case core_sessions::SessionRowReport::Row::failed:
     case core_sessions::SessionRowReport::Row::containment_refused:
     case core_sessions::SessionRowReport::Row::session_install_failed:
@@ -307,6 +310,13 @@ std::string render_summary(
   for (const auto& caveat : outcome.caveats) {
     out << "  " << display(caveat.agent) << " note [" << display(caveat.kind)
         << "]: " << display(caveat.note) << '\n';
+  }
+  if (std::ranges::any_of(outcome.rows, [](const auto& row) {
+        return row.row == core_sessions::SessionRowReport::Row::sessions_staged;
+      })) {
+    /* m-3 spelling at consumer review */
+    out << "  Staged sessions were not installed into host stores; inspect the workspace "
+           "staging area before use.\n";
   }
   return out.str();
 }

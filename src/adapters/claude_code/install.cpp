@@ -54,6 +54,7 @@ struct PreparedSession {
   std::vector<DestinationPlan> destinations;
   bool host_version_unverified{false};
   InstallVerify verify;
+  rewrite::ReplacementPairs pair_set_applied;
   std::vector<std::vector<std::byte>> outputs;
   size_t skipped_non_utf8{0};
   std::optional<std::string> refusal_reason;
@@ -421,18 +422,25 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
                                             const std::span<const manifest::AgentSessionEntry> records) {
   InstallResult result;
   result.mode = consent == Consent::yes ? InstallResult::Mode::host_installed : InstallResult::Mode::staged;
-  const auto project_key = project_key_for_path(target.workspace_root);
-  if (project_key.size() > kUnpinnedProjectKeyCap) {
-    for (const auto& record : records) {
-      result.sessions.push_back(failed_outcome(record, "long_path_key_unpinned"));
-    }
-    return result;
-  }
-
-  const auto project_root = ProjectRoot{target.target_store.root / "projects" / project_key};
+  const auto install_root = consent == Consent::yes
+                                ? target.target_store.root
+                                : target.workspace_root / ".biv" / "agents" /
+                                      "claude-code";
+  const auto publish_root = consent == Consent::yes ? target.target_store.root
+                                                    : target.workspace_root;
+  const auto project_key_for_record = [&](const auto& record) {
+    return project_key_for_path(consent == Consent::yes
+                                    ? target.workspace_root
+                                    : fs::path{record.original_path});
+  };
   constexpr std::string_view containment_probe_id =
       "00000000-0000-4000-8000-000000000000";
   for (const auto& record : records) {
+    if (project_key_for_record(record).size() > kUnpinnedProjectKeyCap) {
+      continue;
+    }
+    const auto project_root = ProjectRoot{
+        install_root / "projects" / project_key_for_record(record)};
     for (const auto& artifact : all_artifacts(record)) {
       if (!destination_for_artifact(
                artifact, SessionImageId{record.original_session_ids.primary},
@@ -451,6 +459,22 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
   std::vector<PreparedSession> prepared;
   prepared.reserve(records.size());
   for (const auto& record : records) {
+    if (project_key_for_record(record).size() > kUnpinnedProjectKeyCap) {
+      prepared.push_back(PreparedSession{
+          .record = record,
+          .installed_session_id = {},
+          .destinations = {},
+          .host_version_unverified = false,
+          .verify = {},
+          .pair_set_applied = {},
+          .outputs = {},
+          .skipped_non_utf8 = 0,
+          .refusal_reason = "long_path_key_unpinned",
+          .refusal_detail = std::nullopt});
+      continue;
+    }
+    const auto project_root = ProjectRoot{
+        install_root / "projects" / project_key_for_record(record)};
     const auto admission = version_floor::admit(
         {.agent = "claude-code",
          .host_version = caps.agent_version(),
@@ -462,6 +486,7 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
           .destinations = {},
           .host_version_unverified = false,
           .verify = {},
+          .pair_set_applied = {},
           .outputs = {},
           .skipped_non_utf8 = 0,
           .refusal_reason = "not-validated",
@@ -474,6 +499,7 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
                             .host_version_unverified =
                                 admission.host_version_unverified,
                             .verify = {},
+                            .pair_set_applied = {},
                             .outputs = {},
                             .skipped_non_utf8 = 0,
                             .refusal_reason = std::nullopt,
@@ -501,16 +527,17 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
     prepared.push_back(std::move(session));
   }
 
-  if (consent == Consent::yes) {
+  {
     for (auto& session : prepared) {
       if (session.refusal_reason.has_value()) {
         continue;
       }
-      const auto pair_set = rewrite::derive_pair_set(
+      session.pair_set_applied = rewrite::derive_pair_set(
           session.record.original_path, session.record.path_flavor,
           target.workspace_root.generic_string(),
           path_flavor_for(target.workspace_root));
-      const auto origins = rewrite::origins_from_pairs(pair_set);
+      const auto origins =
+          rewrite::origins_from_pairs(session.pair_set_applied);
       std::vector<std::vector<std::byte>> inputs;
       inputs.reserve(session.destinations.size());
       std::set<std::string> message_uuid_origins;
@@ -533,7 +560,7 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
         auto output = std::move(inputs.at(i));
         if (destination.rewrite_content) {
           auto rewritten = rewrite::rewrite_jsonl_bytes(
-              output, rewrite::PathPairsView{pair_set},
+              output, rewrite::PathPairsView{session.pair_set_applied},
               rewrite::IdPairsView{ids});
           session.skipped_non_utf8 += rewritten.skipped_non_utf8;
           output = std::move(rewritten.bytes);
@@ -575,12 +602,12 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
       for (size_t i = 0; i < session.destinations.size(); ++i) {
         writes.push_back(secure_io::WriteRequest{
             .relative_path = session.destinations.at(i).path.lexically_relative(
-                target.target_store.root),
+                publish_root),
             .bytes = session.outputs.at(i)});
       }
     }
     if (!writes.empty()) {
-      auto ok = secure_io::write_batch_no_replace(target.target_store.root, writes);
+      auto ok = secure_io::write_batch_no_replace(publish_root, writes);
       if (!ok) {
         const bool containment = ok.error().detail == "containment_refused";
         // Type and reason first; errno detail attaches only to the ambient
@@ -624,15 +651,18 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
                                        .image_session_id = session.record.original_session_ids.primary,
                                        .installed_session_id = session.installed_session_id,
                                        .children = {}});
+    result.pair_set_applied.insert(result.pair_set_applied.end(),
+                                   session.pair_set_applied.begin(),
+                                   session.pair_set_applied.end());
     if (consent == Consent::no) {
       result.sessions.push_back(InstallSessionOutcome{
           .image_session_id = session.record.original_session_ids.primary,
           .outcome = InstallSessionOutcome::Outcome::staged,
           .reason = std::nullopt,
-          .content_rewrite = std::nullopt,
+          .content_rewrite = "pair",
           .host_version_unverified = session.host_version_unverified,
-          .verify = {},
-          .detail = std::nullopt});
+          .verify = session.verify,
+          .detail = non_utf8_detail(session.skipped_non_utf8)});
       continue;
     }
 

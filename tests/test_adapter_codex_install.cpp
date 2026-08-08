@@ -19,6 +19,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "adapters/codex/codex.hpp"
+#include "adapters/rewrite_common.hpp"
 #include "adapters/version_floor.hpp"
 #include "core/support/probe.hpp"
 
@@ -618,6 +619,103 @@ TEST_CASE("Codex install produces identical bytes with or without packer_home") 
   REQUIRE(engaged.contents == absent.contents);
   REQUIRE(engaged.id_map_shape.size() == absent.id_map_shape.size());
   REQUIRE(engaged.id_map_shape == absent.id_map_shape);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "FX-VF-O1 Codex consent-no stages install-ready parent and child rollouts") {
+  const auto root = make_tmp("consent-no-staging");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = codex_members();
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry()};
+
+  const auto staged = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::no, records);
+
+  REQUIRE(staged.has_value());
+  CHECK(staged->mode == biv::adapters::InstallResult::Mode::staged);
+  REQUIRE(staged->sessions.size() == 1U);
+  CHECK(staged->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK(staged->sessions.front().content_rewrite ==
+        std::optional<std::string>{"pair"});
+  CHECK(staged->sessions.front().verify.origin_path_hits == 0U);
+  CHECK(staged->sessions.front().verify.origin_id_hits == 0U);
+  CHECK(staged->sessions.front().verify.artifacts_checked == 2U);
+  REQUIRE(staged->id_map.size() == 1U);
+  REQUIRE(staged->id_map.front().children.size() == 1U);
+  CHECK(staged->activation.empty());
+  CHECK(staged->pair_set_applied ==
+        biv::adapters::rewrite::derive_pair_set(
+            records.front().original_path, records.front().path_flavor,
+            workspace.generic_string(),
+            biv::manifest::PathFlavor::posix));
+  CHECK(relative_files(store).empty());
+
+  const auto staging_root = workspace / ".biv" / "agents" / "codex";
+  const auto files = relative_files(staging_root);
+  REQUIRE(files.size() == 2U);
+  const auto& installed_id = staged->id_map.front().installed_session_id;
+  const auto& child_id = staged->id_map.front().children.front().second;
+  CHECK(std::ranges::all_of(files, [](const std::string& file) {
+    return file.starts_with("sessions/");
+  }));
+  const auto parent_file = std::ranges::find_if(files, [&](const auto& file) {
+    return file.find(installed_id) != std::string::npos;
+  });
+  const auto child_file = std::ranges::find_if(files, [&](const auto& file) {
+    return file.find(child_id) != std::string::npos;
+  });
+  REQUIRE(parent_file != files.end());
+  REQUIRE(child_file != files.end());
+  const auto parent_text = read_text(staging_root / *parent_file);
+  const auto child_text = read_text(staging_root / *child_file);
+  CHECK(parent_text.find(kParent) == std::string::npos);
+  CHECK(parent_text.find(installed_id) != std::string::npos);
+  CHECK(parent_text.find(workspace.generic_string()) != std::string::npos);
+  CHECK(child_text.find(kParent) == std::string::npos);
+  CHECK(child_text.find(kChild) == std::string::npos);
+  CHECK(child_text.find(installed_id) != std::string::npos);
+  CHECK(child_text.find(child_id) != std::string::npos);
+  CHECK(child_text.find(workspace.generic_string()) != std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Codex consent-no reports an unwritable workspace without a staged artifact") {
+  const auto root = make_tmp("consent-no-unwritable");
+  const auto workspace = root / "workspace";
+  const auto store = root / "codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = codex_members();
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry()};
+  fs::permissions(workspace,
+                  fs::perms::owner_read | fs::perms::owner_exec,
+                  fs::perm_options::replace);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::no, records);
+
+  fs::permissions(workspace, fs::perms::owner_all,
+                  fs::perm_options::replace);
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"error"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"EACCES"});
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(relative_files(workspace).empty());
+  CHECK(relative_files(store).empty());
   fs::remove_all(root);
 }
 

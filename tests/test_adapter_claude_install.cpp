@@ -763,6 +763,144 @@ TEST_CASE(
   fs::remove_all(root);
 }
 
+TEST_CASE(
+    "FX-VF-O1 Claude consent-no stages under the original project key") {
+  const auto root = make_tmp("consent-no-staging");
+  const auto workspace = root / "workspace" / "final";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  auto target = target_for(workspace, store, members);
+  const auto record = claude_entry();
+  const std::vector<biv::manifest::AgentSessionEntry> records{record};
+
+  const auto staged = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no, records);
+
+  REQUIRE(staged.has_value());
+  CHECK(staged->mode == biv::adapters::InstallResult::Mode::staged);
+  REQUIRE(staged->sessions.size() == 1U);
+  CHECK(staged->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK(staged->sessions.front().content_rewrite ==
+        std::optional<std::string>{"pair"});
+  CHECK(staged->sessions.front().verify.origin_path_hits == 0U);
+  CHECK(staged->sessions.front().verify.origin_id_hits == 0U);
+  CHECK(staged->sessions.front().verify.artifacts_checked == 3U);
+  REQUIRE(staged->id_map.size() == 1U);
+  CHECK(staged->activation.empty());
+  CHECK(staged->pair_set_applied ==
+        biv::adapters::rewrite::derive_pair_set(
+            record.original_path, record.path_flavor,
+            workspace.generic_string(),
+            biv::manifest::PathFlavor::posix));
+  CHECK(regular_files(store).empty());
+
+  const auto projects_root =
+      workspace / ".biv" / "agents" / "claude-code" / "projects";
+  const auto project_dir =
+      projects_root / claude_project_key(record.original_path);
+  const auto final_workspace_project =
+      projects_root / claude_project_key(workspace);
+  const auto& installed_id = staged->id_map.front().installed_session_id;
+  const auto main_path = project_dir / (installed_id + ".jsonl");
+  const auto subagent_path =
+      project_dir / installed_id / "subagents" / "agent-a01.jsonl";
+  const auto meta_path =
+      project_dir / installed_id / "subagents" / "agent-a01.meta.json";
+  CHECK_FALSE(fs::exists(final_workspace_project));
+  REQUIRE(fs::exists(main_path));
+  REQUIRE(fs::exists(subagent_path));
+  REQUIRE(fs::exists(meta_path));
+  CHECK(regular_files(projects_root).size() == 3U);
+  const auto main_text = read_text(main_path);
+  const auto subagent_text = read_text(subagent_path);
+  CHECK(main_text.find(kOriginalSession) == std::string::npos);
+  CHECK(main_text.find(installed_id) != std::string::npos);
+  CHECK(main_text.find(record.original_path) == std::string::npos);
+  CHECK(main_text.find(workspace.generic_string()) != std::string::npos);
+  CHECK(subagent_text.find(kOriginalSession) == std::string::npos);
+  CHECK(subagent_text.find(installed_id) != std::string::npos);
+  CHECK(subagent_text.find(record.original_path) == std::string::npos);
+  CHECK(subagent_text.find(workspace.generic_string()) != std::string::npos);
+  CHECK(read_text(meta_path) == text(members.at(meta_artifact())));
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Claude consent-no reports an unwritable workspace without staged artifacts") {
+  const auto root = make_tmp("consent-no-unwritable");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{claude_entry()};
+  fs::permissions(workspace,
+                  fs::perms::owner_read | fs::perms::owner_exec,
+                  fs::perm_options::replace);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no, records);
+
+  fs::permissions(workspace, fs::perms::owner_all,
+                  fs::perm_options::replace);
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"error"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"EACCES"});
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(workspace).empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Claude consent-no scopes an unpinned long project key to its record") {
+  const auto root = make_tmp("consent-no-long-key-per-record");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  constexpr std::string_view benign_id =
+      "dddddddd-1111-4000-8000-000000000001";
+  add_claude_members(members, benign_id);
+  auto long_record = claude_entry("/" + std::string(260U, 'a'));
+  const auto benign_record = claude_entry("/ws/proj", std::string{benign_id});
+  const std::vector<biv::manifest::AgentSessionEntry> records{
+      long_record, benign_record};
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).image_session_id ==
+        long_record.original_session_ids.primary);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"long_path_key_unpinned"});
+  CHECK(result->sessions.at(1).image_session_id == benign_id);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == benign_id);
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  CHECK(regular_files(workspace).size() == 3U);
+  fs::remove_all(root);
+}
+
 TEST_CASE("Claude install uses grammar and direction instead of an allowlist") {
   const auto root = make_tmp("capability-gate");
   const auto workspace = root / "workspace";
