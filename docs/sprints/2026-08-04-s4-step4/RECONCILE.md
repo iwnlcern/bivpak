@@ -278,3 +278,14 @@ lands as a matrix Arm-1 hardening row AFTER the current candidate (collision ref
 endorsed), BL-1 covering the live vector meanwhile. Q-B (claude origin-path leak) is at
 m-2 with **option (a) endorsed** (destination-keying, sealed §A9 addendum). Both
 non-blocking; both resume by separate relay on the owners' dispositions.
+
+**Config-exec check #4 → completion (`230516`):** the directed neutralize-found fix
+closed the direct driver but under-collected — the same `filter.*.clean` executes via
+`include.path`/`includeIf` and `extensions.worktreeConfig` scopes `--local --get-regexp`
+misses (both E2). Completion dispatched WITHIN direction (union of `--includes` +
+`--worktree --includes`). **The class is now PROVEN-BOUNDED:** the lens's exhaustive sweep
+= `filter.*.clean` × {direct, include, worktree} is the boundary; every other command-exec
+key dismissed as unreachable by the classify/capture command set (R-4.6 refinement carried
+UP). Check-#5 NEGATIVE CONTROL required: `git config --worktree` fatals on an ordinary repo
+(worktree config disabled), so classify must stay GREEN there — check asserts both bypasses
+RED AND ordinary-repo green. Lever now belt-and-suspenders, not stop-the-treadmill.
