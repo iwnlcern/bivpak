@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <functional>
 #include <initializer_list>
 #include <optional>
 #include <span>
@@ -14,25 +15,31 @@ namespace biv::repo {
 
 class Git {
  public:
+  using RequestTrace = std::function<void(const support::SpawnRequest&)>;
+
   struct Opts {
     std::optional<std::filesystem::path> cwd;
     bool no_lazy_fetch{false};
     bool isolate_global_config{false};
+    // Intentional top-level transport calls opt in; every other Git call pins
+    // GIT_PROTOCOL_FROM_USER=0. This is not a URL or host allowlist.
+    bool allow_user_protocol{false};
     std::vector<std::string> empty_config_keys{};
     support::StderrMode stderr_mode{support::StderrMode::separate};
     std::optional<std::filesystem::path> stdout_file;
     std::chrono::milliseconds budget{std::chrono::seconds{30}};
   };
 
-  static expected<Git> resolve(const support::Getenv& getenv);
+  static expected<Git> resolve(const support::Getenv& getenv,
+                               RequestTrace trace = {});
 
   [[nodiscard]] const std::filesystem::path& executable() const noexcept {
     return executable_;
   }
 
-  expected<support::SpawnResult> run(
-      std::span<const std::string> args,
-      std::span<const std::string> operands, const Opts& opts) const;
+  expected<support::SpawnResult> run(std::span<const std::string> args,
+                                     std::span<const std::string> operands,
+                                     const Opts& opts) const;
 
   expected<support::SpawnResult> run(
       std::initializer_list<std::string> args,
@@ -43,20 +50,24 @@ class Git {
   }
 
  private:
-  Git(std::filesystem::path executable, std::vector<std::string> base_env)
-      : executable_{std::move(executable)}, base_env_{std::move(base_env)} {}
+  Git(std::filesystem::path executable, std::vector<std::string> base_env,
+      RequestTrace trace)
+      : executable_{std::move(executable)},
+        base_env_{std::move(base_env)},
+        trace_{std::move(trace)} {}
 
   [[nodiscard]] support::SpawnRequest build_spawn_request(
-      std::span<const std::string> args,
-      std::span<const std::string> operands, const Opts& opts) const;
+      std::span<const std::string> args, std::span<const std::string> operands,
+      const Opts& opts) const;
 
   std::filesystem::path executable_;
   std::vector<std::string> base_env_;
+  RequestTrace trace_;
 
 #if defined(BIV_REPO_TESTING)
   friend support::SpawnRequest git_testing_build_spawn_request(
-      const Git&, std::span<const std::string>,
-      std::span<const std::string>, const Opts&);
+      const Git&, std::span<const std::string>, std::span<const std::string>,
+      const Opts&);
 #endif
 };
 

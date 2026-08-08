@@ -12,7 +12,6 @@ struct Classification {
   enum class Fence { none, dirty, nested, submodule, unmerged };
 
   RepoEntry entry;
-  bool promisor{false};
   Fence fence{Fence::none};
   std::optional<EngineIssue> issue;
 };

@@ -55,7 +55,7 @@ void append_if_present(std::vector<std::string>& env,
 
 }  // namespace
 
-expected<Git> Git::resolve(const support::Getenv& getenv) {
+expected<Git> Git::resolve(const support::Getenv& getenv, RequestTrace trace) {
   if (!getenv) {
     return std::unexpected(resolve_error("git resolver missing environment"));
   }
@@ -74,7 +74,6 @@ expected<Git> Git::resolve(const support::Getenv& getenv) {
   append_if_present(env, getenv, "HOME");
   append_if_present(env, getenv, "TMPDIR");
   env.emplace_back("GIT_TERMINAL_PROMPT=0");
-  env.emplace_back("GIT_PROTOCOL_FROM_USER=0");
   env.emplace_back("LC_ALL=C");
   env.emplace_back("GIT_CONFIG_NOSYSTEM=1");
   env.emplace_back("GIT_CONFIG_COUNT=" + std::to_string(kStaticConfigCount));
@@ -90,7 +89,7 @@ expected<Git> Git::resolve(const support::Getenv& getenv) {
   env.emplace_back("GIT_CONFIG_VALUE_4=");
   env.emplace_back("GIT_ASKPASS=/usr/bin/false");
   env.emplace_back("SSH_ASKPASS=/usr/bin/false");
-  return Git{std::move(*executable), std::move(env)};
+  return Git{std::move(*executable), std::move(env), std::move(trace)};
 }
 
 support::SpawnRequest Git::build_spawn_request(
@@ -128,6 +127,8 @@ support::SpawnRequest Git::build_spawn_request(
       env.emplace_back("GIT_CONFIG_VALUE_" + std::to_string(index) + "=");
     }
   }
+  env.emplace_back(std::string{"GIT_PROTOCOL_FROM_USER="} +
+                   (opts.allow_user_protocol ? "1" : "0"));
   if (opts.isolate_global_config) {
     env.emplace_back("GIT_CONFIG_GLOBAL=/dev/null");
   }
@@ -137,21 +138,24 @@ support::SpawnRequest Git::build_spawn_request(
 
   auto budgets = support::ProbeBudgets{};
   budgets.probe_wall = opts.budget;
-  return support::SpawnRequest{
-      .executable = executable_,
-      .argv = std::move(argv),
-      .env = std::move(env),
-      .stderr_mode = opts.stderr_mode,
-      .stdout_file = opts.stdout_file,
-      .stdout_cap = kCaptureCap,
-      .stderr_cap = kCaptureCap,
-      .budgets = budgets};
+  return support::SpawnRequest{.executable = executable_,
+                               .argv = std::move(argv),
+                               .env = std::move(env),
+                               .stderr_mode = opts.stderr_mode,
+                               .stdout_file = opts.stdout_file,
+                               .stdout_cap = kCaptureCap,
+                               .stderr_cap = kCaptureCap,
+                               .budgets = budgets};
 }
 
 expected<support::SpawnResult> Git::run(
     const std::span<const std::string> args,
     const std::span<const std::string> operands, const Opts& opts) const {
-  return support::run_argv(build_spawn_request(args, operands, opts));
+  auto request = build_spawn_request(args, operands, opts);
+  if (trace_) {
+    trace_(request);
+  }
+  return support::run_argv(request);
 }
 
 #if defined(BIV_REPO_TESTING)
