@@ -268,3 +268,13 @@ territory + a possible sealed-restore-behavior change — not mine to assign). R
 into the recipient tree, a confidentiality concern): HELD + routed UP as a sealed §A9
 decision, option (a) recommended (dest-key as consent-yes already does). Both held items
 non-blocking; the BL fold proceeds.
+
+**Upstream closures (master `215701`/`215702`, 2026-08-07):** the config-exec class is
+registered **R-4.6** with the fixed-enumeration-treadmill lesson; the structural closure
+endorsed within s4's standing authority; the trust-posture lever recorded in R-4.6 with
+the operator (take-or-leave, s4 identical either way). Q-A (extract-side `.biv` refusal)
+is at m-1 with master's read that it is a scoped member-acceptance addendum — implementation
+lands as a matrix Arm-1 hardening row AFTER the current candidate (collision refusal
+endorsed), BL-1 covering the live vector meanwhile. Q-B (claude origin-path leak) is at
+m-2 with **option (a) endorsed** (destination-keying, sealed §A9 addendum). Both
+non-blocking; both resume by separate relay on the owners' dispositions.
