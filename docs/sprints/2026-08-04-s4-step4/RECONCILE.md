@@ -235,3 +235,17 @@ when closing security #1 as answered-by-sealed-record. The `capture_mode` cell i
 m-1 with option 1 endorsed in G's one-state-license shape (vehicle: a new scoped
 addendum — G is pin-frozen); the landed `full` stays unblessed-and-untested until the
 ruling; the fold absorbs the answer whenever it lands.
+
+**Wave-A panel chain (c52bcca accepted `205729`):** 14/14 first-cycle must-fixes closed
+with regression-falsifying tests; M5's eligibility-algorithm rewrite verified
+VERDICT-EQUIVALENT to the sealed method. Second bounded fold in flight: S-1 (extend
+M1's command-executing-config-key deny-list with `core.fsmonitor` +
+`core.alternateRefsCommand` — same folded class, not URL policing; **MUST close before
+Wave-C wiring**) and P-1 (delete the per-chunk reserve, O(N²) regression). Final-check
+record discipline: states the cumulative window from `66250856`, incorporates c52bcca
+by reference, asserts the clause-3 predicate on its face — three records, one auditable
+panel history for condition 3. **Wave-C INTEGRATION FLAG (carried, not lost):**
+RepoRestoreRow does not structurally separate WARNING-class (exit 2) from
+ADVISORY-class (exit 0) rows; the future open.cpp exit mapping must send
+Ok-row-with-outcome=failed+divergence to exit 2 (D5.3), never exit 4 (D5.2), without
+string-matching. capture_mode cell: unchanged, awaiting m-1, value unblessed.
