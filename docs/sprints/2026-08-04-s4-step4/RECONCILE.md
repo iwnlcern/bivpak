@@ -298,3 +298,19 @@ check = `git_exec.cpp` + `test_repo_engine.cpp`. Routed UP as the second bar can
 (joins slice C; both blocked on the count gate for remote CI). **Tracked-discretion:** an
 attacker `include.path`→user-global-gitconfig widens the neutralized-keys REPORT (exec-safe,
 read-only, cosmetic) — implementer discretion, becomes directed only on operator request.
+
+**Count-gate framing CORRECTED (master `010500`, verified at this seat 2026-08-08):** my
+"critical path / seven-PR blocker" escalation (`004228`/`004229`/`010259`/`010300`) was
+OVER-STATED. `main` is NOT branch-protected (`gh api …/branches/main/protection` → 404,
+zero required status checks — reproduced here), so a red remote Actions run gates NOTHING;
+the operator's Local Linux CI charter rule (`9d933a9`, 2026-08-06) already makes local
+Docker the validation leg and remote Actions non-triggered-unless-requested. The count gate
+is a COSMETIC red X on a non-required check — still the R-3.48 nuisance, never a bar
+blocker. **Owned lesson (orchestrator seat): I measured the red (true) but asserted the
+CONSEQUENCE — "blocks the bar" — without checking the gate MECHANISM (branch protection),
+a fact my own `gh api` could reach. Assert-the-consequence-without-verifying-the-mechanism
+is the instrument-scope class at this seat.** Slice C condition-3 VERIFIED at the bytes by
+master (banked; C is third in the floor stack B1→A→C). The remaining decision is the
+operator's small typed call: remote-green a wanted signal (fix the gate first) or superseded
+by local-Docker (merge on local-green; gate fix = unhurried hygiene) — master recommends the
+latter; no candidate's content waits either way.
