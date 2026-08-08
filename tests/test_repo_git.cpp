@@ -191,6 +191,16 @@ TEST_CASE("Git run pins environment away from hostile user and repo config") {
   CHECK(has_env(request.env, "GIT_ASKPASS=/usr/bin/false"));
   CHECK(has_env(request.env, "SSH_ASKPASS=/usr/bin/false"));
 
+  auto dynamic_opts = ordinary_opts;
+  dynamic_opts.empty_config_keys = {"filter.evil.clean", "diff.evil.textconv"};
+  const auto dynamic_request = biv::repo::git_testing::build_spawn_request(
+      git, {"status", "--porcelain=v2"}, {}, dynamic_opts);
+  CHECK(has_env(dynamic_request.env, "GIT_CONFIG_COUNT=7"));
+  CHECK(has_env(dynamic_request.env, "GIT_CONFIG_KEY_5=filter.evil.clean"));
+  CHECK(has_env(dynamic_request.env, "GIT_CONFIG_VALUE_5="));
+  CHECK(has_env(dynamic_request.env, "GIT_CONFIG_KEY_6=diff.evil.textconv"));
+  CHECK(has_env(dynamic_request.env, "GIT_CONFIG_VALUE_6="));
+
   const auto status = run_ok(git, {"status", "--porcelain=v2"}, {},
                              ordinary_opts);
   CHECK(status.stdout_bytes.empty());

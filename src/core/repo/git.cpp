@@ -12,6 +12,7 @@ namespace biv::repo {
 namespace {
 
 constexpr std::size_t kCaptureCap = std::size_t{16} * 1024U * 1024U;
+constexpr std::size_t kStaticConfigCount = 5U;
 
 BivError resolve_error(const std::string_view detail, const int err_no = 0) {
   return BivError{ErrKind::InternalError, "git", std::string{detail}, err_no};
@@ -76,7 +77,7 @@ expected<Git> Git::resolve(const support::Getenv& getenv) {
   env.emplace_back("GIT_PROTOCOL_FROM_USER=0");
   env.emplace_back("LC_ALL=C");
   env.emplace_back("GIT_CONFIG_NOSYSTEM=1");
-  env.emplace_back("GIT_CONFIG_COUNT=5");
+  env.emplace_back("GIT_CONFIG_COUNT=" + std::to_string(kStaticConfigCount));
   env.emplace_back("GIT_CONFIG_KEY_0=core.hooksPath");
   env.emplace_back("GIT_CONFIG_VALUE_0=/dev/null");
   env.emplace_back("GIT_CONFIG_KEY_1=credential.helper");
@@ -110,6 +111,23 @@ support::SpawnRequest Git::build_spawn_request(
   }
 
   auto env = base_env_;
+  if (!opts.empty_config_keys.empty()) {
+    for (auto& item : env) {
+      if (item.starts_with("GIT_CONFIG_COUNT=")) {
+        item = "GIT_CONFIG_COUNT=" +
+               std::to_string(kStaticConfigCount +
+                              opts.empty_config_keys.size());
+        break;
+      }
+    }
+    for (std::size_t offset = 0; offset < opts.empty_config_keys.size();
+         ++offset) {
+      const auto index = kStaticConfigCount + offset;
+      env.emplace_back("GIT_CONFIG_KEY_" + std::to_string(index) + "=" +
+                       opts.empty_config_keys.at(offset));
+      env.emplace_back("GIT_CONFIG_VALUE_" + std::to_string(index) + "=");
+    }
+  }
   if (opts.isolate_global_config) {
     env.emplace_back("GIT_CONFIG_GLOBAL=/dev/null");
   }

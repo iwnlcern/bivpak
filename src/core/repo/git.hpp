@@ -18,6 +18,7 @@ class Git {
     std::optional<std::filesystem::path> cwd;
     bool no_lazy_fetch{false};
     bool isolate_global_config{false};
+    std::vector<std::string> empty_config_keys;
     support::StderrMode stderr_mode{support::StderrMode::separate};
     std::optional<std::filesystem::path> stdout_file;
     std::chrono::milliseconds budget{std::chrono::seconds{30}};
