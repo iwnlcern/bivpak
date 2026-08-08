@@ -189,6 +189,7 @@ using RepoNote =
 struct EngineSourceState {
   std::filesystem::path repo_path;
   std::vector<std::filesystem::path> penumbra_paths;
+  std::vector<std::string> neutralized_git_config_keys;
 };
 
 struct RepoEntry {

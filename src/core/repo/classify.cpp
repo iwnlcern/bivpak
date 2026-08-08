@@ -17,14 +17,6 @@ BivError command_error(const std::filesystem::path& repo,
       "repo classification git invocation failed: " + std::string{operation});
 }
 
-expected<support::SpawnResult> invoke(const Git& git,
-                                      const std::filesystem::path& repo,
-                                      std::vector<std::string> args,
-                                      const bool no_lazy_fetch = false) {
-  return invoke_git(git, repo, args, {}, args.empty() ? "git" : args.front(),
-                    GitInvokeOptions{.promisor = no_lazy_fetch});
-}
-
 std::vector<std::pair<std::string, std::string>> parse_ref_pairs(
     const std::string& output) {
   std::vector<std::pair<std::string, std::string>> refs;
@@ -69,9 +61,13 @@ std::optional<std::filesystem::path> first_gitlink_path(
 
 expected<void> record_penumbra(const Git& git, EngineSourceState& source_state,
                                const bool promisor,
-                               const std::filesystem::path& repo) {
-  auto snapshot =
-      snapshot_penumbra(git, repo, GitInvokeOptions{.promisor = promisor});
+                               const std::filesystem::path& repo,
+                               const std::span<const std::string>
+                                   empty_config_keys) {
+  auto snapshot = snapshot_penumbra(
+      git, repo,
+      GitInvokeOptions{.promisor = promisor,
+                       .empty_config_keys = empty_config_keys});
   if (!snapshot) {
     return std::unexpected(snapshot.error());
   }
@@ -103,10 +99,25 @@ expected<Classification> classify(const Git& git,
     result.entry.relpath = repo.filename();
   }
 
+  auto command_config_keys = repo_local_command_config_keys(git, repo);
+  if (!command_config_keys) {
+    return std::unexpected(command_config_keys.error());
+  }
+  source_state.neutralized_git_config_keys = std::move(*command_config_keys);
+  const auto invoke_classify = [&](std::vector<std::string> args,
+                                   const bool no_lazy_fetch = false) {
+    const auto operation = args.empty() ? std::string{"git"} : args.front();
+    return invoke_git(
+        git, repo, args, {}, operation,
+        GitInvokeOptions{
+            .promisor = no_lazy_fetch,
+            .empty_config_keys = source_state.neutralized_git_config_keys});
+  };
+
   auto promisor =
-      invoke(git, repo,
-             {"config", "--get-regexp",
-              "^(remote\\..*\\.promisor|remote\\..*\\.partialclonefilter)$"});
+      invoke_classify(
+          {"config", "--get-regexp",
+           "^(remote\\..*\\.promisor|remote\\..*\\.partialclonefilter)$"});
   if (!promisor) {
     return std::unexpected(promisor.error());
   }
@@ -114,8 +125,7 @@ expected<Classification> classify(const Git& git,
       promisor->exit_code == 0 &&
       promisor_config_enabled(git_bytes(promisor->stdout_bytes));
 
-  auto index =
-      invoke(git, repo, {"ls-files", "-s", "-z"}, result.entry.promisor);
+  auto index = invoke_classify({"ls-files", "-s", "-z"}, result.entry.promisor);
   if (!index || index->exit_code != 0) {
     return std::unexpected(index ? command_error(repo, "ls-files -s")
                                  : index.error());
@@ -141,7 +151,7 @@ expected<Classification> classify(const Git& git,
   }
 
   auto unmerged =
-      invoke(git, repo, {"ls-files", "-u", "-z"}, result.entry.promisor);
+      invoke_classify({"ls-files", "-u", "-z"}, result.entry.promisor);
   if (!unmerged) {
     return std::unexpected(unmerged.error());
   }
@@ -174,14 +184,14 @@ expected<Classification> classify(const Git& git,
     return result;
   }
 
-  auto head = invoke(git, repo, {"rev-parse", "--verify", "HEAD"},
-                     result.entry.promisor);
+  auto head = invoke_classify({"rev-parse", "--verify", "HEAD"},
+                              result.entry.promisor);
   if (!head) {
     return std::unexpected(head.error());
   }
-  auto refs = invoke(git, repo,
-                     {"for-each-ref", "--format=%(refname)%00%(objectname)%00"},
-                     result.entry.promisor);
+  auto refs = invoke_classify(
+      {"for-each-ref", "--format=%(refname)%00%(objectname)%00"},
+      result.entry.promisor);
   if (!refs || refs->exit_code != 0) {
     return std::unexpected(refs ? command_error(repo, "for-each-ref")
                                 : refs.error());
@@ -190,9 +200,9 @@ expected<Classification> classify(const Git& git,
   if (head->exit_code != 0) {
     result.entry.head_state = HeadState::unborn;
     result.entry.sha.reset();
-    auto branch =
-        invoke(git, repo, {"symbolic-ref", "--quiet", "--short", "HEAD"},
-               result.entry.promisor);
+    auto branch = invoke_classify(
+        {"symbolic-ref", "--quiet", "--short", "HEAD"},
+        result.entry.promisor);
     if (branch && branch->exit_code == 0) {
       result.entry.branch = trim_git_newline(git_bytes(branch->stdout_bytes));
     }
@@ -213,7 +223,7 @@ expected<Classification> classify(const Git& git,
                       .checked_at = git_checked_at_now(),
                       .proof = std::nullopt};
 
-      auto remotes = invoke(git, repo, {"remote"}, result.entry.promisor);
+      auto remotes = invoke_classify({"remote"}, result.entry.promisor);
       if (!remotes || remotes->exit_code != 0) {
         return std::unexpected(remotes ? command_error(repo, "remote")
                                        : remotes.error());
@@ -224,8 +234,8 @@ expected<Classification> classify(const Git& git,
         const auto end = remote_names.find('\n', cursor);
         const auto name = remote_names.substr(cursor, end - cursor);
         if (!name.empty()) {
-          auto url = invoke(git, repo, {"remote", "get-url", name},
-                            result.entry.promisor);
+          auto url = invoke_classify({"remote", "get-url", name},
+                                     result.entry.promisor);
           if (!url || url->exit_code != 0) {
             return std::unexpected(url ? command_error(repo, "remote get-url")
                                        : url.error());
@@ -243,8 +253,9 @@ expected<Classification> classify(const Git& git,
         result.entry.remote = result.entry.remotes.front().name;
       }
     }
-    if (auto recorded =
-            record_penumbra(git, source_state, result.entry.promisor, repo);
+    if (auto recorded = record_penumbra(
+            git, source_state, result.entry.promisor, repo,
+            source_state.neutralized_git_config_keys);
         !recorded) {
       return std::unexpected(recorded.error());
     }
@@ -252,9 +263,9 @@ expected<Classification> classify(const Git& git,
   }
 
   result.entry.sha = trim_git_newline(git_bytes(head->stdout_bytes));
-  auto branch =
-      invoke(git, repo, {"symbolic-ref", "--quiet", "--short", "HEAD"},
-             result.entry.promisor);
+  auto branch = invoke_classify(
+      {"symbolic-ref", "--quiet", "--short", "HEAD"},
+      result.entry.promisor);
   if (branch && branch->exit_code == 0) {
     result.entry.head_state = HeadState::branch;
     result.entry.branch = trim_git_newline(git_bytes(branch->stdout_bytes));
@@ -271,7 +282,7 @@ expected<Classification> classify(const Git& git,
     }
   }
 
-  auto remotes = invoke(git, repo, {"remote"}, result.entry.promisor);
+  auto remotes = invoke_classify({"remote"}, result.entry.promisor);
   if (!remotes || remotes->exit_code != 0) {
     return std::unexpected(remotes ? command_error(repo, "remote")
                                    : remotes.error());
@@ -282,8 +293,8 @@ expected<Classification> classify(const Git& git,
     const auto end = remote_names.find('\n', cursor);
     const auto name = remote_names.substr(cursor, end - cursor);
     if (!name.empty()) {
-      auto url =
-          invoke(git, repo, {"remote", "get-url", name}, result.entry.promisor);
+      auto url = invoke_classify({"remote", "get-url", name},
+                                 result.entry.promisor);
       if (!url || url->exit_code != 0) {
         return std::unexpected(url ? command_error(repo, "remote get-url")
                                    : url.error());
@@ -300,8 +311,8 @@ expected<Classification> classify(const Git& git,
     result.entry.remote = result.entry.remotes.front().name;
   }
 
-  auto dirt = invoke(git, repo, {"status", "--porcelain=v2", "-z"},
-                     result.entry.promisor);
+  auto dirt = invoke_classify({"status", "--porcelain=v2", "-z"},
+                              result.entry.promisor);
   if (!dirt || dirt->exit_code != 0) {
     return std::unexpected(dirt ? command_error(repo, "status") : dirt.error());
   }
@@ -314,14 +325,15 @@ expected<Classification> classify(const Git& git,
     return result;
   }
 
-  if (auto recorded =
-          record_penumbra(git, source_state, result.entry.promisor, repo);
+  if (auto recorded = record_penumbra(
+          git, source_state, result.entry.promisor, repo,
+          source_state.neutralized_git_config_keys);
       !recorded) {
     return std::unexpected(recorded.error());
   }
 
-  auto shallow = invoke(git, repo, {"rev-parse", "--is-shallow-repository"},
-                        result.entry.promisor);
+  auto shallow = invoke_classify({"rev-parse", "--is-shallow-repository"},
+                                 result.entry.promisor);
   if (!shallow || shallow->exit_code != 0) {
     return std::unexpected(shallow ? command_error(repo, "is-shallow")
                                    : shallow.error());

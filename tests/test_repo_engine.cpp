@@ -216,6 +216,50 @@ TEST_CASE("classification fences discovery shape, dirt, and unmerged paths") {
   CHECK(dirty->fence == biv::repo::Classification::Fence::dirty);
 }
 
+TEST_CASE("classification neutralizes repo-local clean filter commands") {
+  auto git = resolved_git();
+  TempDir root{"classify-filter-command"};
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo);
+  touch(repo / ".gitattributes", "* filter=evil\n");
+  git_run(git, repo, {"add"}, {".gitattributes"});
+  git_run(git, repo,
+          {"-c", "user.name=Biv Test", "-c",
+           "user.email=biv@example.invalid", "commit", "-m",
+           "attributes"});
+
+  const auto marker = root.path() / "clean-filter-ran";
+  const auto driver = root.path() / "evil-clean.sh";
+  touch(driver, "#!/bin/sh\n: > '" + marker.string() + "'\ncat\n");
+  std::filesystem::permissions(
+      driver, std::filesystem::perms::owner_read |
+                  std::filesystem::perms::owner_write |
+                  std::filesystem::perms::owner_exec,
+      std::filesystem::perm_options::replace);
+  git_run(git, repo, {"config", "filter.evil.clean", driver.string()});
+  git_run(git, repo, {"config", "filter.dormant.smudge", "unused"});
+  git_run(git, repo, {"config", "filter.dormant.process", "unused"});
+  git_run(git, repo, {"config", "diff.dormant.command", "unused"});
+  git_run(git, repo, {"config", "diff.dormant.textconv", "unused"});
+  git_run(git, repo, {"config", "merge.dormant.driver", "unused"});
+  git_run(git, repo, {"config", "core.editor", "not-a-driver"});
+  REQUIRE_FALSE(std::filesystem::exists(marker));
+
+  auto result = biv::repo::classify(git, repo, one_repo());
+
+  REQUIRE(result.has_value());
+  CHECK(result->fence == biv::repo::Classification::Fence::none);
+  REQUIRE(result->entry.engine_source.has_value());
+  CHECK(result->entry.engine_source->neutralized_git_config_keys ==
+        std::vector<std::string>{"diff.dormant.command",
+                                 "diff.dormant.textconv",
+                                 "filter.dormant.process",
+                                 "filter.dormant.smudge",
+                                 "filter.evil.clean",
+                                 "merge.dormant.driver"});
+  CHECK_FALSE(std::filesystem::exists(marker));
+}
+
 TEST_CASE("classification detects gitlinks from the parent index") {
   auto git = resolved_git();
   TempDir root{"classify-gitlink"};
@@ -438,7 +482,10 @@ TEST_CASE("promisor policy is carried and traced across every later git call") {
   CHECK(classified->entry.promisor);
   const auto detection =
       std::ranges::find_if(requests, [](const auto& request) {
-        return request_has_argv(request, "--get-regexp");
+        return request_has_argv(request, "--get-regexp") &&
+               request_has_argv(
+                   request,
+                   "^(remote\\..*\\.promisor|remote\\..*\\.partialclonefilter)$");
       });
   REQUIRE(detection != requests.end());
   CHECK_FALSE(request_has_env(*detection, "GIT_NO_LAZY_FETCH=1"));
