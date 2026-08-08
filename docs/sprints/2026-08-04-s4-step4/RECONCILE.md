@@ -227,3 +227,11 @@ honest-unknown ⇒ `capture_mode: full`; the DNA consent line independently deci
 Root-repo "." second staging: conformance fold under design criterion 4. Nested
 fencing / zero-ref capture_mode / reset-vs-checkout: pair answers from the sealed/pinned
 bytes with citations; undecidable cells route back named.
+
+**Closures (master `183731`, 2026-08-07):** the D reopen is DECLINED BY THE OPERATOR —
+the sealed no-allowlist trust ruling stands, reaffirmation recorded on master's N24
+dashboard row; the Wave-A fold report cites the REAFFIRMATION (not only the original)
+when closing security #1 as answered-by-sealed-record. The `capture_mode` cell is at
+m-1 with option 1 endorsed in G's one-state-license shape (vehicle: a new scoped
+addendum — G is pin-frozen); the landed `full` stays unblessed-and-untested until the
+ruling; the fold absorbs the answer whenever it lands.
