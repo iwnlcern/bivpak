@@ -168,11 +168,37 @@ def test_git_admin_bytes_are_excluded_from_byte_findings(tmp_path):
     assert compare_trees(src, restored, load_tolerance()) == []
 
 
+def test_git_admin_exclusion_is_controlled_by_declared_tolerance(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    (restored / "repo/.git/untracked-admin-byte").write_bytes(b"different")
+    tol = load_tolerance()
+    tol["rows"] = [row for row in tol["rows"] if row["name"] != "git-administration"]
+
+    assert any(
+        "extra path: repo/.git/untracked-admin-byte" in item
+        for item in compare_trees(src, restored, tol)
+    )
+
+
 def test_git_worktree_mtime_drift_is_semantically_ignored(tmp_path):
     src, restored = _matching_git_trees(tmp_path)
     os.utime(restored / "repo/a.txt", ns=(1_700_000_000_000_000_000,) * 2)
 
     assert compare_trees(src, restored, load_tolerance()) == []
+
+
+def test_git_worktree_mtime_exemption_is_controlled_by_declared_tolerance(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    os.utime(restored / "repo/a.txt", ns=(1_700_000_000_000_000_000,) * 2)
+    tol = load_tolerance()
+    tol["rows"] = [
+        row for row in tol["rows"] if row["name"] != "git-tracked-file-mtime"
+    ]
+
+    assert any(
+        "file-mtime mismatch for repo/a.txt" in item
+        for item in compare_trees(src, restored, tol)
+    )
 
 
 def test_ignored_repo_payload_mtime_remains_exact(tmp_path):

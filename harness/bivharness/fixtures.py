@@ -1,4 +1,5 @@
 import base64
+import functools
 import os
 import shutil
 import subprocess
@@ -8,6 +9,9 @@ from typing import Any
 
 class SpecError(ValueError):
     pass
+
+
+GIT_TIMEOUT_SECONDS = 30
 
 
 def _safe_path(root: Path, relpath: str) -> Path:
@@ -31,6 +35,7 @@ def _entry_bytes(entry: dict[str, Any]) -> bytes:
         raise SpecError("invalid bytes_b64") from exc
 
 
+@functools.cache
 def _git_binary() -> str:
     resolved = shutil.which("git")
     if resolved is None:
@@ -70,14 +75,18 @@ def _run_git(
     *,
     cwd: Path | None = None,
 ) -> str:
-    run = subprocess.run(
-        [binary, "-c", "commit.gpgsign=false", *args],
-        cwd=cwd,
-        env=env,
-        check=False,
-        text=True,
-        capture_output=True,
-    )
+    try:
+        run = subprocess.run(
+            [binary, "-c", "commit.gpgsign=false", *args],
+            cwd=cwd,
+            env=env,
+            check=False,
+            text=True,
+            capture_output=True,
+            timeout=GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise SpecError("git fixture command timed out") from exc
     if run.returncode != 0:
         detail = run.stderr.strip() or run.stdout.strip() or f"exit {run.returncode}"
         raise SpecError(f"git fixture command failed: {detail}")

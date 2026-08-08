@@ -1,3 +1,4 @@
+import functools
 import json
 import os
 import shutil
@@ -8,6 +9,7 @@ from typing import Any
 
 
 TOLERANCE_PATH = Path(__file__).resolve().parents[1] / "tolerance" / "tolerance-v1.json"
+GIT_TIMEOUT_SECONDS = 30
 ALLOWED_POLICIES = {
     "file-bytes": {"exact"},
     "file-mode": {"exact"},
@@ -19,6 +21,8 @@ ALLOWED_POLICIES = {
     "git-object-id": {"head-and-refs"},
     "git-index": {"semantic-only"},
     "git-remote-config": {"recorded-remote"},
+    "git-tracked-file-mtime": {"ignore-checkout"},
+    "git-administration": {"semantic-only"},
 }
 
 
@@ -37,11 +41,14 @@ def _kind(path: Path) -> str:
     return "other"
 
 
-def _entries(root: Path) -> dict[str, str]:
+def _entries(root: Path, *, exclude_git_administration: bool) -> dict[str, str]:
     return {
         path.relative_to(root).as_posix(): _kind(path)
         for path in root.rglob("*")
-        if ".git" not in path.relative_to(root).parts
+        if not (
+            exclude_git_administration
+            and ".git" in path.relative_to(root).parts
+        )
     }
 
 
@@ -117,17 +124,26 @@ def _git_env() -> dict[str, str]:
     return env
 
 
-def _run_git(repo: Path, args: list[str], *, allow_failure: bool = False) -> subprocess.CompletedProcess[str]:
+@functools.cache
+def _git_binary() -> str:
     binary = shutil.which("git")
     if binary is None:
         raise ValueError("git semantic comparison requires git on PATH")
-    run = subprocess.run(
-        [str(Path(binary).resolve()), "-C", str(repo), *args],
-        env=_git_env(),
-        check=False,
-        text=True,
-        capture_output=True,
-    )
+    return str(Path(binary).resolve())
+
+
+def _run_git(repo: Path, args: list[str], *, allow_failure: bool = False) -> subprocess.CompletedProcess[str]:
+    try:
+        run = subprocess.run(
+            [_git_binary(), "-C", str(repo), *args],
+            env=_git_env(),
+            check=False,
+            text=True,
+            capture_output=True,
+            timeout=GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(f"git semantic comparison timed out for {repo}") from exc
     if run.returncode != 0 and not allow_failure:
         detail = run.stderr.strip() or run.stdout.strip() or f"exit {run.returncode}"
         raise ValueError(f"git semantic comparison failed for {repo}: {detail}")
@@ -285,9 +301,17 @@ def compare_trees(
     _validate_tolerance(tol)
     allowed_roots = _validated_additive_roots(additive_roots or [])
     findings: list[str] = []
-    src_entries = _entries(src)
-    restored_entries = _entries(restored)
-    tracked_paths = _tracked_paths(src)
+    exclude_git_administration = _row_policy(tol, "git-administration") == "semantic-only"
+    src_entries = _entries(src, exclude_git_administration=exclude_git_administration)
+    restored_entries = _entries(
+        restored,
+        exclude_git_administration=exclude_git_administration,
+    )
+    tracked_paths = (
+        _tracked_paths(src)
+        if _row_policy(tol, "git-tracked-file-mtime") == "ignore-checkout"
+        else set()
+    )
 
     for rel in sorted(src_entries.keys() - restored_entries.keys()):
         findings.append(f"C: missing path: {rel}")

@@ -8,6 +8,8 @@
     {"name": "file-mtime", "policy": "exact-ns", "reachable": true},
     {"name": "dir-mtime", "policy": "exact-ns", "reachable": true},
     {"name": "ownership", "policy": "ignore", "reachable": true},
+    {"name": "git-administration", "policy": "semantic-only", "reachable": true},
+    {"name": "git-tracked-file-mtime", "policy": "ignore-checkout", "reachable": true},
     {"name": "git-object-id", "policy": "head-and-refs", "reachable": true},
     {"name": "git-index", "policy": "semantic-only", "reachable": true},
     {"name": "git-remote-config", "policy": "recorded-remote", "reachable": true}
