@@ -573,3 +573,18 @@ publication timing routed to operator — master recommends HOLD until wave comp
 Slice C waits on B2. B2 round-2 code-approved, blocked on the e2-budget value (operator) then third
 re-panel. Matrix Arm-1 R-4.8 carrier in PLAN (plan-review rev1 MUST-REVISE, pair iterating). No live
 token. Release hold ABSOLUTE.
+
+**E2-budget RULED 600 durable → B2 amend proceeds (2026-08-09 ~0633):**
+Operator ruled harness-e2 TIMEOUT = 600, DURABLE (not exception; above master's 360 rec, matches
+the repo's safety-tidy-analyzer TIMEOUT 600 precedent). Master carried (`062710`); I carried down
+(`063344`). Amend hold released. Under the granted universe expansion the pair folds the ONE line
+TIMEOUT 180→600 into B2's one commit (nothing else in harness/CMakeLists.txt), reruns
+focused+host+Docker honestly green, republishes PR #23; on republish I convene the THIRD re-panel
+(M-4 union scope). On pass → B2 bar-ready, C→B2-immediate proceeds. e2-budget cell CLOSED.
+Also this window: matrix Arm-1 R-4.8 carrier PLAN APPROVED (plan-review rev2 approve at 438365bd) —
+pair proceeds to IMPL under its own lifecycle; I stay on standby there.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged locally (condition-3-of-record CLOSED; publication HELD,
+timing at operator — master rec hold-until-wave-complete then one push). Slice C waits on B2. B2 —
+e2-budget resolved (600); amend in progress → third re-panel next. Matrix Arm-1 R-4.8 carrier — PLAN
+approved, IMPL pending (pair lifecycle). No live token. Release hold ABSOLUTE.
