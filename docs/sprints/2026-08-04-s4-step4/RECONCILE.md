@@ -546,3 +546,30 @@ any release; non-blocking for B2's union-scope resume.
 record closed); publication HELD (timing decision open at master/operator). Slice C waits on B2. B2
 resumed (union scope; owes complete B2C2-2 + third re-panel). Matrix Arm-1 R-4.8 carrier now in PLAN.
 Release hold ABSOLUTE.
+
+**B2 e2-budget stale — universe expansion granted, value routed (2026-08-09 ~0619):**
+B2 round-2 fold is code-approved (image-ID union incl. refused-row alias prepass with RED→GREEN
+falsifier, store_root rewrite/verify, Claude staged child-ownership; reviewer ADDRESSED, no new
+Critical/Important; held at 9977a15 + two-file delta). The ONLY red: canonical harness-e2 CTest
+row, fixed TIMEOUT 180 vs deterministic all-scenarios-PASS 181.3s (11/11 PASS, 6 XFAIL, 0 failed)
+— a ~1.3s overage, not a hang/flake. **Authority split:** (A) the file harness/CMakeLists.txt is
+OUTSIDE the dispatched universe → universe expansion is MINE; (B) the 180s budget is a
+verification-gate constant = the operator's local-green bar under CI-leg (a) → the VALUE is the
+operator's. Byte-verified before disposing: TIMEOUT 180 at harness/CMakeLists.txt:46-47; raise ≠
+control disable (hang is minute-scale, 360 still catches); test_cmake.py:27 asserts
+"harness-e2 PROPERTIES" EXISTS not the value (undisturbed — contrast the sibling that pins
+safety-tidy-analyzer TIMEOUT 600); s2-harness.yml:53 inherits the CMake property, NO .github edit.
+**Structural:** merged main already 175.45s WITHOUT C/B2 (corroborated by the slice-A merge SITREP);
+after ratified C→B2 it crosses 180s regardless → one-head exception recurs immediately.
+**GRANTED (mine, `061951`):** harness/CMakeLists.txt into B2's universe for EXACTLY the one-line
+harness-e2 TIMEOUT property, nothing else, folded into B2's one commit. **ROUTED UP (`061811`):**
+the value — recommend durable raise 180→360 (300 tighter; operator's number), narrow exception as
+fallback. Pair HOLDS the amend until the operator's ruling; then amend + rerun focused/host/Docker +
+republish PR #23 + I convene the THIRD re-panel (M-4 union scope). R-4.8 + two disclosed Minors
+separately carried.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged locally (condition-3-of-record CLOSED at master `053144`;
+publication timing routed to operator — master recommends HOLD until wave completes then one push).
+Slice C waits on B2. B2 round-2 code-approved, blocked on the e2-budget value (operator) then third
+re-panel. Matrix Arm-1 R-4.8 carrier in PLAN (plan-review rev1 MUST-REVISE, pair iterating). No live
+token. Release hold ABSOLUTE.
