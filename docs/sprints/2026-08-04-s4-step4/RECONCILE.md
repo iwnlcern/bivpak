@@ -444,3 +444,37 @@ panel returned MUST-FIX A-BL1..A-BL6, fold authorized `214345`, targeted re-chec
 C → B2 immediately. Matrix Wave-A cb1f6254 separate (owes docs-lane INDEX refresh). Each
 candidate still takes its own condition-3 + per-candidate operator authorization. B2 not
 bar-ready until the third re-panel clears. No token beyond B1; release hold ABSOLUTE.
+
+**Slice A merge-ready + B2 home-carrier collision (2026-08-09 ~0145):**
+**Slice A #21 at 33153137 — condition-3 handed UP** (`014434`). Pair ran the targeted re-check;
+I re-verified at the bytes at this seat: A-BL1 CLOSED both legs (codex result.sessions.clear()
+gone; claude refusal_reason.has_value() guard ×5 at install.cpp:506/553/572/603/618), both
+Step-3 fences live, ff63e52..3315313 = one commit / 24 paths / no forbidden path, merge-tree
+into current main exit 0 zero conflicts. Panel gap CLOSED (team-of-5 + re-check = conditions
+1+2). SECOND in the operator's wave after B1 (merged). Awaits master's condition-3 + operator's
+condition-4.
+**B2 home-prefix needle has NO in-scope carrier — routed UP** (`014434`). Byte-verified at
+d6cceba: the packer home is not serialized anywhere — SessionProvenance = {store_root, locator,
+discovery_tier, archived} (no home, no original_path); original_path is the adapter-record
+WORKSPACE (may be outside HOME); store_root is CLAUDE_CONFIG_DIR/CODEX_HOME (not home); Env.home
+is transient at pack. Honest home-prefix needle needs a pack-time packer-home serialized in the
+manifest = src/core/manifest schema addition — fence-2 OUT for the floor AND matrix Arm-1
+schema-act territory (B2-2). Options: (a) carrier via matrix Arm-1 schema act (honest, but couples
+B2 to matrix landing first — breaks operator's B2-immediate-after-C election unless matrix
+expedited); (b) different in-scope carrier — REFUTED at bytes (none honest); (c) narrow/defer the
+home-prefix (changes 220234). **My recommendation: (a)+(c-defer) synthesis** — B2 completes its
+complete image-ID union + rest of cycle-2 now (stays on wave), the packer-home carrier lands via
+matrix Arm-1, and the home-prefix needle defers to that carrier head, TRACKED as a RESIDUALS.md
+entry gated on the carrier (never a bare relay). Consistent with the I-3 fallback posture (family
+vectors behind the absolute hold). No conflict with the session-only-rewrite line (manifest
+metadata capture ≠ payload edit). Master/operator call (changes 220234). **B2C2-2 Critical-2
+(complete image-ID union) is IN-SCOPE** — folds on resume, no ruling owed (concurred down). **B2
+local 03e672ca HELD** — not published; third re-panel not eligible until B2C2-2 whole; resume on
+master's carrier ruling.
+
+**Merge picture now:** B1 ✅ merged (e3f8f39; SHA-up to master still owed from the floor
+implementer to close condition-3-of-record). Slice A #21 — condition-3 handed up, merge-ready.
+Slice C #22 — behind A in stack, then C→B2 back-to-back per the operator's I-3 election. B2 #23 —
+HELD on the home-carrier ruling; owes complete B2C2-2 + third re-panel. Matrix Wave-A cb1f6254 —
+separate, owes docs-lane INDEX refresh; note option (a) would task matrix Arm-1 with the packer-home
+carrier. No token beyond B1; release hold ABSOLUTE.
