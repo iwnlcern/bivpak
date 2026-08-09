@@ -368,3 +368,14 @@ on pair confirmation); slice C #22 banked third; matrix Wave-A cb1f6254 banked (
 stack). Merge-mechanics: docs-lane divergence makes each merge clean-but-not-ff over
 disjoint paths — master's condition-3 ff/conflict check. Condition 4 (operator token) owed
 per candidate; merge ≠ release; hold ABSOLUTE.
+
+**Slice-A panel gap + I-3 family coherence (`204218`):** slice A #21 was NEVER
+adversarially paneled (confirmed — no record in reviews/; E1/E2 + one delta review +
+local-green only); condition-3 HELD, team-of-5 convening at 798526c (panel-before-lenses
+discipline; the pair refused to paper a single review as panel-complete). B1 #15 first
+merge unaffected (panel complete). **I-3 inherited origin-leak** (JSON-object-key, B2
+re-panel) is pre-existing at slice C's head ec9a2db and is a member of the master-ruled
+origin-disclosure invariant; B2 fixes it but merges AFTER C — routed UP as an
+invariant-coherence + sequencing question before any C token (permit C ahead of B2's fix
+under the absolute release hold, or resequence/hold C). Matrix Wave-A separate (verify no
+I-3 exposure). B2 #23 second fold: M-4 not yet met.
