@@ -139,6 +139,16 @@ manifest::PathFlavor path_flavor(const std::filesystem::path& path) {
   return manifest::PathFlavor::posix;
 }
 
+std::optional<manifest::PackerHome> packer_home_carrier(
+    const std::filesystem::path& home) {
+  const auto text = home.generic_string();
+  const auto flavor = manifest::classify_absolute(text);
+  if (!flavor) {
+    return std::nullopt;
+  }
+  return manifest::PackerHome{.path = text, .flavor = *flavor};
+}
+
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink);
 
 expected<std::string> write_payload_member(container::TarWriter& writer,
@@ -668,6 +678,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .created_at = created.rfc3339,
       .source_path = source.generic_string(),
       .source_path_flavor = report.flavor,
+      .packer_home = packer_home_carrier(env.home),
       .agent_sessions = report.agent_sessions,
       .bivignore = scan_result->bivignore,
   };
