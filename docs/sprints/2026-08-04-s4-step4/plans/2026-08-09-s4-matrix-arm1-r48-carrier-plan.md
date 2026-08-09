@@ -1,11 +1,16 @@
-# R-4.8 Packer-Home Carrier Implementation Plan (rev1)
+# R-4.8 Packer-Home Carrier Implementation Plan (rev2)
 
-> rev1 folds plan-review P1-P5 (`PLAN-REVIEW-IMPLEMENTER-R48-CARRIER-REV0-20260809-055741.md`):
+> rev1 folded plan-review P1-P5 (`PLAN-REVIEW-IMPLEMENTER-R48-CARRIER-REV0-20260809-055741.md`):
 > writer-spelling GREEN assertions + completed null matrix (P2), single pack-env snapshot +
 > RAII home control (P3), true-install transport fixture + mutable capture (P4), and ONE
 > literal verification/publication boundary — publication HELD, local macOS + Ubuntu-Docker
-> evidence, push/PR by separate token (P5). P1 is a relay-field fix (bare parent ID), not a
-> plan-doc change.
+> evidence, push/PR by separate token (P5). P1 was a relay-field fix (bare parent ID).
+>
+> rev2 folds plan-review R6-R8 (`PLAN-REVIEW-IMPLEMENTER-R48-CARRIER-REV1-20260809-061515.md`):
+> R6 is a lineage refile (the rev2 PLAN relay postdates the corrected approving
+> DESIGN-REVIEW `…-APPROVE-LINEAGE-CORRECTION-20260809-061515.md`; no plan-content change).
+> R7 re-states the Docker leg's honest verdict shape under the known R-3.48 count-gate red.
+> R8 makes the isolated-worktree bootstrap executable (Task 0).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -31,9 +36,23 @@ FLOOR_CONTRACT: RATIFIED at `…RATIFIED-20260809-050728` — the WIRE SHAPE IS 
 - Full local gate per task-final steps: `git diff --check && cmake --build --preset dev -j8 && ctest --preset dev -E '^safety-hardening$' --output-on-failure`.
 - Final E2 evidence = the macOS gate above PLUS a local reproduction of `.github/workflows/s2-harness.yml` in a disposable Ubuntu 24.04 `--platform linux/amd64` Docker container (per repo instructions: preserve the host worktree, disposable containers only, never prune unrelated Docker resources).
 
-## Branch mechanics
+## Branch mechanics (R8 — isolated worktree, executable bootstrap)
 
-One branch `s4-matrix/r48-carrier` off current `main` (`f0179e0` or later). One commit per task. The branch is NOT pushed; completion is reported with the branch head SHA and the publication token is requested separately (P5 boundary above).
+Create branch `s4-matrix/r48-carrier` in an ISOLATED worktree via
+`superpowers:using-git-worktrees`, from the exact BASE SHA pinned by the IMPL dispatch —
+the shared `main` checkout (which carries preserved untracked review relays) is left
+UNTOUCHED. One commit per task. The branch is NOT pushed; completion is reported with the
+branch head SHA and the publication token is requested separately (P5 boundary above).
+
+### Task 0: Worktree bootstrap and baseline (R8)
+
+- [ ] **Step 0.1:** Create the isolated worktree at the dispatch-pinned BASE; `cd` into it.
+- [ ] **Step 0.2:** `cmake --preset dev` — a fresh worktree has NO `build/dev` tree; the
+  configure step is mandatory before any build.
+- [ ] **Step 0.3:** Baseline gate: `cmake --build --preset dev -j8 && ./build/dev/biv_tests`
+  — expected: GREEN. A baseline failure is a STOP-AND-ROUTE to the Planner (it is
+  pre-existing breakage, NOT Task 1's intended compile RED — do not proceed into Task 1
+  on a red baseline).
 
 ## File structure
 
@@ -541,7 +560,7 @@ NO other read, branch, or interpretation of the value anywhere in core — trans
 
 - [ ] **Step 3.6: Commit.** `git add src/adapters/adapter.hpp src/core/open/sessions.cpp tests/test_sessions.cpp tests/test_adapter_claude_install.cpp tests/test_adapter_codex_install.cpp && git commit -m "open: transport packer_home opaquely to adapter install targets"`
 
-- [ ] **Step 3.7: Local Linux gate (P5).** Reproduce `.github/workflows/s2-harness.yml` in a DISPOSABLE Ubuntu 24.04 `--platform linux/amd64` Docker container against the branch head (repo rules: preserve the host worktree — mount read-only or copy in; disposable containers only; never prune or remove unrelated Docker resources). Expected: the workflow's locally applicable legs green; report exact deltas from the canonical workflow if any.
+- [ ] **Step 3.7: Local Linux gate (P5, verdict shape per R7).** Reproduce `.github/workflows/s2-harness.yml`'s legs in a DISPOSABLE Ubuntu 24.04 `--platform linux/amd64` Docker container against the branch head (repo rules: preserve the host worktree — mount read-only or copy in; disposable containers only; never prune or remove unrelated Docker resources): configure, build, full ctest, tidy, and harness legs, PLUS the Catch2 XML count probe. **Honest verdict shape (R-3.48):** the workflow's hard-coded Catch2 count gate is a KNOWN cosmetic red (`ROADMAP.md:23`, `RECONCILE.md:302-316`), and this plan's fifteen new `TEST_CASE`s change the totals further — so report Docker E2 as GREEN ON ALL SUBSTANTIVE LOCALLY APPLICABLE ROWS with the count comparison an EXPECTED, DISCLOSED cosmetic red carrying the exact observed totals as the R-3.48 diagnostic. Do NOT call the entire workflow green, and do NOT touch `.github/workflows/s2-harness.yml` (its count-expectation hygiene and remote-check disposition belong to the separate publication token; updating it here would be a scope expansion requiring routing before dispatch).
 
 - [ ] **Step 3.8: Report completion — NO publication.** File the completion report with the branch head SHA and both evidence legs (macOS gate + Docker gate). Do NOT push the branch, open a PR, or trigger remote CI — publication happens only under a separate operator/orchestrator token requested in that report (the P5 boundary).
 
@@ -549,7 +568,7 @@ NO other read, branch, or interpretation of the value anywhere in core — trans
 
 ## Acceptance criteria (the plan is done when)
 
-1. All Task 1–3 tests green + the full local macOS gate green at the branch head + the Ubuntu 24.04 amd64 Docker reproduction of `s2-harness.yml` green (Step 3.7), with the branch UNPUBLISHED (Step 3.8).
+1. All Task 1–3 tests green + the full local macOS gate green at the branch head + the Ubuntu 24.04 amd64 Docker legs green on ALL SUBSTANTIVE locally applicable rows with the R-3.48 count row an expected DISCLOSED cosmetic red carrying observed totals (Step 3.7 verdict shape), with the branch UNPUBLISHED (Step 3.8) and built in the isolated worktree (Task 0).
 2. Wire proof: a packed image under an absolute `$HOME` carries both keys after `source_path_flavor`; under unset/empty/relative `$HOME` carries neither (Q1).
 3. Fail-closed proof: every §8 malformed row is a `ParseError` naming the exact key (incl. the `packer_home_flavor` remap falsifier).
 4. Parity proof: `classify_absolute` agrees with `biv::adapters::rewrite::path_flavor_for` on the spelling table.
