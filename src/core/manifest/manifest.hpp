@@ -21,6 +21,12 @@ struct BivignoreProvenance {
   std::string sha256_hex;
 };
 
+struct PackerHome {
+  std::string path;
+  PathFlavor flavor{PathFlavor::posix};
+  friend bool operator==(const PackerHome&, const PackerHome&) = default;
+};
+
 struct SessionProvenance {
   std::string store_root;
   std::string locator;
@@ -64,12 +70,15 @@ struct Manifest {
   std::string created_at;
   std::string source_path;
   PathFlavor source_path_flavor{PathFlavor::posix};
+  std::optional<PackerHome> packer_home{std::nullopt};
   std::vector<AgentSessionEntry> agent_sessions;
   BivignoreProvenance bivignore;
 };
 
 std::string to_string(PathFlavor flavor);
 expected<PathFlavor> parse_path_flavor(std::string_view value);
+std::optional<PathFlavor> classify_absolute(std::string_view path);
+bool packer_home_valid(const PackerHome& value);
 std::string serialize(const Manifest& manifest);
 expected<Manifest> parse(std::span<const std::byte> bytes);
 
