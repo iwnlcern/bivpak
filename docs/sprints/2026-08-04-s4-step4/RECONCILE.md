@@ -419,3 +419,28 @@ legs + A-BL2..A-BL6), amended head owes a targeted re-check. Slice C #22 — I-3
 with B2 as a unit, pending operator ratification). B2 #23 — M-4 open, third re-panel owed,
 home/username scope at master. Matrix Wave-A cb1f6254 — banked separate, owes a .relays/s4
 INDEX docs-lane refresh before token-eligible. No token beyond B1; release hold ABSOLUTE.
+
+**Both B2 cells RULED by the operator (master carried `215811`; disposed down `220234`):**
+(1) **B2C2-2 scope RATIFIED** — home/username IS in scope, needled as the packer home-dir
+prefix in PATH CONTEXT (all path_flavor spellings), NOT a bare-substring content scan (the
+operator adopted the false-positive path-context scoping I flagged). **Operator's binding
+structural line:** the tool edits nothing but session-history artifacts — the whole needle
+set + all rewrite/scrub is confined to agent-session installs; every other payload class
+(repo payloads, overlays, dirty-state, non-agent files) restores BYTE-VERBATIM, and a
+needle-hit in a non-session file is NOT a refusal (consent/`.bivignore` lane). Byte-verified
+at THIS seat at d6cceba: rewrite machinery callers are session-adapter-only
+(claude_code/install.cpp, codex/install.cpp, rewrite_common.*, adapter.hpp — ZERO src/core
+callers), and verify_scan/verify_raw_text_bytes/verify_whole_document_bytes run per-session
+at install. So the implementation already honors the line; the union-widening + home-prefix
+needle change the NEEDLE SET, not the SCAN DOMAIN. 144700 per-session ruling stands, gated
+on needle-set = image-union. **B2C2-2 CLOSED** (mechanism folds pair-side).
+(2) **I-3 sequencing — operator ELECTED THE FALLBACK**: C then B2 back-to-back (unit-land
+`204800` DECLINED). Binding: B2 is the immediate next merge after C (nothing between),
+nothing released in the window (hold ABSOLUTE), m-4 the confidentiality lens. B2 must clear
+its third re-panel first; C stays behind slice A's stack position.
+
+**Wave order (operator-set):** B1 (in flight — token issued `210818`) → slice A (post-panel;
+panel returned MUST-FIX A-BL1..A-BL6, fold authorized `214345`, targeted re-check owed) →
+C → B2 immediately. Matrix Wave-A cb1f6254 separate (owes docs-lane INDEX refresh). Each
+candidate still takes its own condition-3 + per-candidate operator authorization. B2 not
+bar-ready until the third re-panel clears. No token beyond B1; release hold ABSOLUTE.
