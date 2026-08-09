@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include "adapters/registry.hpp"
+#include "adapters/version_floor.hpp"
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
@@ -569,6 +570,23 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
                                       "adapter-parent-session-id"});
       }
+      const auto floor = adapters::version_floor::row_for(session.agent);
+      const auto version =
+          adapters::version_floor::parse_grammar(session.agent_version_at_pack);
+      const auto minimum =
+          adapters::version_floor::parse_grammar(floor.min_line);
+      if (version.has_value() && minimum.has_value() &&
+          adapters::version_floor::compare_line(*version, *minimum) ==
+              adapters::version_floor::Order::less) {
+        report.warnings.push_back(Warning{
+            .kind = "SessionBelowMinimumOmitted",
+            .path = session.original_session_id,
+            .artifact = session.agent + " version " +
+                        session.agent_version_at_pack +
+                        " is below minimum " + std::string{floor.min_line} +
+                        " (reason: below-minimum)"});
+        continue;
+      }
       for (const auto& artifact : session.artifacts) {
         if (!manifest::grammar::agent_member_ok(
                 manifest::grammar::AgentId{session.agent},
@@ -704,6 +722,11 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
 }  // namespace
 
 std::string warning_text(const Warning& warning) {
+  if (warning.kind == "SessionBelowMinimumOmitted" &&
+      warning.artifact.has_value()) {
+    return "warning: omitted agent session " + terminal_safe(warning.path) +
+           ": " + terminal_safe(*warning.artifact);
+  }
   if (warning.kind == kWarningSessionLiveAtPack) {
     return "warning: session " + terminal_safe(warning.path) +
            " may have been live at pack time";

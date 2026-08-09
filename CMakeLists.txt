@@ -71,6 +71,7 @@ target_compile_options(bivcore PRIVATE -Wall -Wextra -Werror)
 
 # ADAPTER TARGETS
 add_library(biv_adapters STATIC
+  src/adapters/version_floor.cpp
   src/adapters/secure_io.cpp
   src/adapters/rewrite_common.cpp
   src/adapters/registry.cpp
@@ -135,6 +136,8 @@ add_test(NAME open_no_rewrite_gate
 add_test(NAME core_adapter_purity_selftest
   COMMAND python3 ${CMAKE_SOURCE_DIR}/harness/ci/check_core_adapter_purity.py
           --self-test)
+add_test(NAME version_floor_mirror
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/harness/ci/check_version_floor_mirror.py)
 
 add_test(NAME errno_table_gate
   COMMAND ${CMAKE_COMMAND} -E env

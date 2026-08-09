@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cerrno>
 #include <chrono>
 #include <cstddef>
@@ -20,6 +21,7 @@
 #include "adapters/codex/codex.hpp"
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
+#include "adapters/version_floor.hpp"
 #include "core/support/portability.hpp"
 
 namespace biv::adapters {
@@ -191,42 +193,6 @@ fs::path codex_root_for_host(const Host& host) {
   return host.home / ".codex";
 }
 
-bool validated_codex_version(std::string_view version) {
-  return version.starts_with("0.142.") || version.starts_with("0.144.");
-}
-
-std::optional<std::string> semver_at(const std::string_view raw, size_t position) {
-  const auto component = [&](size_t& cursor) {
-    const auto begin = cursor;
-    while (cursor < raw.size() && raw.at(cursor) >= '0' && raw.at(cursor) <= '9') {
-      ++cursor;
-    }
-    return cursor != begin;
-  };
-  const auto begin = position;
-  if (!component(position)) {
-    return std::nullopt;
-  }
-  if (position >= raw.size() || raw.at(position) != '.') {
-    return std::nullopt;
-  }
-  ++position;
-  if (!component(position)) {
-    return std::nullopt;
-  }
-  if (position >= raw.size() || raw.at(position) != '.') {
-    return std::nullopt;
-  }
-  ++position;
-  if (!component(position)) {
-    return std::nullopt;
-  }
-  if (position < raw.size() && ((raw.at(position) >= '0' && raw.at(position) <= '9') || raw.at(position) == '.')) {
-    return std::nullopt;
-  }
-  return std::string{raw.substr(begin, position - begin)};
-}
-
 std::optional<std::string> parse_codex_version(const std::string_view raw) {
   size_t position = raw.find_first_not_of(" \t\r\n");
   constexpr std::string_view prefix = "codex-cli";
@@ -241,7 +207,12 @@ std::optional<std::string> parse_codex_version(const std::string_view raw) {
   if (position == std::string_view::npos) {
     return std::nullopt;
   }
-  return semver_at(raw, position);
+  auto version = version_floor::extract_single_version(raw);
+  if (!version.has_value() ||
+      !raw.substr(position).starts_with(*version)) {
+    return std::nullopt;
+  }
+  return version;
 }
 
 std::optional<support::ProbeEvidence> observe_codex(const Host& host) {
@@ -270,44 +241,45 @@ std::optional<support::ProbeEvidence> observe_codex(const Host& host) {
   return std::move(*observed);
 }
 
-std::optional<bool> host_version_unverified_for_install(
-    const Capabilities& caps, const std::string_view image_version) {
-  if (caps.verdict == Capabilities::Verdict::validated) {
-    return false;
-  }
-  if (caps.verdict == Capabilities::Verdict::unvalidated_host &&
-      validated_codex_version(image_version)) {
-    return true;
-  }
-  return std::nullopt;
-}
-
 Capabilities probe_capabilities(const Host& host) {
   const auto root = codex_root_for_host(host);
   std::error_code error;
   const bool store_exists = fs::exists(root, error);
-  Capabilities caps{.agent_version = "unknown",
-                    .validated_range = "0.142.x, 0.144.x",
-                    .verdict = Capabilities::Verdict::unvalidated_host,
-                    .long_path_keys_pinned = true,
-                    .per_verb = {.collect = store_exists, .install = store_exists, .rewrite = store_exists},
-                    .probe = observe_codex(host)};
-  if (!caps.probe.has_value()) {
-    return caps;
+  auto probe = observe_codex(host);
+  std::optional<std::string> parsed;
+  if (probe.has_value() && probe->outcome == support::ProbeOutcome::ok) {
+    probe->parsed = parse_codex_version(probe->raw);
+    if (probe->parsed.has_value()) {
+      parsed = probe->parsed;
+    } else {
+      probe->outcome = support::ProbeOutcome::unparseable;
+    }
   }
-  if (caps.probe->outcome != support::ProbeOutcome::ok) {
-    caps.verdict = Capabilities::Verdict::unvalidated_host;
-    return caps;
+  const auto verdict = !store_exists
+                           ? Capabilities::Verdict::absent
+                           : parsed.has_value()
+                                 ? Capabilities::Verdict::readable
+                                 : Capabilities::Verdict::unreadable;
+  bool newer_than_survey = false;
+  if (verdict == Capabilities::Verdict::readable && parsed.has_value()) {
+    const auto host_version = version_floor::parse_grammar(*parsed);
+    const auto surveyed = version_floor::parse_grammar(
+        version_floor::row_for("codex").surveyed_through);
+    assert(host_version.has_value() && surveyed.has_value());
+    if (host_version.has_value() && surveyed.has_value()) {
+      newer_than_survey =
+          version_floor::compare_line(*host_version, *surveyed) ==
+          version_floor::Order::greater;
+    }
   }
-  caps.probe->parsed = parse_codex_version(caps.probe->raw);
-  if (!caps.probe->parsed.has_value()) {
-    caps.probe->outcome = support::ProbeOutcome::unparseable;
-    return caps;
-  }
-  caps.agent_version = *caps.probe->parsed;
-  caps.verdict = validated_codex_version(caps.agent_version) ? Capabilities::Verdict::validated
-                                                             : Capabilities::Verdict::unvalidated;
-  return caps;
+  return Capabilities::from_probe(
+      verdict, verdict == Capabilities::Verdict::readable ? parsed
+                                                           : std::nullopt,
+      newer_than_survey, true,
+      {.collect = store_exists,
+       .install = store_exists,
+       .rewrite = store_exists},
+      std::move(probe));
 }
 
 }  // namespace
@@ -344,18 +316,19 @@ expected<InstallResult> codex_install(const InstallTarget& target,
   std::vector<PreparedSession> prepared_sessions;
   prepared_sessions.reserve(records.size());
   for (const auto& record : records) {
-    const auto host_version_unverified =
-        host_version_unverified_for_install(host_caps,
-                                            record.agent_version_at_pack);
-    if (!host_version_unverified.has_value()) {
+    const auto admission = version_floor::admit(
+        {.agent = "codex",
+         .host_version = host_caps.agent_version(),
+         .image_version = record.agent_version_at_pack});
+    if (!admission.admitted) {
       result.sessions.push_back(InstallSessionOutcome{
           .image_session_id = record.original_session_ids.primary,
           .outcome = InstallSessionOutcome::Outcome::failed,
-          .reason = "error",
+          .reason = "not-validated",
           .content_rewrite = std::nullopt,
           .host_version_unverified = false,
           .verify = {},
-          .detail = "capability_refused"});
+          .detail = std::string{admission.detail}});
       continue;
     }
     std::map<std::string, RolloutName> rollouts;
@@ -365,7 +338,7 @@ expected<InstallResult> codex_install(const InstallTarget& target,
                              .child_ids = {},
                              .writes = {},
                              .host_version_unverified =
-                                 *host_version_unverified,
+                                 admission.host_version_unverified,
                              .verify = {},
                              .outputs = {},
                              .skipped_non_utf8 = 0};
@@ -434,7 +407,8 @@ expected<InstallResult> codex_install(const InstallTarget& target,
           return prepared.verify.origin_path_hits != 0U ||
                  prepared.verify.origin_id_hits != 0U;
         })) {
-      result.sessions.clear();
+      // Capability-refusal rows were emitted before preparation and must
+      // survive a rewrite-verification failure in an admitted sibling.
       for (const auto& prepared : prepared_sessions) {
         result.sessions.push_back(InstallSessionOutcome{
             .image_session_id = prepared.record.original_session_ids.primary,
