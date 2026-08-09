@@ -505,3 +505,23 @@ on B2 readiness (C→B2-immediate election). B2 #23 — resume authorized (union
 B2C2-2 + third re-panel; home-prefix deferred to R-4.8. Matrix Arm-1 — now owns the R-4.8 packer-home
 carrier (design lifecycle); Wave-A cb1f6254 still owes docs-lane INDEX refresh. No token beyond slice A;
 release hold ABSOLUTE; R-4.8 hard-gated before release.
+
+**Slice A merged locally; B1 + slice-A SHAs carried up (2026-08-09 ~0318):**
+The floor implementer executed the slice-A merge under the condition-4 token. **Slice A #21
+merged locally at 77daa87c** — verified at this seat: parents f2c55a35 (execution-time main,
+had advanced e8acb6a→f2c55a35 on the docs lane) + 33153137 (candidate), tree 9672c614,
+first-parent delta = 24 authorized paths, no forbidden path, candidate now an ancestor of
+main; full host suite 14/14 pre-merge AND post-merge (ci-macos). Both merge SHAs carried UP
+to master (`031818`) to close condition-3-of-record: **slice A 77daa87c** and **B1 e3f8f39**
+(the latter was owed since it landed). Both Step-3 fences live at current main c952a5d.
+**Publication HELD** — origin/main unchanged at 8981bfd0; push is a separate authorization the
+implementer correctly did not perform (standing posture: B1 also stayed local). Flagged to
+master/operator as an open timing decision (when does local main get pushed; does it wait for
+the full wave). Publication ≠ release; release hold ABSOLUTE.
+
+**Merge picture now:** B1 ✅ merged (e3f8f39, SHA carried, condition-3-of-record CLOSED).
+Slice A ✅ merged (77daa87c, SHA carried, condition-3-of-record CLOSED). Slice C #22 — waits
+on B2 readiness (C→B2-immediate). B2 #23 — resume authorized (union scope); owes complete
+B2C2-2 + third re-panel; home-prefix deferred to R-4.8. Matrix Arm-1 — owns the R-4.8
+packer-home carrier (design lifecycle); Wave-A cb1f6254 owes docs-lane INDEX refresh.
+Publication of local main HELD (timing decision open). No live token. Release hold ABSOLUTE.
