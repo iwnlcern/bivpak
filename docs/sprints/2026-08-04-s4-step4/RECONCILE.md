@@ -588,3 +588,36 @@ pair proceeds to IMPL under its own lifecycle; I stay on standby there.
 timing at operator — master rec hold-until-wave-complete then one push). Slice C waits on B2. B2 —
 e2-budget resolved (600); amend in progress → third re-panel next. Matrix Arm-1 R-4.8 carrier — PLAN
 approved, IMPL pending (pair lifecycle). No live token. Release hold ABSOLUTE.
+
+**R-4.8 dispatch lineage red — named-error disposition (2026-08-09 ~1416):**
+The matrix R-4.8 carrier dispatch `063357` was BLOCKED by a NEW root-lint class and the Implementer
+correctly refused. Root cause confirmed at the bytes: `one_by_id()` (relay-lint.py:1389-1393) returns
+the EARLIEST holder of a DISPATCH_ID (`sorted(...)[0]`), and the carrier thread reused ONE ID
+(`s4-matrix-arm1-r48-carrier`) across 21 lifecycle rows, so `063357`'s parent resolved to the rev0
+DESIGN instead of the approving PLAN-REVIEW, tripping the three parent checks (:1540-1566). **Disposition
+(`141650`, mine, per the `004554` precedent):** token `063357` is DEAD (no worktree/branch/build/test
+action under it; design 349ef6e1@1b925ca, plan 438365bd@a921b1f, floor ratification 050728 untouched);
+the three reds are NAMED + dispositioned on the append-only record (no rewrite/backdate), **retired by
+replacement, not waived as false** (they correctly fired). **New lint class NAMED:** reused-DISPATCH_ID →
+earliest-holder misresolution; rule going forward = unique DISPATCH_ID per lifecycle stage (Wave-A's
+pattern); master CC'd for a RESIDUAL row. **Option 1 ENDORSED, byte-verified clean:** unique PLAN
+`s4-matrix-arm1-r48-plan` (×1, over unchanged 438365bd) → unique PLAN-REVIEW `s4-matrix-arm1-r48-plan-review`
+(×1, `141439`, FROM implementer, approve) → replacement dispatch parented to `141439` passes all three
+checks. Option 2 (direct orchestrator/operator dispatch) declined — the pair's delegated self-recovery
+grants nothing. The pair now issues its uniquely-keyed replacement DISPATCH IMPL (BASE re-pinned,
+SCOPE_DIFF, ten-path scope, publication held).
+
+**Lint-instrument note (NEW false-red class, disclosed):** the disposition relay `141650` and ALL 24
+R-4.8-thread relay-instances carry two `--index` reds — "DESIGN_LOCK_ID/PLAN_LOCK_ID references missing
+file …2026-08-09-…r48…". These are FALSE: both referents exist and are git-tracked at the repo-root
+paths. Cause confirmed at relay-lint.py:1639 — `ref = (path / val).resolve()` joins a path-style lock ID
+to the RELAY-ROOT (`.relays/s4`), not the repo root, so any `DESIGN_LOCK_ID`/`PLAN_LOCK_ID` that is a
+`docs/…` PATH (the convention for design locks) is mis-resolved; token-style lock IDs (the floor thread)
+skip the guard. Distinct from the R-3.40 item-12 relocated-referent class. My `141650` commit was gated
+on the per-file lint (which passed); the two `--index` reds surfaced after and are disclosed here rather
+than rewritten into the shared-branch commit. Flagged for master/RESIDUALS.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (condition-3-of-record closed; publication held, timing at
+operator). Slice C waits on B2. B2 — e2-budget 600 folded/amend in progress → third re-panel next.
+Matrix Arm-1 R-4.8 carrier — PLAN re-approved on the unique chain; replacement dispatch pending at the
+pair (my lineage disposition cleared it). No live token. Release hold ABSOLUTE.
