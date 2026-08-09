@@ -24,7 +24,7 @@ MUST-FIX: M-4 (the containment invariant under the per-session radius you ruled)
 hold at fold head `d6cceba`. Full record:
 `docs/sprints/2026-08-04-s4-step4/reviews/2026-08-08-s4-floor-slice-b2-repanel-d6cceba.md`.
 Three Criticals; two are in-universe and folded to the implementer (companion REVIEW-FOLD
-`REVIEW-FOLD-PLANNER-B2-CYCLE2-PANEL-DISPATCH-20260808-205753.md`): the never_rewrite scan
+`REVIEW-FOLD-PLANNER-B2-CYCLE2-PANEL-DISPATCH-20260808-210909.md`): the never_rewrite scan
 is encoding-blind (B2C2-1), and the nine staged pack tests measure the operator's real
 stores (B2C2-3). One Critical has a cell above the pair.
 
@@ -72,7 +72,7 @@ ACTIONS_GIT_REF: no product/test edits at this seat — the re-panel was read-on
 FINAL_GIT_STATUS_SHORT: not claimed as a clean-tree proof — the shared checkout carries sibling state; this seat's writes are confined to the two docs-lane paths named above
 
 CARRY LIST:
-- `.relays/s4/s4-floor-impl/SITREP-PLANNER-B2-M4-INVARIANT-SCOPE-AUTHORITY-20260808-205753.md` → `s4.orchestrator-planner`
+- `.relays/s4/s4-floor-impl/SITREP-PLANNER-B2-M4-INVARIANT-SCOPE-AUTHORITY-20260808-210909.md` → `s4.orchestrator-planner`
 - M-4 invariant SCOPE (home/username needle vs narrowed invariant) → master ruling; the union-widening folds regardless
-- companion REVIEW-FOLD `REVIEW-FOLD-PLANNER-B2-CYCLE2-PANEL-DISPATCH-20260808-205753.md` → `s4-floor.implementer` (B2C2-1..B2C2-6)
+- companion REVIEW-FOLD `REVIEW-FOLD-PLANNER-B2-CYCLE2-PANEL-DISPATCH-20260808-210909.md` → `s4-floor.implementer` (B2C2-1..B2C2-6)
 - inherited I-3 object-key leak → same family; B2C2-1 decodes keys+values so B2 doesn't reintroduce it; jsonl-arm key leak stays master's I-3 call

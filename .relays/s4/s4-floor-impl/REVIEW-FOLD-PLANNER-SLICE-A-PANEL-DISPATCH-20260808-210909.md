@@ -132,7 +132,7 @@ ACTIONS_GIT_REF: no product/test edits at this seat — review relay; the five l
 FINAL_GIT_STATUS_SHORT: not claimed as a clean-tree proof — the shared checkout carries sibling state; this seat's writes are confined to the two docs-lane paths named above
 
 CARRY LIST:
-- `.relays/s4/s4-floor-impl/REVIEW-FOLD-PLANNER-SLICE-A-PANEL-DISPATCH-20260808-205900.md` → `s4-floor.implementer`
+- `.relays/s4/s4-floor-impl/REVIEW-FOLD-PLANNER-SLICE-A-PANEL-DISPATCH-20260808-210909.md` → `s4-floor.implementer`
 - A-BL1..A-BL6 (all in-universe) → implementer fold at the amended one-commit head; A-BL1 is the Critical
 - security I-1 below-MIN-at-open → by-design per §A7.4, recorded not folded
 - amended head → targeted re-check by me, then slice-A merge-ready confirmation to the orchestrator (condition-3 held); PR #21 at 798526c meanwhile; merge/release the operator's, hold ABSOLUTE

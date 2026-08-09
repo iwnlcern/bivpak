@@ -125,8 +125,8 @@ ACTIONS_GIT_REF: no product/test edits at this seat — review relay; the three 
 FINAL_GIT_STATUS_SHORT: not claimed as a clean-tree proof — the shared checkout carries sibling state; this seat's writes are confined to the two docs-lane paths named above
 
 CARRY LIST:
-- `.relays/s4/s4-floor-impl/REVIEW-FOLD-PLANNER-B2-CYCLE2-PANEL-DISPATCH-20260808-205753.md` → `s4-floor.implementer`
+- `.relays/s4/s4-floor-impl/REVIEW-FOLD-PLANNER-B2-CYCLE2-PANEL-DISPATCH-20260808-210909.md` → `s4-floor.implementer`
 - B2C2-1..B2C2-6 (in-universe) → implementer second fold at the amended one-commit head
-- B2C2-2 M-4 invariant-scope (home/username needles?) → orchestrator (companion SITREP `20260808-205753`)
+- B2C2-2 M-4 invariant-scope (home/username needles?) → orchestrator (companion SITREP `20260808-210909`)
 - inherited I-3 object-key leak → already master-routed; B2C2-1 must decode keys+values so B2 does not reintroduce it in the new arm
 - PR #23 at `d6cceba` → HELD pending the second fold + third re-panel; merge/release the operator's
