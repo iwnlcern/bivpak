@@ -1,4 +1,11 @@
-# R-4.8 Packer-Home Carrier Implementation Plan (rev0)
+# R-4.8 Packer-Home Carrier Implementation Plan (rev1)
+
+> rev1 folds plan-review P1-P5 (`PLAN-REVIEW-IMPLEMENTER-R48-CARRIER-REV0-20260809-055741.md`):
+> writer-spelling GREEN assertions + completed null matrix (P2), single pack-env snapshot +
+> RAII home control (P3), true-install transport fixture + mutable capture (P4), and ONE
+> literal verification/publication boundary — publication HELD, local macOS + Ubuntu-Docker
+> evidence, push/PR by separate token (P5). P1 is a relay-field fix (bare parent ID), not a
+> plan-doc change.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -20,12 +27,13 @@ FLOOR_CONTRACT: RATIFIED at `…RATIFIED-20260809-050728` — the WIRE SHAPE IS 
 - JSON `null` ≡ missing key, for BOTH keys.
 - Core performs NO interpretation of the value (no prefix logic, no username derivation, no path ops) — capture, serialize, parse, transport only.
 - DO NOT touch: `pack.cpp::path_flavor()` / any `source_path_flavor` behavior, `src/adapters/rewrite_common.*`, `SessionProvenance`, the repo engine, `scan.cpp:138` fence, `manifest.cpp:597` fence (`require_empty_array(object, "repos")` — additions in manifest.cpp must not disturb it).
-- No CI trigger, no merge, no publication, no release action (release hold ABSOLUTE; R-4.8 is hard-gated before any release).
+- **ONE literal publication boundary (P5):** NO push, NO PR, NO remote CI trigger, NO merge, NO release anywhere in this plan. The branch stays local. Publication (one branch push + draft PR + its single automatic checks run) happens ONLY under a separate operator/orchestrator token requested AFTER the full local evidence is green. Release hold ABSOLUTE; R-4.8 is hard-gated before any release.
 - Full local gate per task-final steps: `git diff --check && cmake --build --preset dev -j8 && ctest --preset dev -E '^safety-hardening$' --output-on-failure`.
+- Final E2 evidence = the macOS gate above PLUS a local reproduction of `.github/workflows/s2-harness.yml` in a disposable Ubuntu 24.04 `--platform linux/amd64` Docker container (per repo instructions: preserve the host worktree, disposable containers only, never prune unrelated Docker resources).
 
 ## Branch mechanics
 
-One branch `s4-matrix/r48-carrier` off current `main` (`f0179e0` or later). One commit per task. On completion: ONE draft PR into `main`; no merge — the pair review/panel path and merge conditions are downstream and operator-owned.
+One branch `s4-matrix/r48-carrier` off current `main` (`f0179e0` or later). One commit per task. The branch is NOT pushed; completion is reported with the branch head SHA and the publication token is requested separately (P5 boundary above).
 
 ## File structure
 
@@ -77,8 +85,9 @@ TEST_CASE("packer_home serializes after source_path_flavor and round-trips") {
       .path = "/Users/jack", .flavor = biv::manifest::PathFlavor::posix};
 
   const auto json = biv::manifest::serialize(manifest);
-  REQUIRE(json.find("\"packer_home\":\"/Users/jack\"") != std::string::npos);
-  REQUIRE(json.find("\"packer_home_flavor\":\"posix\"") != std::string::npos);
+  // json::Writer::key emits `": "` (writer.cpp:64) — assert the real spelling (P2).
+  REQUIRE(json.find("\"packer_home\": \"/Users/jack\"") != std::string::npos);
+  REQUIRE(json.find("\"packer_home_flavor\": \"posix\"") != std::string::npos);
   REQUIRE(json.find("\"source_path_flavor\"") < json.find("\"packer_home\""));
 
   const auto parsed = biv::manifest::parse(bytes_of(json));
@@ -148,6 +157,22 @@ TEST_CASE("packer_home JSON null is missing for both keys") {
       "\"packer_home\":null,\"packer_home_flavor\":\"posix\",")));
   REQUIRE_FALSE(null_with_flavor.has_value());
   REQUIRE(null_with_flavor.error().detail == "packer_home_flavor");
+
+  // P2: falsify null==missing at BOTH key positions, not just the home side.
+  const auto home_with_null_flavor = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":\"/x\",\"packer_home_flavor\":null,")));
+  REQUIRE_FALSE(home_with_null_flavor.has_value());
+  REQUIRE(home_with_null_flavor.error().detail == "packer_home_flavor");
+
+  const auto both_null = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":null,\"packer_home_flavor\":null,")));
+  REQUIRE(both_null.has_value());
+  REQUIRE(both_null->packer_home == std::nullopt);
+
+  const auto lone_null_flavor = biv::manifest::parse(
+      bytes_of(carrier_json("\"packer_home_flavor\":null,")));
+  REQUIRE(lone_null_flavor.has_value());
+  REQUIRE(lone_null_flavor->packer_home == std::nullopt);
 }
 
 TEST_CASE("packer_home lone keys fail closed naming the flavor key") {
@@ -330,10 +355,40 @@ if (packer_home_text->has_value()) {
 - Test: `tests/test_pack.cpp`
 
 **Interfaces:**
-- Consumes: Task 1's `manifest::PackerHome`, `manifest::classify_absolute`; existing `process_env()` (:230) and `manifest_model` designated-init (:663).
+- Consumes: Task 1's `manifest::PackerHome`, `manifest::classify_absolute`; the EXISTING pack-env snapshot `const auto env = process_env();` (pack.cpp:528) and the `manifest_model` designated-init (:663).
 - Produces: packed images whose manifest carries `packer_home` iff `$HOME` is absolute.
 
-- [ ] **Step 2.1: Write the failing tests** — append to `tests/test_pack.cpp`, using the file's existing `make_tmp`/`write_file`/`ScopedEnv`/`read_archive`/`as_span` helpers (idiom of the Task-6 cases at :194-249):
+- [ ] **Step 2.1: Write the failing tests** — append to `tests/test_pack.cpp`, using the file's existing `make_tmp`/`write_file`/`read_archive`/`as_span` helpers (idiom of the Task-6 cases at :194-249). First add a set-or-UNSET RAII owner to the file's anonymous namespace (P3 — the existing `ScopedEnv` cannot express the unset row; every path must restore the prior `HOME`):
+
+```cpp
+class ScopedHome {
+ public:
+  explicit ScopedHome(const std::optional<std::string>& value) {
+    if (const char* prior = std::getenv("HOME"); prior != nullptr) {
+      prior_ = prior;
+    }
+    if (value.has_value()) {
+      setenv("HOME", value->c_str(), 1);
+    } else {
+      unsetenv("HOME");
+    }
+  }
+  ~ScopedHome() {
+    if (prior_.has_value()) {
+      setenv("HOME", prior_->c_str(), 1);
+    } else {
+      unsetenv("HOME");
+    }
+  }
+  ScopedHome(const ScopedHome&) = delete;
+  ScopedHome& operator=(const ScopedHome&) = delete;
+
+ private:
+  std::optional<std::string> prior_;
+};
+```
+
+Then the table case:
 
 ```cpp
 TEST_CASE("pack captures packer_home per HOME shape") {
@@ -362,12 +417,7 @@ TEST_CASE("pack captures packer_home per HOME shape") {
     const auto source = root / "proj";
     std::filesystem::create_directories(source);
     write_file(source / "work.txt", "workspace");
-    std::optional<ScopedEnv> home;
-    if (row.home.has_value()) {
-      home.emplace("HOME", *row.home);
-    } else {
-      unsetenv("HOME");
-    }
+    const ScopedHome home{row.home};
 
     const auto report = biv::pack::pack(source);
 
@@ -385,7 +435,7 @@ TEST_CASE("pack captures packer_home per HOME shape") {
 }
 ```
 
-(If `ScopedEnv` lacks a two-arg emplace-friendly constructor for this pattern, restore the prior `HOME` with an outer `ScopedEnv` per the file's existing unset-restore idiom — keep the assertion table identical. The `unsetenv` branch must restore `HOME` after the case; wrap the loop body's env handling exactly like the file's existing `ScopedEnv` save/restore semantics.)
+(`ScopedHome` restores the prior state on every assertion failure or early exit — the process environment is unchanged after each row.)
 
 - [ ] **Step 2.2: Run to verify failure.** `cmake --build --preset dev -j8 && ./build/dev/biv_tests "pack captures packer_home per HOME shape"` — expected: FAIL — `manifest->packer_home` is `nullopt` for the three present-rows (capture not implemented).
 
@@ -403,10 +453,10 @@ std::optional<manifest::PackerHome> packer_home_carrier(
 }
 ```
 
-In the `manifest_model` designated-init (:663-673), between `.source_path_flavor` and `.agent_sessions` (order must match the struct):
+In the `manifest_model` designated-init (:663-673), between `.source_path_flavor` and `.agent_sessions` (order must match the struct), using the ONE existing pack-environment snapshot bound at `pack.cpp:528` (`const auto env = process_env();`) — do NOT call `process_env()` a second time (P3: the recorded home must be the same snapshot the pack's adapter discovery used, immune to a mid-run `HOME` change):
 
 ```cpp
-.packer_home = packer_home_carrier(process_env().home),
+.packer_home = packer_home_carrier(env.home),
 ```
 
 - [ ] **Step 2.4: Run to verify pass.** Same command — expected: PASS, all six rows. Then `./build/dev/biv_tests` for the pack suite (no regression; existing cases set `HOME` via `ScopedEnv` so their manifests now carry `packer_home` — they assert other fields and must stay green; if any asserts full-manifest equality, update it to include the carrier and note it in the task commit).
@@ -426,42 +476,48 @@ In the `manifest_model` designated-init (:663-673), between `.source_path_flavor
 - Consumes: Task 1's `manifest::PackerHome`; `run_session_leg`'s `manifest` parameter (`sessions.cpp:175-179`).
 - Produces: `adapters::InstallTarget::packer_home` (`std::optional<manifest::PackerHome>`) — the field the floor's needle will read; ONE population site.
 
-- [ ] **Step 3.1: Write the failing tests.** In `tests/test_sessions.cpp`, extend `CountingAdapter` (:173) to record the received field — add a member `std::optional<biv::manifest::PackerHome> seen_packer_home;` and in its `install` override capture `seen_packer_home = target.packer_home;`. Then add:
+- [ ] **Step 3.1: Write the failing tests.** In `tests/test_sessions.cpp`, extend `CountingAdapter` (:173) to record the received field. Its `install` override is `const`, so the capture member must be `mutable` (the class already uses `mutable std::size_t install_calls` — same idiom), and the `InstallTarget` parameter must be NAMED (it is currently unnamed):
+
+```cpp
+// members:
+mutable std::optional<biv::manifest::PackerHome> seen_packer_home;
+// in the install override (name the target parameter `target`):
+seen_packer_home = target.packer_home;
+```
+
+Then add two cases built on the TRUE-INSTALL fixture shape at `tests/test_sessions.cpp:323-394` — valid store + readable capabilities + consent yes + configured `adapter.install_result`, i.e. a case that genuinely reaches `install()` (P4: the `:225` fixture is the unreadable-host/pre-consent path with `install_calls == 0` and can never prove transport). Copy that case's `entry()`/`model()`/store/consent setup with ONE eligible entry and a matching one-session `install_result`; the carrier-specific lines are:
 
 ```cpp
 TEST_CASE("run_session_leg transports packer_home to the adapter once per image") {
-  // Present: build the leg's manifest with a carrier and run the existing
-  // eligible-entry fixture path (mirror the adjacent CountingAdapter case
-  // setup at :225 exactly, then set:)
-  //   manifest.packer_home = biv::manifest::PackerHome{
-  //       "/Users/packer", biv::manifest::PathFlavor::posix};
-  // After the leg runs:
-  REQUIRE(adapter.seen_packer_home ==
-          biv::manifest::PackerHome{"/Users/packer",
-                                    biv::manifest::PathFlavor::posix});
+  // ... :323-394-shaped setup with one eligible entry, then:
+  auto manifest = model({std::move(eligible)});
+  manifest.packer_home = biv::manifest::PackerHome{
+      "/Users/packer", biv::manifest::PathFlavor::posix};
+  // ... run the leg exactly as the donor case does, then:
+  const biv::manifest::PackerHome expected{"/Users/packer",
+                                           biv::manifest::PathFlavor::posix};
+  REQUIRE(adapter.install_calls == 1);  // transport proof requires a real call
+  REQUIRE(adapter.seen_packer_home == expected);
 }
 
 TEST_CASE("run_session_leg passes absent packer_home through unchanged") {
-  // Same fixture, manifest.packer_home left nullopt:
+  // identical setup; manifest.packer_home left nullopt:
+  REQUIRE(adapter.install_calls == 1);
   REQUIRE(adapter.seen_packer_home == std::nullopt);
 }
 ```
 
-(The comment lines describe fixture reuse of the EXISTING CountingAdapter case at :225 — copy that case's setup verbatim; the only new lines are the manifest field set and the two REQUIREs. Both tests are complete once that setup is pasted; no other scenario changes.)
+(Expected values are NAMED before the assertion — a braced `PackerHome{a, b}` inside `REQUIRE` is unsafe in the macro (P4). Both cases must assert `install_calls == 1` BEFORE reading the captured target.)
 
-In `tests/test_adapter_claude_install.cpp` and `tests/test_adapter_codex_install.cpp`, add one receipt case each (identical shape; RECEIPT only — needle semantics are floor-owned and out of scope):
+In `tests/test_adapter_claude_install.cpp` and `tests/test_adapter_codex_install.cpp`, add one receipt case each (RECEIPT only — needle semantics are floor-owned and out of scope): copy each file's smallest existing GREEN install case wholesale, add only the field to its `InstallTarget` construction —
 
 ```cpp
-TEST_CASE("claude install accepts a transported packer_home as inert metadata") {
-  // Take the file's smallest existing green install case; construct its
-  // InstallTarget with the additional field:
-  //   .packer_home = biv::manifest::PackerHome{
-  //       "/Users/packer", biv::manifest::PathFlavor::posix},
-  // Re-run the identical assertions of that case: outcomes/rows unchanged.
-}
+const biv::manifest::PackerHome transported{"/Users/packer",
+                                            biv::manifest::PathFlavor::posix};
+// in the copied case's InstallTarget: .packer_home = transported,
 ```
 
-(For codex, same with the codex case. These prove the field is receivable and INERT — compile-time receipt + zero behavior change. Copy each file's smallest green install case wholesale and add only the field; every existing assertion stays.)
+— and keep every one of the donor case's assertions byte-identical (outcomes/rows unchanged ⇒ the field is receivable and INERT).
 
 - [ ] **Step 3.2: Run to verify failure.** `cmake --build --preset dev -j8` — expected: COMPILE FAILURE (`InstallTarget` has no `packer_home`).
 
@@ -485,13 +541,15 @@ NO other read, branch, or interpretation of the value anywhere in core — trans
 
 - [ ] **Step 3.6: Commit.** `git add src/adapters/adapter.hpp src/core/open/sessions.cpp tests/test_sessions.cpp tests/test_adapter_claude_install.cpp tests/test_adapter_codex_install.cpp && git commit -m "open: transport packer_home opaquely to adapter install targets"`
 
-- [ ] **Step 3.7: Open ONE draft PR** from `s4-matrix/r48-carrier` into `main` (no merge; no CI re-runs beyond the single push's automatic checks; observe once).
+- [ ] **Step 3.7: Local Linux gate (P5).** Reproduce `.github/workflows/s2-harness.yml` in a DISPOSABLE Ubuntu 24.04 `--platform linux/amd64` Docker container against the branch head (repo rules: preserve the host worktree — mount read-only or copy in; disposable containers only; never prune or remove unrelated Docker resources). Expected: the workflow's locally applicable legs green; report exact deltas from the canonical workflow if any.
+
+- [ ] **Step 3.8: Report completion — NO publication.** File the completion report with the branch head SHA and both evidence legs (macOS gate + Docker gate). Do NOT push the branch, open a PR, or trigger remote CI — publication happens only under a separate operator/orchestrator token requested in that report (the P5 boundary).
 
 ---
 
 ## Acceptance criteria (the plan is done when)
 
-1. All Task 1–3 tests green + the full local gate green at the branch head.
+1. All Task 1–3 tests green + the full local macOS gate green at the branch head + the Ubuntu 24.04 amd64 Docker reproduction of `s2-harness.yml` green (Step 3.7), with the branch UNPUBLISHED (Step 3.8).
 2. Wire proof: a packed image under an absolute `$HOME` carries both keys after `source_path_flavor`; under unset/empty/relative `$HOME` carries neither (Q1).
 3. Fail-closed proof: every §8 malformed row is a `ParseError` naming the exact key (incl. the `packer_home_flavor` remap falsifier).
 4. Parity proof: `classify_absolute` agrees with `biv::adapters::rewrite::path_flavor_for` on the spelling table.
@@ -508,4 +566,4 @@ NO other read, branch, or interpretation of the value anywhere in core — trans
 
 ## Verification target
 
-E2 (local command proof: build + full test gate at the branch head). Panel/merge evidence is downstream of this plan.
+E2 (local command proof: macOS build + full test gate PLUS the Ubuntu 24.04 amd64 Docker workflow reproduction, both at the branch head). Publication, panel, and merge evidence are downstream of this plan and separately tokened.
