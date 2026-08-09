@@ -379,3 +379,43 @@ origin-disclosure invariant; B2 fixes it but merges AFTER C — routed UP as an
 invariant-coherence + sequencing question before any C token (permit C ahead of B2's fix
 under the absolute release hold, or resequence/hold C). Matrix Wave-A separate (verify no
 I-3 exposure). B2 #23 second fold: M-4 not yet met.
+
+**B1 token issued + I-3 sequencing ruled + B2 M-4 scope routed (2026-08-08 ~2117):**
+Operator authorized B1 #15's merge (condition 4); master carried it down the bridge
+(`205500`). Per token grammar (bare condition-4 token valid only FROM orchestrator-planner
+TO one implementer, master must not cross to the floor implementer), I issued the bare
+executor token to s4-floor.implementer for B1 ALONE (`210818`); I do NOT execute the merge —
+the floor implementer does, re-verifying clean at the actual merge tip and routing the merge
+SHA up to close condition-3-of-record. Re-verified at this seat before issuing: B1 tip
+ff63e521 unmoved, `git merge-tree` into current main ab463d0 = exit 0, zero conflicts,
+disjoint paths. Shared-INDEX sweep recurred: sibling commit `2cdc42c` swept my uncommitted
+INDEX row behind three re-stamped 210909 rows; repositioned my 210818 row to its true slot,
+index re-lints clean. **I-3 sequencing** (master `204800`): B2 is stacked ON C
+(ec9a2db⊂d6cceba), so B2's fix cannot precede C without a stack rewrite — CTO ruling
+(awaiting operator ratification): land C and B2 as ONE UNIT so main never holds C-without-fix.
+
+**B2 cycle-2 re-panel — M-4 does NOT hold at d6cceba (`210909`→disposed `211451`/`211707`):**
+Two of three Criticals fold in-universe (pair owns): B2C2-1 (never_rewrite encoding-blind →
+decode keys+values), B2C2-3 (nine staged pack tests hit operator's real stores → pin HOME
+×9), + three Importants. B2C2-2 splits: the image-union needle-set widening folds pair-side;
+the bare packer HOME/USERNAME-prefix needle is a DNA-scope definition routed UP to master
+(`211451`, CC m-4/m-2). **Coherence correction to `144700`:** the per-session ruling's ground
+("a verified-clean sibling carries no packer identity") was measured against each session's
+OWN needles only — byte-verified at d6cceba (install.cpp:651-656/689-693, no image-wide
+union); widening the refusal RADIUS cannot reach a needle never in the set. The union-widening
+RESTORES that ground for the path/id scope, so master's per-session ruling HOLDS, gated now
+precisely on needle-set = image-union (not per-session-own). Open cell: does the invariant
+include the bare home/username prefix, or narrow to origin-path-spelling + id? (orchestrator
+note: a bare low-entropy username substring over transcript content risks false-positive
+refusals — if in-scope, likely wants path-context-scoping; master's/operator's call.) B2 is
+NOT bar-ready: amended head owes a THIRD targeted re-panel (M-4 re-confirmed); the C+B2 unit
+is not yet mergeable, consistent with C being I-3-gated. I-3: key+value decode closes B2's arm;
+jsonl-arm key leak stays master's `204800`.
+
+**Merge picture now:** B1 #15 — condition-4 token ISSUED to floor executor, awaiting the
+implementer's merge + SHA-up. Slice A #21 — condition-3 HELD, team-of-5 paneling at 798526c;
+panel returned MUST-FIX (A-BL1 rewrite-verify gate destroys the version-refusal carrier both
+legs + A-BL2..A-BL6), amended head owes a targeted re-check. Slice C #22 — I-3-gated (land
+with B2 as a unit, pending operator ratification). B2 #23 — M-4 open, third re-panel owed,
+home/username scope at master. Matrix Wave-A cb1f6254 — banked separate, owes a .relays/s4
+INDEX docs-lane refresh before token-eligible. No token beyond B1; release hold ABSOLUTE.
