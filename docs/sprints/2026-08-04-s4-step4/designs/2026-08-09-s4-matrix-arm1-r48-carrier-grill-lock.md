@@ -103,7 +103,7 @@ mechanism, both sides:
   `tests/test_adapter_codex_install.cpp` (both adapter legs receive the image-level
   value).
 
-## Design-lock impact
+## Design-lock impact (rev1)
 
 rev1 amends §§2-10 of the design doc: adds the flavor field (§3), the absoluteness gate
 (§4), the emittable-states serializer rule (§5), the local parse validation + pairing
@@ -112,3 +112,93 @@ reassigned test matrix (§9), and reconciles §7/§10's "not read by core restor
 "transported opaquely by core, interpreted only by adapter verifiers". The operator's
 top-level-once placement ruling is UNCHANGED. `format_version` stays 1; no new `ErrKind`;
 Step-3 fences untouched.
+
+---
+
+# Appendix — rev1 → rev2 decisions (re-review R1-R3, all code-derived)
+
+TRIGGER: DESIGN-REVIEW rev1 must-revise R1-R3
+(`DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV1-20260809-050934.md`). No operator cell this
+round: every decision is forced at the bytes (layering, the model's own tests, helper
+semantics). The floor's `050728` ratification is PRESERVED — the wire shape, own-flavor
+meaning, and absence semantics are unchanged by rev2 (the re-review's own criterion for
+not re-routing).
+
+### D6 — single optional carrier struct (closes R3, model half)
+
+```cpp
+// manifest.hpp
+struct PackerHome { std::string path; PathFlavor flavor{PathFlavor::posix}; };
+// Manifest:
+std::optional<PackerHome> packer_home;   // replaces the rev1 two-member pair
+```
+
+One optional. Co-absence is now BY CONSTRUCTION in memory (a lone flavor is
+unrepresentable, matching the wire pairing rule), "both nullopt" tests become
+`packer_home == std::nullopt`, and pair round-trip equality is a single `==`.
+`InstallTarget` transport becomes one field: `std::optional<manifest::PackerHome>
+packer_home;`. Rejected: making the flavor a second optional (two optionals recreate the
+lone-flavor states the wire forbids); a canonical ignored flavor for absent home (an
+unfalsifiable cell — a value that must never be read).
+
+### D7 — core-local total classifier + parity pin (closes R1)
+
+The rev1 classifier claim was false at the bytes: `pack.cpp::path_flavor()` has no
+`windows` branch (pack.cpp:131-140). The re-review's suggested reuse of
+`rewrite::path_flavor_for()` (rewrite_common.cpp:626-634) is TOTAL but lives in
+`src/adapters/` — and the PARSER also needs the classifier (D8 wire validation), so
+reuse is CIRCULAR: `rewrite_common` includes `manifest` for `PathFlavor`, so `manifest`
+cannot include `rewrite_common`. Decision: a core-local classifier beside the manifest
+schema, mirroring the rewrite grammar exactly:
+
+```cpp
+// manifest-side helper (single authority for the carrier)
+std::optional<PathFlavor> classify_absolute(std::string_view path);
+//   wsl:     size>=7 && starts_with("/mnt/") && ascii_alpha(path[5]) && path[6]=='/'
+//   windows: (size>=3 && ascii_alpha(path[0]) && path[1]==':' && (path[2]=='\\' || path[2]=='/'))
+//            || starts_with("\\\\?\\") || starts_with("//?/")
+//   posix:   starts_with('/') and not wsl-form
+//   nullopt: everything else (= not absolute in any supported flavor)
+```
+
+Precedence wsl-before-posix (a wsl mount is posix-lexical). Grammar parity with
+`rewrite::path_flavor_for` is PINNED by a spelling-table test that includes both layers
+(tests may depend on both; production layering stays acyclic). `pack.cpp::path_flavor()`
+and every `source_path_flavor` caller are UNTOUCHED — no accidental behavior change.
+Rejected: reusing `rewrite::path_flavor_for` (circular from manifest); extending pack's
+`path_flavor` (changes source-path callers, and still unreachable from manifest); hoisting
+rewrite internals into core (touches floor-adjacent adapter files — cross-pair collision;
+noted as a possible future refactor, not this carrier's).
+
+### D8 — wire validator, null rule, detail remap (closes R2 + R3 parse half)
+
+- **Validity predicate (one authority, both boundaries):**
+  `valid(PackerHome p) := !p.path.empty() && classify_absolute(p.path) == p.flavor`.
+  This is host-INDEPENDENT and lexical — native `is_absolute()` cannot judge
+  foreign-flavor images.
+- **Capture (§4):** `classify_absolute(env.home.generic_string())` engaged ⇒ capture
+  `{path, flavor}` (valid by construction); `nullopt` ⇒ ABSENT. This SUBSUMES Q1
+  (relative ⇒ not absolute in any flavor ⇒ absent) and is total for Windows homes.
+- **Serialize (§5):** emit the two keys iff `packer_home && valid(*packer_home)`;
+  otherwise omit both. A manually constructed invalid engaged value (empty, relative,
+  flavor-mismatched) COLLAPSES to absent — the same stated-collapse rule D4 established
+  for empty, now covering the whole invalid class. Emittable states = {absent, valid}.
+- **Parse (§6):** define `present := optional_string(...) engaged` — i.e. key present
+  with a non-null string. JSON `null` ≡ missing key, for BOTH keys, by definition (the
+  helper collapses them, manifest.cpp:99-115; no raw-key tracking needed — this resolves
+  rev1's §6/§8 lone-null contradiction). Then: presence XOR ⇒ `ParseError` naming the
+  lone key; both present ⇒ flavor via `parse_path_flavor` with a LOCAL detail remap (its
+  hardcoded detail is `source_path_flavor`, manifest.cpp:462 — the carrier remaps its
+  failure to `ParseError{"packer_home_flavor"}`; function and existing callers
+  untouched), then `valid(pair)` else `ParseError{"packer_home"}` (subsumes `""`,
+  relative, and mismatch). Both absent ⇒ `nullopt`.
+- Round-trip invariant: over emittable states — absent↔absent, valid↔valid, single `==`.
+
+## Design-lock impact (rev2)
+
+rev2 amends §§3-9: the single-struct model (§3), classifier-driven capture (§4), the
+valid-gated serializer (§5), the present/null definition + validator + remap (§6), the
+one-field `InstallTarget` transport (§7 — wire contract to the floor UNCHANGED), the
+windows/mismatch/lone-null edge rows (§8), and the extended matrix incl. the parity table
+and validator falsifiers (§9). Placement ruling, Q1, `format_version` 1, no new
+`ErrKind`, fences — all unchanged.
