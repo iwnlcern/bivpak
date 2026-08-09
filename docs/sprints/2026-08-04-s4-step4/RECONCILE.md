@@ -525,3 +525,24 @@ on B2 readiness (C→B2-immediate). B2 #23 — resume authorized (union scope); 
 B2C2-2 + third re-panel; home-prefix deferred to R-4.8. Matrix Arm-1 — owns the R-4.8
 packer-home carrier (design lifecycle); Wave-A cb1f6254 owes docs-lane INDEX refresh.
 Publication of local main HELD (timing decision open). No live token. Release hold ABSOLUTE.
+
+**R-4.8 carrier design complete → PROCEED-TO-PLAN (2026-08-09 ~0543):**
+The matrix Arm-1 pair completed the R-4.8 pack-time packer-home carrier DESIGN (my `024150`
+dispatch), three review cycles converged to APPROVE. Reconciled at the bytes: sealed design blob
+= working tree = committed blob at 1b925ca6, hash 349ef6e1; the approving DESIGN-REVIEW (`053253`)
+pins that exact hash (design-doc PLAN lineage gate satisfied); floor consumer-contract
+affirmatively ratified (`050728`); seams intact + both fences live at current main. Issued
+**PROCEED-TO-PLAN** (`054301`, sequencing only — no design-doc lock carried; the pair emits the
+gated PLAN with DESIGN_LOCK_ID=doc path, PARENT=approving DESIGN-REVIEW, and its Implementer's
+plan-review is the plan gate). Design invariants held: two optional co-occurring top-level keys
+(packer_home + packer_home_flavor), format_version 1, no capability entry, no new ErrKind (D5
+freeze), one optional<PackerHome> on InstallTarget populated once by run_session_leg (core opaque),
+fences untouched, 23-case acceptance matrix. On record: honest-packer limitation (hostile image can
+omit the pair — origin-path/id union remains the adversarial floor) + two floor consumer duties.
+I go to STANDBY on this thread. Carrier + floor needle land together under R-4.8, hard-gated before
+any release; non-blocking for B2's union-scope resume.
+
+**Wave picture unchanged otherwise:** B1 ✅ + slice A ✅ merged locally (SHAs carried, condition-3-of-
+record closed); publication HELD (timing decision open at master/operator). Slice C waits on B2. B2
+resumed (union scope; owes complete B2C2-2 + third re-panel). Matrix Arm-1 R-4.8 carrier now in PLAN.
+Release hold ABSOLUTE.
