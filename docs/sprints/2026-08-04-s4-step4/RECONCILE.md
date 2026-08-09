@@ -478,3 +478,30 @@ Slice C #22 — behind A in stack, then C→B2 back-to-back per the operator's I
 HELD on the home-carrier ruling; owes complete B2C2-2 + third re-panel. Matrix Wave-A cb1f6254 —
 separate, owes docs-lane INDEX refresh; note option (a) would task matrix Arm-1 with the packer-home
 carrier. No token beyond B1; release hold ABSOLUTE.
+
+**Slice A authorized + home-carrier defer ratified + B2 resume + R-4.8 to matrix (2026-08-09 ~0242):**
+Master carried two operator rulings down (`022707`).
+**(1) Slice A #21 — condition-4 token ISSUED** (`023857`) to s4-floor.implementer for slice A ALONE.
+Operator authorized (condition 4); all four met (panel+re-check / master condition-3 020923 /
+operator grant). Re-verified at this seat: A tip 33153137 unmoved, merges clean into current main
+e8acb6a (merge-tree exit 0, one commit on B1). I do NOT execute — implementer merges, re-verifies at
+actual tip, routes SHA up to close condition-3-of-record.
+**(2) Home-carrier defer RATIFIED; R-4.8 operative.** The home-prefix needle lands WITH the pack-time
+packer-home manifest carrier authored by the matrix Arm-1 schema act; R-4.8 (RESIDUALS.md:951) is the
+durable tracker — hard-gated before ANY release. Scope ruling unchanged (home/username in scope,
+path-context).
+**(3) B2 resume AUTHORIZED** (`024013`) → s4-floor.planner: fold complete image-ID union (Claude CHILD
+ids + PARENT ids both adapters + refused-row message ids) + cycle-2 remainder in ONE commit on
+03e672ca, then third re-panel (M-4 under union-scope acceptance; home-prefix falsifier belongs to the
+R-4.8 carrier head, NOT this one). B2's third-panel pass unblocks the C→B2-immediate pair.
+**(4) R-4.8 carrier carried into matrix Arm-1 scope** (`024150`) → s4-matrix.planner: capture Env.home
+at pack, serialize into SessionProvenance backward-compatibly under F+G, consumed only by the
+session-install verifier (metadata, inside the session-only line); carrier + floor needle land together
+on the schema-act head; non-blocking for B2's current resume and current Arm-1 work.
+
+**Merge picture now:** B1 ✅ merged (e3f8f39; implementer SHA-up still owed to close condition-3-of-record).
+Slice A #21 — condition-4 token issued, awaiting the implementer's merge + SHA-up. Slice C #22 — waits
+on B2 readiness (C→B2-immediate election). B2 #23 — resume authorized (union scope); owes complete
+B2C2-2 + third re-panel; home-prefix deferred to R-4.8. Matrix Arm-1 — now owns the R-4.8 packer-home
+carrier (design lifecycle); Wave-A cb1f6254 still owes docs-lane INDEX refresh. No token beyond slice A;
+release hold ABSOLUTE; R-4.8 hard-gated before release.
