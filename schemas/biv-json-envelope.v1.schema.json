@@ -18,6 +18,8 @@
         "properties": {
           "kind": {"type": "string"},
           "path": {"type": "string"},
+          "artifact": {"type": "string"},
+          "bytes": {"type": "integer", "minimum": 0, "description": "Artifact size in bytes."},
           "detail": {"type": "string"}
         }
       }

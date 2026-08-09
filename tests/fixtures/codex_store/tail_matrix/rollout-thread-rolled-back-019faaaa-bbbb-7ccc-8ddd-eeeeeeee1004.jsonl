@@ -1,0 +1,2 @@
+{"timestamp":"2026-08-05T01:06:00Z","type":"session_meta","payload":{"id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1004","session_id":"019faaaa-bbbb-7ccc-8ddd-eeeeeeee1004","cwd":"/ws/proj","cli_version":"0.144.0"}}
+{"timestamp":"2026-08-05T01:07:00Z","type":"thread_rolled_back","payload":{}}

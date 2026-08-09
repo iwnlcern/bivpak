@@ -334,6 +334,22 @@ Warning adapter_warning(const std::string_view encoded) {
                  .path = std::string{encoded.substr(colon + 1U)}};
 }
 
+std::string terminal_safe(const std::string_view text) {
+  constexpr std::string_view hex = "0123456789ABCDEF";
+  std::string safe;
+  safe.reserve(text.size());
+  for (const unsigned char byte : text) {
+    if (byte < 0x20U || byte == 0x7FU) {
+      safe += "\\x";
+      safe.push_back(hex.at(byte >> 4U));
+      safe.push_back(hex.at(byte & 0x0FU));
+    } else {
+      safe.push_back(static_cast<char>(byte));
+    }
+  }
+  return safe;
+}
+
 struct ChildArtifactMatcher {
   std::string_view child_id;
 
@@ -486,7 +502,9 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   report.flavor = path_flavor(source);
   report.image_id = uuid4();
   for (const auto& path : scan_result->skipped_unsupported) {
-    report.warnings.push_back(Warning{.kind = "UnsupportedFileTypeSkipped", .path = path});
+    report.warnings.push_back(
+        Warning{.kind = std::string{kWarningUnsupportedFileTypeSkipped},
+                .path = path});
   }
   for (const auto& path : scan_result->unreadable) {
     report.warnings.push_back(Warning{.kind = "SourceUnreadableSubpath", .path = path});
@@ -561,7 +579,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         }
       }
       if (session.live_at_pack) {
-        report.warnings.push_back(Warning{.kind = "SessionLiveAtPack",
+        report.warnings.push_back(Warning{.kind = std::string{kWarningSessionLiveAtPack},
                                           .path = session.original_session_id});
       }
       auto entry = manifest_entry_for(session, source, created.rfc3339);
@@ -684,6 +702,24 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
 }
 
 }  // namespace
+
+std::string warning_text(const Warning& warning) {
+  if (warning.kind == kWarningSessionLiveAtPack) {
+    return "warning: session " + terminal_safe(warning.path) +
+           " may have been live at pack time";
+  }
+  if (warning.kind == kWarningTornTailDropped &&
+      warning.artifact.has_value() && warning.bytes.has_value()) {
+    return "warning: torn tail dropped from " +
+           terminal_safe(*warning.artifact) + ": " +
+           std::to_string(*warning.bytes) + " bytes";
+  }
+  auto rendered = "warning: " + terminal_safe(warning.kind);
+  if (!warning.path.empty()) {
+    rendered += ": " + terminal_safe(warning.path);
+  }
+  return rendered;
+}
 
 expected<PackReport> pack(const std::filesystem::path& source_dir) {
   try {

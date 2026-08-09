@@ -77,6 +77,12 @@ void Writer::value_int(const std::int64_t value) {
   end_value();
 }
 
+void Writer::value_uint(const std::uint64_t value) {
+  begin_value();
+  out_ += std::to_string(value);
+  end_value();
+}
+
 void Writer::value_bool(const bool value) {
   begin_value();
   out_ += value ? "true" : "false";

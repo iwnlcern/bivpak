@@ -1,5 +1,7 @@
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -90,6 +92,64 @@ TEST_CASE("pack success envelope includes advisories") {
   CHECK(json.find("\"session_count\": 1") != std::string::npos);
   CHECK(json.find("\"manifest\"") != std::string::npos);
   CHECK(json.find("\"error\": null") != std::string::npos);
+}
+
+TEST_CASE("pack warning carrier serializes optional artifact and byte facts") {
+  biv::pack::PackReport report;
+  report.image_path = "/tmp/sample.bvpk";
+  report.source_path = "/tmp/sample";
+  report.image_id = "00000000-0000-4000-8000-000000000000";
+  report.warnings.push_back(biv::pack::Warning{
+      .kind = std::string{biv::pack::kWarningTornTailDropped},
+      .path = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee2001",
+      .artifact = "agents/codex/session.jsonl",
+      .bytes = 42U});
+  report.warnings.push_back(biv::pack::Warning{
+      .kind = "SourceUnreadableSubpath", .path = "unreadable.txt"});
+
+  const auto json = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 2);
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(json).get(document) == simdjson::SUCCESS);
+
+  simdjson::dom::array warnings;
+  REQUIRE(document["warnings"].get(warnings) == simdjson::SUCCESS);
+  const auto warning_count = std::distance(warnings.begin(), warnings.end());
+  REQUIRE(warning_count == 2);
+
+  std::string_view artifact;
+  REQUIRE(warnings.at(0)["artifact"].get(artifact) == simdjson::SUCCESS);
+  CHECK(artifact == "agents/codex/session.jsonl");
+  std::uint64_t bytes = 0;
+  REQUIRE(warnings.at(0)["bytes"].get(bytes) == simdjson::SUCCESS);
+  CHECK(bytes == 42U);
+
+  simdjson::dom::element absent;
+  CHECK(warnings.at(1)["artifact"].get(absent) == simdjson::NO_SUCH_FIELD);
+  CHECK(warnings.at(1)["bytes"].get(absent) == simdjson::NO_SUCH_FIELD);
+}
+
+TEST_CASE("pack warning bytes serialize uint64 maximum as an unsigned JSON integer") {
+  biv::pack::PackReport report;
+  report.image_path = "/tmp/sample.bvpk";
+  report.source_path = "/tmp/sample";
+  report.image_id = "00000000-0000-4000-8000-000000000000";
+  report.warnings.push_back(biv::pack::Warning{
+      .kind = std::string{biv::pack::kWarningTornTailDropped},
+      .path = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee2001",
+      .artifact = "agents/codex/session.jsonl",
+      .bytes = std::numeric_limits<std::uint64_t>::max()});
+
+  const auto json = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 2);
+  CHECK(json.find("\"bytes\": 18446744073709551615") != std::string::npos);
+  CHECK(json.find("\"bytes\": \"18446744073709551615\"") == std::string::npos);
+
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(json).get(document) == simdjson::SUCCESS);
+  std::uint64_t bytes = 0;
+  REQUIRE(document["warnings"].at(0)["bytes"].get(bytes) == simdjson::SUCCESS);
+  CHECK(bytes == std::numeric_limits<std::uint64_t>::max());
 }
 
 TEST_CASE("pack envelope uses per-kind advisory shapes") {

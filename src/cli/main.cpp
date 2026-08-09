@@ -42,6 +42,11 @@ int emit_error(std::string_view verb, const biv::BivError& error, bool json) {
 }
 
 void emit_pack_text(const biv::pack::PackReport& report) {
+  for (const auto& warning : report.warnings) {
+    // SessionLiveAtPack line shape: /* m-3 spelling at consumer review */
+    // TornTailDropped line shape: /* m-3 spelling at consumer review */
+    std::cout << biv::pack::warning_text(warning) << '\n';
+  }
   for (const auto& advisory : report.advisories) {
     if (advisory.kind == "prune-summary") {
       std::cout << "pruned " << advisory.entries.size() << " path(s)\n";

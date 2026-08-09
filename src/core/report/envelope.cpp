@@ -24,6 +24,14 @@ void write_warnings(json::Writer& writer, const std::vector<pack::Warning>& warn
       writer.key("path");
       writer.value_string(warning.path);
     }
+    if (warning.artifact.has_value()) {
+      writer.key("artifact");
+      writer.value_string(*warning.artifact);
+    }
+    if (warning.bytes.has_value()) {
+      writer.key("bytes");
+      writer.value_uint(*warning.bytes);
+    }
     writer.end_object();
   }
   writer.end_array();
