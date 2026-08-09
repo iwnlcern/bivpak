@@ -357,3 +357,14 @@ collision), no refusal-radius/design/schema change. A6-part-2 class. Any third f
 TU/CMake/manifest = new deviation. Owned fold-relay miss (instrument-substitution) accepted;
 eighth clean pair-gate catch. BL2-2 is mechanism (2) scan-soundness — the condition B2-1
 per-session rests on.
+
+**CI-leg RULED (a) (operator `202307`): merge on local-green.** Count gate removed as a
+merge precondition (main unprotected, local-Docker governs) → unhurried R-3.48 hygiene.
+Slice-A publication question RESOLVED (remote Actions non-required). Floor stack merges
+B1→A→C on the operator's per-candidate token (ancestry verified ff63e52⊂798526c⊂ec9a2db,
+all →main). **B1 #15 UNBLOCKED** (its only blocker was the count gate) and handed UP for
+condition-3 as the first stack merge (`202714`); slice A #21 second (route its condition-3
+on pair confirmation); slice C #22 banked third; matrix Wave-A cb1f6254 banked (separate
+stack). Merge-mechanics: docs-lane divergence makes each merge clean-but-not-ff over
+disjoint paths — master's condition-3 ff/conflict check. Condition 4 (operator token) owed
+per candidate; merge ≠ release; hold ABSOLUTE.
