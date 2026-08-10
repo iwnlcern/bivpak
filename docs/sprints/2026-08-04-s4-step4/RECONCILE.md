@@ -808,3 +808,32 @@ under the derived per-session ruling) → host+Docker+merge-trees → republish 
 re-verification → fresh condition-3s (C first, B2 immediate). Matrix Arm-1 R-4.8 — design rev4 (MF-1
 Option A folded via make_packer_home factory) + one-fold IMPL dispatch in flight; red-2 control done;
 R-4.10/R-4.11 needle-side, R-4.12 m-2/Step-6. No live token; release hold ABSOLUTE.
+
+**C+B2 condition-3 handed up (re-stack verified) + R-4.8 re-check disposed (2026-08-09 ~2246):**
+**C→B2 RE-STACK VERIFIED + HANDED UP (223941):** floor completed the re-stack; I re-verified both new
+heads at the bytes: stale-base defect CURED (rebuilt-A 33153137 ⊂ C d6e44d9, old-A gone), WHOLE stack
+merges clean (merge-tree main→C exit0, C→B2 exit0 — verified full stack this time, the gap master's
+202301 caught). C d6e44d9 (PR #22, 24 paneled paths) + B2 0653fea (PR #23, 17 = 16+test_sessions);
+B2 fold set intact (I-3 decode_keys=true x3, TIMEOUT 600, F2, fences); re-expressed test satisfies my
+214526 bound (version-refusal PRESERVED agent_not_validated_failed + verify-hit PER-SESSION verify-hits/
+origin_path). Handed up C-first/B2-immediate for master condition-3; down-ack 224121; panels carry by
+delta-equality.
+**R-4.8 RE-CHECK PRODUCT-PASS 3/3 (223724 → disposed 224450 down / 224604 up):** targeted re-check at
+2bc7a078: security PASS (MF-1 closed all boundary/encoding), correctness PASS (rev4 conformance, R-4.12
+clean vs BASE, prior HIGH findings closed), test-coverage MUST-FIX narrow. Ruled the routed extended-root
+cell **Option A** (amends my 204159): extended >4→>7 + single fail-closed root-length helper — verified
+the gap at bytes (manifest.cpp:463-476: \\?\C:\ len7 slipped >4 while /mnt/c/ >7 and C:/ >3 banned = scoped
+fire-on-everything); Option B (bless inconsistency) declined. RF-1 gating (MF-5 env guards INERT — the
+hermeticity fix landed as moved-field-same-outcome; create store dirs + agent_sessions.empty falsifier) +
+RF-2 (store file-SET receipt) endorsed → second bounded fold ONE commit → targeted check (lead+tests+
+security). Routed 2 registry items to master: needle-head verbatim-match constraint (rides R-4.11); MF-6
+absent-arm residual-vs-condition (falsifier owed if adapter.hpp:161 nullopt default drops or a 2nd
+packer_home writer appears). Re-check record sealed e6a589a5. NOTE: the re-paste of 205222 last turn was
+already-disposed; the C→B2 restack semantic-conflict was concurred (214526) — both handled.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (publication held). C d6e44d9 + B2 0653fea — condition-3
+handed up (whole stack clean), awaiting master condition-3 + operator condition-4 (C first, B2 immediate);
+slice E stacks on B2 next. Matrix Arm-1 R-4.8 carrier — re-check product-pass; second bounded fold
+(extended-root Option A + RF-1/RF-2) → targeted check → then R-4.8 needle work (R-4.10/R-4.11 + verbatim
+constraint ride it). Residuals: R-4.8/R-4.9/R-4.10/R-4.11 + R-4.12 (m-2 Step-6) + the MF-6 condition
+(master). Both E2 reds closed. No live token; release hold ABSOLUTE.
