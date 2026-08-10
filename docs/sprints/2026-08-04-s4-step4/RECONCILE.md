@@ -786,3 +786,25 @@ orphan closed (R-4.9). Matrix Arm-1 R-4.8 carrier — MF-1 Option A design-rev3 
 targeted re-check → then the R-4.8 needle work (R-4.10/R-4.11 ride it); red 2 control done. Residuals:
 R-4.8 (home-prefix needle), R-4.9 (orphan scrub, electable), R-4.10/R-4.11 (needle-side), R-4.12 (m-2
 Step-6). No live token; release hold ABSOLUTE.
+
+**205222 re-paste = already disposed; answered the C→B2 restack objection window (2026-08-09 ~2145):**
+The 205222 residuals-registered relay was already disposed last turn (adbaaf2 down + 721eeae reconcile) —
+not re-processed. Meanwhile the floor re-stack hit a GENUINE semantic conflict and handled it correctly
+intra-pair: implementer STOPPED (212704, ESCALATION_SCAN trigger-present, replay-only token forbade the
+cell) → planner ruled it a DERIVED disposition (213224): the verify-hit refusal cell is NOT open — master
+ruled it PER-SESSION (B2-1, 220234) and the fourth re-panel sealed M-4-holds-FULLY at those semantics, so
+rebuilt-A's three cohort-surface tests pin the SUPERSEDED pre-B2 behavior incidentally (A-BL1 purpose =
+version-refusal row survives, preserved by per-session re-expression). CC'd me + operator with an
+objection window. I **CONCURRED (214526, no objection)** — byte-verified: per-session seal in the
+fourth-panel record; rebuilt-A cohort test present at 33153137:test_sessions.cpp; option 1 would silently
+undo master's ruling (lock-in-inversion precedent). Held one bound: the re-expression must preserve each
+test's version-refusal kill-power (no deletion/weakening) or stop-and-route; I confirm at my targeted
+re-verification of the new SHAs. My 204023 stop-and-route is honored — a conflict governed by EXISTING
+master law is applied as a derived disposition + objection window, not re-escalated as a fresh election.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (publication held). C→B2 pair — RE-STACKING (C mechanically
+restacked host-green at d6e44d9; B2 replay at b6c3fd7, amending the three re-expressed rebuilt-A tests
+under the derived per-session ruling) → host+Docker+merge-trees → republish #22/#23 → my targeted
+re-verification → fresh condition-3s (C first, B2 immediate). Matrix Arm-1 R-4.8 — design rev4 (MF-1
+Option A folded via make_packer_home factory) + one-fold IMPL dispatch in flight; red-2 control done;
+R-4.10/R-4.11 needle-side, R-4.12 m-2/Step-6. No live token; release hold ABSOLUTE.
