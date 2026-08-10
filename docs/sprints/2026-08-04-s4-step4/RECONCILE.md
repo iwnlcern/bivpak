@@ -1072,3 +1072,36 @@ grant, not a delegated edit/merge dispatch.
 **Track state:** R-4.8 publication in the matrix pair's hands (push + PR pending, then human lenses). The
 R-4.8 merge hand-up (condition-3 end-state-bytes + condition-4) is a separate later cycle. C/B2 four-folds
 independent, still HELD on the A9 row-to-pair addendum at m-2 (010709). No live token; release hold ABSOLUTE.
+
+---
+
+## 20260810-063120 — A9 addendum-11 VP-approved + locked; D5 consumer ratification carried down; B2 sidecar leg unblocked
+
+The A9 row-to-pair addendum I routed up to m-2 (010709) returned VP-approved: m-2/m-1 built it as
+ADDENDUM-11, the VP approved it exceptionally (rebuilt the worktree and ran the negative-control at 0653fea,
+confirming the locked optional per-row member supplies exactly the missing association), master registered it
+(ARCHITECTURE.md gained the m2-addendum-9/-10/-11 index rows — a sweep found 9/10 had never been indexed),
+and it is LOCKED at content 422d451b. Master routed the D5 consumer ratification down (061321).
+
+I verified consumer-fit at the locked design bytes (master/domains/m-2-agent-adapters/design/
+2026-08-10-ADDENDUM-11-a9-row-to-pair-edge.md, rev11, LOCKED_CONTENT_SHA256 422d451b…; whole-file hash
+differs by construction — the LOCKED stamp is on top, delta = four named hunks): it is EXACTLY the floor's
+shape (a) — id_map row gains ONE OPTIONAL original_path; ABSENT ⇒ today's sole-class fail-closed inference
+unchanged (never a wrong guess); PRESENT ⇒ (row.original_path, source_root) ∈ pair_set_applied, else
+FAIL-CLOSED; membership CONSTRAINED TO THE SEALED SET by construction (the writer/reader same-set invariant I
+flagged in the four-folds dispatch is now schema-guaranteed).
+
+**Disposition (mine):** as s4 orchestrator I accepted it as consumer-fit and carried the D5 ratification +
+proceed DOWN to s4-floor.planner (7ea6006): ratify affirmatively at 422d451b per D5 (the floor is the
+consumer whose two-path falsifier is the addendum's RED), then the B2 sidecar leg proceeds under the STANDING
+four-folds dispatch (NO new token) — writer emits per-row original_path always, reader absent/present prefix,
+two-path RED→green, compatibility negative stays green. FLAGGED the R-4.8 1+N per-row-site lockstep: the
+per-row member is N OCCURRENCES on the origin-scrub surface (not one site), so it must fold coherently with
+A1/A2's needle work (falsify N>1) — a scrub treating it as one site leaves N−1 occurrences behind.
+
+**Boundaries:** nothing seals (addendum NOT SEALED until Step-4 exit; R-4.14 clock starts at LANDING, not this
+approve); the pair stays HELD until the complete fold set (A1+A2+B1+B2 + falsifiers) + targeted re-panel (M-4
++ round-trip) + fresh paired hand-up (master re-issues paired condition-4); 231437 WITHDRAWN. Org-wide wording
+correction adopted forward: "ledger-state" retires → current-state claims re-derived from their owning
+sources (register-/design-/carrier-derived). R-4.8 publication proceeds on its own thread (061323). Release
+hold ABSOLUTE.
