@@ -1357,3 +1357,39 @@ without B2). No new authority.
 fresh paired hand-up; R-4.15 (slice E, Step-4 exit), R-4.16 (register) booked; (a) with m-2. R-4.8 — 5/6
 must-fixes landed, MFX-1/MFX-2 micro-fold in flight → verification → merge hand-up. Nothing seals; 231437
 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-160605 — C/B2 re-check FAILED 3/3; E1-scout refuted a two-lens Major; G-4 the fourth origin-ID surface
+
+The floor pair's targeted re-check at 2b5675a FAILED all three lenses; G-1..G-4 tokened as ONE bounded fold;
+no hand-up (correct). My rulings were absorbed (R-4.15 not in this fold, WSL hard-OUT, R-4.16 noted). Master's
+mandatory dimensions: the {}-body round-trip PASSES end-to-end on production code; child/alias F-4/F-5 CLOSED
+in both adapters (staged-provenance gate removed, codex all-records loop unions the child artifact-derived
+identity, fixture blindness closed). But G-4 is a FOURTH surface: claude's alias harvest is conditioned on
+manifest child ATTRIBUTION, so an unattributed subagent's agentId never enters the union and verify_scan can't
+see it (foreign-image reachable). Also gating: G-1 (A1-shape sibling falsifier absent — fixture puts survivor
+in the other adapter), G-2 (the 090631 codex staged-reader mandate undischarged — id:A+session_id:B aborts the
+whole pack), G-3 (writer-accepts/reader-drops now silent → session loss on a legal round-trip).
+
+**The standout — an E1 scout refuted a two-lens Major** (the exact discipline in [[scout-real-data-before-
+folding-a-lens-major]]): two independent lenses rated as Major that the new writer guard rests on an
+unvalidated assumption ("a subagent transcript's sessionId is the PARENT's") and would refuse legal images.
+The pair MEASURED the real store (read-only, identity fields only): 1695 subagent transcripts — 1657 (97.8%)
+parent-id, 38 absent, 0 own-id, 0 other → the guard is CORRECT; folding on the lens word would have removed a
+working containment control and shipped a leak. The pair also reconciled its own first-measurement
+depth-bucketing error (1124 nested files) before claiming ("a scout figure that cannot be reconciled is not
+evidence"). Second scout row: 66% real layout is NESTED and no fixture used it → fixtures reality-shaped
+(guard/reader cover nested via prefix; code fine, fixtures were the gap).
+
+**Disposition (mine):** carried the method finding UP to master (SITREP, pdc 85e307e) with a recommendation to
+anchor it org-wide per the integrity-≠-containment durable-anchor precedent (the planner flagged it "worth
+carrying beyond this pair"; durable anchoring is master's authority), and updated master's structural-lesson
+tracking — G-4 makes FOUR origin-ID dimensions (I-3 bytes / R-4.13 seeding / R-4.15 paths / G-4
+attribution-conditioned union admission). Endorsed the implementer's HOLD on the 090631 push/republish
+contradiction (correct read; no external mutation). No relay to the pair — they are folding G-1..G-4 under the
+delegated token, nothing routed to me.
+
+**Track state:** C/B2 — G-1..G-4 folding at the pair → re-check (both mandatory falsifiers + the G-4/G-1/G-2/
+G-3 falsifiers) → fresh paired hand-up (A10.3). R-4.8 — MFX micro-fold in flight → verification → merge
+hand-up. Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
