@@ -868,3 +868,30 @@ fresh hand-up, both condition-4s to operator paired. Matrix Arm-1 R-4.8 — seco
 root Option A + RF-1 + RF-2) → targeted check → then the R-4.8 needle head (R-4.10, R-4.11 ×2 constraints,
 MF-6 condition dormant). Both E2 reds closed. Residuals: R-4.8..R-4.12 + MF-6 condition. No live token;
 release hold ABSOLUTE.
+
+**B2 targeted re-check PASSES → re-handed up; C+B2 pair-ready (2026-08-09 ~2311):**
+Convened the master-scoped targeted re-check at 0653fea (2 read-only lenses over the 6 differing files;
+11 carry byte-identical). Record: reviews/2026-08-09-s4-floor-b2-targeted-recheck-0653fea.md. BOTH PASS:
+- SECURITY: M-4 holds FULLY at the composed install.cpp — the entire 6a8ea75→0653fea delta is a single
+  refusal-EQUIVALENT swap (local version_admission → version_floor::admit; the extra branch is dead for
+  the hard-coded agents; host_version_unverified is a report-only field), so union assembly + per-session
+  verify_scan + F2 + I-3 are unperturbed. Refusal-equivalent guard ⇒ unchanged union ⇒ unchanged verify.
+- TESTS: all 4 files retain falsifying power. FRAMING CORRECTION (master's + my premise): the "un-granted
+  /ws/proj→/capability-origin re-expression" was a raw-count MISREAD — no fixture was rewritten; the count
+  rose 1→3 because a NEW composition-cohort test ("…preserves a sibling capability refusal") was APPENDED
+  in a B2-scope file (additive coverage of the rebuilt-A-guard × B2-verify composition). The I-3
+  KEY-rewrite/escaped-key tests are byte-identical (still /ws/proj); the granted test_sessions
+  re-expression is a net gain (revived a dead refusal branch). So it was legitimate additive coverage, not
+  a scope violation.
+Provenance for the composed head is now COMPLETE: 11 files carry byte-identical to the sealed fourth panel
++ 6 files re-checked at the composed bytes. B2 0653fea re-handed up for condition-3 (231006); on master's
+condition-3, both C d6e44d9 (met, held) + B2 route to the operator PAIRED (C first, B2 immediate). ONE
+pre-existing (NOT composition-introduced) candidate residual routed to master: codex staged+version-refused
+sibling's artifact-derived ALIAS id not needled (byte-identical at 6a8ea75, sealed by the fourth panel,
+Minor/PLAUSIBLE) — not a blocker.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (publication held). C d6e44d9 (condition-3 met) + B2 0653fea
+(re-check passed, re-handed up) — both awaiting master's B2 condition-3 → then operator condition-4 PAIRED
+(C first, B2 immediate). Slice E stacks on B2. Matrix Arm-1 R-4.8 — second bounded fold (extended-root
+Option A + RF-1/RF-2) → targeted check → needle head (R-4.10/R-4.11×2/MF-6 condition). Both E2 reds closed.
+No live token; release hold ABSOLUTE.
