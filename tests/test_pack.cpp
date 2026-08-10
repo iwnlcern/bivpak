@@ -226,19 +226,23 @@ TEST_CASE("pack captures packer_home per HOME shape") {
     CAPTURE(row.label);
     const auto root = make_tmp("packer-home-" + std::string{row.label});
     const auto source = root / "proj";
+    const auto codex_store = root / "codex";
+    const auto claude_store = root / "claude";
     std::filesystem::create_directories(source);
+    std::filesystem::create_directories(codex_store);
+    std::filesystem::create_directories(claude_store);
     write_file(source / "work.txt", "workspace");
     const auto home_value = row.use_temp_home
                                 ? std::optional<std::string>{(root / "home").string()}
                                 : row.home;
     const ScopedEnv home{"HOME", home_value};
-    const ScopedEnv codex_home{"CODEX_HOME", (root / "codex").string()};
-    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR",
-                                  (root / "claude").string()};
+    const ScopedEnv codex_home{"CODEX_HOME", codex_store.string()};
+    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", claude_store.string()};
 
     const auto report = biv::pack::pack(source);
 
     REQUIRE(report.has_value());
+    CHECK(report->agent_sessions.empty());
     const auto members = read_archive(root / "proj.bvpk");
     auto manifest = biv::manifest::parse(as_span(members.at(0).data));
     REQUIRE(manifest.has_value());

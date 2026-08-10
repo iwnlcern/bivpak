@@ -442,41 +442,40 @@ bool carrier_ascii_alpha(const char value) {
   return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z');
 }
 
-}  // namespace
+struct CarrierRoot {
+  PathFlavor flavor;
+  std::size_t root_length;
+};
 
-std::optional<PathFlavor> classify_absolute(const std::string_view path) {
+std::optional<CarrierRoot> classify_carrier_root(const std::string_view path) {
   if (path.size() >= 7U && path.starts_with("/mnt/") &&
       carrier_ascii_alpha(path.at(5)) && path.at(6) == '/') {
-    return PathFlavor::wsl;
+    return CarrierRoot{.flavor = PathFlavor::wsl, .root_length = 7U};
   }
-  if ((path.size() >= 3U && carrier_ascii_alpha(path.at(0)) &&
-       path.at(1) == ':' && (path.at(2) == '\\' || path.at(2) == '/')) ||
-      path.starts_with(R"(\\?\)") || path.starts_with("//?/")) {
-    return PathFlavor::windows;
+  if (path.starts_with(R"(\\?\)") || path.starts_with("//?/")) {
+    return CarrierRoot{.flavor = PathFlavor::windows, .root_length = 7U};
+  }
+  if (path.size() >= 3U && carrier_ascii_alpha(path.at(0)) &&
+      path.at(1) == ':' && (path.at(2) == '\\' || path.at(2) == '/')) {
+    return CarrierRoot{.flavor = PathFlavor::windows, .root_length = 3U};
   }
   if (path.starts_with('/')) {
-    return PathFlavor::posix;
+    return CarrierRoot{.flavor = PathFlavor::posix, .root_length = 1U};
   }
   return std::nullopt;
 }
 
+}  // namespace
+
+std::optional<PathFlavor> classify_absolute(const std::string_view path) {
+  const auto root = classify_carrier_root(path);
+  return root ? std::optional<PathFlavor>{root->flavor} : std::nullopt;
+}
+
 bool packer_home_valid(const PackerHome& value) {
-  const auto classified = classify_absolute(value.path);
-  if (classified != value.flavor) {
-    return false;
-  }
-  switch (value.flavor) {
-    case PathFlavor::posix:
-      return value.path.size() > 1U;
-    case PathFlavor::wsl:
-      return value.path.size() > 7U;
-    case PathFlavor::windows:
-      return value.path.size() >
-             (value.path.starts_with(R"(\\?\)") || value.path.starts_with("//?/")
-                  ? 4U
-                  : 3U);
-  }
-  return false;
+  const auto root = classify_carrier_root(value.path);
+  return root && root->flavor == value.flavor &&
+         value.path.size() > root->root_length;
 }
 
 std::optional<PackerHome> make_packer_home(const std::string_view path) {

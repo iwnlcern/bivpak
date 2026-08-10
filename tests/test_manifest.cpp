@@ -150,6 +150,11 @@ TEST_CASE("packer_home round-trips every flavor spelling") {
            FactoryRow{"C:\\", std::nullopt},
            FactoryRow{"//?/", std::nullopt},
            FactoryRow{R"(\\?\)", std::nullopt},
+           FactoryRow{R"(\\?\C:\)", std::nullopt},
+           FactoryRow{"//?/C:/", std::nullopt},
+           FactoryRow{R"(\\?\C:)", std::nullopt},
+           FactoryRow{R"(\\?\C:\x)", biv::manifest::PathFlavor::windows},
+           FactoryRow{"//?/C:/x", biv::manifest::PathFlavor::windows},
        }) {
     CAPTURE(row.path);
     const auto actual = biv::manifest::make_packer_home(row.path);
@@ -189,6 +194,12 @@ TEST_CASE("packer_home invalid engaged values collapse to absent on serialize") 
            biv::manifest::PackerHome{"C:\\", biv::manifest::PathFlavor::windows},
            biv::manifest::PackerHome{"//?/", biv::manifest::PathFlavor::windows},
            biv::manifest::PackerHome{R"(\\?\)", biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{R"(\\?\C:\)",
+                                     biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{"//?/C:/",
+                                     biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{R"(\\?\C:)",
+                                     biv::manifest::PathFlavor::windows},
        }) {
     CAPTURE(bad.path);
     auto manifest = fixed_manifest();
@@ -238,7 +249,7 @@ TEST_CASE("packer_home lone keys fail closed naming the flavor key") {
 }
 
 TEST_CASE("packer_home malformed values fail closed naming the home key") {
-  for (const auto& injected : std::array<std::string, 13>{
+  for (const auto& injected : std::array<std::string, 16>{
            "\"packer_home\":42,\"packer_home_flavor\":\"posix\",",
            "\"packer_home\":\"\",\"packer_home_flavor\":\"posix\",",
            "\"packer_home\":\"relative/home\",\"packer_home_flavor\":\"posix\",",
@@ -252,6 +263,9 @@ TEST_CASE("packer_home malformed values fail closed naming the home key") {
            "\"packer_home\":\"C:\\\\\",\"packer_home_flavor\":\"windows\",",
            "\"packer_home\":\"//?/\",\"packer_home_flavor\":\"windows\",",
            "\"packer_home\":\"\\\\\\\\?\\\\\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"\\\\\\\\?\\\\C:\\\\\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"//?/C:/\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"\\\\\\\\?\\\\C:\",\"packer_home_flavor\":\"windows\",",
        }) {
     CAPTURE(injected);
     const auto parsed = biv::manifest::parse(bytes_of(carrier_json(injected)));
@@ -266,6 +280,29 @@ TEST_CASE("packer_home malformed values fail closed naming the home key") {
   REQUIRE(extended_control->packer_home == biv::manifest::PackerHome{
                                                 R"(\\?\C:\Users\x)",
                                                 biv::manifest::PathFlavor::windows});
+
+  struct ExtendedBoundaryControl {
+    std::string injected;
+    std::string expected;
+  };
+  for (const auto& control : std::array{
+           ExtendedBoundaryControl{
+               "\"packer_home\":\"\\\\\\\\?\\\\C:\\\\x\","
+               "\"packer_home_flavor\":\"windows\",",
+               R"(\\?\C:\x)"},
+           ExtendedBoundaryControl{
+               "\"packer_home\":\"//?/C:/x\","
+               "\"packer_home_flavor\":\"windows\",",
+               "//?/C:/x"},
+       }) {
+    CAPTURE(control.expected);
+    const auto parsed =
+        biv::manifest::parse(bytes_of(carrier_json(control.injected)));
+    REQUIRE(parsed.has_value());
+    REQUIRE(parsed->packer_home == biv::manifest::PackerHome{
+                                       control.expected,
+                                       biv::manifest::PathFlavor::windows});
+  }
 }
 
 TEST_CASE("packer_home flavor errors name the flavor key not source_path_flavor") {

@@ -498,8 +498,12 @@ TEST_CASE("Codex install produces identical bytes with or without packer_home") 
   auto record = codex_entry();
   record.children.clear();
   const std::vector<biv::manifest::AgentSessionEntry> records{record};
-  const auto install_bytes = [&](const std::string_view arm,
-                                 std::optional<biv::manifest::PackerHome> home) {
+  struct StoreReceipt {
+    std::vector<std::string> files;
+    std::map<std::string, std::string> contents;
+  };
+  const auto install_receipt = [&](const std::string_view arm,
+                                   std::optional<biv::manifest::PackerHome> home) {
     const auto store = root / std::string{arm};
     fs::create_directories(store);
     auto target = target_for(workspace, store, members);
@@ -513,26 +517,32 @@ TEST_CASE("Codex install produces identical bytes with or without packer_home") 
     REQUIRE(result->id_map.size() == 1U);
     const auto& installed_id = result->id_map.front().installed_session_id;
     const auto files = relative_files(store);
-    const auto parent_file = std::ranges::find_if(
-        files, [&](const std::string& file) {
-          return file.find(installed_id) != std::string::npos;
-        });
-    REQUIRE(parent_file != files.end());
-    auto installed = read_text(store / *parent_file);
-    auto id_position = installed.find(installed_id);
-    REQUIRE(id_position != std::string::npos);
-    while (id_position != std::string::npos) {
-      installed.replace(id_position, installed_id.size(), "<installed-id>");
-      id_position = installed.find(installed_id, id_position + 14U);
+    StoreReceipt receipt;
+    for (const auto& file : files) {
+      auto relative = file;
+      auto installed = read_text(store / file);
+      auto normalize_id = [&](std::string& value) {
+        auto id_position = value.find(installed_id);
+        while (id_position != std::string::npos) {
+          value.replace(id_position, installed_id.size(), "<installed-id>");
+          id_position = value.find(installed_id, id_position + 14U);
+        }
+      };
+      normalize_id(relative);
+      normalize_id(installed);
+      receipt.files.push_back(relative);
+      receipt.contents.emplace(std::move(relative), std::move(installed));
     }
-    return installed;
+    std::ranges::sort(receipt.files);
+    return receipt;
   };
 
-  const auto engaged = install_bytes(
+  const auto engaged = install_receipt(
       "engaged", biv::manifest::PackerHome{
                      "/Users/packer", biv::manifest::PathFlavor::posix});
-  const auto absent = install_bytes("absent", std::nullopt);
-  REQUIRE(engaged == absent);
+  const auto absent = install_receipt("absent", std::nullopt);
+  REQUIRE(engaged.files == absent.files);
+  REQUIRE(engaged.contents == absent.contents);
   fs::remove_all(root);
 }
 
