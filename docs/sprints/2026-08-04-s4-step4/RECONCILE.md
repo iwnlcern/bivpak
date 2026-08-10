@@ -1256,3 +1256,39 @@ finding); cite the R-4.8 record if it surfaces.
 lineage chain (both edges) toward the targeted re-check → merge hand-up (§1 + end-state-bytes condition-3).
 DRAFT PR #24 stable. C/B2 four-folds — all four legs folding concurrently under the standing token toward the
 re-panel + fresh paired hand-up. Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-143451 — C/B2 targeted re-panel FAILED; six fold at the pair; three routed up
+
+The targeted re-panel at C b8083be / B2 20e56bc FAILED: M-4 FAIL + B1-round-trip FAIL (A11-conformance 23
+clauses PASS, tests PASS). The panel earned its keep — the fold closed A1-truncation + A2-PRIMARY + B1-as-
+path-equality, but M-4 caught the A2 closure MISSED the CHILD/alias dimension (claude refusal-branch alias
+harvest gated on staged provenance install.cpp:750-752; codex never unions child artifact-derived identity
+for version-refused records — two Majors, the class master ruled gating) and B1 caught same-set open over
+CONTENT (a {} subagent body — the product's own fixture shape — hard-aborts the whole re-pack; 1 Crit + 3
+Major). Six pair-scope findings fold at the pair under a FRESH companion token; no hand-up on a failed panel;
+C/B2 stay HELD.
+
+**Disposition (mine):** routed the three beyond-pair-scope items UP to master (MERGE-GATE, pdc 79c8490), both
+gating-class ones byte-verified at my seat:
+- (a) WSL corridor → m-2: A11's certified PRESENT-membership (row.original_path, source_root.generic_string())
+  ∈ pair_set_applied appears UNSATISFIABLE for a windows-drive origin staged into a wsl workspace
+  (derive_pair_set emits windows-spelled targets). The all-pairs target check rewrite_common.cpp:982 is
+  byte-identical at 0653fea (pre-existing for codex; B2 widens to claude — provenance corrected from the
+  lens's "fold-introduced"). Certified-design territory → m-2 amends the formula or rules the corridor OOS.
+- (b) origin CHILD ids as store FILENAMES → master's gating call: install.cpp keeps the subtree tail verbatim
+  (subtree_rel; path = project_root/installed_session_id/subtree_rel), so subagents/<child.original_id>.jsonl
+  lands the origin child id as a store filename. Verified pre-existing (20e56bc~1 :166/:170). Per the standing
+  origin-ID-gates-even-pre-existing rule I recommended GATE + fold with slice E (minted-child-id rename, a
+  coherent writer+reader change), not register-and-forget.
+- (c) restore-side .biv planting → register (fail-closed today, no identity escape).
+
+**Pattern noted:** the child/alias/child-id dimension is the recurring soft spot in the origin-ID family —
+A2 (child artifact-derived identity, missed by the fold), (b) (child original id as filename). Closing PRIMARY
+origin identity does not close the family; the fold's re-check must carry a child/alias falsifier.
+
+**Track state:** C/B2 — re-panel FAILED, six folding at the pair → targeted re-check (child/alias + {}-body
+round-trip falsifiers) → fresh paired hand-up (A10.3: C never lands without B2); (a)/(b)/(c) awaiting
+master/m-2 dispositions. R-4.8 — six lens must-fixes + §2 folds in the matrix pair's hands (§4 closed (b)) →
+merge hand-up. Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
