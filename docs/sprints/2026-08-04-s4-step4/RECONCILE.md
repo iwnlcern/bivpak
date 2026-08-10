@@ -731,3 +731,34 @@ authorization. Matrix Arm-1 R-4.8 carrier 29796bb — red 1 disposed; red 2 nega
 implementer (190153), result pending. Open at master/operator: publication timing; the orphan-parent
 definition; C and B2 condition-3s + tokens. Sibling INDEX inversion (142630 truncated row) still
 unrepaired by s4-matrix. No live token; release hold ABSOLUTE.
+
+**B2 condition-3 REFUSED (stale base) + orphan RULED + R-4.8 panel disposed (2026-08-09 ~2043):**
+**B2 condition-3 REFUSED on merge mechanics (master 202301):** the fourth-panel PASS stands on CONTENT
+(I-3 closed), but the C→B2 pair is stacked on the SUPERSEDED old-A 798526c (never merged; the rebuilt
+one-commit new-A 33153137 landed in main), so C and B2 conflict with main. Re-verified at the bytes:
+old-A⊂C YES, old-A⊄main, new-A⊂main YES, new-A⊄C, merge-tree main C = 11 conflicts (add/add
+version_floor.cpp). Master's condition-3 caught what my hand-up deferred to it (LESSON: a stacked
+candidate's base can be superseded by a REBUILT predecessor — verify the whole stack merges, not just the
+immediate parent). RETURN carried down (204023): re-stack C's delta onto current main, B2 onto new C,
+suites green, TARGETED re-verification at the NEW SHAs, fresh condition-3s. **Orphan RULED (master):
+refuse-by-default ACCEPTED** (not-in-image parent id IS origin identity; fail-open re-leaks; id never
+dropped from union); prepare-time scrub = **R-4.9**, electable/NOT release-gating — do NOT fold into the
+re-stack.
+**R-4.8 carrier rigorous-review panel disposed (204159 down / 204327 up):** team-of-4 MUST-FIX, product
+bytes CLEAN. MF-2..MF-6 test-delta pair folds endorsed (incl. hermeticizing a pack test that walks the
+operator's REAL ~/.claude/~/.codex; dual-arm inertness receipt replacing an unfalsifiable box). **MF-1
+(degenerate-root validator)** RULED **Option A: tighten now** — verified packer_home_valid
+(manifest.cpp:463-465) admits /,C:/,/mnt/c/ → a "/" carrier makes the future needle fire-on-everything
+(worse class than the ratified skip); timing decisive (local/unpublished, pre-needle). Floor-contract =
+COMPATIBLE NARROWING (no re-ratification; floor CC'd to object). Mechanism: design rev3 + own approve →
+ONE complete fold (MF-1 manifest.cpp + MF-2..MF-6) → targeted re-check. Three candidate RESIDUALS routed
+to master ((1) carrier-emission opacity, (2) packer_home_flavor redundancy + /mnt/<alpha>/ mislabel —
+both needle-side/R-4.8; (3) pack.cpp::path_flavor fourth weaker copy — pre-existing sealed-behavior, own
+authority). Panel record sealed 006144b2.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (publication held at operator). C→B2 pair — condition-3
+REFUSED (stale base); RE-STACKING onto current main (C's delta, then B2), then fresh condition-3s; B2
+content (I-3 closed) intact. B2 orphan closed (R-4.9). Matrix Arm-1 R-4.8 carrier — panel MUST-FIX;
+MF-1 Option A + MF-2..MF-6 folding via design rev3 → one commit → targeted re-check; red 2 negative
+control pending; 3 residuals at master. Sibling INDEX inversion (142630) still unrepaired. No live token;
+release hold ABSOLUTE.
