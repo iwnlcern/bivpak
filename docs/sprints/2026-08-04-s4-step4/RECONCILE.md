@@ -653,3 +653,35 @@ Slice C waits on B2. B2 #23 f9675ea — third re-panel in flight (my convening);
 C→B2-immediate proceeds. Matrix Arm-1 R-4.8 carrier 29796bb — implemented, evidence disposition red 1
 affirmed / red 2 held on control; publication + rigorous review downstream. No live token; release
 hold ABSOLUTE.
+
+**B2 THIRD RE-PANEL — M-4 does NOT hold; B2 NOT bar-ready (2026-08-09 ~1855):**
+Convened the third targeted re-panel at f9675ea (3 cold read-only lenses: security/correctness/tests,
+cumulative ec9a2db..f9675ea, M-4 under union-scope acceptance). Panel record:
+reviews/2026-08-09-s4-floor-b2-third-repanel-f9675ea.md. Verdict: **M-4 does NOT hold — B2 NOT
+bar-ready.** Three material findings, ALL byte-verified at this seat:
+- **F1 Security CRITICAL = the open I-3** (jsonl key-arm origin-path leak): verify_scan
+  (rewrite_common.cpp:1044) uses decode_keys=false → JSON KEYS neither decode- nor raw-scanned; rewrite
+  leaves keys verbatim → an origin PATH at a JSON key survives into the installed session, locked in by
+  the PASSING test_adapter_claude_install.cpp:534-569. B2's own new verify_whole_document_bytes uses
+  decode_keys=true — asymmetric; B2 closed the class for one arm, left the dominant jsonl arm blind.
+  Fully fixable in-scope (mirror the key-decode), NO carrier blocker → NOT deferrable like R-4.8.
+  Routed UP to master (185149, family invariant 144700), recommend FOLD into B2.
+- **F2 Correctness MUST-FIX (B2-INTRODUCED)**: B2 ADDED parent→verify-set (codex/install.cpp:473-474,
+  confirmed in diff) but not parent→rewrite_ids (:404-431) → a real Codex session whose head carries
+  parent_thread_id SELF-REFUSES. B2 turned a silent leak into a hard refusal of legitimate data;
+  neither correct. Test-masked (fixture omits parent_thread_id). Folded DOWN to the pair (map parent in
+  rewrite id-map + de-mask the test; route the not-in-image invariant question up if it surfaces).
+- **F3 Tests IMPORTANT**: Codex child-id union member unverified (deleting the insert fails zero tests;
+  asymmetric with Claude's cross-session falsifier). Folded DOWN (add the Codex cross-session falsifier).
+Minors noted (valid_utf8 divergence, cross-pair re-scan, blank-line refusal, empty-artifact edge — all
+fail-closed/edge). SOUND: precedence fix (+ its falsifier RED→GREEN real), union assembly, store_root,
+decode logic, torn-tail wiring. **Dispositions:** DOWN fold to pair (185502): F2+F3 now, F1/I-3 land in
+the SAME amend if master concurs; **FOURTH re-panel owed** on the amend. UP to master (185149): I-3
+confirmed, fold recommended. B2 NOT bar-ready → the C→B2-immediate wave is HELD.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (condition-3-of-record closed; publication held at operator).
+Slice C waits on B2. B2 #23 f9675ea — third re-panel FAILED M-4; folding F2+F3, I-3 to master; fourth
+re-panel owed; NOT bar-ready. Matrix Arm-1 R-4.8 carrier 29796bb — implemented; red 1 affirmed / red 2
+held on negative control; completion + rigorous review + publication downstream. Sibling INDEX defect
+(truncated 142630 row + inversion) still unrepaired by s4-matrix (disclosed prior). No live token;
+release hold ABSOLUTE.
