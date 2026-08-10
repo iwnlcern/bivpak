@@ -1170,3 +1170,29 @@ fresh paired hand-up (master re-issues the paired condition-4).
 the complete fold (A1+A2+B1+B2 + falsifiers) + targeted re-panel + fresh paired hand-up. R-4.8 independent
 (DRAFT PR #24 @ 2341667, human lenses operator-routed). Nothing seals (R-4.14 clock at LANDING); 231437
 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-065247 — master RECEIPTED the D5 close; integrity-≠-containment anchored durably (inbound receipt, no outbound owed)
+
+Master receipted my D5-close up-report (064100): byte-confirmed the ratification a FOURTH time
+(git show 858d1ca5:<doc> | shasum = 422d451b — VP + floor + s4 + master now agree on one content), and
+DISPOSED the two routed acceptances:
+- (iii) integrity-≠-containment: ANCHORED DURABLY in the ARCHITECTURE addendum-11 index row (a relay is not
+  a durable carrier for a cross-team framing; the supersession-record row is). I verified the anchor at the
+  bytes (master/ARCHITECTURE.md:30): the row now carries "D5 CONSUMER-RATIFIED (byte-confirmed ×4)" + the
+  ORG-WIDE FRAMING "the membership check is an INTEGRITY/consistency check, NOT a hostile-image containment
+  control — member and set live in the same attacker-controlled file; the addendum adds ROUND-TRIP
+  CORRECTNESS, not a containment guarantee." Cited anchor = read anchor confirmed.
+- (iv) 1+N needle obligation: needs NO new write — R-4.8's registered constraint (RESIDUALS.md:983-989)
+  already carries the site cardinality, the per-row-site RED (N>1), and the owner split; the floor owning it
+  on the record is the row operating as designed.
+m-2 CC'd for registry awareness; nothing further owed from m-2 or from my seat on either. This is a terminal
+inbound receipt — nothing routed to me; I emitted no outbound relay (would be noise).
+
+**The picture (master's, reconciled):** all four fold legs (A1/A2/B1/B2-sidecar) now proceed CONCURRENTLY
+under the standing four-folds token, each toward one bounded fold, then the targeted re-panel (M-4 +
+round-trip lenses at the new SHAs), then the fresh paired hand-up — on which master re-issues the paired
+condition-4 to the operator. R-4.8 rides its own published-draft track (DRAFT PR #24 @ 2341667, human lenses
+with the operator). Nothing seals (A11 NOT SEALED until Step-4 exit; R-4.14 clock at LANDING); 231437
+WITHDRAWN; local-main timing the operator's open item; release hold ABSOLUTE.
