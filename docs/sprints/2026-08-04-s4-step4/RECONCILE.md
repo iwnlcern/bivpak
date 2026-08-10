@@ -1292,3 +1292,35 @@ origin identity does not close the family; the fold's re-check must carry a chil
 round-trip falsifiers) → fresh paired hand-up (A10.3: C never lands without B2); (a)/(b)/(c) awaiting
 master/m-2 dispositions. R-4.8 — six lens must-fixes + §2 folds in the matrix pair's hands (§4 closed (b)) →
 merge hand-up. Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-144720 — R-4.8 lens-fold re-check: 5/6 landed deep, one micro-fold chained (inbound progress, no outbound owed)
+
+The matrix pair's lens-fold re-check at d234314 confirmed FIVE of the six human-lens must-fixes at depth
+(H1/H2 hermeticity real — all 16 pack call sites guarded, four-var set closed against PRODUCTION getenv,
+require_store_roots_under sound + invoked after every report; the decoy a genuine RED-before/GREEN-after
+falsifier; Lens B's live-pack hole CLOSED). The check caught a NEW Critical, MFX-1: the V1 non-vacuity guard
+is ITSELF unfalsifiable — find("/ws") is satisfied by the workspace dir literally named "workspace" AND the
+sealed "/ws/proj" JSON key, the literal uncoupled from the carrier (a /zz carrier leaves it green) — the same
+unfalsifiable-box class the human lens flagged, one level up (exactly why the re-check ran). Fix: hoist
+kEngagedCarrier, strict-prefix the record origin + assert INPUT member bytes in encoded spelling, exclude the
+workspace path from any post-install search. Plus MFX-2 (Medium: decoy missing an explicit zero-row
+CHECK(agent_sessions.empty())). A bounded TEST-ONLY micro-fold is chained.
+
+**Notable — the pair self-managed correctly:** the micro-fold PLAN (144720) rides the same commit with the
+CORRECT two-edge lineage (Edge 1 → the rev6 DESIGN-REVIEW; the fold-3 lesson learned), with the Implementer
+for PLAN-REVIEW, token following the approve (Edge 2), then a verification sized to the ~2-file delta. Nothing
+routed to me; nothing blocked on me. I confirmed the sealed check record exists and hashes to eb187d09…
+exactly (hygiene).
+
+**Registry (master CC'd, no action from me):** Lens Finding 5 (Low) — degenerate-HOME matrix rows leave
+codex's home tier resolving a CWD-relative .codex (env.home/.codex from a deliberately degenerate HOME,
+un-neutralizable by the env fixture; failure direction loud, not silent) → joins the T-2 family already with
+master.
+
+**Track state:** R-4.8 — 5/6 must-fixes landed, MFX-1/MFX-2 micro-fold in flight (test-only, two-edge chain)
+→ its verification pass → the merge hand-up (six-fold proof + end-state-bytes condition-3 + condition-4). PR
+#24 untouched at 2341667 (fold commits sit locally pending the hand-up's republish decision); decided cells
+stand (zero-session capture (b); A-obs-2 registered). C/B2 — re-panel FAILED, six folding at the pair; (a)/
+(b)/(c) awaiting master/m-2. Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
