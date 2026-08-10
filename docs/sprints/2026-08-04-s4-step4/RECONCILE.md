@@ -982,3 +982,36 @@ authority needed); the two-path codex round-trip falsifier stands as RED evidenc
 Commits, Docker, merge-trees, republication, and the targeted re-panel HOLD so each head stays one bounded
 fold. C d6e44d9 / B2 0653fea stay published clean. 231437 paired authorization remains WITHDRAWN. Matrix
 Arm-1 R-4.8 second fold (233350) unaffected. No live token; release hold ABSOLUTE.
+
+---
+
+## 20260810-042015 — R-4.8 fold-3 token 030012 named-error DEAD; recovery Option 1 endorsed
+
+The matrix Implementer correctly refused fold-3 dispatch 030012: its PARENT_DISPATCH_ID pointed at
+s4-matrix-arm1-r48-fold2-check-verdict (a Planner/SITREP/report-only relay), not an approving PLAN-REVIEW
+edge — five relay-root parent-chain reds. I re-verified all four points at the bytes at this seat:
+030012's declared parent field, the parent's ROLE/PHASE/AUTHORITY (report-only SITREP), the five reds as
+named (the two lock-path reds correctly excluded as the previously-disposed false-red class), and that no
+action ran (branch untouched at 4c35f0f). The miss is the pair's — folds 1/2 got the approving edge only
+INCIDENTALLY from their design-rev approvals (211611/231944); a test-only fold with no design change has no
+fresh review and the edge must be BUILT.
+
+**Disposition (mine, the 004554/141650 shape):** 030012 DEAD; five reds NAMED + retired-by-replacement on
+the append-only record (no rewrite/backdate); no operator waiver engaged because Option 1 executes nothing
+under the dead token and satisfies the gate cleanly (a waiver would be needed only to execute past the reds
+or override the pair PLAN-REVIEW — neither happens). This is s4-internal dispatch mechanics = orchestrator
+scope; no route to master.
+
+**Two lineage gates, both required in the re-file:** the Implementer's 041555 PLAN-REVIEW (MUST-REVISE on
+the recovery PLAN rev0 035420) correctly caught a SECOND edge — because the fold-3 PLAN carries
+DESIGN_RECORD_KIND: design-doc, its parent must be the approving rev6 DESIGN-REVIEW
+(s4-matrix-arm1-r48-design-rev6-review, 231944), NOT the check SITREP. So the recovery must satisfy Edge 1
+(design-doc PLAN → DESIGN-REVIEW) AND Edge 2 (replacement dispatch → Implementer PLAN-REVIEW → the PLAN
+addressed to the Implementer). Endorsed Option 1 with both edges; the two technical tightenings (TF-2
+minted-members-only; split the fixed-width date/stamp blanking proof from the >=50 soak) are the pair's to
+fold through the normal plan-review loop. Replacement dispatch re-pins 4c35f0f, repeats SCOPE_DIFF, grants
+nothing until this disposition + the approve both land.
+
+**Track state:** matrix R-4.8 fold-3 recovery in flight (PLAN re-file pending). Branch LOCAL, publication
+held (P5), human lenses unrouted until post-fold-3 verification clean. Separately: the C/B2 four-folds
+track holds on the A9 row-to-pair addendum routed up to m-2 (010709). No live token; release hold ABSOLUTE.
