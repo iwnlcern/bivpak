@@ -1196,3 +1196,40 @@ round-trip lenses at the new SHAs), then the fresh paired hand-up — on which m
 condition-4 to the operator. R-4.8 rides its own published-draft track (DRAFT PR #24 @ 2341667, human lenses
 with the operator). Nothing seals (A11 NOT SEALED until Step-4 exit; R-4.14 clock at LANDING); 231437
 WITHDRAWN; local-main timing the operator's open item; release hold ABSOLUTE.
+
+---
+
+## 20260810-071834 — R-4.8 human-lens verdicts: six must-fixes carried down as a bounded fold (gates merge hand-up)
+
+Both human lenses read R-4.8 at 2341667 (PR #24). Lens A: MATCHES-INTENT on all three (wire contract, single
+root authority, leak surface — security core sound). Lens B: one SOUND + two FINDINGS. Master confirmed the
+two load-bearing claims at its bytes; I RE-VERIFIED both at my seat at 2341667:
+- B-3.3 (hermeticity, LIVE): codex discover() appends env.home/.codex UNCONDITIONALLY (codex.cpp:762-776, no
+  early return); the pack tests pin only CLAUDE_CONFIG_DIR (:461) or CODEX_HOME (:705), never HOME, so
+  env.home falls through to the operator's real HOME and pack's codex discovery reads the real ~/.codex.
+- B-2.1 (receipt vacuity): /Users/packer appears in ZERO fixture bytes (test_pack.cpp + fixtures), so the two
+  byte-identity receipts can't detect a scrub divergence — a buggy scrub lands green.
+
+**Disposition (mine):** carried the SIX must-fixes DOWN to s4-matrix.planner as ONE bounded fold gating the
+R-4.8 MERGE hand-up (NOT the published DRAFT, which gates on nothing and stays as-is): B-3.3 RAII HOME-pin +
+real-store-guard on every pack test; B-2.1 carrier-divergence-visible fixture; B-2.2 REQUIRE(.second)
+silent-drop; B-3.1 pin CODEX_SQLITE_HOME; B-oracle-1 golden ORACLE comment; B-2.3 id_map carve-out. §2
+fold-or-register RULED (master delegated to s4): extended-grammar/UNC gap → REGISTER at the needle head (rev6
+classify_carrier_root semantics LOCKED; a grammar tightening is a design-semantics change — a pure in-design
+tightening MAY fold, else STOP-and-route); oracle-2 confidentiality receipt → REGISTER at needle head;
+B-Q1 minimal-accept brackets + A-obs-2 private-ctor hardening → FOLD if small (pair discretion). §3 R-4.10
+(emission opacity) / R-4.11 (flavor-hint-never-authority) convergent — cited not re-registered (independent
+re-derivation of the registry, good signal), no action. §4 OPERATOR cell surfaced: unconditional capture
+discloses packer home/username in zero-session images where the needle never runs — options (a) gate on
+!agent_sessions.empty() [master + I recommend, minimal-disclosure posture] or (b) keep unconditional; the
+operator decides, either answer folds into this window.
+
+**Lineage discipline flagged** (so this fold doesn't cycle like fold-3): the fold PLAN carries the R-4.8
+design lock, so BOTH edges must hold — Edge 1 PLAN → rev6 DESIGN-REVIEW (231944); Edge 2 DISPATCH-IMPL →
+Implementer PLAN-REVIEW. Then targeted re-check → merge hand-up (§1 + end-state-bytes condition-3 at the
+eventual merge base, branch predates C/B2 at 6047ab03).
+
+**Track state:** R-4.8 — published DRAFT PR #24 stable; six must-fixes + §2 folds in the pair's hands toward
+the merge hand-up; §4 pending the operator. C/B2 four-folds — all four legs (A1/A2/B1/B2-sidecar) folding
+concurrently under the standing token toward the targeted re-panel + fresh paired hand-up. Nothing seals;
+231437 WITHDRAWN; release hold ABSOLUTE.
