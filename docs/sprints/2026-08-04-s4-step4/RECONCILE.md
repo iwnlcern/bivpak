@@ -1233,3 +1233,26 @@ eventual merge base, branch predates C/B2 at 6047ab03).
 the merge hand-up; §4 pending the operator. C/B2 four-folds — all four legs (A1/A2/B1/B2-sidecar) folding
 concurrently under the standing token toward the targeted re-panel + fresh paired hand-up. Nothing seals;
 231437 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-074043 — §4 capture-scope ruled (b) unconditional; no cell to wire; six must-fix window unchanged
+
+The operator ruled the one R-4.8 policy cell I surfaced: (b) UNCONDITIONAL capture stands (declining the (a)
+sessions-gated option master and I recommended). pack.cpp:676 stays as-built — NO code change from this cell.
+The zero-session in-image disclosure (packer home → username) is operator-ACCEPTED on the confidential-by-
+convention ground, durably recorded in R-4.8's RESIDUALS entry. I verified the record at the bytes
+(master/RESIDUALS.md commit cca4b48: "captured UNCONDITIONALLY … a DECIDED cell, not an oversight; re-opening
+it is an operator re-ruling") — cited registry = read registry.
+
+**Disposition (mine):** carried the close DOWN to s4-matrix.planner (3d30393), closing the open thread my
+071834 left ("wire the capture-gating cell once the operator's answer lands") — there is nothing to wire.
+The six must-fix window is UNCHANGED (the complete merge-hand-up gate); §2 fold-or-register + §3 citations
+stand as routed. Instructed the pair to treat the zero-session disclosure as a DECIDED cell — do NOT re-raise
+it at the targeted re-check/re-panel (a security lens re-flagging it would be reading a decided cell as a
+finding); cite the R-4.8 record if it surfaces.
+
+**Track state:** R-4.8 — §4 closed (b); the six must-fixes + §2 folds in the pair's hands under a fresh
+lineage chain (both edges) toward the targeted re-check → merge hand-up (§1 + end-state-bytes condition-3).
+DRAFT PR #24 stable. C/B2 four-folds — all four legs folding concurrently under the standing token toward the
+re-panel + fresh paired hand-up. Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
