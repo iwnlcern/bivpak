@@ -1015,3 +1015,34 @@ nothing until this disposition + the approve both land.
 **Track state:** matrix R-4.8 fold-3 recovery in flight (PLAN re-file pending). Branch LOCAL, publication
 held (P5), human lenses unrouted until post-fold-3 verification clean. Separately: the C/B2 four-folds
 track holds on the A9 row-to-pair addendum routed up to m-2 (010709). No live token; release hold ABSOLUTE.
+
+---
+
+## 20260810-055615 — R-4.8 matrix carrier review cycle CLOSED at 2341667; publication token + human lenses routed up
+
+The matrix pair closed the R-4.8 rigorous-review cycle: fold-3 verification PASS at head 2341667, every
+finding across panel → re-check → check → verification closed/registered/routed, Step-3.8 review bar MET.
+I verified the milestone at the bytes at my seat (not on the pair's word):
+- Sealed fold-3 verify record (28093 B) re-hashes to 4f90641f4ad04da54e35cd842e461c60ab012642b0f05a624310fd5aeac54f40 — matches the cited seal exactly.
+- Head 234166722ef44f51db5740c2ac4e01301b5dc0c1 resolves and is the tip of s4-matrix/r48-carrier.
+- Final commit is TEST-ONLY: git diff 4c35f0f..2341667 = the two adapter test files only; git diff -- src/
+  is EMPTY → product bytes IDENTICAL to the checked head 4c35f0f (unchanged since 2bc7a078).
+- Full cycle chain on disk: panel 006144b2@29796bb, re-check e6a589a5@2bc7a078, check c1e7eb8d@4c35f0f,
+  verify 4f90641f@2341667.
+Consequence: product-panel verdicts carry to 2341667 (product bytes did not move — the C→B2 end-state-bytes
+rule is satisfied for the product surface) and the fold-3 test delta got its own owning-lens verification at
+the exact head. **Panel-before-lenses is SATISFIED at 2341667.**
+
+**Disposition (mine):** routed UP to master (MERGE-GATE, pdc bc2ad3e) —
+1. operator P5 publication token requested at 2341667 (branch LOCAL/unpublished; P5 is the operator's);
+2. human lenses AUTHORIZED at my seat (panel gate cleared, verified) — routed via the operator, order vs
+   publication at operator discretion;
+3. harness-lineage probe-timeout tracking note → master RESIDUALS (track, not closed by non-reproduction);
+4. re-stack end-state-bytes caution → standing for the merge hand-up (branch sits on pre-C/B2 base 6047ab03;
+   panels carry to a re-stacked head ONLY for files whose end-state bytes match 2341667).
+R-4.8 is NOT yet at merge condition-3 — that is a separate hand-up after human lenses + the re-stack
+end-state verification at the eventual merge base. Handled a shared-INDEX race on the master INDEX
+(repositioned my 055615 row before a concurrently-appended sibling 055620 row; sibling untouched).
+
+**Track state:** R-4.8 review-cycle-closed, awaiting operator P5 token + human lenses. C/B2 four-folds HELD
+on the A9 row-to-pair addendum at m-2 (010709). Both tracks: no live token; release hold ABSOLUTE.
