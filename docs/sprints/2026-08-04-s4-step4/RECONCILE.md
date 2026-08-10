@@ -621,3 +621,35 @@ than rewritten into the shared-branch commit. Flagged for master/RESIDUALS.
 operator). Slice C waits on B2. B2 — e2-budget 600 folded/amend in progress → third re-panel next.
 Matrix Arm-1 R-4.8 carrier — PLAN re-approved on the unique chain; replacement dispatch pending at the
 pair (my lineage disposition cleared it). No live token. Release hold ABSOLUTE.
+
+**B2 third re-panel convened + R-4.8 evidence disposed + sibling INDEX defect disclosed (2026-08-09 ~1839):**
+**B2 THIRD RE-PANEL CONVENED** at exact PR #23 head f9675ea (byte-verified clean at this seat: one
+commit over ec9a2db, 16 paths, no .github/manifest, harness/CMakeLists.txt delta exactly
+TIMEOUT 180→600, fences live). Three cold read-only lenses (security/correctness/tests) over the
+cumulative window ec9a2db..f9675ea, M-4 under UNION-SCOPE acceptance (home-prefix falsifier belongs
+to the R-4.8 head, out of scope here) — running in background; disposition (bar-ready confirm or
+fold) pending their results.
+**R-4.8 CARRIER E2 EVIDENCE DISPOSED (`183936`):** carrier implemented at 29796bb (three commits,
+delta exactly ten paths, carrier-green both platforms, criteria 2-7 pass). RED 1 (macOS harness-e2
+180.06s) AFFIRMED answered-by-existing-ruling — byte-verified TIMEOUT 180 at BASE 6047ab0 AND main
+(B2's durable-600 fix unmerged); accept macOS aggregate red-by-stale-constant disclosed, mechanical
+re-run post-B2. RED 2 (Docker amd64 5 probe + 3 selftest fails) acceptance HELD on the BASE-container
+negative control — object-ID equality proves code unchanged NOT emulation-cause (same-binary
+interaction is the falsifiable alt); same 5+3 at BASE ⇒ accept under slice-C precedent, different ⇒
+real finding; native-Linux run the operator's alternative. Both reds closing → completion report +
+rigorous review + publication token downstream.
+**SHARED-INDEX DEFECT DISCLOSED (not swept):** .relays/s4/INDEX.md lines 221-223 carry a pre-existing
+sibling-owned defect — an ordering inversion (floor's 142708 SITREP sits BEFORE two matrix 142630 IMPL
+rows) AND a MALFORMED/truncated 142630 row (line 222, missing its file column, distinct summary from
+the complete 142630 row at 223). Both are sibling-authored and settled ~4h. I did NOT surgically edit
+them: only the authoring seat (s4-matrix) can correctly resolve its truncated row, and reconstructing
+sibling content is the read-modify-write anti-pattern. A concrete instance of the shared-INDEX
+structural defect (no per-seat isolation → per-seat shards is the real fix); flagged for the owning
+seats + master. My own row (183936) and relay are clean; my path-scoped per-file-gated commits are
+unaffected, but a clean --index run needs s4-matrix to repair its truncated row + the inversion.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (condition-3-of-record closed; publication held at operator).
+Slice C waits on B2. B2 #23 f9675ea — third re-panel in flight (my convening); on pass bar-ready,
+C→B2-immediate proceeds. Matrix Arm-1 R-4.8 carrier 29796bb — implemented, evidence disposition red 1
+affirmed / red 2 held on control; publication + rigorous review downstream. No live token; release
+hold ABSOLUTE.
