@@ -525,6 +525,7 @@ TEST_CASE(
 TEST_CASE("Codex install produces identical bytes with or without packer_home") {
   const auto root = make_tmp("packer-home-receipt");
   const auto workspace = root / "workspace";
+  constexpr std::string_view kEngagedCarrier = "/ws";
   fs::create_directories(workspace);
   auto members = codex_members();
   members.at(parent_artifact()) = bytes(
@@ -538,6 +539,19 @@ TEST_CASE("Codex install produces identical bytes with or without packer_home") 
       "\"unsigned\":18446744073709551615}}\n");
   auto record = codex_entry();
   record.children.clear();
+  CHECK(record.original_path.starts_with(std::string{kEngagedCarrier} + "/"));
+  std::string escaped_member_needle;
+  for (const char value : kEngagedCarrier) {
+    if (value == '/') {
+      escaped_member_needle += '\\';
+    }
+    escaped_member_needle += value;
+  }
+  const auto escaped_member_bytes = bytes(escaped_member_needle);
+  const auto& raw_member = members.at(parent_artifact());
+  CHECK(std::search(raw_member.begin(), raw_member.end(),
+                    escaped_member_bytes.begin(), escaped_member_bytes.end()) !=
+        raw_member.end());
   const std::vector<biv::manifest::AgentSessionEntry> records{record};
   struct StoreReceipt {
     struct IdMapShape {
@@ -596,13 +610,8 @@ TEST_CASE("Codex install produces identical bytes with or without packer_home") 
 
   const auto engaged = install_receipt(
       "engaged", biv::manifest::PackerHome{
-                     "/ws", biv::manifest::PathFlavor::posix});
+                     std::string{kEngagedCarrier}, biv::manifest::PathFlavor::posix});
   const auto absent = install_receipt("absent", std::nullopt);
-  // The engaged carrier is a prefix of fixture bytes, so a future
-  // carrier-conditional content rewrite must make these arms diverge.
-  REQUIRE(std::ranges::any_of(engaged.contents, [](const auto& entry) {
-    return entry.second.find("/ws") != std::string::npos;
-  }));
   // Minted installed ids are normalized across arms by construction, so these
   // byte-identity checks deliberately exclude id-only divergence.
   REQUIRE(engaged.files == absent.files);

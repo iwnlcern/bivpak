@@ -264,6 +264,7 @@ TEST_CASE("pack captures packer_home per HOME shape") {
 
     REQUIRE(report.has_value());
     require_store_roots_under(*report, root);
+    CHECK(report->agent_sessions.empty());
     CHECK(std::ranges::none_of(
         report->agent_sessions, [&](const auto& session) {
           return session.provenance.store_root == decoy_store.generic_string();
