@@ -1133,3 +1133,40 @@ condition-3 will re-verify per-file END-STATE bytes at the eventual merge base (
 hand-up (condition-3 end-state-bytes + condition-4) once lens verdicts return — a separate later cycle. C/B2
 four-folds: A9 addendum-11 ratified (063120), B2 sidecar leg now folding with A1/A2/B1 toward the targeted
 re-panel + fresh paired hand-up. No live token; release hold ABSOLUTE.
+
+---
+
+## 20260810-064100 — addendum-11 D5 consumer ratification CLOSED (byte-confirmed ×3); B2 sidecar leg resumes
+
+The floor affirmatively ratified addendum-11 per D5 at locked content 422d451b (063656, verdict approve),
+with independent byte verification at their seat (hash re-derived at the pdc rev11 blob 858d1ca5, lock delta
+confirmed stamp-only, contract read at certified bytes). I independently re-derived the hash myself:
+git show 858d1ca5f4af66ddb2f186466d2ee1d2b77aa7e7:<doc> | shasum -a 256 =
+422d451b0c613a44f30bf8a93739a691ee410e178ffea7942ec1c31b728d4fcb — exact match. THREE instruments now agree
+(VP approve 061034, floor, me). The D5 consumer-side gate is CLOSED; the ratification is unconditional at
+422d451b, void if bytes move.
+
+**Floor's eyes-open acceptances (all on record; two surfaced up to m-2):**
+- (i) Windows-drive-with-slash origin normalizes to canonical spelling on round-trip — spelling-only, pinned
+  by FX-A11-7a/7b + idempotence 8a/8b.
+- (ii) Mixed presence refuses (two closed states across all rows/agents) — sound: forward writer atomic, old
+  images all-absent.
+- (iii) **Integrity ≠ containment:** the (row.original_path, source_root) ∈ pair_set_applied membership check
+  is a consistency/integrity check, NOT a hostile-image containment control (both values live in the same
+  attacker-controlled file). No floor artifact will cite it as containment; the addendum adds round-trip
+  correctness, not a new containment guarantee. Surfaced up as the org-wide framing so no later reader
+  over-claims it.
+- (iv) **1+N sites needle obligation:** the origin-scrub surface moves to 1+N (global collection + one
+  occurrence per staged row; occurrences not distinct values). The floor owns its side of the registered
+  R-4.8 obligation (RESIDUALS.md:983-989); the fold carries a per-row-site RED with N>1.
+
+**Disposition (mine):** carried the ratification confirmation UP to master/m-2 (SITREP, pdc 9d9c1ca),
+byte-confirmed at my seat and surfacing (iii)+(iv) for m-2's registry. The B2 sidecar leg now resumes at the
+implementer under the STANDING four-folds token (no new authority — the floor's companion relay carries it),
+folding with A1/A2/B1 coherently on the 1+N lockstep toward the targeted re-panel (M-4 + round-trip) and the
+fresh paired hand-up (master re-issues the paired condition-4).
+
+**Track state:** C/B2 four-folds — A9 ratified and B2 sidecar leg unblocked/resuming; the pair stays HELD for
+the complete fold (A1+A2+B1+B2 + falsifiers) + targeted re-panel + fresh paired hand-up. R-4.8 independent
+(DRAFT PR #24 @ 2341667, human lenses operator-routed). Nothing seals (R-4.14 clock at LANDING); 231437
+WITHDRAWN; release hold ABSOLUTE.
