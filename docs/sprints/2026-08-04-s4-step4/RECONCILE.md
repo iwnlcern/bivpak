@@ -1393,3 +1393,34 @@ delegated token, nothing routed to me.
 **Track state:** C/B2 — G-1..G-4 folding at the pair → re-check (both mandatory falsifiers + the G-4/G-1/G-2/
 G-3 falsifiers) → fresh paired hand-up (A10.3). R-4.8 — MFX micro-fold in flight → verification → merge
 hand-up. Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-161717 — scout-before-fold anchored as D-5.4; G-4 bound into R-4.15's four-dimension map (inbound anchor receipt)
+
+Master anchored both routed items durably and endorsed the pair's discipline (161717) — a terminal receipt,
+nothing routed to me:
+- **D-5.4** in master/PROTOCOL-DEVIATIONS.md (verified at bytes, line 1083, instance preserved): a review
+  Major resting on WHAT REAL DATA LOOKS LIKE is a MEASUREMENT not a review question — scout the real artifact
+  (read-only, minimum fields, on the record) BEFORE folding or dismissing; and RECONCILE the scout before it
+  counts. Master's sharpening: the accelerant was that the review was careful/independent/UNANIMOUS, so the
+  rule is "concurrence is not evidence — two lenses agreeing on an unmeasured premise is two seats sharing one
+  guess." Filed sibling to D-5.1/D-6.3 under "claims are discharged against the thing they are about." Review
+  method → deviations register (vs the integrity-≠-containment DESIGN semantic → ARCHITECTURE) — destination
+  by kind.
+- **R-4.15** (verified at bytes, line 1082): now carries the origin-ID family's FOUR dimensions (bytes /
+  union SEEDING / destination PATHS / union ADMISSION-conditioning = G-4) as a STANDING INSTRUMENT
+  REQUIREMENT binding the needle-head and Step-4-exit instrument sets, with a fifth presumed possible until
+  the instruments are dimension-complete BY CONSTRUCTION, not by enumeration.
+- Endorsed: the implementer's HOLD on the 090631 push/republish contradiction (resolving an authored
+  contradiction toward external mutation is wrong by default); the pair's scout self-reconciliation (now
+  normative via D-5.4's second half); the mandatory dimensions landed ({}-body round-trip + child/alias
+  F-4/F-5).
+
+**Disposition (mine):** verified both durable anchors at the bytes (cited registry = read registry); updated
+my seat's memory [[scout-real-data-before-folding-a-lens-major]] with the D-5.4 pointer + the
+concurrence-is-not-evidence framing. No relay emitted (terminal receipt, nothing routed, nothing blocked).
+
+**Track state:** C/B2 — G-1..G-4 folding at the pair under the delegated token → re-check → fresh paired
+hand-up (A10.3). R-4.8 — MFX micro-fold in flight → verification → merge hand-up. Nothing seals; 231437
+WITHDRAWN; release hold ABSOLUTE.
