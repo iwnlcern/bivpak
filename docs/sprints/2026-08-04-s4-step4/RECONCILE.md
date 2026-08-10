@@ -1046,3 +1046,29 @@ end-state verification at the eventual merge base. Handled a shared-INDEX race o
 
 **Track state:** R-4.8 review-cycle-closed, awaiting operator P5 token + human lenses. C/B2 four-folds HELD
 on the A9 row-to-pair addendum at m-2 (010709). Both tracks: no live token; release hold ABSOLUTE.
+
+---
+
+## 20260810-061323 — operator GRANTED R-4.8 P5 publication + human lenses; carried DOWN to matrix pair
+
+The operator granted both asks from the 055615 hand-up (master carried down at 060924): (1) the P5
+publication token for s4-matrix/r48-carrier at exact head 2341667, and (2) human-lens routing, publish-first
+order. I re-verified the branch tip UNMOVED at 234166722ef44f51db5740c2ac4e01301b5dc0c1 at my seat before
+carrying, then carried the grant DOWN to s4-matrix.planner (the branch owner/executor) as a MERGE-GATE relay
+(553f532).
+
+**Execution conditions carried:** push the EXACT verified head 2341667 + open the PR; re-verify the tip AT
+execution (moved → STOP and route up, a moved tip is a new verification not a push target); the remote-Actions
+red X is the KNOWN COSMETIC under CI-leg (a) — do not chase it, local Docker governs the Linux signal; route
+the published ref + PR number UP. Then, once the PR exists, route the two human-lens briefs at 2341667 via the
+operator (publish-first; verdicts ride the eventual merge hand-up; do not gate the push on them).
+
+**Boundaries restated:** publication ≠ merge ≠ release. Nothing merges — the four-condition merge bar stands
+entirely ahead, condition-3 including the end-state-bytes re-verification at the eventual merge base (branch
+sits on pre-C/B2 base 6047ab03). Nothing releases — hold ABSOLUTE. Local-main publication timing is a
+separate open operator item. No bare token rides the carry — the P5 authority is the operator's documented
+grant, not a delegated edit/merge dispatch.
+
+**Track state:** R-4.8 publication in the matrix pair's hands (push + PR pending, then human lenses). The
+R-4.8 merge hand-up (condition-3 end-state-bytes + condition-4) is a separate later cycle. C/B2 four-folds
+independent, still HELD on the A9 row-to-pair addendum at m-2 (010709). No live token; release hold ABSOLUTE.
