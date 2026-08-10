@@ -1,10 +1,10 @@
-# Arm-1 schema act — R-4.8 pack-time packer-home carrier (design, rev3)
+# Arm-1 schema act — R-4.8 pack-time packer-home carrier (design, rev4)
 
 DISPATCH_ID: s4-matrix-arm1-r48-carrier
 PARENT_DISPATCH_ID: s4-build-standup-step4-opening-dispatch
 AUTHOR: s4-matrix.planner
 DATE: 2026-08-09
-STATUS: rev3 — MF-1 Option A folded (panel-found degenerate-root tightening, ruled `204159`); awaiting pair-Implementer re-review on THIS doc hash; floor ratification `050728` stands as a ruled COMPATIBLE NARROWING (floor CC'd on the ruling to object)
+STATUS: rev4 — rev3 must-revise R1/R2 folded (capture gate realized as a public schema factory with a direct falsifier; §9-7 detail made exact); MF-1 Option A ruled `204159`, family-endorsed `205443`; awaiting pair-Implementer re-review on THIS doc hash; floor ratification `050728` stands as a ruled COMPATIBLE NARROWING (floor CC'd on the ruling to object)
 GRILL_REQUIRED: yes
 GRILL_LOCK_ID: s4-matrix-arm1-r48-carrier-grill-20260809 (docs/sprints/2026-08-04-s4-step4/designs/2026-08-09-s4-matrix-arm1-r48-carrier-grill-lock.md — incl. the rev2 appendix D6-D8)
 TRACKER: R-4.8 (../../../pdc/master/RESIDUALS.md) — hard-gated before ANY release
@@ -14,6 +14,8 @@ REV1_REVIEW: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIE
 REV2_REVIEW: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV2-APPROVE-20260809-053253.md (approve, on rev2 hash `349ef6e1…`; lineage-corrected at `…061515`)
 PANEL: docs/sprints/2026-08-04-s4-step4/reviews/2026-08-09-s4-matrix-r48-carrier-panel-29796bb.md (sealed `006144b2…`; MF-1 = the degenerate-root cell this rev folds)
 MF1_RULING: .relays/s4/s4-matrix-arm1-plan/PLAN-ORCHESTRATOR-PLANNER-R48-MF1-RULED-OPTION-A-TIGHTEN-NOW-FOLDS-ENDORSED-20260809-204159.md (Option A; floor-contract wording ruled a compatible narrowing, no re-ratification)
+RESIDUALS_DOWN: .relays/s4/s4-matrix-arm1-plan/PLAN-ORCHESTRATOR-PLANNER-R410-R412-REGISTERED-SHARPENINGS-MF1-ENDORSED-20260809-205443.md (R-4.10/R-4.11 bind the NEEDLE head, not this fold; R-4.12 binds NOW as a `source_path_flavor` STOP-AND-ROUTE boundary — honored, see §10)
+REV3_REVIEW: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV3-MUST-REVISE-20260809-210140.md (must-revise R1 capture-gate scope/proof contradiction + R2 §9-7 detail wording; both verified at the bytes by the pair Planner before this fold)
 FLOOR_RATIFICATION: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-FLOOR-PLANNER-R48-CONSUMER-CONTRACT-RATIFIED-20260809-050728.md (approve; wire shape preserved by rev2, so it stands per the rev1 re-review's own criterion)
 
 ## 1. Context and problem
@@ -119,20 +121,56 @@ flavor match. Host-independent and lexical — native
 `std::filesystem::path::is_absolute()` cannot judge foreign-flavor images and is not
 used at any wire boundary.
 
+**The construction factory (rev4, must-revise R1 — one CONSTRUCTOR authority beside the
+one validity authority):**
+
+```cpp
+// manifest.hpp, public, beside classify_absolute:
+std::optional<PackerHome> make_packer_home(std::string_view text);
+//   engaged  iff classify_absolute(text) is engaged AND non_degenerate(text, *flavor)
+//   nullopt  otherwise (empty, relative, non-absolute, degenerate bare root)
+// Postcondition: an engaged result ALWAYS satisfies valid() — the factory cannot
+// construct an invalid engaged value.
+```
+
+The factory lives on the manifest surface (same TU as `classify_absolute` and the
+validity predicate — the layering §3 already argued for the classifier), so it is
+DIRECTLY unit-testable in `tests/test_manifest.cpp` with no header or linkage novelty.
+It replaces the body of pack's file-local `packer_home_carrier` helper: capture becomes
+a one-line call (§4). This is what makes §4's capture-time invariant FALSIFIABLE — a
+unit row calls the factory with `"/"` and asserts `nullopt` with NO serializer in the
+loop, distinguishing capture-time absence from later serializer collapse by
+construction (rev3's 18b could not: the packed wire looks identical either way).
+Aggregate initialization of `PackerHome` remains possible (it stays an aggregate for
+designated-init and test-fixture use), so the serialize/parse validity gates REMAIN the
+wire authorities (§5/§6) — factory at construction, predicate at the wire, both sharing
+the same classify + non_degenerate core.
+
 ## 4. Capture (pack side)
 
 At the capture site in `pack.cpp` (NOT inside `process_env()`, which other consumers
 share), from the existing `adapters::Env`:
 
-- Capture gates on the FULL validity predicate (classify + non-degenerate): engaged ⇒
-  `manifest.packer_home = PackerHome{env.home.generic_string(), *flavor}` — valid by
-  construction.
+- Capture is ONE line at the existing site:
+  `manifest.packer_home = manifest::make_packer_home(env.home.generic_string())` — the
+  factory (§3, rev4) applies the FULL predicate (classify + non-degenerate), so an
+  engaged in-memory value is valid BY CONSTRUCTION and a degenerate `$HOME` yields
+  `nullopt` AT CAPTURE, not merely at emission. Production delta for this: the factory
+  in `manifest.hpp`/`manifest.cpp` + the call in `pack.cpp` (the file-local
+  `packer_home_carrier` body collapses into the factory call) — all inside the
+  carrier's ten authorized paths; `pack.cpp::path_flavor` and `source_path_flavor`
+  untouched (R-4.12 boundary).
 - Everything else ⇒ carrier ABSENT: unset, empty, relative (Q1), any non-absolute
   spelling, and (rev3) a degenerate bare root — `HOME=/`, `HOME=/mnt/c/`, `HOME=C:\`
   degrade to the already-ratified skip path, strictly safer than shipping a root-only
   reference frame and nil-cost (none is a plausible home). Graceful degrade, never an
   error: an image without the carrier simply gets no home-prefix needle coverage,
   exactly like every pre-carrier image.
+- Why capture-time (not emission-only) absence matters forward: R-4.10's needle-head
+  pack-report disclosure will read carrier state at pack time; an engaged-but-invalid
+  in-memory value that the wire silently omits would let that future surface report
+  "emitted" while the image carries nothing — exactly the impossible-disagreement shape
+  §2's model exists to make unrepresentable. The factory closes the window.
 
 A native Windows home (`C:/Users/x`, `C:\Users\x`, extended `\\?\C:\Users\x`) classifies
 `windows`; a WSL home under `/mnt/<drive>/` classifies `wsl`; an ordinary
@@ -268,7 +306,10 @@ nine-member freeze is untouched.
 4. Round-trip absent: `nullopt` → no keys → `nullopt`.
 5. Backward-compat fixture: pre-carrier JSON (no keys) → `nullopt`.
 6. Null rule: `"packer_home": null` alone → `nullopt`; null + flavor → `ParseError` detail `packer_home_flavor`.
-7. Lone key each direction → `ParseError` naming the missing/lone partner per §8.
+7. Lone key each direction → `ParseError` with detail exactly `packer_home_flavor` in
+   BOTH directions (rev4/R2: lone `packer_home` AND lone `packer_home_flavor` both name
+   the flavor key, agreeing with §6/§8; the rev2-rev3 "missing/lone partner" phrasing is
+   retired).
 8. Wrong type → `ParseError{"packer_home"}`.
 9. `""` → `ParseError{"packer_home"}`.
 10. Relative value (each flavor declared) → `ParseError{"packer_home"}`.
@@ -276,11 +317,15 @@ nine-member freeze is untouched.
 11b. Degenerate-root matrix (rev3, MF-1): `"/"` posix; `"/mnt/c/"` wsl; `"C:/"` and `"C:\"` windows; `"//?/"` and `"\\?\"` windows → `ParseError{"packer_home"}`; positive control `"\\?\C:\Users\x"` windows → valid. Serialize side: each degenerate value engaged-in-memory → both keys OMITTED (collapse, extends test 2).
 12. Unknown flavor `"vms"` → `ParseError` with detail EXACTLY `packer_home_flavor` (remap falsifier).
 13. `classify_absolute` unit rows: all §3 grammar branches + `nullopt` cases (relative, empty, `mnt/c/x` missing lead slash, `C:` two chars).
+13b. `make_packer_home` unit rows (rev4, the CAPTURE-boundary falsifier — no serializer in the loop): `"/Users/x"` → engaged posix; `"/mnt/c/Users/x"` → engaged wsl; `"C:/Users/x"` → engaged windows; `"\\?\C:\Users\x"` → engaged windows; `"/"`, `"/mnt/c/"`, `"C:/"`, `"//?/"` → `nullopt`; `""`, `"relative/home"` → `nullopt`. Plus the postcondition row: every engaged result satisfies `valid()`.
 14. PARITY TABLE: `classify_absolute` agrees with `rewrite::path_flavor_for` on every absolute spelling in the table (both layers included by the test target; drift falsifier).
 
 `tests/test_pack.cpp` (capture, env-controlled):
 15. `HOME=/abs/posix` → present, posix. 16. `HOME` unset → absent. 17. `HOME=` → absent.
-18. `HOME=relative/home` → absent (Q1). 18b. `HOME=/` → absent (degenerate root, rev3).
+18. `HOME=relative/home` → absent (Q1). 18b. `HOME=/` → wire ABSENT end-to-end
+    (integration arm; rev4 states its honest reach: this row proves safe EMISSION —
+    the capture-time boundary itself is proven by the 13b factory rows, which §4's
+    one-line-call structure ties to this path).
 19. `HOME=/mnt/c/Users/x`, posix source → carrier `wsl` + `source_path_flavor` `posix`
     (independence). 20. `HOME=C:/Users/x` → present, windows (lexical capture is
     host-independent — settable on any CI host).
@@ -302,7 +347,11 @@ nine-member freeze is untouched.
   core-side interpretation of the value (core transports opaquely — §7).
 - Any change to `SessionProvenance`, eligibility, classification, the repo engine,
   `pack.cpp::path_flavor()`/`source_path_flavor` semantics, or `rewrite_common.cpp`.
-  Both Step-3 fences (`scan.cpp:138`, `manifest.cpp:597`) unaffected.
+  Both Step-3 fences (`scan.cpp:138`, `manifest.cpp:597`) unaffected. The
+  `source_path_flavor` line is additionally a registered STOP-AND-ROUTE boundary
+  (R-4.12, `205443`): if any head is ever FORCED to touch its semantics, stop and route
+  to m-2 — never silently consolidate. The rev4 factory operates on the packer_home
+  value only and does not approach it.
 - Any rewriting of restored payloads (the binding line): capturing and transporting
   pack-time metadata is not editing a restored payload.
 - Release actions: R-4.8 is hard-gated before ANY release; the release hold is ABSOLUTE.
@@ -312,8 +361,10 @@ nine-member freeze is untouched.
 Authored in the Arm-1 schema-act wave on its head; integrates with the floor's needle
 under the R-4.8 tracker (carrier + needle land together). Non-blocking to current Arm-1
 Wave-A (panel-clean, with master) and to B2's union-scope resume. Design locks on:
-pair-Implementer re-review approve of THIS rev3 on its exact doc hash (the floor's
-`050728` ratification on record; the rev3 validator tightening is a ruled compatible
-narrowing per `204159`, floor CC'd there to object). rev3 implements inside the fold
-directed by that ruling: ONE commit with the panel's MF-2..MF-6 test must-fixes, then
-one targeted re-check at the new head.
+pair-Implementer re-review approve of THIS rev4 on its exact doc hash (the floor's
+`050728` ratification on record; the validator tightening is a ruled compatible
+narrowing per `204159`, family-endorsed `205443`, floor CC'd to object). rev4
+implements inside the fold directed by that ruling: ONE commit with the panel's
+MF-2..MF-6 test must-fixes, then one targeted re-check at the new head. The R-4.8
+needle work follows with R-4.10/R-4.11 riding that head as binding constraints
+(`205443`) — not this fold.
