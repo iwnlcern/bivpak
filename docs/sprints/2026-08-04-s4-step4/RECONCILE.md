@@ -1105,3 +1105,31 @@ approve); the pair stays HELD until the complete fold set (A1+A2+B1+B2 + falsifi
 correction adopted forward: "ledger-state" retires → current-state claims re-derived from their owning
 sources (register-/design-/carrier-derived). R-4.8 publication proceeds on its own thread (061323). Release
 hold ABSOLUTE.
+
+---
+
+## 20260810-063538 — R-4.8 PUBLISHED (DRAFT PR #24 @ 2341667), verified; human lenses routed up
+
+The matrix pair executed the P5 publication (063109): pushed s4-matrix/r48-carrier at exact head 2341667
+(atomic tip re-verify at push) and opened DRAFT PR #24, routing the two human-lens briefs via the operator
+(publish-first). I verified the publication independently at my seat:
+- git ls-remote origin refs/heads/s4-matrix/r48-carrier = 234166722ef44f51db5740c2ac4e01301b5dc0c1 (byte-exact to the granted head).
+- gh pr view 24 = OPEN, isDraft true, headRefOid 2341667 byte-exact, base main, title "feat(manifest): pack-time packer-home carrier (R-4.8)".
+DRAFT matches the production-risk precedent (PRs #21-23) and cannot be over-read as merge-ready; the remote
+Actions red is the known cosmetic under CI-leg (a), local Docker governs.
+
+**Disposition (mine):** carried the publication confirmation + the two human-lens briefs (A product/security,
+B tests/receipts, both at 2341667) UP to master (MERGE-GATE, pdc 4bb2dff) for the operator's readers;
+verdicts ride the eventual merge hand-up, nothing gates the draft. Owned a record-integrity correction: my
+061323 carry-down cited "the pair's 055615 plan" — 055615 was MY OWN master-lane review-bar hand-up, not a
+pair relay (theirs was the 055009 cycle-close); harmless (the publish-first order was restated inline and
+executed), corrected in the up-report.
+
+**Boundaries:** publication ≠ merge ≠ release. The four-condition merge bar stands entirely ahead;
+condition-3 will re-verify per-file END-STATE bytes at the eventual merge base (branch predates C/B2 at
+6047ab03). Local-main timing is the operator's separate open item; release hold ABSOLUTE.
+
+**Track state:** R-4.8 published, human lenses in flight (operator-routed); next R-4.8 event is the merge
+hand-up (condition-3 end-state-bytes + condition-4) once lens verdicts return — a separate later cycle. C/B2
+four-folds: A9 addendum-11 ratified (063120), B2 sidecar leg now folding with A1/A2/B1 toward the targeted
+re-panel + fresh paired hand-up. No live token; release hold ABSOLUTE.
