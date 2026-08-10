@@ -1424,3 +1424,34 @@ concurrence-is-not-evidence framing. No relay emitted (terminal receipt, nothing
 **Track state:** C/B2 — G-1..G-4 folding at the pair under the delegated token → re-check → fresh paired
 hand-up (A10.3). R-4.8 — MFX micro-fold in flight → verification → merge hand-up. Nothing seals; 231437
 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-164648 — R-4.8 merge hand-up: bar MET at 0ab998d (verified); PR stale, republish P5 owed
+
+The matrix pair's micro-fold verification PASSED at 0ab998d (record ee1f5ef5): all six human-lens must-fixes
+closed, R-4.8 review bar MET. I verified at my seat:
+- Record re-hashes to ee1f5ef5… (sealed).
+- Head 0ab998d8431a20de80b8d769fb82c1350ed0728d resolves and IS the branch tip.
+- Delta 2341667..0ab998d is TEST-ONLY (2 commits: d234314 lens-fold, 0ab998d micro-fold; 4 test files; src/
+  diff EMPTY) → R-4.8 PRODUCT byte-identical to the published head 2341667; only the lens-failed TESTS
+  hardened. MFX-1 closed by a false-witness IMMUNITY analysis (anchoring + encoding, immune even when the
+  workspace dir is renamed /ws), MFX-2 by a positive zero-row assertion.
+
+**Disposition (mine):** carried the merge hand-up UP to master (MERGE-GATE, pdc a0f028b) for condition-3 +
+condition-4, with three must-not-lose items:
+1. PR #24 STALE at 2341667 (reviewed head 0ab998d is two test-hardening commits ahead) → republication of
+   0ab998d owed under a SEPARATE operator P5 token BEFORE merge (the product is identical but the published
+   head carries the weaker lens-failed tests). Routed to the operator; no push/PR action taken.
+2. End-state-bytes condition-3 at the eventual merge base (branch predates C/B2 at 6047ab03), per-file hashes
+   not delta-equality → master's.
+3. Two aggregate items TRACKED-not-closed (probe flake OPEN in harness lineage — did-not-reproduce ≠
+   diagnosed, cross-case state-leakage signature; harness-e2 180s stale-ceiling). Neither gates, neither this
+   branch's debt. REVIEW bar met ≠ aggregate CTest row green — preserved the pair's honesty.
+Registry surfaced INFO-3 (load-bearing scope honesty): packer_home is WRITE-ONLY on install (no adapter reads
+it), so the byte-identity REQUIREs are FIXTURE NON-VACUITY guards, NOT a behavioral pin — must not be cited as
+one; the behavioral pin arrives with the needle (R-4.10/R-4.11 head). Plus INFO-1/2 + prior candidates.
+
+**Track state:** R-4.8 — merge hand-up delivered; awaiting master's condition-3 (end-state-bytes) + the
+operator's condition-4 + the separate republication P5. C/B2 — G-1..G-4 folding at the pair → re-check →
+fresh paired hand-up (A10.3). Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
