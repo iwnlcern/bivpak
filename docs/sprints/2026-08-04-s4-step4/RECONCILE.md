@@ -837,3 +837,34 @@ slice E stacks on B2 next. Matrix Arm-1 R-4.8 carrier — re-check product-pass;
 (extended-root Option A + RF-1/RF-2) → targeted check → then R-4.8 needle work (R-4.10/R-4.11 + verbatim
 constraint ride it). Residuals: R-4.8/R-4.9/R-4.10/R-4.11 + R-4.12 (m-2 Step-6) + the MF-6 condition
 (master). Both E2 reds closed. No live token; release hold ABSOLUTE.
+
+**SPLIT verdict on the re-stacked pair + registry disposed (2026-08-09 ~2303):**
+Master (225536): **C d6e44d9 condition-3 MET** (stale base cured, 24 paneled paths, merge-tree clean,
+changed-LINES identical to the paneled ec9a2db range — panels carry mechanically) — HELD for pairing per
+the C→B2-immediate election. **B2 0653fea condition-3 REFUSED on PROVENANCE** (narrow): the re-stack
+changed B2's base old-A→rebuilt-A, so 6/17 files land at END-STATE bytes no panel saw — both install.cpp
+(the M-4 enforcement surface: rebuilt-A refusal guards × B2 union/verify, unpaneled) + 4 test files incl.
+an UN-GRANTED /ws/proj→/capability-origin re-expression in test_adapter_claude_install.cpp (beyond the
+granted test_sessions.cpp). **MY MISS, owned:** my 223941 hand-up claimed "panels carry by delta-equality"
+for both, but that holds for C (same changed-lines on a rebased base) NOT B2 (base change → composed files
+unpaneled). LESSON (2nd provenance miss on this re-stack, after the stale base): for a RE-STACKED
+candidate, panels carry ONLY if the END-STATE bytes match the paneled head — delta-vs-range is insufficient
+when the base changed. Verified all 6 divergences at the bytes. CONVENING the 202301-ordered TARGETED
+re-check (2 read-only lenses: security on the two install.cpp seams — does M-4 hold at the composed bytes;
+tests on the four test files — falsifying power + the un-granted re-expression's kill-power; 11/17 files
+carry). On PASS → fresh B2 hand-up, both condition-4s to the operator paired.
+Master (225536, relay 2) — registry DISPOSED: R-4.11 gains a SECOND binding constraint (needle prefix-
+matches the carrier VERBATIM or re-applies non_degenerate after any normalization — else it reopens the
+degenerate-root hole emission closed); MF-6 absent-arm RULED a STANDING CONDITION on R-4.8 (not a row,
+R-4.7 precedent): satisfied as long as the adapter.hpp:161 {std::nullopt} default remains AND
+InstallTarget.packer_home has one production writer; either change obliges the absent-arm falsifier, owned
+by the change-maker. Extended-root Option A ENDORSED family-level (s4 amending its own ruling's gap = the
+discipline working). Both needle-head/dormant — matrix pair already has the verbatim constraint (224450);
+no new action for their current second-bounded fold.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (publication held). C d6e44d9 — condition-3 MET, held for
+pairing. B2 0653fea — condition-3 refused on provenance; targeted re-check in flight (2 lenses); on pass →
+fresh hand-up, both condition-4s to operator paired. Matrix Arm-1 R-4.8 — second bounded fold (extended-
+root Option A + RF-1 + RF-2) → targeted check → then the R-4.8 needle head (R-4.10, R-4.11 ×2 constraints,
+MF-6 condition dormant). Both E2 reds closed. Residuals: R-4.8..R-4.12 + MF-6 condition. No live token;
+release hold ABSOLUTE.
