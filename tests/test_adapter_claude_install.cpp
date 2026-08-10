@@ -87,6 +87,28 @@ constexpr std::string_view kLeafUuid = "00000000-0000-4000-8000-000000000102";
 constexpr std::string_view kToolUuid = "00000000-0000-4000-8000-000000000103";
 constexpr std::string_view kSubagentUuid =
     "00000000-0000-4000-8000-000000000201";
+constexpr std::string_view kIdPlaceholder = "<installed-id>";
+
+void replace_all(std::string& value, const std::string_view token,
+                 const std::string_view replacement) {
+  REQUIRE_FALSE(token.empty());
+  auto position = value.find(token);
+  while (position != std::string::npos) {
+    value.replace(position, token.size(), replacement.data(), replacement.size());
+    position = value.find(token, position + replacement.size());
+  }
+}
+
+void normalize_minted_ids(
+    std::string& value,
+    const std::vector<biv::adapters::IdMapEntry>& id_map) {
+  for (const auto& row : id_map) {
+    replace_all(value, row.installed_session_id, kIdPlaceholder);
+    for (const auto& child : row.children) {
+      replace_all(value, child.second, kIdPlaceholder);
+    }
+  }
+}
 
 fs::path make_tmp(std::string_view name) {
   auto base = fs::temp_directory_path() /
@@ -562,24 +584,17 @@ TEST_CASE("Claude install produces identical bytes with or without packer_home")
     REQUIRE(result->sessions.front().outcome ==
             biv::adapters::InstallSessionOutcome::Outcome::installed);
     REQUIRE(result->id_map.size() == 1U);
-    const auto& installed_id = result->id_map.front().installed_session_id;
     StoreReceipt receipt;
     for (const auto& file : regular_files(store)) {
       auto relative = fs::relative(file, store).generic_string();
       auto installed = read_text(file);
-      auto normalize_id = [&](std::string& value) {
-        auto id_position = value.find(installed_id);
-        while (id_position != std::string::npos) {
-          value.replace(id_position, installed_id.size(), "<installed-id>");
-          id_position = value.find(installed_id, id_position + 14U);
-        }
-      };
-      normalize_id(relative);
-      normalize_id(installed);
+      normalize_minted_ids(relative, result->id_map);
+      normalize_minted_ids(installed, result->id_map);
       receipt.files.push_back(relative);
       receipt.contents.emplace(std::move(relative), std::move(installed));
     }
     std::ranges::sort(receipt.files);
+    REQUIRE_FALSE(receipt.files.empty());
     return receipt;
   };
 

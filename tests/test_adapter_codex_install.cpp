@@ -29,6 +29,46 @@ constexpr std::string_view kParent = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001";
 constexpr std::string_view kChild = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0002";
 constexpr std::string_view kFxParent = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441";
 constexpr std::string_view kFxChild = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1442";
+constexpr std::string_view kIdPlaceholder = "<installed-id>";
+constexpr std::string_view kNormalizedRolloutFile =
+    "sessions/YYYY/MM/DD/rollout-YYYY-MM-DDTHH-MM-SS-<installed-id>.jsonl";
+
+void replace_all(std::string& value, const std::string_view token,
+                 const std::string_view replacement) {
+  REQUIRE_FALSE(token.empty());
+  auto position = value.find(token);
+  while (position != std::string::npos) {
+    value.replace(position, token.size(), replacement.data(), replacement.size());
+    position = value.find(token, position + replacement.size());
+  }
+}
+
+void normalize_minted_ids(
+    std::string& value,
+    const std::vector<biv::adapters::IdMapEntry>& id_map) {
+  for (const auto& row : id_map) {
+    replace_all(value, row.installed_session_id, kIdPlaceholder);
+    for (const auto& child : row.children) {
+      replace_all(value, child.second, kIdPlaceholder);
+    }
+  }
+}
+
+void normalize_rollout_clock(std::string& relative) {
+  if (!relative.starts_with("sessions/")) {
+    return;
+  }
+  REQUIRE(relative.size() > 47U);
+  REQUIRE(relative.at(13) == '/');
+  REQUIRE(relative.at(16) == '/');
+  REQUIRE(relative.at(19) == '/');
+  REQUIRE(relative.compare(20U, 8U, "rollout-") == 0);
+  REQUIRE(relative.at(47) == '-');
+  relative.replace(28U, 19U, "YYYY-MM-DDTHH-MM-SS");
+  relative.replace(17U, 2U, "DD");
+  relative.replace(14U, 2U, "MM");
+  relative.replace(9U, 4U, "YYYY");
+}
 
 fs::path fixture_root() {
   return fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" / "codex_store" /
@@ -515,25 +555,21 @@ TEST_CASE("Codex install produces identical bytes with or without packer_home") 
     REQUIRE(result->sessions.front().outcome ==
             biv::adapters::InstallSessionOutcome::Outcome::installed);
     REQUIRE(result->id_map.size() == 1U);
-    const auto& installed_id = result->id_map.front().installed_session_id;
     const auto files = relative_files(store);
     StoreReceipt receipt;
     for (const auto& file : files) {
       auto relative = file;
       auto installed = read_text(store / file);
-      auto normalize_id = [&](std::string& value) {
-        auto id_position = value.find(installed_id);
-        while (id_position != std::string::npos) {
-          value.replace(id_position, installed_id.size(), "<installed-id>");
-          id_position = value.find(installed_id, id_position + 14U);
-        }
-      };
-      normalize_id(relative);
-      normalize_id(installed);
+      normalize_rollout_clock(relative);
+      normalize_minted_ids(relative, result->id_map);
+      normalize_minted_ids(installed, result->id_map);
       receipt.files.push_back(relative);
       receipt.contents.emplace(std::move(relative), std::move(installed));
     }
     std::ranges::sort(receipt.files);
+    REQUIRE_FALSE(receipt.files.empty());
+    REQUIRE(std::ranges::find(receipt.files, kNormalizedRolloutFile) !=
+            receipt.files.end());
     return receipt;
   };
 
