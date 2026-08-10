@@ -685,3 +685,22 @@ re-panel owed; NOT bar-ready. Matrix Arm-1 R-4.8 carrier 29796bb — implemented
 held on negative control; completion + rigorous review + publication downstream. Sibling INDEX defect
 (truncated 142630 row + inversion) still unrepaired by s4-matrix (disclosed prior). No live token;
 release hold ABSOLUTE.
+
+**I-3 RULED: FOLD into B2 (2026-08-09 ~1911):**
+Master (family-invariant owner, 190203) ruled I-3 FOLDS into B2's amend — deferral REFUSED (no carrier
+blocker, unlike R-4.8; a confirmed Critical origin-PATH disclosure with an in-scope one-mechanism fix
+does not sit open behind the hold). Master byte-verified the asymmetry + the lock-in test and added the
+sharp point: the test asserting the origin key SURVIVES (outcome==installed) is PART OF THE DEFECT — the
+amend must INVERT it (key rewrites or row refuses). Carried down (191102) as the COMPLETE B2 amend scope,
+ONE commit: I-3 (verify_scan + rewrite_jsonl key decode/rewrite, modeled on B2's own
+verify_whole_document_bytes) + inverted lock-in test + F2 (Codex parent map in rewrite_ids + de-mask;
+the self-reference-vs-disclosure invariant question routes UP before folding an answer, master-pre-flagged)
++ F3 (Codex child-id falsifier) + the authorized TIMEOUT 600 line. Then the FOURTH re-panel — M-4 must
+hold fully. On pass B2 bar-ready; C→B2-immediate proceeds. This closes the origin-disclosure family's last
+open path-leak cell (I-3); R-4.8's home-prefix needle remains the only deferred origin item (carrier-gated).
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (publication held at operator). Slice C waits on B2. B2 #23 —
+amending (I-3 + F2 + F3 + TIMEOUT 600, one commit); fourth re-panel owed; not bar-ready. Matrix Arm-1
+R-4.8 carrier 29796bb — red 1 disposed; red 2 negative control now dispatched to the implementer (190153,
+result pending); on same-5+3 red 2 accepted + completion report. Sibling INDEX inversion (142630 truncated
+row) still unrepaired by s4-matrix. No live token; release hold ABSOLUTE.
