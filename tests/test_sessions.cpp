@@ -173,6 +173,7 @@ std::vector<biv::manifest::AgentSessionEntry> two_codex_records() {
 class CountingAdapter final : public biv::adapters::AgentAdapter {
  public:
   mutable std::size_t install_calls{0};
+  mutable std::optional<biv::manifest::PackerHome> seen_packer_home;
   biv::adapters::InstallResult install_result;
 
   std::string_view id() const override { return "fixture-agent"; }
@@ -190,9 +191,10 @@ class CountingAdapter final : public biv::adapters::AgentAdapter {
     return biv::adapters::CollectReport{};
   }
   biv::expected<biv::adapters::InstallResult> install(
-      const biv::adapters::InstallTarget&, biv::adapters::Consent,
+      const biv::adapters::InstallTarget& target, biv::adapters::Consent,
       std::span<const biv::manifest::AgentSessionEntry>) const override {
     ++install_calls;
+    seen_packer_home = target.packer_home;
     return install_result;
   }
   biv::expected<biv::adapters::RewriteReport> rewrite(
@@ -390,6 +392,88 @@ TEST_CASE("version refusal details map to closed reasons without changing siblin
   CHECK(outcome->rows.at(2).reason == "collision_refused");
   CHECK(outcome->rows.at(2).detail == "collision_refused");
   CHECK(adapter.install_calls == 1U);
+  std::filesystem::remove_all(workspace);
+}
+
+TEST_CASE("run_session_leg transports packer_home to the adapter once per image") {
+  const auto workspace = make_tmp("packer-home-present");
+  auto eligible = entry("fixture-agent");
+  auto manifest = model({std::move(eligible)});
+  manifest.packer_home = biv::manifest::PackerHome{
+      "/Users/packer", biv::manifest::PathFlavor::posix};
+  CountingAdapter adapter;
+  adapter.install_result.sessions = {{
+      .image_session_id = manifest.agent_sessions.front().original_session_ids.primary,
+      .outcome = biv::adapters::InstallSessionOutcome::Outcome::installed,
+      .reason = std::nullopt,
+      .content_rewrite = std::nullopt,
+      .verify = {},
+      .detail = std::nullopt,
+  }};
+  biv::core_sessions::AgentPreview agent;
+  agent.agent = "fixture-agent";
+  agent.parent_count = 1;
+  agent.known_adapter = true;
+  agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
+  agent.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"9.0.0"}, false);
+  agent.adapter = &adapter;
+  biv::core_sessions::SessionPreview preview;
+  preview.agents.push_back(std::move(agent));
+  biv::core_sessions::ConsentDecision consent;
+  consent.per_agent.emplace_back("fixture-agent", true);
+
+  const auto outcome = biv::core_sessions::run_session_leg(
+      preview, consent, manifest, workspace,
+      [](std::string_view) -> biv::expected<std::vector<std::byte>> {
+        return std::vector<std::byte>{};
+      });
+
+  REQUIRE(outcome);
+  const biv::manifest::PackerHome expected{
+      "/Users/packer", biv::manifest::PathFlavor::posix};
+  REQUIRE(adapter.install_calls == 1U);
+  REQUIRE(adapter.seen_packer_home == expected);
+  std::filesystem::remove_all(workspace);
+}
+
+TEST_CASE("run_session_leg passes absent packer_home through unchanged") {
+  const auto workspace = make_tmp("packer-home-absent");
+  auto eligible = entry("fixture-agent");
+  auto manifest = model({std::move(eligible)});
+  CountingAdapter adapter;
+  adapter.install_result.sessions = {{
+      .image_session_id = manifest.agent_sessions.front().original_session_ids.primary,
+      .outcome = biv::adapters::InstallSessionOutcome::Outcome::installed,
+      .reason = std::nullopt,
+      .content_rewrite = std::nullopt,
+      .verify = {},
+      .detail = std::nullopt,
+  }};
+  biv::core_sessions::AgentPreview agent;
+  agent.agent = "fixture-agent";
+  agent.parent_count = 1;
+  agent.known_adapter = true;
+  agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
+  agent.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"9.0.0"}, false);
+  agent.adapter = &adapter;
+  biv::core_sessions::SessionPreview preview;
+  preview.agents.push_back(std::move(agent));
+  biv::core_sessions::ConsentDecision consent;
+  consent.per_agent.emplace_back("fixture-agent", true);
+
+  const auto outcome = biv::core_sessions::run_session_leg(
+      preview, consent, manifest, workspace,
+      [](std::string_view) -> biv::expected<std::vector<std::byte>> {
+        return std::vector<std::byte>{};
+      });
+
+  REQUIRE(outcome);
+  REQUIRE(adapter.install_calls == 1U);
+  REQUIRE(adapter.seen_packer_home == std::nullopt);
   std::filesystem::remove_all(workspace);
 }
 

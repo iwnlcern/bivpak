@@ -267,7 +267,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
         agent.adapter->install(adapters::InstallTarget{.workspace_root = final_workspace_root,
                                                        .target_store = target_store,
                                                        .member_read = member_read,
-                                                       .capabilities = caps},
+                                                       .capabilities = caps,
+                                                       .packer_home = manifest.packer_home},
                                adapters::Consent::yes, std::span<const manifest::AgentSessionEntry>{eligible});
     if (!installed) {
       const auto reason = install_failure_reason(installed.error());

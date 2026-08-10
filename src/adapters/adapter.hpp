@@ -158,6 +158,7 @@ struct InstallTarget {
   Store target_store;
   MemberRead member_read;
   Capabilities capabilities;
+  std::optional<manifest::PackerHome> packer_home{std::nullopt};
 };
 
 enum class Consent { yes, no };
