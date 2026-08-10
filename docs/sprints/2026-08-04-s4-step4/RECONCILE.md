@@ -762,3 +762,27 @@ content (I-3 closed) intact. B2 orphan closed (R-4.9). Matrix Arm-1 R-4.8 carrie
 MF-1 Option A + MF-2..MF-6 folding via design rev3 → one commit → targeted re-check; red 2 negative
 control pending; 3 residuals at master. Sibling INDEX inversion (142630) still unrepaired. No live token;
 release hold ABSOLUTE.
+
+**R-4.10/11/12 registered + MF-1 endorsed; both pairs executing (2026-08-09 ~2054):**
+Master registered the three R-4.8 residuals with binding sharpenings (205222) and endorsed MF-1 Option A
+family-level + the compatible-narrowing call + the process disclosure. Carried down to matrix (205443):
+R-4.10 (ship carrier-emission observability with the needle) + R-4.11 (needle derives home-prefix
+spellings from the PATH; packer_home_flavor is a hint never authority — catches the /mnt/<alpha>/
+mislabel) ride the R-4.8 NEEDLE head, not the current carrier fold; R-4.12 (pack.cpp::path_flavor fourth
+weaker copy) is NOT the carrier/needle work's — m-2 addendum at Step-6, STOP-AND-ROUTE if any head is
+forced to touch source_path_flavor (MF-1's validator on the packer_home path is distinct). Both pairs are
+now executing autonomously: FLOOR issued the C→B2 re-stack dispatch (205244, replay-only, delta-equality
+bar, R-4.9 not folded); MATRIX filed design-rev3 (205408, MF-1 Option A folded — §3 valid() gains
+non_degenerate posix>1/wsl>7/win-drive>3/win-ext>4, classifier untouched so §9-14 parity survives, doc
+hash 06aeef6d sealed) out for re-review, fold dispatch (one commit MF-1+MF-2..MF-6) waits on approve.
+NOTE: red-2 negative control is DONE (matrix reconciled it — control ran at 192358; my 204159/205443
+"control pending" notes are stale) → red 2 closeable, confirm on the completion report. Index maintenance:
+repositioned my own 205443 row after the sibling's 205408 (stale-tail anchor); sibling 142630 inversion
+still unrepaired by s4-matrix.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (publication held). C→B2 pair — RE-STACKING onto current main
+(floor executing), then targeted re-verification + fresh condition-3s; B2 content (I-3 closed) intact;
+orphan closed (R-4.9). Matrix Arm-1 R-4.8 carrier — MF-1 Option A design-rev3 out for re-review → fold →
+targeted re-check → then the R-4.8 needle work (R-4.10/R-4.11 ride it); red 2 control done. Residuals:
+R-4.8 (home-prefix needle), R-4.9 (orphan scrub, electable), R-4.10/R-4.11 (needle-side), R-4.12 (m-2
+Step-6). No live token; release hold ABSOLUTE.
