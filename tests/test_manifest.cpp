@@ -90,6 +90,8 @@ TEST_CASE("packer_home serializes after source_path_flavor and round-trips") {
   const auto parsed = biv::manifest::parse(bytes_of(json));
   REQUIRE(parsed.has_value());
   REQUIRE(parsed->packer_home == manifest.packer_home);
+  // ORACLE RULE: captured at BASE 2341667 for the engaged carrier.
+  // NEVER regenerate this literal from the serializer.
   REQUIRE(json ==
           "{\n"
           "  \"format_version\": 1,\n"
@@ -137,8 +139,11 @@ TEST_CASE("packer_home round-trips every flavor spelling") {
     std::optional<biv::manifest::PathFlavor> flavor;
   };
   for (const auto& row : std::array{
+           FactoryRow{"/x", biv::manifest::PathFlavor::posix},
            FactoryRow{"/Users/x", biv::manifest::PathFlavor::posix},
+           FactoryRow{"/mnt/c/x", biv::manifest::PathFlavor::wsl},
            FactoryRow{"/mnt/c/Users/x", biv::manifest::PathFlavor::wsl},
+           FactoryRow{"C:/x", biv::manifest::PathFlavor::windows},
            FactoryRow{"C:/Users/x", biv::manifest::PathFlavor::windows},
            FactoryRow{R"(\\?\C:\Users\x)",
                       biv::manifest::PathFlavor::windows},

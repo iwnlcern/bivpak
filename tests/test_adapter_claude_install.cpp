@@ -4,6 +4,7 @@
 #include <csignal>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <set>
@@ -568,8 +569,17 @@ TEST_CASE("Claude install produces identical bytes with or without packer_home")
   record.children.clear();
   const std::vector<biv::manifest::AgentSessionEntry> records{record};
   struct StoreReceipt {
+    struct IdMapShape {
+      std::string agent;
+      std::string image_session_id;
+      std::vector<std::string> image_children;
+
+      bool operator==(const IdMapShape&) const = default;
+    };
+
     std::vector<std::string> files;
     std::map<std::string, std::string> contents;
+    std::vector<IdMapShape> id_map_shape;
   };
   const auto install_receipt = [&](const std::string_view arm,
                                    std::optional<biv::manifest::PackerHome> home) {
@@ -585,13 +595,24 @@ TEST_CASE("Claude install produces identical bytes with or without packer_home")
             biv::adapters::InstallSessionOutcome::Outcome::installed);
     REQUIRE(result->id_map.size() == 1U);
     StoreReceipt receipt;
+    for (const auto& row : result->id_map) {
+      std::vector<std::string> image_children;
+      image_children.reserve(row.children.size());
+      std::ranges::transform(row.children, std::back_inserter(image_children),
+                             [](const auto& child) { return child.first; });
+      receipt.id_map_shape.push_back({.agent = row.agent,
+                                      .image_session_id = row.image_session_id,
+                                      .image_children =
+                                          std::move(image_children)});
+    }
     for (const auto& file : regular_files(store)) {
       auto relative = fs::relative(file, store).generic_string();
       auto installed = read_text(file);
       normalize_minted_ids(relative, result->id_map);
       normalize_minted_ids(installed, result->id_map);
       receipt.files.push_back(relative);
-      receipt.contents.emplace(std::move(relative), std::move(installed));
+      REQUIRE(receipt.contents.emplace(std::move(relative),
+                                       std::move(installed)).second);
     }
     std::ranges::sort(receipt.files);
     REQUIRE_FALSE(receipt.files.empty());
@@ -600,10 +621,19 @@ TEST_CASE("Claude install produces identical bytes with or without packer_home")
 
   const auto engaged = install_receipt(
       "engaged", biv::manifest::PackerHome{
-                     "/Users/packer", biv::manifest::PathFlavor::posix});
+                     "/ws", biv::manifest::PathFlavor::posix});
   const auto absent = install_receipt("absent", std::nullopt);
+  // The engaged carrier is a prefix of fixture bytes, so a future
+  // carrier-conditional content rewrite must make these arms diverge.
+  REQUIRE(std::ranges::any_of(engaged.contents, [](const auto& entry) {
+    return entry.second.find("/ws") != std::string::npos;
+  }));
+  // Minted installed ids are normalized across arms by construction, so these
+  // byte-identity checks deliberately exclude id-only divergence.
   REQUIRE(engaged.files == absent.files);
   REQUIRE(engaged.contents == absent.contents);
+  REQUIRE(engaged.id_map_shape.size() == absent.id_map_shape.size());
+  REQUIRE(engaged.id_map_shape == absent.id_map_shape);
   fs::remove_all(root);
 }
 
