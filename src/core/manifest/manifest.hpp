@@ -79,6 +79,7 @@ std::string to_string(PathFlavor flavor);
 expected<PathFlavor> parse_path_flavor(std::string_view value);
 std::optional<PathFlavor> classify_absolute(std::string_view path);
 bool packer_home_valid(const PackerHome& value);
+std::optional<PackerHome> make_packer_home(std::string_view path);
 std::string serialize(const Manifest& manifest);
 expected<Manifest> parse(std::span<const std::byte> bytes);
 

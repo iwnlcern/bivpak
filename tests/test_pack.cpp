@@ -139,11 +139,16 @@ void copy_fixture_tree_with_workspace(const std::filesystem::path& from,
 
 class ScopedEnv {
  public:
-  ScopedEnv(std::string name, std::string value) : name_{std::move(name)} {
+  ScopedEnv(std::string name, std::optional<std::string> value)
+      : name_{std::move(name)} {
     if (const char* old = std::getenv(name_.c_str()); old != nullptr) {
       old_value_ = std::string{old};
     }
-    setenv(name_.c_str(), value.c_str(), 1);
+    if (value) {
+      setenv(name_.c_str(), value->c_str(), 1);
+    } else {
+      unsetenv(name_.c_str());
+    }
   }
 
   ~ScopedEnv() {
@@ -162,34 +167,6 @@ class ScopedEnv {
  private:
   std::string name_;
   std::optional<std::string> old_value_;
-};
-
-class ScopedHome {
- public:
-  explicit ScopedHome(const std::optional<std::string>& value) {
-    if (const char* prior = std::getenv("HOME"); prior != nullptr) {
-      prior_ = prior;
-    }
-    if (value.has_value()) {
-      setenv("HOME", value->c_str(), 1);
-    } else {
-      unsetenv("HOME");
-    }
-  }
-
-  ~ScopedHome() {
-    if (prior_.has_value()) {
-      setenv("HOME", prior_->c_str(), 1);
-    } else {
-      unsetenv("HOME");
-    }
-  }
-
-  ScopedHome(const ScopedHome&) = delete;
-  ScopedHome& operator=(const ScopedHome&) = delete;
-
- private:
-  std::optional<std::string> prior_;
 };
 
 void write_agent_session(const std::filesystem::path& store,
@@ -223,21 +200,27 @@ TEST_CASE("pack captures packer_home per HOME shape") {
   struct Row {
     std::string_view label;
     std::optional<std::string> home;
-    std::optional<biv::manifest::PackerHome> expected;
+    bool use_temp_home;
+    std::optional<biv::manifest::PathFlavor> expected_flavor;
   };
   const auto rows = std::array{
-      Row{"absolute-posix", "/Users/jack",
-          biv::manifest::PackerHome{"/Users/jack",
-                                    biv::manifest::PathFlavor::posix}},
-      Row{"unset", std::nullopt, std::nullopt},
-      Row{"empty", "", std::nullopt},
-      Row{"relative", "relative/home", std::nullopt},
-      Row{"wsl-mount", "/mnt/c/Users/jack",
-          biv::manifest::PackerHome{"/mnt/c/Users/jack",
-                                    biv::manifest::PathFlavor::wsl}},
-      Row{"windows-drive", "C:/Users/jack",
-          biv::manifest::PackerHome{"C:/Users/jack",
-                                    biv::manifest::PathFlavor::windows}},
+      Row{.label = "absolute-posix", .home = std::nullopt,
+          .use_temp_home = true,
+          .expected_flavor = biv::manifest::PathFlavor::posix},
+      Row{.label = "unset", .home = std::nullopt, .use_temp_home = false,
+          .expected_flavor = std::nullopt},
+      Row{.label = "empty", .home = "", .use_temp_home = false,
+          .expected_flavor = std::nullopt},
+      Row{.label = "relative", .home = "relative/home", .use_temp_home = false,
+          .expected_flavor = std::nullopt},
+      Row{.label = "degenerate-root", .home = "/", .use_temp_home = false,
+          .expected_flavor = std::nullopt},
+      Row{.label = "wsl-mount", .home = "/mnt/c/Users/x",
+          .use_temp_home = false,
+          .expected_flavor = biv::manifest::PathFlavor::wsl},
+      Row{.label = "windows-drive", .home = "C:/Users/x",
+          .use_temp_home = false,
+          .expected_flavor = biv::manifest::PathFlavor::windows},
   };
   for (const auto& row : rows) {
     CAPTURE(row.label);
@@ -245,7 +228,13 @@ TEST_CASE("pack captures packer_home per HOME shape") {
     const auto source = root / "proj";
     std::filesystem::create_directories(source);
     write_file(source / "work.txt", "workspace");
-    const ScopedHome home{row.home};
+    const auto home_value = row.use_temp_home
+                                ? std::optional<std::string>{(root / "home").string()}
+                                : row.home;
+    const ScopedEnv home{"HOME", home_value};
+    const ScopedEnv codex_home{"CODEX_HOME", (root / "codex").string()};
+    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR",
+                                  (root / "claude").string()};
 
     const auto report = biv::pack::pack(source);
 
@@ -253,10 +242,14 @@ TEST_CASE("pack captures packer_home per HOME shape") {
     const auto members = read_archive(root / "proj.bvpk");
     auto manifest = biv::manifest::parse(as_span(members.at(0).data));
     REQUIRE(manifest.has_value());
-    REQUIRE(manifest->packer_home == row.expected);
-    if (row.label == std::string_view{"wsl-mount"}) {
-      REQUIRE(manifest->source_path_flavor == biv::manifest::PathFlavor::posix);
-    }
+    const auto expected = row.expected_flavor
+                              ? std::optional<biv::manifest::PackerHome>{
+                                    biv::manifest::PackerHome{
+                                        .path = *home_value,
+                                        .flavor = *row.expected_flavor}}
+                              : std::nullopt;
+    REQUIRE(manifest->packer_home == expected);
+    REQUIRE(manifest->source_path_flavor == biv::manifest::PathFlavor::posix);
     std::filesystem::remove_all(root);
   }
 }

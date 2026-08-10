@@ -173,7 +173,8 @@ std::vector<biv::manifest::AgentSessionEntry> two_codex_records() {
 class CountingAdapter final : public biv::adapters::AgentAdapter {
  public:
   mutable std::size_t install_calls{0};
-  mutable std::optional<biv::manifest::PackerHome> seen_packer_home;
+  mutable std::vector<std::optional<biv::manifest::PackerHome>>
+      seen_packer_homes;
   biv::adapters::InstallResult install_result;
 
   std::string_view id() const override { return "fixture-agent"; }
@@ -194,7 +195,7 @@ class CountingAdapter final : public biv::adapters::AgentAdapter {
       const biv::adapters::InstallTarget& target, biv::adapters::Consent,
       std::span<const biv::manifest::AgentSessionEntry>) const override {
     ++install_calls;
-    seen_packer_home = target.packer_home;
+    seen_packer_homes.push_back(target.packer_home);
     return install_result;
   }
   biv::expected<biv::adapters::RewriteReport> rewrite(
@@ -395,34 +396,27 @@ TEST_CASE("version refusal details map to closed reasons without changing siblin
   std::filesystem::remove_all(workspace);
 }
 
-TEST_CASE("run_session_leg transports packer_home to the adapter once per image") {
+TEST_CASE("run_session_leg transports packer_home to every adapter leg") {
   const auto workspace = make_tmp("packer-home-present");
-  auto eligible = entry("fixture-agent");
-  auto manifest = model({std::move(eligible)});
+  auto manifest = model({entry("fixture-agent-a"), entry("fixture-agent-b")});
   manifest.packer_home = biv::manifest::PackerHome{
       "/Users/packer", biv::manifest::PathFlavor::posix};
   CountingAdapter adapter;
-  adapter.install_result.sessions = {{
-      .image_session_id = manifest.agent_sessions.front().original_session_ids.primary,
-      .outcome = biv::adapters::InstallSessionOutcome::Outcome::installed,
-      .reason = std::nullopt,
-      .content_rewrite = std::nullopt,
-      .verify = {},
-      .detail = std::nullopt,
-  }};
-  biv::core_sessions::AgentPreview agent;
-  agent.agent = "fixture-agent";
-  agent.parent_count = 1;
-  agent.known_adapter = true;
-  agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
-  agent.caps = biv::adapters::Capabilities::from_probe(
-      biv::adapters::Capabilities::Verdict::readable,
-      std::optional<std::string>{"9.0.0"}, false);
-  agent.adapter = &adapter;
   biv::core_sessions::SessionPreview preview;
-  preview.agents.push_back(std::move(agent));
   biv::core_sessions::ConsentDecision consent;
-  consent.per_agent.emplace_back("fixture-agent", true);
+  for (const std::string agent_name : {"fixture-agent-a", "fixture-agent-b"}) {
+    biv::core_sessions::AgentPreview agent;
+    agent.agent = agent_name;
+    agent.parent_count = 1;
+    agent.known_adapter = true;
+    agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
+    agent.caps = biv::adapters::Capabilities::from_probe(
+        biv::adapters::Capabilities::Verdict::readable,
+        std::optional<std::string>{"9.0.0"}, false);
+    agent.adapter = &adapter;
+    preview.agents.push_back(std::move(agent));
+    consent.per_agent.emplace_back(agent_name, true);
+  }
 
   const auto outcome = biv::core_sessions::run_session_leg(
       preview, consent, manifest, workspace,
@@ -433,37 +427,32 @@ TEST_CASE("run_session_leg transports packer_home to the adapter once per image"
   REQUIRE(outcome);
   const biv::manifest::PackerHome expected{
       "/Users/packer", biv::manifest::PathFlavor::posix};
-  REQUIRE(adapter.install_calls == 1U);
-  REQUIRE(adapter.seen_packer_home == expected);
+  REQUIRE(adapter.install_calls == 2U);
+  REQUIRE(adapter.seen_packer_homes ==
+          std::vector<std::optional<biv::manifest::PackerHome>>{expected,
+                                                               expected});
   std::filesystem::remove_all(workspace);
 }
 
 TEST_CASE("run_session_leg passes absent packer_home through unchanged") {
   const auto workspace = make_tmp("packer-home-absent");
-  auto eligible = entry("fixture-agent");
-  auto manifest = model({std::move(eligible)});
+  auto manifest = model({entry("fixture-agent-a"), entry("fixture-agent-b")});
   CountingAdapter adapter;
-  adapter.install_result.sessions = {{
-      .image_session_id = manifest.agent_sessions.front().original_session_ids.primary,
-      .outcome = biv::adapters::InstallSessionOutcome::Outcome::installed,
-      .reason = std::nullopt,
-      .content_rewrite = std::nullopt,
-      .verify = {},
-      .detail = std::nullopt,
-  }};
-  biv::core_sessions::AgentPreview agent;
-  agent.agent = "fixture-agent";
-  agent.parent_count = 1;
-  agent.known_adapter = true;
-  agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
-  agent.caps = biv::adapters::Capabilities::from_probe(
-      biv::adapters::Capabilities::Verdict::readable,
-      std::optional<std::string>{"9.0.0"}, false);
-  agent.adapter = &adapter;
   biv::core_sessions::SessionPreview preview;
-  preview.agents.push_back(std::move(agent));
   biv::core_sessions::ConsentDecision consent;
-  consent.per_agent.emplace_back("fixture-agent", true);
+  for (const std::string agent_name : {"fixture-agent-a", "fixture-agent-b"}) {
+    biv::core_sessions::AgentPreview agent;
+    agent.agent = agent_name;
+    agent.parent_count = 1;
+    agent.known_adapter = true;
+    agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
+    agent.caps = biv::adapters::Capabilities::from_probe(
+        biv::adapters::Capabilities::Verdict::readable,
+        std::optional<std::string>{"9.0.0"}, false);
+    agent.adapter = &adapter;
+    preview.agents.push_back(std::move(agent));
+    consent.per_agent.emplace_back(agent_name, true);
+  }
 
   const auto outcome = biv::core_sessions::run_session_leg(
       preview, consent, manifest, workspace,
@@ -472,8 +461,10 @@ TEST_CASE("run_session_leg passes absent packer_home through unchanged") {
       });
 
   REQUIRE(outcome);
-  REQUIRE(adapter.install_calls == 1U);
-  REQUIRE(adapter.seen_packer_home == std::nullopt);
+  REQUIRE(adapter.install_calls == 2U);
+  REQUIRE(adapter.seen_packer_homes ==
+          std::vector<std::optional<biv::manifest::PackerHome>>{std::nullopt,
+                                                               std::nullopt});
   std::filesystem::remove_all(workspace);
 }
 

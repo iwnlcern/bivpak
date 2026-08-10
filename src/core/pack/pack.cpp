@@ -141,12 +141,7 @@ manifest::PathFlavor path_flavor(const std::filesystem::path& path) {
 
 std::optional<manifest::PackerHome> packer_home_carrier(
     const std::filesystem::path& home) {
-  const auto text = home.generic_string();
-  const auto flavor = manifest::classify_absolute(text);
-  if (!flavor) {
-    return std::nullopt;
-  }
-  return manifest::PackerHome{.path = text, .flavor = *flavor};
+  return manifest::make_packer_home(home.generic_string());
 }
 
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink);

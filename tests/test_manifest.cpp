@@ -90,6 +90,25 @@ TEST_CASE("packer_home serializes after source_path_flavor and round-trips") {
   const auto parsed = biv::manifest::parse(bytes_of(json));
   REQUIRE(parsed.has_value());
   REQUIRE(parsed->packer_home == manifest.packer_home);
+  REQUIRE(json ==
+          "{\n"
+          "  \"format_version\": 1,\n"
+          "  \"required_capabilities\": [],\n"
+          "  \"image_id\": \"00000000-0000-4000-8000-000000000000\",\n"
+          "  \"app_version\": \"0.1.0\",\n"
+          "  \"created_at\": \"2026-07-05T00:00:00Z\",\n"
+          "  \"source_path\": \"/mnt/c/tmp/plain\",\n"
+          "  \"source_path_flavor\": \"wsl\",\n"
+          "  \"packer_home\": \"/Users/jack\",\n"
+          "  \"packer_home_flavor\": \"posix\",\n"
+          "  \"bivignore\": {\n"
+          "    \"source\": \"builtin\",\n"
+          "    \"builtin_id\": \"builtin-v1\",\n"
+          "    \"sha256\": \"abc123\"\n"
+          "  },\n"
+          "  \"repos\": [],\n"
+          "  \"agent_sessions\": []\n"
+          "}\n");
 }
 
 TEST_CASE("packer_home round-trips every flavor spelling") {
@@ -111,6 +130,35 @@ TEST_CASE("packer_home round-trips every flavor spelling") {
         biv::manifest::parse(bytes_of(biv::manifest::serialize(manifest)));
     REQUIRE(parsed.has_value());
     REQUIRE(parsed->packer_home == manifest.packer_home);
+  }
+
+  struct FactoryRow {
+    std::string_view path;
+    std::optional<biv::manifest::PathFlavor> flavor;
+  };
+  for (const auto& row : std::array{
+           FactoryRow{"/Users/x", biv::manifest::PathFlavor::posix},
+           FactoryRow{"/mnt/c/Users/x", biv::manifest::PathFlavor::wsl},
+           FactoryRow{"C:/Users/x", biv::manifest::PathFlavor::windows},
+           FactoryRow{R"(\\?\C:\Users\x)",
+                      biv::manifest::PathFlavor::windows},
+           FactoryRow{"", std::nullopt},
+           FactoryRow{"relative/home", std::nullopt},
+           FactoryRow{"/", std::nullopt},
+           FactoryRow{"/mnt/c/", std::nullopt},
+           FactoryRow{"C:/", std::nullopt},
+           FactoryRow{"C:\\", std::nullopt},
+           FactoryRow{"//?/", std::nullopt},
+           FactoryRow{R"(\\?\)", std::nullopt},
+       }) {
+    CAPTURE(row.path);
+    const auto actual = biv::manifest::make_packer_home(row.path);
+    REQUIRE(actual.has_value() == row.flavor.has_value());
+    if (actual) {
+      CHECK(actual->path == row.path);
+      CHECK(actual->flavor == *row.flavor);
+      CHECK(biv::manifest::packer_home_valid(*actual));
+    }
   }
 }
 
@@ -135,6 +183,12 @@ TEST_CASE("packer_home invalid engaged values collapse to absent on serialize") 
                                      biv::manifest::PathFlavor::posix},
            biv::manifest::PackerHome{"/home/user",
                                      biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{"/", biv::manifest::PathFlavor::posix},
+           biv::manifest::PackerHome{"/mnt/c/", biv::manifest::PathFlavor::wsl},
+           biv::manifest::PackerHome{"C:/", biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{"C:\\", biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{"//?/", biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{R"(\\?\)", biv::manifest::PathFlavor::windows},
        }) {
     CAPTURE(bad.path);
     auto manifest = fixed_manifest();
@@ -184,25 +238,46 @@ TEST_CASE("packer_home lone keys fail closed naming the flavor key") {
 }
 
 TEST_CASE("packer_home malformed values fail closed naming the home key") {
-  for (const auto& injected : std::array<std::string, 5>{
+  for (const auto& injected : std::array<std::string, 13>{
            "\"packer_home\":42,\"packer_home_flavor\":\"posix\",",
            "\"packer_home\":\"\",\"packer_home_flavor\":\"posix\",",
            "\"packer_home\":\"relative/home\",\"packer_home_flavor\":\"posix\",",
+           "\"packer_home\":\"relative/home\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"relative/home\",\"packer_home_flavor\":\"wsl\",",
            "\"packer_home\":\"/home/user\",\"packer_home_flavor\":\"windows\",",
            "\"packer_home\":\"/mnt/c/Users/x\",\"packer_home_flavor\":\"posix\",",
+           "\"packer_home\":\"/\",\"packer_home_flavor\":\"posix\",",
+           "\"packer_home\":\"/mnt/c/\",\"packer_home_flavor\":\"wsl\",",
+           "\"packer_home\":\"C:/\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"C:\\\\\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"//?/\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"\\\\\\\\?\\\\\",\"packer_home_flavor\":\"windows\",",
        }) {
     CAPTURE(injected);
     const auto parsed = biv::manifest::parse(bytes_of(carrier_json(injected)));
     REQUIRE_FALSE(parsed.has_value());
     REQUIRE(parsed.error().detail == "packer_home");
   }
+
+  const auto extended_control = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":\"\\\\\\\\?\\\\C:\\\\Users\\\\x\","
+      "\"packer_home_flavor\":\"windows\",")));
+  REQUIRE(extended_control.has_value());
+  REQUIRE(extended_control->packer_home == biv::manifest::PackerHome{
+                                                R"(\\?\C:\Users\x)",
+                                                biv::manifest::PathFlavor::windows});
 }
 
-TEST_CASE("packer_home unknown flavor names the flavor key not source_path_flavor") {
-  const auto parsed = biv::manifest::parse(bytes_of(carrier_json(
+TEST_CASE("packer_home flavor errors name the flavor key not source_path_flavor") {
+  const auto unknown = biv::manifest::parse(bytes_of(carrier_json(
       "\"packer_home\":\"/x\",\"packer_home_flavor\":\"vms\",")));
-  REQUIRE_FALSE(parsed.has_value());
-  REQUIRE(parsed.error().detail == "packer_home_flavor");
+  REQUIRE_FALSE(unknown.has_value());
+  REQUIRE(unknown.error().detail == "packer_home_flavor");
+
+  const auto wrong_type = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":\"/x\",\"packer_home_flavor\":42,")));
+  REQUIRE_FALSE(wrong_type.has_value());
+  REQUIRE(wrong_type.error().detail == "packer_home_flavor");
 }
 
 TEST_CASE("classify_absolute covers every grammar branch") {
@@ -221,6 +296,9 @@ TEST_CASE("classify_absolute covers every grammar branch") {
   REQUIRE(classify("mnt/c/x") == std::nullopt);
   REQUIRE(classify("C:") == std::nullopt);
   REQUIRE(classify("C:x") == std::nullopt);
+  REQUIRE(classify("/mnt/c") == PathFlavor::posix);
+  REQUIRE(classify("/mnt/1/x") == PathFlavor::posix);
+  REQUIRE(classify("1:/x") == std::nullopt);
 }
 
 TEST_CASE("classify_absolute agrees with the adapter spelling classifier") {

@@ -461,7 +461,32 @@ std::optional<PathFlavor> classify_absolute(const std::string_view path) {
 }
 
 bool packer_home_valid(const PackerHome& value) {
-  return !value.path.empty() && classify_absolute(value.path) == value.flavor;
+  const auto classified = classify_absolute(value.path);
+  if (classified != value.flavor) {
+    return false;
+  }
+  switch (value.flavor) {
+    case PathFlavor::posix:
+      return value.path.size() > 1U;
+    case PathFlavor::wsl:
+      return value.path.size() > 7U;
+    case PathFlavor::windows:
+      return value.path.size() >
+             (value.path.starts_with(R"(\\?\)") || value.path.starts_with("//?/")
+                  ? 4U
+                  : 3U);
+  }
+  return false;
+}
+
+std::optional<PackerHome> make_packer_home(const std::string_view path) {
+  const auto flavor = classify_absolute(path);
+  if (!flavor) {
+    return std::nullopt;
+  }
+  PackerHome value{.path = std::string{path}, .flavor = *flavor};
+  return packer_home_valid(value) ? std::optional<PackerHome>{std::move(value)}
+                                  : std::nullopt;
 }
 
 std::string to_string(const PathFlavor flavor) {

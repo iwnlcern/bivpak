@@ -481,12 +481,10 @@ TEST_CASE(
   fs::remove_all(root);
 }
 
-TEST_CASE("Codex install receives packer_home as inert metadata") {
+TEST_CASE("Codex install produces identical bytes with or without packer_home") {
   const auto root = make_tmp("packer-home-receipt");
   const auto workspace = root / "workspace";
-  const auto store = root / "codex";
   fs::create_directories(workspace);
-  fs::create_directories(store);
   auto members = codex_members();
   members.at(parent_artifact()) = bytes(
       std::string{"{\"/ws/proj\":\"key-must-not-change\",\"timestamp\":"
@@ -497,34 +495,44 @@ TEST_CASE("Codex install receives packer_home as inert metadata") {
       "\",\"cwd\":\"\\/ws\\/\\u0070roj\",\"cli_version\":\"0.142.5\","
       "\"decimal\":0.1,\"integral\":1.0,\"exponent\":1e+03,"
       "\"unsigned\":18446744073709551615}}\n");
-  auto target = target_for(workspace, store, members);
-  const biv::manifest::PackerHome transported{
-      "/Users/packer", biv::manifest::PathFlavor::posix};
-  target.packer_home = transported;
-  const std::vector<biv::manifest::AgentSessionEntry> records{codex_entry()};
+  auto record = codex_entry();
+  record.children.clear();
+  const std::vector<biv::manifest::AgentSessionEntry> records{record};
+  const auto install_bytes = [&](const std::string_view arm,
+                                 std::optional<biv::manifest::PackerHome> home) {
+    const auto store = root / std::string{arm};
+    fs::create_directories(store);
+    auto target = target_for(workspace, store, members);
+    target.packer_home = std::move(home);
+    const auto result = biv::adapters::codex_adapter().install(
+        target, biv::adapters::Consent::yes, records);
+    REQUIRE(result.has_value());
+    REQUIRE(result->sessions.size() == 1U);
+    REQUIRE(result->sessions.front().outcome ==
+            biv::adapters::InstallSessionOutcome::Outcome::installed);
+    REQUIRE(result->id_map.size() == 1U);
+    const auto& installed_id = result->id_map.front().installed_session_id;
+    const auto files = relative_files(store);
+    const auto parent_file = std::ranges::find_if(
+        files, [&](const std::string& file) {
+          return file.find(installed_id) != std::string::npos;
+        });
+    REQUIRE(parent_file != files.end());
+    auto installed = read_text(store / *parent_file);
+    auto id_position = installed.find(installed_id);
+    REQUIRE(id_position != std::string::npos);
+    while (id_position != std::string::npos) {
+      installed.replace(id_position, installed_id.size(), "<installed-id>");
+      id_position = installed.find(installed_id, id_position + 14U);
+    }
+    return installed;
+  };
 
-  const auto result = biv::adapters::codex_adapter().install(
-      target, biv::adapters::Consent::yes, records);
-
-  REQUIRE(result.has_value());
-  REQUIRE(result->sessions.size() == 1);
-  CHECK(result->sessions.front().outcome ==
-        biv::adapters::InstallSessionOutcome::Outcome::installed);
-  REQUIRE(result->id_map.size() == 1);
-  const auto installed_id = result->id_map.front().installed_session_id;
-  const auto files = relative_files(store);
-  const auto parent_file = std::ranges::find_if(files, [&](const std::string& file) {
-    return file.find(installed_id) != std::string::npos;
-  });
-  REQUIRE(parent_file != files.end());
-  const auto installed = read_text(store / *parent_file);
-  CHECK(installed.find("\"/ws/proj\":\"key-must-not-change\"") !=
-        std::string::npos);
-  CHECK(installed.find(workspace.generic_string()) != std::string::npos);
-  CHECK(installed.find("\"decimal\":0.1") != std::string::npos);
-  CHECK(installed.find("\"integral\":1.0") != std::string::npos);
-  CHECK(installed.find("\"exponent\":1e+03") != std::string::npos);
-  CHECK(installed.find("18446744073709551615") != std::string::npos);
+  const auto engaged = install_bytes(
+      "engaged", biv::manifest::PackerHome{
+                     "/Users/packer", biv::manifest::PathFlavor::posix});
+  const auto absent = install_bytes("absent", std::nullopt);
+  REQUIRE(engaged == absent);
   fs::remove_all(root);
 }
 
