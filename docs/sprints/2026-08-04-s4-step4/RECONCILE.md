@@ -895,3 +895,54 @@ Minor/PLAUSIBLE) — not a blocker.
 (C first, B2 immediate). Slice E stacks on B2. Matrix Arm-1 R-4.8 — second bounded fold (extended-root
 Option A + RF-1/RF-2) → targeted check → needle head (R-4.10/R-4.11×2/MF-6 condition). Both E2 reds closed.
 No live token; release hold ABSOLUTE.
+
+---
+
+## 20260809-234510 — master's GLOBAL semantic check HELD the pair; FOUR gating folds carried DOWN
+
+Master ran an operator-directed global semantic check across the cross-slice seams BEFORE the paired
+condition-4 authorization (233408). Result: the C d6e44d9 / B2 0653fea pair is HELD and master's 231437
+paired-authorization request to the operator is WITHDRAWN. What HOLDS is not in doubt — tree-equivalence
+PROVEN (main beyond C's parent is docs-lane only, so the 0653fea product tree IS the post-merge tree), the
+FULL suite re-run 100% green at master's own seat (e2 173.5s under the ruled 600; only safety-hardening
+skipped, an ELF/readelf check that cannot run on a Mach-O host — Docker leg covers it), consent/DNA core
+verified clean (one write choke point, all store paths consent-gated, refused sessions never publish, pack
+host-read-only, I-3 symmetric). But FOUR findings gate the pair, all RULED FOLD (the I-3 precedent, no
+deferral):
+
+- **A1 (order-dependent truncation) — I re-verified at bytes at 0653fea:** claude install.cpp destinations
+  loop sets refusal_detail="undecodable_line" then BREAKs, so artifacts after the break never feed
+  message_uuid_origins (the image union). The pre-refused branch continues through all artifacts — the
+  asymmetry is real; whether a refused session fully seeds the needle set depends on WHEN it refused.
+- **A2 (artifact-derived primary id) — re-verified:** version-refused entries never contribute their
+  artifact-derived identity (claude image_session_id={} + empty-guarded insert; codex records-pass adds
+  only primary/parent/child). This is the caveat I earlier routed as a candidate residual / non-blocker —
+  master WIDENED it to a LIVE gating leak across BOTH adapters (R-4.13 widened). MY MIS-WEIGHT: an
+  origin-ID leak vector gates even when pre-existing and low-realism.
+- **B1 (claude staged-subtree class mismatch) — re-verified at bytes:** installer accepts any safe
+  .jsonl/.txt/.meta.json subtree with no dir constraint; the staged re-collector hard-errors unless
+  subagents/*.jsonl|subagents/*.meta.json|tool-results/*.txt (claude_code.cpp:478-488), and
+  append_staged_session runs FIRST in collect() (:606-608) → a legal consent-NO image round-trips to a
+  biv pack HARD-ABORT (exit 4, no image). Fold: same-set class invariant OR skip-and-warn per session.
+- **B2 (codex sidecar multi-path) — carried on master's byte-verification:** one image holds distinct
+  original_path values (cwd-descendant admission); consent-NO unions their pair sets into one sidecar which
+  resolve_codex_staged_original_path then rejects (invalid_staged_sidecar) → same hard-abort. Fold within
+  the sealed shape (per-row original_path) if possible, ELSE STOP-and-route UP to me for the m-2
+  carrier-shape addendum. Round-trip falsifier required either way.
+
+**Class lesson:** the round-trip dimension (open consent-NO → biv pack → succeeds) was NEVER tested by the
+scoped install-side M-4 panels — the feature exists precisely to round-trip consent-NO output. The fold's
+targeted re-panel MUST carry round-trip lenses, not only M-4. This is why master's global check + full-suite
++ round-trip thinking caught what four scoped panels + a targeted re-check missed.
+
+**Disposition (mine):** carried all four DOWN to s4-floor.planner as ONE bounded fold dispatch
+(s4-floor-cb2-fold-dispatch, 141858f) with fold shapes + falsifiers, the B2 STOP-and-route-to-m-2 carrier
+condition, and the non-gating items (latent report-integrity hazard, claude/codex parent-mapping coherence,
+carve-out contradiction, consent-NO clean-skip-drift-confirmed-intended) at the pair's discretion. Return =
+one bounded fold + falsifiers → suites honestly green → targeted re-panel (M-4 + round-trip @ new SHAs) →
+fresh paired hand-up, on which master re-issues the paired condition-4 to the operator.
+
+**Wave picture:** B1(slice) ✅ + slice A ✅ merged (publication held). C d6e44d9 + B2 0653fea — HELD for the
+four-fold; fold pending at the floor pair. Slice E follows the pair. Matrix Arm-1 R-4.8 — second bounded
+fold dispatched (233350, extended-root Option A + RF-1/RF-2), unaffected by the C/B2 hold. No live token;
+release hold ABSOLUTE.
