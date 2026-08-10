@@ -1,10 +1,10 @@
-# Arm-1 schema act — R-4.8 pack-time packer-home carrier (design, rev5)
+# Arm-1 schema act — R-4.8 pack-time packer-home carrier (design, rev6)
 
 DISPATCH_ID: s4-matrix-arm1-r48-carrier
 PARENT_DISPATCH_ID: s4-build-standup-step4-opening-dispatch
 AUTHOR: s4-matrix.planner
 DATE: 2026-08-09
-STATUS: rev5 — extended-root cell folded per ruling `224450` (extended threshold `>4 → >7`; grammar and root lengths single-sited in `classify_carrier_root` with a fail-closed default; amends `204159`'s Option A text at the orchestrator's own direction); awaiting pair-Implementer re-review on THIS doc hash; floor ratification `050728` stands (the narrowing class was ruled compatible at `204159` and this deepens it in the same direction)
+STATUS: rev6 — rev5 must-revise R1 folded (exact 8-byte root-plus-one valid controls in both extended spellings pin the ACCEPT side of the `>7` boundary); extended-root cell per ruling `224450` (extended `>4 → >7`; grammar and root lengths single-sited in `classify_carrier_root`, fail-closed default; amends `204159` at the orchestrator's own direction); awaiting pair-Implementer re-review on THIS doc hash; floor ratification `050728` stands (narrowing class ruled compatible at `204159`, deepened in the same direction)
 GRILL_REQUIRED: yes
 GRILL_LOCK_ID: s4-matrix-arm1-r48-carrier-grill-20260809 (docs/sprints/2026-08-04-s4-step4/designs/2026-08-09-s4-matrix-arm1-r48-carrier-grill-lock.md — incl. the rev2 appendix D6-D8)
 TRACKER: R-4.8 (../../../pdc/master/RESIDUALS.md) — hard-gated before ANY release
@@ -19,6 +19,7 @@ REV3_REVIEW: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIE
 REV4_REVIEW: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV4-APPROVE-20260809-211611.md (approve on rev4 hash `c1c3188b…@91d6841`; implemented at fold commit `2bc7a078`)
 RECHECK: docs/sprints/2026-08-04-s4-step4/reviews/2026-08-09-s4-matrix-r48-fold-recheck-2bc7a07.md (sealed `e6a589a5…`; product PASS 3/3; surfaced the extended-root cell this rev folds)
 EXTENDED_ROOT_RULING: .relays/s4/s4-matrix-arm1-plan/PLAN-ORCHESTRATOR-PLANNER-R48-EXTENDED-ROOT-RULED-OPTION-A-TIGHTEN-GT7-HELPER-20260809-224450.md (Option A: extended `>7` + single root-length helper, fail-closed; amends `204159`; Option B declined)
+REV5_REVIEW: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV5-MUST-REVISE-20260809-230557.md (must-revise R1: no root-plus-one accept-side falsifier — `size() > 8` would have passed every rev5 row; verified at this seat before this fold)
 FLOOR_RATIFICATION: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-FLOOR-PLANNER-R48-CONSUMER-CONTRACT-RATIFIED-20260809-050728.md (approve; wire shape preserved by rev2, so it stands per the rev1 re-review's own criterion)
 
 ## 1. Context and problem
@@ -308,6 +309,7 @@ floor explicitly.
 | flavor mismatch (e.g. posix path declared `windows`; `/mnt/c/...` declared `posix`) | `ParseError{"packer_home"}` via the validator |
 | degenerate bare root with its own (matching) flavor — `"/"` posix; `"/mnt/c/"` wsl; `"C:/"`/`"C:\"` windows; `"//?/"`/`"\\?\"` windows (rev3); `"\\?\C:\"`/`"//?/C:/"`/`"\\?\C:"` windows (rev5 extended drive roots) | `ParseError{"packer_home"}` via the validator (malformed, fail-closed — §6) |
 | `"\\?\C:\Users\x"` declared `windows` | present, valid (extended spelling with actual content past the drive root — rev5 requires `size() > 7`) |
+| `"\\?\C:\x"` (8 bytes) and `"//?/C:/x"` (8 bytes) declared `windows` | present, valid — the rev6 root-plus-one controls: exactly one byte past the 7-byte extended drive root, pinning strict `>7` on the ACCEPT side in BOTH prefix spellings |
 | `"packer_home_flavor": "vms"` (unknown) | `ParseError{"packer_home_flavor"}` via the LOCAL remap (helper's own detail is `source_path_flavor`) |
 | manifest value present at restore, needle absent (pre-needle binary) | inert metadata; no action |
 
@@ -334,10 +336,10 @@ nine-member freeze is untouched.
 9. `""` → `ParseError{"packer_home"}`.
 10. Relative value (each flavor declared) → `ParseError{"packer_home"}`.
 11. Mismatch matrix: posix path declared `windows`/`wsl`; `/mnt/c/...` declared `posix`; `C:\...` declared `posix` → `ParseError{"packer_home"}`.
-11b. Degenerate-root matrix (rev3, MF-1; extended rows rev5): `"/"` posix; `"/mnt/c/"` wsl; `"C:/"` and `"C:\"` windows; `"//?/"` and `"\\?\"` windows; `"\\?\C:\"`, `"//?/C:/"`, and `"\\?\C:"` windows (rev5) → `ParseError{"packer_home"}`; positive control `"\\?\C:\Users\x"` windows → valid. Serialize side: each degenerate value engaged-in-memory → both keys OMITTED (collapse, extends test 2). The rev5 rows pin the previously-unenumerated cell the re-check flagged.
+11b. Degenerate-root matrix (rev3, MF-1; extended rows rev5): `"/"` posix; `"/mnt/c/"` wsl; `"C:/"` and `"C:\"` windows; `"//?/"` and `"\\?\"` windows; `"\\?\C:\"`, `"//?/C:/"`, and `"\\?\C:"` windows (rev5) → `ParseError{"packer_home"}`; positive controls: `"\\?\C:\Users\x"` windows → valid, AND (rev6) the 8-byte root-plus-one pair `"\\?\C:\x"` / `"//?/C:/x"` windows → valid (pins strict `>7` on the accept side — a `>8` misimplementation goes RED here). Serialize side: each degenerate value engaged-in-memory → both keys OMITTED (collapse, extends test 2). The rev5 rows pin the previously-unenumerated cell the re-check flagged.
 12. Unknown flavor `"vms"` → `ParseError` with detail EXACTLY `packer_home_flavor` (remap falsifier).
 13. `classify_absolute` unit rows: all §3 grammar branches + `nullopt` cases (relative, empty, `mnt/c/x` missing lead slash, `C:` two chars).
-13b. `make_packer_home` unit rows (rev4, the CAPTURE-boundary falsifier — no serializer in the loop): `"/Users/x"` → engaged posix; `"/mnt/c/Users/x"` → engaged wsl; `"C:/Users/x"` → engaged windows; `"\\?\C:\Users\x"` → engaged windows; `"/"`, `"/mnt/c/"`, `"C:/"`, `"//?/"` → `nullopt`; `""`, `"relative/home"` → `nullopt`; rev5 adds `"\\?\C:\"`, `"//?/C:/"`, `"\\?\C:"` → `nullopt`. Plus the postcondition row: every engaged result satisfies `valid()`. NOTE (rev5): existing round-trip/spelling rows must be re-checked against the `>7` extended bound — every currently-green engaged extended value has ≥8 bytes (`\\?\C:\Users\x` = 14), so no green row flips; the fold verifies this at the bytes.
+13b. `make_packer_home` unit rows (rev4, the CAPTURE-boundary falsifier — no serializer in the loop): `"/Users/x"` → engaged posix; `"/mnt/c/Users/x"` → engaged wsl; `"C:/Users/x"` → engaged windows; `"\\?\C:\Users\x"` → engaged windows; `"/"`, `"/mnt/c/"`, `"C:/"`, `"//?/"` → `nullopt`; `""`, `"relative/home"` → `nullopt`; rev5 adds `"\\?\C:\"`, `"//?/C:/"`, `"\\?\C:"` → `nullopt`; rev6 adds the accept-side boundary pair `"\\?\C:\x"` → engaged windows and `"//?/C:/x"` → engaged windows (8 bytes each — exactly root-plus-one). Plus the postcondition row: every engaged result satisfies `valid()`. NOTE (rev5): existing round-trip/spelling rows must be re-checked against the `>7` extended bound — every currently-green engaged extended value has ≥8 bytes (`\\?\C:\Users\x` = 14), so no green row flips; the fold verifies this at the bytes.
 14. PARITY TABLE: `classify_absolute` agrees with `rewrite::path_flavor_for` on every absolute spelling in the table (both layers included by the test target; drift falsifier).
 
 `tests/test_pack.cpp` (capture, env-controlled):
@@ -381,10 +383,10 @@ nine-member freeze is untouched.
 Authored in the Arm-1 schema-act wave on its head; integrates with the floor's needle
 under the R-4.8 tracker (carrier + needle land together). Non-blocking to current Arm-1
 Wave-A (panel-clean, with master) and to B2's union-scope resume. Design locks on:
-pair-Implementer re-review approve of THIS rev5 on its exact doc hash (the floor's
+pair-Implementer re-review approve of THIS rev6 on its exact doc hash (the floor's
 `050728` ratification on record; the narrowing class ruled compatible at `204159`,
 family-endorsed `205443`, deepened in the same direction by `224450`, floor CC'd
-throughout to object). rev5 implements inside the SECOND bounded fold directed by
+throughout to object). rev6 implements inside the SECOND bounded fold directed by
 `224450`: ONE commit — the extended-root fix (`classify_carrier_root` + `>7`) plus the
 re-check's RF-1 (make the pack-matrix store guards ENGAGE: create the guarded dirs AND
 assert `agent_sessions.empty()` per row) and RF-2 (receipts compare the sorted store
