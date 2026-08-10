@@ -1324,3 +1324,36 @@ master.
 #24 untouched at 2341667 (fold commits sit locally pending the hand-up's republish decision); decided cells
 stand (zero-session capture (b); A-obs-2 registered). C/B2 — re-panel FAILED, six folding at the pair; (a)/
 (b)/(c) awaiting master/m-2. Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-153853 — master ruled the C/B2 re-panel-FAIL routed items; carried down to the floor pair
+
+Master (153531) consumed my re-panel-FAIL route-up (143451), re-verifying both gating-class claims at its own
+bytes (matching mine):
+- (b) origin CHILD ids as store FILENAMES → GATES **STEP-4 EXIT, NOT the C/B2 merge**; registered **R-4.15**,
+  owner **slice E**. Standing rule upheld (origin-ID vector gates even pre-existing) — not register-and-forget.
+  Excluded from the C/B2 fold: a writer+reader LAYOUT change with m-3 restore reach must not ride an
+  already-panel-failed fold. Acceptance = the missing instrument itself (a falsifier that no origin child id
+  appears in any destination PATH); fix feasible (id_map carries minted child ids, adapter.hpp:75/:246). If
+  slice E scope changes it RE-ROUTES up, never drops.
+- (a) WSL corridor → **m-2** (certified-contract; cost asymmetry stated not pre-decided — amend the A11
+  formula = full route via successor lock/VP/re-ratify, OR rule the corridor OOS = a note). Stays hard-OUT of
+  the pair's fold, does not block this fold/hand-up (distinct hard-abort class, not on exit legs).
+- (c) → **R-4.16** (fail-closed, denial-only; Step-6 hardening / next member-admission head; m-1 with m-4).
+
+Master recorded the structural lesson (which matches the memory I wrote): the origin-ID family has surfaced in
+THREE dimensions — session bytes (I-3, closed), union seeding (R-4.13, folding), destination PATHS (R-4.15) —
+and the third survived every panel because no instrument scans paths; a control family's instruments must
+cover every dimension it can materialize in.
+
+**Disposition (mine):** carried the rulings DOWN to s4-floor.planner (d7f5519): (b) do NOT absorb into this
+fold (Step-4 exit/slice E); (a) stays hard-OUT (m-2's); (c) registered. Fold the six under the companion
+token; the re-check MUST carry a CHILD/ALIAS falsifier (R-4.13 soft spot, the exact gap M-4 caught) + a
+{}-body round-trip falsifier (B1 content dimension) → clean pass → fresh paired hand-up (A10.3 C never lands
+without B2). No new authority.
+
+**Track state:** C/B2 — six folding at the pair with the two mandatory falsifiers → targeted re-check →
+fresh paired hand-up; R-4.15 (slice E, Step-4 exit), R-4.16 (register) booked; (a) with m-2. R-4.8 — 5/6
+must-fixes landed, MFX-1/MFX-2 micro-fold in flight → verification → merge hand-up. Nothing seals; 231437
+WITHDRAWN; release hold ABSOLUTE.
