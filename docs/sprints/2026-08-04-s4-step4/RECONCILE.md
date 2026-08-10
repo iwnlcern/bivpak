@@ -946,3 +946,39 @@ fresh paired hand-up, on which master re-issues the paired condition-4 to the op
 four-fold; fold pending at the floor pair. Slice E follows the pair. Matrix Arm-1 R-4.8 — second bounded
 fold dispatched (233350, extended-root Option A + RF-1/RF-2), unaffected by the C/B2 hold. No live token;
 release hold ABSOLUTE.
+
+---
+
+## 20260810-010709 — B2 fold hit the carrier-shape STOP; A9 row-to-pair addendum routed UP to m-2
+
+The floor pair reached the B2 STOP-and-route condition I set in the four-folds dispatch: the codex sidecar
+multi-path fix REQUIRES a row-to-pair edge, which the sealed A9 shape provably cannot express. I re-verified
+all three load-bearing bytes at 0653fea at THIS seat (independent of the floor's + implementer's reads —
+three seats now confirm, but all one instrument class: static read; the shape decision correctly rests on
+the sealed bytes):
+- Writer `sessions.cpp:85-88`: pair_set_applied is copied, sorted, unique-erased before serialization →
+  positional row association destroyed by construction; emitted (original_path, staged_path) pairs are
+  global, keyed to no id-map row.
+- Sealed row shape `rewrite_common.hpp:51`: StagedMapRow{agent, original, minted, children} — no path or
+  path-class member; StagedSidecar has a GLOBAL path_pairs, no per-row edge.
+- Reader `codex.cpp:552-568`: comment concedes "A9 carries a global pair set, not a row-to-pair edge";
+  accepts only sole_global_class OR sole_unclaimed_for_one_codex, else invalid_staged_sidecar. Two codex
+  rows × two unclaimed classes → both guards false → REFUSES. Already max inference the sealed members admit.
+- Compatibility safety re-confirmed: absent the member, the reader FAILS CLOSED on the ambiguous multi-path
+  case (refuses, never guesses) — so an additive optional member only ADDS resolving power, never removes
+  the fail-closed default.
+
+**Disposition (mine):** a sealed A9 shape change is design-of-record, hard-OUT of s4 authority. Routed UP to
+master.orchestrator-planner → m-2 (m-1 schema owner per B2-2) as a report-only SITREP
+(SITREP-ORCHESTRATOR-PLANNER-B2-A9-ROW-EDGE-ADDENDUM-ROUTED-UP-20260810-010709, pdc 0fc3079), carrying the
+re-verified proof + the floor's minimal-shape recommendation (shape (a): additive OPTIONAL per-row
+original_path; alternatives (b)/(c) noted worse) + the fail-closed compatibility posture (mirrors R-4.8 §7,
+m-1-ratified) + the R-4.8-addendum-window pairing SUGGESTION (m-2/m-1's call, I don't own the coupling). The
+floor ratifies as consumer on the D5 affirmative pattern. Recommendation, not decision — I disclaim
+authority over the schema act.
+
+**What proceeds:** A1/A2/B1 + falsifiers proceed in isolated worktrees under the four-folds token (no new
+authority needed); the two-path codex round-trip falsifier stands as RED evidence awaiting the shape return.
+Commits, Docker, merge-trees, republication, and the targeted re-panel HOLD so each head stays one bounded
+fold. C d6e44d9 / B2 0653fea stay published clean. 231437 paired authorization remains WITHDRAWN. Matrix
+Arm-1 R-4.8 second fold (233350) unaffected. No live token; release hold ABSOLUTE.
