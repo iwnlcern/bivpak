@@ -704,3 +704,30 @@ amending (I-3 + F2 + F3 + TIMEOUT 600, one commit); fourth re-panel owed; not ba
 R-4.8 carrier 29796bb — red 1 disposed; red 2 negative control now dispatched to the implementer (190153,
 result pending); on same-5+3 red 2 accepted + completion report. Sibling INDEX inversion (142630 truncated
 row) still unrepaired by s4-matrix. No live token; release hold ABSOLUTE.
+
+**B2 FOURTH RE-PANEL PASSED — B2 bar-ready; orphan-parent routed (2026-08-09 ~2015):**
+Convened the fourth targeted re-panel at 6a8ea75 (3 cold lenses, cumulative ec9a2db..6a8ea75, M-4 under
+union-scope). Record: reviews/2026-08-09-s4-floor-b2-fourth-repanel-6a8ea75.md. **VERDICT: PASS.** All
+byte-verified: I-3 CLOSED symmetrically (decode_keys=true at all 3 JsonValueRewriter sites
+:841/:923/:1051; escaped/uXXXX/doubled-backslash key spellings normalized before match); F2 in-image
+parent map genuine; F3 Codex child-id falsifier genuine (kill power); lock-in inversion genuine (key
+rewrites or row refuses); no new leak, no regression; amend correct + strict improvement. **M-4 holds
+FULLY.** B2 BAR-READY on merits (condition 1). Handed UP for condition-3 (201516); B2 stacked on slice
+C (ec9a2db, not in main) → merges immediately AFTER C per the C→B2-immediate election.
+**Flagged cell — not-in-image Codex parent refusal — routed to master (190203 pre-flag):** an admitted
+session whose parent_thread_id points to an uncollected parent refuses (union carries the parent id,
+F2 loop maps only in-image parents). Byte-grounded: at ec9a2db that id was NOT in the union → the orphan
+silently LEAKED it; B2's union-widening turned the leak into a fail-closed REFUSE (strict M-4
+improvement, at a usability cost). ALL THREE LENSES CONVERGE: security-correct (fail-open re-leaks),
+correct (MEDIUM reachable, not an amend regression), test-noted (untested, fail-closed-safe). NOT a
+security/amend defect; does NOT block B2. Recommended to master: accept refuse-by-default + register a
+RESIDUAL (fix = prepare-time parent-ref scrub, separate work); contrast I-3 (a leak that had to fold —
+this is the safe direction). Pair told NOT to fold an answer.
+
+**Wave picture:** B1 ✅ + slice A ✅ merged (publication held at operator). B2 #23 6a8ea75 — fourth
+re-panel PASSED, BAR-READY, condition-3 handed up; awaits master condition-3 + orphan definition +
+operator condition-4. Slice C — merges first (C→B2-immediate); needs its own condition-3 + operator
+authorization. Matrix Arm-1 R-4.8 carrier 29796bb — red 1 disposed; red 2 negative control dispatched to
+implementer (190153), result pending. Open at master/operator: publication timing; the orphan-parent
+definition; C and B2 condition-3s + tokens. Sibling INDEX inversion (142630 truncated row) still
+unrepaired by s4-matrix. No live token; release hold ABSOLUTE.
