@@ -1,10 +1,10 @@
-# Arm-1 schema act — R-4.8 pack-time packer-home carrier (design, rev4)
+# Arm-1 schema act — R-4.8 pack-time packer-home carrier (design, rev5)
 
 DISPATCH_ID: s4-matrix-arm1-r48-carrier
 PARENT_DISPATCH_ID: s4-build-standup-step4-opening-dispatch
 AUTHOR: s4-matrix.planner
 DATE: 2026-08-09
-STATUS: rev4 — rev3 must-revise R1/R2 folded (capture gate realized as a public schema factory with a direct falsifier; §9-7 detail made exact); MF-1 Option A ruled `204159`, family-endorsed `205443`; awaiting pair-Implementer re-review on THIS doc hash; floor ratification `050728` stands as a ruled COMPATIBLE NARROWING (floor CC'd on the ruling to object)
+STATUS: rev5 — extended-root cell folded per ruling `224450` (extended threshold `>4 → >7`; grammar and root lengths single-sited in `classify_carrier_root` with a fail-closed default; amends `204159`'s Option A text at the orchestrator's own direction); awaiting pair-Implementer re-review on THIS doc hash; floor ratification `050728` stands (the narrowing class was ruled compatible at `204159` and this deepens it in the same direction)
 GRILL_REQUIRED: yes
 GRILL_LOCK_ID: s4-matrix-arm1-r48-carrier-grill-20260809 (docs/sprints/2026-08-04-s4-step4/designs/2026-08-09-s4-matrix-arm1-r48-carrier-grill-lock.md — incl. the rev2 appendix D6-D8)
 TRACKER: R-4.8 (../../../pdc/master/RESIDUALS.md) — hard-gated before ANY release
@@ -16,6 +16,9 @@ PANEL: docs/sprints/2026-08-04-s4-step4/reviews/2026-08-09-s4-matrix-r48-carrier
 MF1_RULING: .relays/s4/s4-matrix-arm1-plan/PLAN-ORCHESTRATOR-PLANNER-R48-MF1-RULED-OPTION-A-TIGHTEN-NOW-FOLDS-ENDORSED-20260809-204159.md (Option A; floor-contract wording ruled a compatible narrowing, no re-ratification)
 RESIDUALS_DOWN: .relays/s4/s4-matrix-arm1-plan/PLAN-ORCHESTRATOR-PLANNER-R410-R412-REGISTERED-SHARPENINGS-MF1-ENDORSED-20260809-205443.md (R-4.10/R-4.11 bind the NEEDLE head, not this fold; R-4.12 binds NOW as a `source_path_flavor` STOP-AND-ROUTE boundary — honored, see §10)
 REV3_REVIEW: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV3-MUST-REVISE-20260809-210140.md (must-revise R1 capture-gate scope/proof contradiction + R2 §9-7 detail wording; both verified at the bytes by the pair Planner before this fold)
+REV4_REVIEW: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV4-APPROVE-20260809-211611.md (approve on rev4 hash `c1c3188b…@91d6841`; implemented at fold commit `2bc7a078`)
+RECHECK: docs/sprints/2026-08-04-s4-step4/reviews/2026-08-09-s4-matrix-r48-fold-recheck-2bc7a07.md (sealed `e6a589a5…`; product PASS 3/3; surfaced the extended-root cell this rev folds)
+EXTENDED_ROOT_RULING: .relays/s4/s4-matrix-arm1-plan/PLAN-ORCHESTRATOR-PLANNER-R48-EXTENDED-ROOT-RULED-OPTION-A-TIGHTEN-GT7-HELPER-20260809-224450.md (Option A: extended `>7` + single root-length helper, fail-closed; amends `204159`; Option B declined)
 FLOOR_RATIFICATION: .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-FLOOR-PLANNER-R48-CONSUMER-CONTRACT-RATIFIED-20260809-050728.md (approve; wire shape preserved by rev2, so it stands per the rev1 re-review's own criterion)
 
 ## 1. Context and problem
@@ -97,29 +100,45 @@ includes both layers (§9 test 14). `pack.cpp::path_flavor()` and all `source_pa
 callers are UNTOUCHED. This corrects rev1's false claim that the pack classifier could
 emit `windows` (it has no such branch, pack.cpp:131-140).
 
-**Validity predicate (grill D8 + MF-1 rev3 — one authority at every boundary):**
+**Validity predicate (grill D8 + MF-1 rev3 + extended-root rev5 — one authority, one
+grammar site):**
 
 ```cpp
-valid(PackerHome p) := classify_absolute(p.path) == p.flavor
-                       && non_degenerate(p.path, p.flavor)
+// rev5 (ruling `224450`, amending `204159`): grammar AND root lengths are single-sited.
+// Each branch decides flavor and root length TOGETHER; there is no separate threshold
+// selector whose fallback could silently hand a future sub-form the wrong bound.
+struct CarrierRoot { PathFlavor flavor; std::size_t root_length; };
+std::optional<CarrierRoot> classify_carrier_root(std::string_view path);
+//   wsl grammar (size>=7, "/mnt/", ascii_alpha, '/')  -> {wsl,     7}
+//   extended prefix ("\\?\" or "//?/")                -> {windows, 7}  // 4-byte prefix
+//                                                                     // + 3-byte drive root (rev5: was 4)
+//   drive grammar (alpha, ':', '\\' or '/')           -> {windows, 3}
+//   leading '/'                                       -> {posix,   1}
+//   anything else                                     -> nullopt      // FAIL-CLOSED:
+//                            a sub-form added later cannot inherit any threshold
 
-// non_degenerate — a non-empty remainder after the flavor's root prefix (MF-1, ruled
-// Option A at `204159`): a bare root is not a usable reference frame, and an untrusted
-// image shipping one would make the future needle's home-prefix match EVERY absolute
-// path of that flavor (fire-on-everything — a corrupted control, a worse class than the
-// ratified absent⇒skip).
-//   posix:            path.size() > 1               // "/" is degenerate
-//   wsl:              path.size() > 7               // "/mnt/c/" is degenerate
-//   windows drive:    path.size() > 3               // "C:/", "C:\" are degenerate
-//   windows extended: path.size() > 4               // "//?/", "\\?\" are degenerate
+// classify_absolute(path) := projection of classify_carrier_root onto .flavor —
+//   BEHAVIOR-IDENTICAL to the rev2 classifier (same grammar, same precedence:
+//   wsl before windows before posix), so the §9 test-14 parity pin against
+//   rewrite_common survives unchanged.
+
+valid(PackerHome p) := root := classify_carrier_root(p.path);
+                       root && root->flavor == p.flavor
+                            && p.path.size() > root->root_length
 ```
 
-The CLASSIFIER is untouched by rev3 — its grammar stays parity-pinned to
-`rewrite_common` (§9 test 14); only the validity predicate above it tightens. The old
-`!path.empty()` conjunct is subsumed: an empty path classifies `nullopt` and fails the
-flavor match. Host-independent and lexical — native
-`std::filesystem::path::is_absolute()` cannot judge foreign-flavor images and is not
-used at any wire boundary.
+Degeneracy rationale unchanged (MF-1): a bare root is not a usable reference frame, and
+an untrusted image shipping one would make the future needle's home-prefix match every
+absolute path of that flavor. rev5 closes the cell the re-check surfaced: under rev4's
+flat `>4`, `\\?\C:\` (7) passed while its twins `/mnt/c/` and `C:/` were banned — the
+same degenerate drive root, admitted only in the extended spelling. Extended now
+requires actual content past the drive root (`\\?\C:\X` valid, `\\?\C:\` / `\\?\C:` /
+`//?/C:/` degenerate). The fail-closed default is UNREACHABLE at this SHA (the windows
+grammar is exactly the two listed forms); its proof is source-level at review, not a
+fabricated test row — stated here so no seat writes an unfalsifiable box for it. The
+old `!path.empty()` conjunct stays subsumed (empty yields nullopt). Host-independent
+and lexical — native `std::filesystem::path::is_absolute()` cannot judge foreign-flavor
+images and is not used at any wire boundary.
 
 **The construction factory (rev4, must-revise R1 — one CONSTRUCTOR authority beside the
 one validity authority):**
@@ -213,8 +232,9 @@ Parse in the top-level cluster (`manifest.cpp:553-557` area):
   carrier maps its error to `ParseError{"packer_home_flavor"}` (helper and existing
   callers untouched). Then the validator: `valid({path, flavor})` else
   `ParseError{"packer_home"}` — this subsumes `""`, relative spellings, path/flavor
-  mismatches (e.g. a posix path declared `windows`), and (rev3) degenerate bare roots
-  (`/`, `/mnt/c/`, `C:/`, `//?/`, `\\?\`): a degenerate carrier is MALFORMED and
+  mismatches (e.g. a posix path declared `windows`), and (rev3/rev5) degenerate bare
+  roots (`/`, `/mnt/c/`, `C:/`, `//?/`, `\\?\`, and the extended drive roots
+  `\\?\C:\` / `//?/C:/` / `\\?\C:`): a degenerate carrier is MALFORMED and
   fail-closes under §5/§6's existing rule for invalid values — not a new semantic. A
   hostile manifest cannot deliver a degenerate value past parse: present ⇒ non-empty,
   absolute, in its declared-and-verified flavor, with a non-empty remainder past the
@@ -270,7 +290,7 @@ floor explicitly.
 | `$HOME` unset at pack | absent; pack proceeds |
 | `$HOME` empty at pack | absent; pack proceeds |
 | `$HOME` set but relative (Q1) | absent (classifier `nullopt`); pack proceeds |
-| `$HOME` a degenerate bare root — `/`, `/mnt/c/`, `C:/`, `C:\`, `//?/`, `\\?\` (rev3) | absent (fails `non_degenerate`); pack proceeds |
+| `$HOME` a degenerate bare root — `/`, `/mnt/c/`, `C:/`, `C:\`, `//?/`, `\\?\` (rev3), or an extended drive root `\\?\C:\` / `//?/C:/` / `\\?\C:` (rev5) | absent (fails the root-length threshold); pack proceeds |
 | `$HOME=/Users/jack` | present, flavor `posix` |
 | `$HOME=/mnt/c/Users/jack` (WSL) | present, flavor `wsl`; with a posix source, `source_path_flavor` independently `posix` — independence by design |
 | `$HOME=C:/Users/x` or `C:\Users\x` | present, flavor `windows` (drive grammar, both separators) |
@@ -286,8 +306,8 @@ floor explicitly.
 | `"packer_home": ""` | `ParseError{"packer_home"}` via the validator |
 | `"packer_home": "relative/home"` (any declared flavor) | `ParseError{"packer_home"}` via the validator |
 | flavor mismatch (e.g. posix path declared `windows`; `/mnt/c/...` declared `posix`) | `ParseError{"packer_home"}` via the validator |
-| degenerate bare root with its own (matching) flavor — `"/"` posix; `"/mnt/c/"` wsl; `"C:/"`/`"C:\"` windows; `"//?/"`/`"\\?\"` windows (rev3) | `ParseError{"packer_home"}` via the validator (malformed, fail-closed — §6) |
-| `"\\?\C:\Users\x"` declared `windows` | present, valid (extended spelling with a non-empty remainder — the rev3 rule bans only the bare 4-byte prefix) |
+| degenerate bare root with its own (matching) flavor — `"/"` posix; `"/mnt/c/"` wsl; `"C:/"`/`"C:\"` windows; `"//?/"`/`"\\?\"` windows (rev3); `"\\?\C:\"`/`"//?/C:/"`/`"\\?\C:"` windows (rev5 extended drive roots) | `ParseError{"packer_home"}` via the validator (malformed, fail-closed — §6) |
+| `"\\?\C:\Users\x"` declared `windows` | present, valid (extended spelling with actual content past the drive root — rev5 requires `size() > 7`) |
 | `"packer_home_flavor": "vms"` (unknown) | `ParseError{"packer_home_flavor"}` via the LOCAL remap (helper's own detail is `source_path_flavor`) |
 | manifest value present at restore, needle absent (pre-needle binary) | inert metadata; no action |
 
@@ -314,10 +334,10 @@ nine-member freeze is untouched.
 9. `""` → `ParseError{"packer_home"}`.
 10. Relative value (each flavor declared) → `ParseError{"packer_home"}`.
 11. Mismatch matrix: posix path declared `windows`/`wsl`; `/mnt/c/...` declared `posix`; `C:\...` declared `posix` → `ParseError{"packer_home"}`.
-11b. Degenerate-root matrix (rev3, MF-1): `"/"` posix; `"/mnt/c/"` wsl; `"C:/"` and `"C:\"` windows; `"//?/"` and `"\\?\"` windows → `ParseError{"packer_home"}`; positive control `"\\?\C:\Users\x"` windows → valid. Serialize side: each degenerate value engaged-in-memory → both keys OMITTED (collapse, extends test 2).
+11b. Degenerate-root matrix (rev3, MF-1; extended rows rev5): `"/"` posix; `"/mnt/c/"` wsl; `"C:/"` and `"C:\"` windows; `"//?/"` and `"\\?\"` windows; `"\\?\C:\"`, `"//?/C:/"`, and `"\\?\C:"` windows (rev5) → `ParseError{"packer_home"}`; positive control `"\\?\C:\Users\x"` windows → valid. Serialize side: each degenerate value engaged-in-memory → both keys OMITTED (collapse, extends test 2). The rev5 rows pin the previously-unenumerated cell the re-check flagged.
 12. Unknown flavor `"vms"` → `ParseError` with detail EXACTLY `packer_home_flavor` (remap falsifier).
 13. `classify_absolute` unit rows: all §3 grammar branches + `nullopt` cases (relative, empty, `mnt/c/x` missing lead slash, `C:` two chars).
-13b. `make_packer_home` unit rows (rev4, the CAPTURE-boundary falsifier — no serializer in the loop): `"/Users/x"` → engaged posix; `"/mnt/c/Users/x"` → engaged wsl; `"C:/Users/x"` → engaged windows; `"\\?\C:\Users\x"` → engaged windows; `"/"`, `"/mnt/c/"`, `"C:/"`, `"//?/"` → `nullopt`; `""`, `"relative/home"` → `nullopt`. Plus the postcondition row: every engaged result satisfies `valid()`.
+13b. `make_packer_home` unit rows (rev4, the CAPTURE-boundary falsifier — no serializer in the loop): `"/Users/x"` → engaged posix; `"/mnt/c/Users/x"` → engaged wsl; `"C:/Users/x"` → engaged windows; `"\\?\C:\Users\x"` → engaged windows; `"/"`, `"/mnt/c/"`, `"C:/"`, `"//?/"` → `nullopt`; `""`, `"relative/home"` → `nullopt`; rev5 adds `"\\?\C:\"`, `"//?/C:/"`, `"\\?\C:"` → `nullopt`. Plus the postcondition row: every engaged result satisfies `valid()`. NOTE (rev5): existing round-trip/spelling rows must be re-checked against the `>7` extended bound — every currently-green engaged extended value has ≥8 bytes (`\\?\C:\Users\x` = 14), so no green row flips; the fold verifies this at the bytes.
 14. PARITY TABLE: `classify_absolute` agrees with `rewrite::path_flavor_for` on every absolute spelling in the table (both layers included by the test target; drift falsifier).
 
 `tests/test_pack.cpp` (capture, env-controlled):
@@ -361,10 +381,14 @@ nine-member freeze is untouched.
 Authored in the Arm-1 schema-act wave on its head; integrates with the floor's needle
 under the R-4.8 tracker (carrier + needle land together). Non-blocking to current Arm-1
 Wave-A (panel-clean, with master) and to B2's union-scope resume. Design locks on:
-pair-Implementer re-review approve of THIS rev4 on its exact doc hash (the floor's
-`050728` ratification on record; the validator tightening is a ruled compatible
-narrowing per `204159`, family-endorsed `205443`, floor CC'd to object). rev4
-implements inside the fold directed by that ruling: ONE commit with the panel's
-MF-2..MF-6 test must-fixes, then one targeted re-check at the new head. The R-4.8
-needle work follows with R-4.10/R-4.11 riding that head as binding constraints
-(`205443`) — not this fold.
+pair-Implementer re-review approve of THIS rev5 on its exact doc hash (the floor's
+`050728` ratification on record; the narrowing class ruled compatible at `204159`,
+family-endorsed `205443`, deepened in the same direction by `224450`, floor CC'd
+throughout to object). rev5 implements inside the SECOND bounded fold directed by
+`224450`: ONE commit — the extended-root fix (`classify_carrier_root` + `>7`) plus the
+re-check's RF-1 (make the pack-matrix store guards ENGAGE: create the guarded dirs AND
+assert `agent_sessions.empty()` per row) and RF-2 (receipts compare the sorted store
+file-SET + per-file bytes, not one file) plus optional tier — then one TARGETED CHECK
+(lead + tests + security, since the validator moves) at the new head. The R-4.8 needle
+work follows with R-4.10/R-4.11 riding that head as binding constraints (`205443`) —
+not this fold.
