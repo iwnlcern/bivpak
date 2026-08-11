@@ -2081,3 +2081,29 @@ execute.
 awaiting the implementer's execution + the two landed merge SHAs, which I carry UP to master (so the next
 condition-3 has a real target). Then C/B2 are landed (C never without B2). Merge ≠ push ≠ release; release
 hold ABSOLUTE.
+
+---
+
+## 20260811-060742 — C/B2 LANDED and verified at bytes; SHAs carried UP to master; merged-not-deployed
+
+The floor implementer executed the four authorized acts and reported (054051). I verified the landing at the
+bytes (fetched origin, read the objects — not on report):
+
+- **C merged PR #22 at `07bfcd9`** (parents `38a4702` + `f03ce70`, tree `8e1eb0c`); **B2 merged PR #23 at
+  `0db8fdd`** (parents `07bfcd9` + `fd857f1`, tree `2d47080`); **resulting `origin/main` = `0db8fdd`**.
+- **End-state bytes exact** (the load-bearing check): the landed merge trees equal BOTH the condition-3
+  `merge-tree --write-tree` hashes AND a fresh recompute — zero drift, no merge-time hand-resolution.
+- Both PRs MERGED; merge-commit shape via the PRs (two ordered parents each), exact four acts in order, no
+  ff/direct-push/admin/auto/force/branch-deletion; A10.3 satisfied (`07bfcd9` ancestor of `0db8fdd`, C never
+  resident without B2).
+- **merged-not-deployed**: four-act grant exhausted; no tag/release/artifact/publish/install/deploy/seal.
+
+**Disposition (mine):** carried the two landed merge SHAs + post-merge `main` head UP to master (pdc
+`<this commit>`; operator + reviewers + floor pair + m-2 on CC), as master requested so the next condition-3
+has a real target. New `origin/main` `0db8fdd` is the re-base target for any future candidate. Nothing further
+requested of the operator on this thread.
+
+**Track state:** R-4.8 landed+closed. **C/B2 LANDED (C `07bfcd9` never without B2 `0db8fdd`; main = `0db8fdd`)
+— the C/B2 merge track is COMPLETE and verified.** Still owed, none gating: 1702-stem corpus provenance; slice
+E owns R-4.15 + R-4.18 together (one-level-consistent); R-4.19 unpinned control container; packer_home already
+gated at RESIDUALS R-4.8. Merge ≠ push ≠ release; release hold ABSOLUTE.
