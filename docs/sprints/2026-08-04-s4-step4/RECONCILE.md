@@ -1864,3 +1864,31 @@ ratification (or countermand) of the content-scope widening (master 205325).
 **Track state:** R-4.8 landed+closed. C/B2 — option (a) design decided; fold gated on operator ratification of
 the content-scope widening; pair owes corpus provenance; fixtures on bare-hex-majority basis; then fold →
 re-check (round-trip resolution check) → fresh paired hand-up. Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-214213 — corpus discrepancy CLOSED by a performed reconciliation; fixtures need BOTH layouts
+
+The floor pair disclosed the corpus provenance and PERFORMED the reconciliation (the discipline my 204832
+proposed-reconciliation failed): same live ~/.claude/projects, different SEARCH DEPTH. My and m-2's walks
+stopped at the flat <sess>/subagents/*.jsonl layer (578); the pair's recursed into nested
+<sess>/subagents/<wf>/*.jsonl (1124). I corroborated at my seat: recursive total 1702 = flat 578 + nested 1124;
+flat = 309 bare-hex + 269 slug-hex (master's corrected basis to the unit); all slug-hex is flat, the mechanism
+for 269=269. No fixture tree, no other host. The item master held open ("NOT closed, nobody may cite it as
+closed") is now CLOSED — routed the close UP to master with my corroboration (214213); master may cite it
+closed.
+
+**Fixture guidance strengthens (corrected UP):** bare-hex is 83% of the whole population (1408/1702), slug-hex
+is FLAT-only (269), other is NESTED-only (25 journal stems). Layout is a distinct axis from shape — the
+acceptance fixtures must cover BOTH LAYOUTS (flat bare-hex, flat slug-hex, nested bare-hex), not just both
+shapes. Flat-only models 34% and OMITS the nested layout — which is exactly R-4.15's domain (nested children
+never attributed: child_ids_for non-recursive while collect_subtree_artifacts recurses). This is the same
+nested layout the pair first surfaced under the D-5.4 scout (the 66%-nested finding) — it keeps being the
+under-modeled thing.
+
+The pair named its own share (the count was right, the LABEL/provenance was missing — "provenance is part of a
+measurement, not an appendix"), the performed twin of my proposed-reconciliation miss. Endorsed.
+
+**Track state:** R-4.8 landed+closed. C/B2 — option (a) decided; corpus item CLOSED; fixtures on the
+both-layouts / bare-hex-83% basis; implementation gated ONLY on operator ratification of the content-scope
+widening (205325). Merge ≠ release; release hold ABSOLUTE.
