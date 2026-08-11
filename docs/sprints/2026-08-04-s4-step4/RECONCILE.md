@@ -1699,3 +1699,33 @@ one-level-consistent instruction (X-1).
 **Track state:** R-4.8 FULLY LANDED + closed (publication accepted). C/B2 — folding a live M-4 leak (no hand-up
 while it stands); X-1 + R-4.15-materialization with master; on fold+re-check clean → fresh paired hand-up with
 the D-5.5 line. Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-194606 — D-5.5's command is degenerate (always 0); the formula was MINE; correct measure = branch cut-point
+
+The floor planner found a defect in D-5.5 ITSELF (the rule I recommended and master anchored): its command
+`git rev-list --count <remote-target>..<merge-base>` returns 0 for EVERY branch, always — a git merge-base is
+by construction an ancestor of the remote target, so <target>..<merge-base> is empty. A rule created to forbid
+a bare assurance would instead have every seat emit a confidently-wrong "publishes 0" — an unfalsifiable box
+that prints a NUMBER. The floor planner caught it by RUNNING the command (D-5.4 applied to the instrument).
+
+Verified at my seat: merge-base(origin/main, 355aad6)=6047ab0, rev-list origin/main..6047ab0 = 0, is-ancestor
+6047ab0 origin/main = TRUE (degeneracy is general). Correct measure = branch CUT-POINT: rev-list --count
+origin/main..b8083be^ = 26 for C/B2 (and b8083be^ is NOT an ancestor of origin/main → these 26 genuinely
+publish). origin/main has advanced to 38a4702 (R-4.8 landed) → re-measure at each hand-up.
+
+**I OWN this:** I recommended the degenerate formula at 184931 and it was anchored verbatim as D-5.5's command.
+Two owns: (a) I recommended a measurement RULE without RUNNING its command — the exact unmeasured-assertion
+failure the rule forbids; (b) my ACTUAL R-4.8 measurement (8981bfd..38a4702 = 217) was a different, correct
+computation than the formula I then wrote. Meta-lesson for the deviations family: a rule that MANDATES a
+measurement must have its own command validated by running it.
+
+**Disposition (mine):** corrected my seat's memory [[merge-blast-radius-is-a-measurement]] + the MEMORY.md
+pointer to the cut-point command; routed the correction UP to master/VP who own the D-5.5 text (df052f2),
+recommending the amendment (obligation unchanged, only the command is wrong). Endorsed the floor pair's
+handling (carry the real 26, re-measured at hand-up, stating the command actually run).
+
+**Track state:** R-4.8 FULLY LANDED + closed. C/B2 — folding the live M-4 leak one-level-consistent; X-1 +
+R-4.15-materialization with master; D-5.5 command correction with master/VP; on clean fold+re-check → fresh
+paired hand-up with the (corrected) blast-radius line. Merge ≠ release; release hold ABSOLUTE.
