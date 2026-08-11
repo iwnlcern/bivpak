@@ -1516,3 +1516,37 @@ a separate open operator item.
 condition-3-of-record up. C/B2 — G-1..G-4 folding at the pair (per the auto-updated scout memory, the G-cycle
 surfaced two more false guards — the floor pair's track under its own token) → re-check → fresh paired
 hand-up. Nothing releases; the release hold is ABSOLUTE.
+
+---
+
+## 20260810-180050 — R-4.8 merge blocked by DRAFT only (checks measured non-blocking); DRAFT→ready routed to operator
+
+The merge under my condition-4 token (1fb3287) hit two blockers, both correctly stopped-and-routed: the
+implementer refused to manufacture readiness under a merge-only token; the planner refused to self-grant and
+MEASURED the eight failed checks rather than assuming them cosmetic. I re-verified both dispositions at my seat:
+- **Checks (disposition 2): ACCEPTED as non-blocking.** Run 31446163556 @0ab998d: all 4 jobs steps:0 failure
+  (no runner executed a line). Cross-branch control 31444725258 (b2-torn-tail, entirely different content):
+  identical steps:0 signature → code-independent (a code failure cannot be invariant across unrelated diffs).
+  main is UNPROTECTED (404) → checks non-required; PR mergeable=MERGEABLE, mergeStateStatus=UNSTABLE →
+  mechanically non-blocking. Infrastructure-level, the known CI-leg (a) cosmetic class, now MEASURED not
+  carried on faith; local Docker governs the Linux signal (the publication-token ruling the operator's
+  condition-4 grant already rests on). NOT a waiver (no required-check gate to waive).
+- **DRAFT (disposition 1): routed to the operator.** PR #24 is a DRAFT (the planner's disclosed conservatism
+  at publication) and GitHub won't merge a draft. Undrafting is a P5 publication-lifecycle mutation. I did NOT
+  self-widen the condition-4 token to include it and did NOT perform gh pr ready 24 myself — the same ungranted
+  external mutation both pair seats correctly refused, and not the orchestrator's to execute either. Routed the
+  single gh pr ready 24 at exact 0ab998d to the operator (P5 lifecycle owner), recommending option (a): operator
+  performs/authorizes the ready transition → the STANDING condition-4 token (1fb3287, merge-only) is satisfiable
+  as written → the implementer merges. Option (b) (bounded token amendment folding the undraft) available if the
+  operator prefers — their call, since it widens a P5-lifecycle act into an implementation token.
+
+**Disposition (mine):** routed UP to master (MERGE-GATE, pdc 18045cf) with both dispositions verified at my
+seat + a registry recommendation: CI is unhealthy on ALL branches (steps:0, no signal anywhere) — a pre-existing
+non-R-4.8 infrastructure item that deserves its own row + fix owner before any future gate leans on remote CI.
+
+**PENDING:** the operator's gh pr ready 24 at 0ab998d (or a bounded token amendment) → the standing token merges
+→ the pair files STEP 4 (published ref + landed merge SHA) → I close condition-3-of-record up. Merge ≠ release;
+local-main timing separate; release hold ABSOLUTE.
+
+**Track state:** R-4.8 — merge one P5-lifecycle transition (undraft) away; conditions 1+2+3+4 all satisfied at
+0ab998d. C/B2 — G-fold continuing at the pair. Nothing releases; the release hold is ABSOLUTE.
