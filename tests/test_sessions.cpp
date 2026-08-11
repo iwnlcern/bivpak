@@ -1141,6 +1141,9 @@ TEST_CASE(
     CHECK(claude_map->image_session_id == kRealClaudeId);
     CHECK(codex_map->installed_session_id != kRealCodexId);
     CHECK(claude_map->installed_session_id != kRealClaudeId);
+    REQUIRE(claude_map->children.size() == 1U);
+    CHECK(claude_map->children.front().first == "agent-a01");
+    CHECK(claude_map->children.front().second == "agent-a01");
 
     const auto agents_root = workspace / ".biv" / "agents";
     const auto files = regular_files(agents_root);
@@ -1177,6 +1180,9 @@ TEST_CASE(
     CHECK(sidecar.id_map.at(0).image_session_id == kRealClaudeId);
     CHECK(sidecar.id_map.at(0).installed_session_id ==
           claude_map->installed_session_id);
+    REQUIRE(sidecar.id_map.at(0).children.size() == 1U);
+    CHECK(sidecar.id_map.at(0).children.front().first == "agent-a01");
+    CHECK(sidecar.id_map.at(0).children.front().second == "agent-a01");
     CHECK(sidecar.id_map.at(1).agent == "codex");
     CHECK(sidecar.id_map.at(1).image_session_id == kRealCodexId);
     CHECK(sidecar.id_map.at(1).installed_session_id ==
@@ -1294,6 +1300,12 @@ TEST_CASE(
   CHECK(biv::report::exit_for_sessions(*outcome) == 2);
   CHECK(outcome->activation.empty());
   REQUIRE(outcome->id_map.size() == 3U);
+  const auto claude_map = std::ranges::find(outcome->id_map, "claude-code",
+                                            &biv::adapters::IdMapEntry::agent);
+  REQUIRE(claude_map != outcome->id_map.end());
+  REQUIRE(claude_map->children.size() == 1U);
+  CHECK(claude_map->children.front().first == "agent-a01");
+  CHECK(claude_map->children.front().second == "agent-a01");
   CHECK(detail.install_calls == 1U);
   CHECK(collision.install_calls == 1U);
   CHECK(read_text(sidecar) == "unowned sidecar\n");
@@ -1314,6 +1326,12 @@ TEST_CASE(
         });
     CHECK(caveat != outcome->caveats.end());
   }
+  const auto claude_child_caveat =
+      std::ranges::find_if(outcome->caveats, [&](const auto &item) {
+        return item.agent == "claude-code" && item.kind == "staged-byte-path" &&
+               item.note.ends_with("/subagents/agent-a01.jsonl");
+      });
+  CHECK(claude_child_caveat != outcome->caveats.end());
   CHECK(read_text(codex_store / "sentinel.txt") == codex_before);
   CHECK(read_text(claude_store / "sentinel.txt") == claude_before);
   CHECK(regular_files(codex_store) == codex_files_before);
@@ -1848,7 +1866,11 @@ TEST_CASE(
     marker << "{\"version\":\"0.144.1\"}\n";
   }
   auto refused = codex_entry("0.145.0");
+  refused.original_path = "/capability-origin";
+  refused.normalized_path_key = refused.original_path;
   auto verify = codex_entry("0.144.1");
+  verify.original_path = "/verify-origin";
+  verify.normalized_path_key = verify.original_path;
   verify.original_session_ids.primary = verify_id;
   verify.artifacts = {
       "agents/codex/" + std::string{verify_id} + ".jsonl"};
@@ -1876,12 +1898,13 @@ TEST_CASE(
   consent_spec.global = biv::core_sessions::ConsentValue::yes;
   const auto consent =
       biv::core_sessions::resolve_consent(consent_spec, *preview, std::nullopt);
-  auto hostile = bytes("{\"type\":\"session_meta\",\"payload\":{\"id\":\"" +
-                       std::string{verify_id} + "\",\"session_id\":\"" +
-                       std::string{verify_id} +
-                       "\",\"cwd\":\"/ws/proj\"}}");
-  hostile.push_back(static_cast<std::byte>(0xff));
-  hostile.push_back(static_cast<std::byte>('\n'));
+  auto hostile = bytes(
+      "{\"type\":\"session_meta\",\"payload\":{\"id\":\"" +
+      std::string{verify_id} + "\",\"session_id\":\"" +
+      std::string{verify_id} +
+      "\",\"cwd\":\"/verify-origin\",\"foreign_path\":"
+      "\"/capability-origin\",\"foreign_id\":\"" +
+      std::string{refused_id} + "\"}}\n");
   const auto verify_artifact = verify.artifacts.front();
   const biv::adapters::MemberRead reader =
       [&](const std::string_view path)
@@ -1917,8 +1940,7 @@ TEST_CASE(
   CHECK(verify_row->row ==
         biv::core_sessions::SessionRowReport::Row::containment_refused);
   CHECK(verify_row->reason == std::optional<std::string>{"verify-hits"});
-  CHECK(verify_row->detail ==
-        std::optional<std::string>{"rewrite_verify_failed"});
+  CHECK(verify_row->detail == std::optional<std::string>{"origin_path"});
   CHECK(verify_row->activation_suppressed);
   CHECK(outcome->activation.empty());
   CHECK_FALSE(std::filesystem::exists(store / "sessions"));

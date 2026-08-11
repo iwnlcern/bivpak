@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <cstddef>
 #include <csignal>
@@ -521,11 +522,11 @@ TEST_CASE("rewrite common preserves every non-target JSON value type") {
   CHECK(rewritten.line == expected);
 }
 
-TEST_CASE("rewrite common decodes only string values and verifies decoded values") {
+TEST_CASE("rewrite common decodes and rewrites JSON keys and string values") {
   const std::vector<std::pair<std::string, std::string>> paths{
       {"/ws/proj", "/restored/proj"}};
   const std::string line =
-      "{\"/ws/proj\":\"key-must-not-change\","
+      "{\"\\/ws\\/\\u0070roj\":\"key-must-not-change\","
       "\"solidus\":\"\\/ws\\/proj\","
       "\"unicode\":\"\\u002fws\\u002fproj\","
       "\"decimal\":0.1,\"integral\":1.0,\"exponent\":1e+03,"
@@ -535,8 +536,9 @@ TEST_CASE("rewrite common decodes only string values and verifies decoded values
       line, biv::adapters::rewrite::PathPairsView{paths},
       biv::adapters::rewrite::IdPairsView{});
 
-  CHECK(rewritten.line.find("\"/ws/proj\":\"key-must-not-change\"") !=
+  CHECK(rewritten.line.find("\"/restored/proj\":\"key-must-not-change\"") !=
         std::string::npos);
+  CHECK(rewritten.line.find("/ws/proj") == std::string::npos);
   CHECK(rewritten.line.find("\"solidus\":\"/restored/proj\"") !=
         std::string::npos);
   CHECK(rewritten.line.find("\"unicode\":\"/restored/proj\"") !=
@@ -552,6 +554,12 @@ TEST_CASE("rewrite common decodes only string values and verifies decoded values
       stale, biv::adapters::rewrite::OriginPathsView{origins},
       biv::adapters::rewrite::OriginIdsView{});
   CHECK(verify.origin_path_hits > 0);
+
+  const auto stale_key = bytes("{\"\\/ws\\/\\u0070roj\":\"value\"}\n");
+  const auto key_verify = biv::adapters::rewrite::verify_scan(
+      stale_key, biv::adapters::rewrite::OriginPathsView{origins},
+      biv::adapters::rewrite::OriginIdsView{});
+  CHECK(key_verify.origin_path_hits > 0);
 }
 
 TEST_CASE("Claude install produces identical bytes with or without packer_home") {
@@ -646,7 +654,7 @@ TEST_CASE("Claude install produces identical bytes with or without packer_home")
   fs::remove_all(root);
 }
 
-TEST_CASE("Claude install rewrites escaped values without changing keys or numbers") {
+TEST_CASE("Claude install rewrites escaped values and origin path keys") {
   const auto root = make_tmp("escaped-values");
   const auto workspace = root / "workspace";
   const auto store = root / "target-claude";
@@ -674,7 +682,10 @@ TEST_CASE("Claude install rewrites escaped values without changing keys or numbe
   const auto installed = read_text(store / "projects" /
                                    claude_project_key(workspace) /
                                    (installed_id + ".jsonl"));
-  CHECK(installed.find("\"/ws/proj\":\"key-must-not-change\"") !=
+  CHECK(installed.find("\"" + workspace.generic_string() +
+                       "\":\"key-must-not-change\"") !=
+        std::string::npos);
+  CHECK(installed.find("\"/ws/proj\":\"key-must-not-change\"") ==
         std::string::npos);
   CHECK(installed.find(workspace.generic_string()) != std::string::npos);
   CHECK(installed.find("\"decimal\":0.1") != std::string::npos);
@@ -712,6 +723,11 @@ TEST_CASE(
   CHECK(first->sessions.front().verify.artifacts_checked == 3);
   REQUIRE(first->id_map.size() == 1);
   const std::string first_id = first->id_map.front().installed_session_id;
+  REQUIRE(first->id_map.front().children.size() == 1U);
+  CHECK(first->id_map.front().children.front().first == "agent-a01");
+  const std::string first_child_id =
+      first->id_map.front().children.front().second;
+  CHECK(first_child_id == "agent-a01");
   CHECK(first_id != kOriginalSession);
   REQUIRE(first->activation.size() == 1);
   CHECK(first->activation.front().command == "claude --resume " + first_id);
@@ -738,7 +754,7 @@ TEST_CASE(
   CHECK(subagent_text.find(kSubagentUuid) == std::string::npos);
   CHECK(subagent_text.find(kLeafUuid) == std::string::npos);
   CHECK(subagent_text.find(kToolUuid) == std::string::npos);
-  CHECK(subagent_text.find("agent-a01") != std::string::npos);
+  CHECK(subagent_text.find("\"agentId\":\"agent-a01\"") != std::string::npos);
   CHECK(read_text(meta_path) == text(members.at(meta_artifact())));
 
   const auto second = adapter.install(target, biv::adapters::Consent::yes, records);
@@ -764,7 +780,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
-    "FX-VF-O1 Claude consent-no stages under the original project key") {
+    "FX-A11-6b Claude consent-no stages under the destination project key") {
   const auto root = make_tmp("consent-no-staging");
   const auto workspace = root / "workspace" / "final";
   const auto store = root / "target-claude";
@@ -799,9 +815,9 @@ TEST_CASE(
 
   const auto projects_root =
       workspace / ".biv" / "agents" / "claude-code" / "projects";
-  const auto project_dir =
+  const auto origin_workspace_project =
       projects_root / claude_project_key(record.original_path);
-  const auto final_workspace_project =
+  const auto project_dir =
       projects_root / claude_project_key(workspace);
   const auto& installed_id = staged->id_map.front().installed_session_id;
   const auto main_path = project_dir / (installed_id + ".jsonl");
@@ -809,7 +825,7 @@ TEST_CASE(
       project_dir / installed_id / "subagents" / "agent-a01.jsonl";
   const auto meta_path =
       project_dir / installed_id / "subagents" / "agent-a01.meta.json";
-  CHECK_FALSE(fs::exists(final_workspace_project));
+  CHECK_FALSE(fs::exists(origin_workspace_project));
   REQUIRE(fs::exists(main_path));
   REQUIRE(fs::exists(subagent_path));
   REQUIRE(fs::exists(meta_path));
@@ -825,6 +841,152 @@ TEST_CASE(
   CHECK(subagent_text.find(record.original_path) == std::string::npos);
   CHECK(subagent_text.find(workspace.generic_string()) != std::string::npos);
   CHECK(read_text(meta_path) == text(members.at(meta_artifact())));
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "F-1 F-6 Claude consent-no refuses a present non-parent transcript identity per row") {
+  constexpr std::string_view clean_id =
+      "aaaaaaaa-1111-4000-8000-000000000022";
+  const auto root = make_tmp("consent-no-foreign-transcript-identity");
+  const auto workspace = root / "workspace" / "final";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto members = claude_members();
+  members.at(subagent_artifact()) =
+      bytes("{\"type\":\"assistant\",\"sessionId\":\"agent-a01\","
+            "\"version\":\"2.1.202\"}\n");
+  add_claude_members(members, clean_id);
+  auto target = target_for(workspace, store, members);
+  const auto refused = claude_entry();
+  const auto clean = claude_entry("/ws/proj", std::string{clean_id});
+  const std::array records{refused, clean};
+
+  const auto staged = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no, records);
+
+  REQUIRE(staged);
+  REQUIRE(staged->sessions.size() == 2U);
+  const auto refused_row = std::ranges::find(
+      staged->sessions, kOriginalSession,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  const auto clean_row = std::ranges::find(
+      staged->sessions, clean_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  REQUIRE(refused_row != staged->sessions.end());
+  REQUIRE(clean_row != staged->sessions.end());
+  CHECK(refused_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(refused_row->reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"staged_identity_mismatch"});
+  CHECK(clean_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK_FALSE(clean_row->reason.has_value());
+  REQUIRE(staged->id_map.size() == 1U);
+  CHECK(staged->id_map.front().image_session_id == clean_id);
+  CHECK(regular_files(store).empty());
+
+  const auto projects_root =
+      workspace / ".biv" / "agents" / "claude-code" / "projects";
+  REQUIRE(regular_files(projects_root).size() == 3U);
+  CHECK_FALSE(fs::exists(projects_root /
+                         claude_project_key(workspace) /
+                         std::string{kOriginalSession}));
+  fs::remove_all(root);
+}
+
+TEST_CASE("FX-VF-O1 Claude installs a re-packed staged artifact identity") {
+  constexpr std::string_view provenance_id = "cl-0001";
+  constexpr std::string_view staged_id =
+      "4c1e9a20-0000-4000-8000-000000000001";
+  const auto root = make_tmp("repacked-staged-identity");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = claude_entry("/ws/proj", std::string{provenance_id});
+  record.provenance.locator = "staging";
+  record.provenance.discovery_tier = "staged";
+  record.children.clear();
+  record.artifacts = {main_artifact(staged_id)};
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      record.artifacts.front(),
+      bytes(std::string{"{\"type\":\"user\",\"cwd\":\"/ws/proj\","} +
+            "\"sessionId\":\"" + std::string{staged_id} +
+            "\",\"version\":\"2.1.207\"}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == provenance_id);
+  const auto files = regular_files(store);
+  REQUIRE(files.size() == 1U);
+  const auto installed = read_text(files.front());
+  CHECK(installed.find(staged_id) == std::string::npos);
+  CHECK(installed.find(result->id_map.front().installed_session_id) !=
+        std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "B2 composed Claude descendant staging path uses the exact final workspace") {
+  constexpr std::string_view staged_id =
+      "4c1e9a20-0000-4000-8000-000000000011";
+  const auto root = make_tmp("descendant-staging-path");
+  const auto original_workspace = root / "original-workspace";
+  const auto staging_workspace = original_workspace / "staging-workspace";
+  const auto final_workspace = root / "final-workspace";
+  const auto incorrectly_rewritten = final_workspace / "staging-workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(final_workspace);
+  fs::create_directories(store);
+
+  auto record = claude_entry(original_workspace.generic_string(),
+                             std::string{staged_id});
+  record.provenance.store_root = staging_workspace.generic_string();
+  record.provenance.locator = "staging";
+  record.provenance.discovery_tier = "staged";
+  record.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      record.artifacts.front(),
+      bytes(std::string{"{\"type\":\"user\",\"cwd\":\""} +
+            staging_workspace.generic_string() + "\",\"sessionId\":\"" +
+            std::string{staged_id} + "\",\"version\":\"2.1.207\"}\n"));
+  auto target = target_for(final_workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.front().verify.origin_path_hits == 0U);
+  REQUIRE(result->id_map.size() == 1U);
+  const auto files = regular_files(store);
+  REQUIRE(files.size() == 1U);
+  const auto installed = read_text(files.front());
+  CHECK(installed.find("\"cwd\":\"" + final_workspace.generic_string() +
+                       "\"") != std::string::npos);
+  CHECK(installed.find("\"cwd\":\"" + incorrectly_rewritten.generic_string() +
+                       "\"") == std::string::npos);
+  CHECK(installed.find(original_workspace.generic_string()) ==
+        std::string::npos);
+  CHECK(installed.find(staging_workspace.generic_string()) ==
+        std::string::npos);
   fs::remove_all(root);
 }
 
@@ -863,17 +1025,29 @@ TEST_CASE(
 }
 
 TEST_CASE(
-    "Claude consent-no scopes an unpinned long project key to its record") {
+    "Claude consent-no ignores unpinned origin keys when destination is bounded") {
   const auto root = make_tmp("consent-no-long-key-per-record");
   const auto workspace = root / "workspace";
   const auto store = root / "target-claude";
   fs::create_directories(workspace);
   fs::create_directories(store);
   auto members = claude_members();
+  const auto long_origin = "/" + std::string(260U, 'a');
+  for (auto& [path, content] : members) {
+    static_cast<void>(path);
+    auto rewritten = text(content);
+    for (auto position = rewritten.find("/ws/proj");
+         position != std::string::npos;
+         position = rewritten.find("/ws/proj", position)) {
+      rewritten.replace(position, 8U, long_origin);
+      position += long_origin.size();
+    }
+    content = bytes(rewritten);
+  }
   constexpr std::string_view benign_id =
       "dddddddd-1111-4000-8000-000000000001";
   add_claude_members(members, benign_id);
-  auto long_record = claude_entry("/" + std::string(260U, 'a'));
+  auto long_record = claude_entry(long_origin);
   const auto benign_record = claude_entry("/ws/proj", std::string{benign_id});
   const std::vector<biv::manifest::AgentSessionEntry> records{
       long_record, benign_record};
@@ -887,17 +1061,28 @@ TEST_CASE(
   CHECK(result->sessions.at(0).image_session_id ==
         long_record.original_session_ids.primary);
   CHECK(result->sessions.at(0).outcome ==
-        biv::adapters::InstallSessionOutcome::Outcome::failed);
-  CHECK(result->sessions.at(0).reason ==
-        std::optional<std::string>{"long_path_key_unpinned"});
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK_FALSE(result->sessions.at(0).reason.has_value());
   CHECK(result->sessions.at(1).image_session_id == benign_id);
   CHECK(result->sessions.at(1).outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::staged);
-  REQUIRE(result->id_map.size() == 1U);
-  CHECK(result->id_map.front().image_session_id == benign_id);
+  REQUIRE(result->id_map.size() == 2U);
+  CHECK(result->id_map.at(0).image_session_id ==
+        long_record.original_session_ids.primary);
+  CHECK(result->id_map.at(1).image_session_id == benign_id);
   CHECK(result->activation.empty());
   CHECK(regular_files(store).empty());
-  CHECK(regular_files(workspace).size() == 3U);
+  CHECK(regular_files(workspace).size() == 6U);
+  const auto projects_root =
+      workspace / ".biv" / "agents" / "claude-code" / "projects";
+  std::vector<std::string> project_keys;
+  for (const auto& entry : fs::directory_iterator(projects_root)) {
+    if (entry.is_directory()) {
+      project_keys.push_back(entry.path().filename().generic_string());
+    }
+  }
+  CHECK(project_keys ==
+        std::vector<std::string>{claude_project_key(workspace)});
   fs::remove_all(root);
 }
 
@@ -1021,6 +1206,7 @@ TEST_CASE("Claude rewrite applies pair rewrites and reports non-UTF8 skips") {
           .original_session_id = entry.original_session_ids.primary,
           .parent_id = std::nullopt,
           .child_ids = {"agent-a01"},
+          .child_artifact_map = {},
           .original_path = entry.original_path,
           .normalized_path_key = entry.normalized_path_key,
           .normalization_scheme = entry.normalization_scheme,
@@ -1028,6 +1214,7 @@ TEST_CASE("Claude rewrite applies pair rewrites and reports non-UTF8 skips") {
           .provenance = entry.provenance,
           .artifacts = {main_artifact(), subagent_artifact()},
           .artifact_sources = {},
+          .torn_tails = {},
           .agent_version_at_pack = entry.agent_version_at_pack,
           .live_at_pack = false}};
 
@@ -1206,7 +1393,7 @@ TEST_CASE("secure install preserves unowned temporary-name collisions") {
   fs::remove_all(root);
 }
 
-TEST_CASE("Claude install refuses nonzero rewrite verification before writing") {
+TEST_CASE("Claude install refuses non-UTF8 JSONL before writing") {
   const auto root = make_tmp("verify-refuse");
   const auto workspace = root / "workspace";
   const auto store = root / "target-claude";
@@ -1228,12 +1415,12 @@ TEST_CASE("Claude install refuses nonzero rewrite verification before writing") 
   REQUIRE(result->sessions.size() == 1);
   CHECK(result->sessions.front().outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
-  CHECK(result->sessions.front().verify.origin_path_hits > 0);
+  CHECK(result->sessions.front().verify.origin_path_hits == 0U);
   CHECK(result->sessions.front().reason ==
-        std::optional<std::string>{"containment_refused"});
+        std::optional<std::string>{"verify-hits"});
   CHECK(result->sessions.front().detail ==
-        std::optional<std::string>{"rewrite_verify_failed"});
-  CHECK(result->sessions.front().verify.origin_id_hits > 0);
+        std::optional<std::string>{"undecodable_line"});
+  CHECK(result->sessions.front().verify.origin_id_hits == 0U);
   CHECK(result->id_map.empty());
   CHECK(result->activation.empty());
   CHECK(regular_files(store).empty());
@@ -1247,20 +1434,23 @@ TEST_CASE(
   const auto store = root / "target-claude";
   fs::create_directories(workspace);
   fs::create_directories(store);
-  auto members = claude_members();
-  auto hostile = bytes(std::string{"{\"cwd\":\"/ws/proj\",\"sessionId\":\""} +
-                       std::string{kOriginalSession} + "\"}");
-  hostile.push_back(static_cast<std::byte>(0xff));
-  hostile.push_back(static_cast<std::byte>('\n'));
-  members.at(main_artifact()) = std::move(hostile);
-  auto target = target_for(workspace, store, members);
   auto refused = claude_entry(
-      "/ws/proj", "aaaaaaaa-1111-4000-8000-000000000905");
+      "/capability-origin", "aaaaaaaa-1111-4000-8000-000000000905");
   refused.agent_version_at_pack = "unknown";
   refused.children.clear();
   refused.artifacts.clear();
-  const std::vector<biv::manifest::AgentSessionEntry> records{refused,
-                                                              claude_entry()};
+  auto verify = claude_entry("/verify-origin", std::string{kOriginalSession});
+  verify.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(),
+      bytes(std::string{"{\"type\":\"user\",\"cwd\":\"/verify-origin\","} +
+            "\"foreign_path\":\"/capability-origin\",\"sessionId\":\"" +
+            std::string{kOriginalSession} + "\",\"foreign_id\":\"" +
+            refused.original_session_ids.primary +
+            "\",\"version\":\"2.1.202\"}\n"));
+  auto target = target_for(workspace, store, members);
+  const std::vector<biv::manifest::AgentSessionEntry> records{refused, verify};
 
   const auto result = biv::adapters::claude_code_adapter().install(
       target, biv::adapters::Consent::yes, records);
@@ -1273,16 +1463,14 @@ TEST_CASE(
     });
   };
   const auto refused_row = row_for(refused.original_session_ids.primary);
-  const auto verify_row = row_for(claude_entry().original_session_ids.primary);
+  const auto verify_row = row_for(verify.original_session_ids.primary);
   REQUIRE(refused_row != result->sessions.end());
   REQUIRE(verify_row != result->sessions.end());
   CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
   CHECK(refused_row->detail ==
         std::optional<std::string>{"basis_unorderable"});
-  CHECK(verify_row->reason ==
-        std::optional<std::string>{"containment_refused"});
-  CHECK(verify_row->detail ==
-        std::optional<std::string>{"rewrite_verify_failed"});
+  CHECK(verify_row->reason == std::optional<std::string>{"verify-hits"});
+  CHECK(verify_row->detail == std::optional<std::string>{"origin_path"});
   CHECK(verify_row->verify.origin_path_hits > 0U);
   CHECK(verify_row->verify.origin_id_hits > 0U);
   CHECK(result->id_map.empty());
@@ -1325,9 +1513,9 @@ TEST_CASE("Claude install refuses every unverifiable escaped origin line") {
       CHECK(result->sessions.front().outcome ==
             biv::adapters::InstallSessionOutcome::Outcome::failed);
       CHECK(result->sessions.front().reason ==
-            std::optional<std::string>{"containment_refused"});
+            std::optional<std::string>{"verify-hits"});
       CHECK(result->sessions.front().detail ==
-            std::optional<std::string>{"rewrite_verify_failed"});
+            std::optional<std::string>{"undecodable_line"});
       CHECK(result->id_map.empty());
       CHECK(result->activation.empty());
       CHECK(regular_files(store).empty());
@@ -2116,5 +2304,1556 @@ TEST_CASE("every installed path embeds that session's freshly minted id") {
   }
   CHECK(saw_main);
   CHECK(saw_subtree);
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude install refuses a retained undecodable JSONL line") {
+  const auto root = make_tmp("undecodable-line");
+  auto members = claude_members();
+  members[main_artifact()] = bytes("{bad\n");
+  auto target = target_for(root / "workspace", root / "store", members);
+  const auto result = biv::adapters::claude_code_install(
+      target, biv::adapters::Consent::no,
+      std::vector<biv::manifest::AgentSessionEntry>{claude_entry()});
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().reason == std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.front().detail == std::optional<std::string>{"undecodable_line"});
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude install accepts an empty JSONL artifact as zero records") {
+  const auto root = make_tmp("empty-jsonl");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  members.at(subagent_artifact()).clear();
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{claude_entry()});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.front().verify.artifacts_checked == 3U);
+  REQUIRE(result->id_map.size() == 1U);
+  const auto project = store / "projects" / claude_project_key(workspace);
+  const auto& installed_id = result->id_map.front().installed_session_id;
+  CHECK(fs::is_empty(project / installed_id / "subagents" /
+                     "agent-a01.jsonl"));
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude declared never-rewrite artifacts are whole-document scanned") {
+  const auto root = make_tmp("never-rewrite-origin-refusal");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  members.at(meta_artifact()) = bytes(
+      std::string{"{\n  \"origin\": \"/ws/proj\",\n  \"session\": \""} +
+      std::string{kOriginalSession} + "\"\n}\n");
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{claude_entry()});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"origin_path"});
+  CHECK(result->sessions.front().verify.origin_path_hits > 0U);
+  CHECK(result->sessions.front().verify.origin_id_hits > 0U);
+  CHECK(result->sessions.front().verify.artifacts_checked == 3U);
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Claude never-rewrite verification decodes escaped JSON keys and values") {
+  struct Case {
+    std::string_view name;
+    std::string_view original_path;
+    biv::manifest::PathFlavor path_flavor;
+    std::string_view meta;
+  };
+  const std::array cases{
+      Case{.name = "escaped-posix-value",
+           .original_path = "/ws/proj",
+           .path_flavor = biv::manifest::PathFlavor::posix,
+           .meta = R"({"origin":"\/ws\/proj"})"},
+      Case{.name = "escaped-posix-key",
+           .original_path = "/ws/proj",
+           .path_flavor = biv::manifest::PathFlavor::posix,
+           .meta = R"({"\u002fws\u002fproj":"metadata"})"},
+      Case{.name = "wsl-windows-spelling",
+           .original_path = "/mnt/c/Users/Me/Proj",
+           .path_flavor = biv::manifest::PathFlavor::wsl,
+           .meta = R"({"origin":"C:\\Users\\Me\\Proj"})"},
+      Case{.name = "windows-backslash-spelling",
+           .original_path = R"(C:\Users\Me\Proj)",
+           .path_flavor = biv::manifest::PathFlavor::windows,
+           .meta = R"({"origin":"C:\\Users\\Me\\Proj"})"},
+  };
+
+  for (const auto& test : cases) {
+    CAPTURE(test.name);
+    const auto root = make_tmp(std::string{"never-rewrite-decoded-"} +
+                               std::string{test.name});
+    const auto workspace = root / "workspace";
+    const auto store = root / "target-claude";
+    fs::create_directories(workspace);
+    fs::create_directories(store);
+    auto record = claude_entry(std::string{test.original_path});
+    record.path_flavor = test.path_flavor;
+    auto members = claude_members();
+    members.at(meta_artifact()) = bytes(test.meta);
+    auto target = target_for(workspace, store, members);
+
+    const auto result = biv::adapters::claude_code_adapter().install(
+        target, biv::adapters::Consent::yes,
+        std::vector<biv::manifest::AgentSessionEntry>{record});
+
+    REQUIRE(result);
+    REQUIRE(result->sessions.size() == 1U);
+    CHECK(result->sessions.front().outcome ==
+          biv::adapters::InstallSessionOutcome::Outcome::failed);
+    CHECK(result->sessions.front().reason ==
+          std::optional<std::string>{"verify-hits"});
+    CHECK(result->sessions.front().detail ==
+          std::optional<std::string>{"origin_path"});
+    CHECK(result->sessions.front().verify.origin_path_hits > 0U);
+    CHECK(result->sessions.front().verify.artifacts_checked == 3U);
+    CHECK(result->id_map.empty());
+    CHECK(result->activation.empty());
+    CHECK(regular_files(store).empty());
+    fs::remove_all(root);
+  }
+}
+
+TEST_CASE("Claude verifies every session against the image origin union") {
+  constexpr std::string_view first_id =
+      "aaaaaaaa-1111-4000-8000-000000000011";
+  constexpr std::string_view second_id =
+      "aaaaaaaa-1111-4000-8000-000000000012";
+  constexpr std::string_view first_message_id =
+      "00000000-0000-4000-8000-000000000311";
+  const auto root = make_tmp("image-origin-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto first = claude_entry("/srv/alpha", std::string{first_id});
+  auto second = claude_entry("/srv/beta", std::string{second_id});
+  first.children.clear();
+  second.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(first_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{first_id} +
+            R"(","cwd":"/srv/alpha","uuid":")" +
+            std::string{first_message_id} + R"("})" + "\n"));
+  members.emplace(
+      main_artifact(second_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{second_id} +
+            R"(","cwd":"/srv/beta","foreignPath":"/srv/alpha","foreignId":")" +
+            std::string{first_message_id} + R"("})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const std::array records{first, second};
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(1).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(1).detail ==
+        std::optional<std::string>{"origin_path"});
+  CHECK(result->sessions.at(1).verify.origin_path_hits > 0U);
+  CHECK(result->sessions.at(1).verify.origin_id_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE("B2 image union excludes Claude manifest child IDs") {
+  constexpr std::string_view origin_id =
+      "aaaaaaaa-1111-4000-8000-000000000411";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000412";
+  constexpr std::string_view child_id =
+      "aaaaaaaa-1111-4000-8000-000000000413";
+  const auto root = make_tmp("image-origin-child-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto origin = claude_entry("/srv/alpha", std::string{origin_id});
+  auto recipient = claude_entry("/srv/beta", std::string{recipient_id});
+  origin.children = {{.original_id = std::string{child_id}, .artifacts = {}}};
+  recipient.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(origin_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{origin_id} +
+            R"(","cwd":"/srv/alpha"})" + "\n"));
+  members.emplace(
+      main_artifact(recipient_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreignId":")" +
+            std::string{child_id} + R"("})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{origin, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(result->sessions.at(1).reason.has_value());
+  CHECK(result->sessions.at(1).verify.origin_id_hits == 0U);
+  REQUIRE(result->id_map.size() == 2U);
+  const auto origin_map = std::ranges::find(
+      result->id_map, origin_id, &biv::adapters::IdMapEntry::image_session_id);
+  REQUIRE(origin_map != result->id_map.end());
+  REQUIRE(origin_map->children.size() == 1U);
+  CHECK(origin_map->children.front().first == child_id);
+  CHECK(origin_map->children.front().second == child_id);
+  std::string installed_bytes;
+  for (const auto &file : regular_files(store)) {
+    installed_bytes += read_text(file);
+  }
+  CHECK(installed_bytes.find(child_id) != std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE("B2 image union includes Claude manifest parent session IDs") {
+  constexpr std::string_view origin_id =
+      "aaaaaaaa-1111-4000-8000-000000000421";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000422";
+  constexpr std::string_view parent_id =
+      "aaaaaaaa-1111-4000-8000-000000000423";
+  const auto root = make_tmp("image-origin-parent-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto origin = claude_entry("/srv/alpha", std::string{origin_id});
+  auto recipient = claude_entry("/srv/beta", std::string{recipient_id});
+  origin.children.clear();
+  recipient.children.clear();
+  origin.original_session_ids.parent = std::string{parent_id};
+  origin.original_session_ids.parent_in_image = false;
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(origin_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{origin_id} +
+            R"(","cwd":"/srv/alpha"})" + "\n"));
+  members.emplace(
+      main_artifact(recipient_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreignId":")" +
+            std::string{parent_id} + R"("})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{origin, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(1).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(1).detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(result->sessions.at(1).verify.origin_id_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "B2 image union includes Claude message UUIDs from capability-refused rows") {
+  constexpr std::string_view refused_id =
+      "aaaaaaaa-1111-4000-8000-000000000431";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000432";
+  constexpr std::string_view message_id =
+      "00000000-0000-4000-8000-000000000433";
+  const auto root = make_tmp("image-origin-refused-message-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto refused = claude_entry("/srv/alpha", std::string{refused_id});
+  auto recipient = claude_entry("/srv/beta", std::string{recipient_id});
+  refused.children.clear();
+  recipient.children.clear();
+  refused.agent_version_at_pack = "unknown";
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(refused_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{refused_id} +
+            R"(","cwd":"/srv/alpha","uuid":")" +
+            std::string{message_id} + R"("})" + "\n"));
+  members.emplace(
+      main_artifact(recipient_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreignId":")" +
+            std::string{message_id} + R"("})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{refused, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.at(0).detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(1).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(1).detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(result->sessions.at(1).verify.origin_id_hits > 0U);
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("F-4 Claude image union excludes agentId values from "
+          "capability-refused rows") {
+  constexpr std::string_view refused_id =
+      "aaaaaaaa-1111-4000-8000-000000000441";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000442";
+  constexpr std::string_view staged_child_alias =
+      "00000000-0000-4000-8000-000000000444";
+  const auto root = make_tmp("image-origin-refused-nonstaged-child-union");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto refused = claude_entry("/srv/alpha", std::string{refused_id});
+  auto recipient = claude_entry("/srv/beta", std::string{recipient_id});
+  refused.agent_version_at_pack = "unknown";
+  refused.artifacts = {main_artifact(refused_id)};
+  const auto refused_child =
+      "agents/claude-code/" + std::string{refused_id} +
+      "/subagents/agent-refused.jsonl";
+  refused.children = {{.original_id = "agent-refused",
+                       .artifacts = {refused_child}}};
+  recipient.children.clear();
+
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(refused_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{refused_id} +
+            R"(","cwd":"/srv/alpha"})" + "\n"));
+  members.emplace(
+      refused_child,
+      bytes(std::string{R"({"sessionId":")"} + std::string{refused_id} +
+            R"(","agentId":")" + std::string{staged_child_alias} +
+            R"(","cwd":"/srv/alpha"})" + "\n"));
+  members.emplace(
+      main_artifact(recipient_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreignId":")" +
+            std::string{staged_child_alias} + R"("})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{refused, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.at(0).detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(result->sessions.at(1).reason.has_value());
+  CHECK(result->sessions.at(1).verify.origin_id_hits == 0U);
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == recipient_id);
+  REQUIRE(result->activation.size() == 1U);
+  REQUIRE(regular_files(store).size() == 1U);
+  CHECK(read_text(regular_files(store).front()).find(staged_child_alias) !=
+        std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE("A1 Claude undecodable artifact does not promote a later agentId to "
+          "image identity") {
+  constexpr std::string_view origin_id =
+      "aaaaaaaa-1111-4000-8000-000000000451";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000452";
+  constexpr std::string_view later_alias =
+      "00000000-0000-4000-8000-000000000453";
+  const auto root = make_tmp("undecodable-still-harvests-later-alias");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto origin = claude_entry("/srv/alpha", std::string{origin_id});
+  auto recipient = claude_entry("/srv/beta", std::string{recipient_id});
+  const auto later_child =
+      "agents/claude-code/" + std::string{origin_id} +
+      "/subagents/agent-later.jsonl";
+  origin.children = {
+      {.original_id = "agent-later", .artifacts = {later_child}}};
+  recipient.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(main_artifact(origin_id), bytes("{undecodable\n"));
+  members.emplace(
+      later_child,
+      bytes(std::string{R"({"sessionId":")"} + std::string{origin_id} +
+            R"(","agentId":")" + std::string{later_alias} +
+            R"(","cwd":"/srv/alpha"})" + "\n"));
+  members.emplace(
+      main_artifact(recipient_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreignId":")" +
+            std::string{later_alias} + R"("})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{origin, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(0).detail ==
+        std::optional<std::string>{"undecodable_line"});
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(result->sessions.at(1).reason.has_value());
+  CHECK(result->sessions.at(1).verify.origin_id_hits == 0U);
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == recipient_id);
+  REQUIRE(regular_files(store).size() == 1U);
+  CHECK(read_text(regular_files(store).front()).find(later_alias) !=
+        std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "A2 Claude image union includes staged primary aliases before version admission") {
+  constexpr std::string_view refused_id =
+      "aaaaaaaa-1111-4000-8000-000000000461";
+  constexpr std::string_view staged_alias =
+      "4c1e9a20-0000-4000-8000-000000000462";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000463";
+  const auto root = make_tmp("version-refused-staged-primary-alias");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto refused = claude_entry("/srv/alpha", std::string{refused_id});
+  auto recipient = claude_entry("/srv/beta", std::string{recipient_id});
+  refused.provenance.locator = "staging";
+  refused.provenance.discovery_tier = "staged";
+  refused.agent_version_at_pack = "unknown";
+  refused.children.clear();
+  refused.artifacts = {main_artifact(staged_alias)};
+  recipient.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(staged_alias),
+      bytes(std::string{R"({"sessionId":")"} + std::string{staged_alias} +
+            R"(","cwd":"/srv/alpha"})" + "\n"));
+  members.emplace(
+      main_artifact(recipient_id),
+      bytes(std::string{R"({"sessionId":")"} + std::string{recipient_id} +
+            R"(","cwd":"/srv/beta","foreignId":")" +
+            std::string{staged_alias} + R"("})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{refused, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.at(0).detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK(result->sessions.at(1).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(1).detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(result->sessions.at(1).verify.origin_id_hits > 0U);
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude refuses subtree formats absent from the declared inventory") {
+  const auto root = make_tmp("undeclared-subtree-format");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  const auto undeclared =
+      "agents/claude-code/" + std::string{kOriginalSession} + "/notes.md";
+  auto members = claude_members();
+  members.emplace(undeclared, bytes("benign notes\n"));
+  auto record = claude_entry();
+  record.children.front().artifacts.push_back(undeclared);
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{record});
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Claude scopes an unsupported subtree artifact refusal to its owning row") {
+  constexpr std::string_view clean_id =
+      "aaaaaaaa-1111-4000-8000-000000000022";
+  const auto root = make_tmp("unsupported-subtree-owner");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  add_claude_members(members, clean_id);
+  const auto undeclared =
+      "agents/claude-code/" + std::string{kOriginalSession} + "/notes.md";
+  members.emplace(undeclared, bytes("benign notes\n"));
+  auto refused = claude_entry();
+  refused.children.front().artifacts.push_back(undeclared);
+  auto clean = claude_entry("/ws/proj", std::string{clean_id});
+  auto target = target_for(workspace, store, members);
+  const std::array records{refused, clean};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  const auto refused_row = std::ranges::find(
+      result->sessions, kOriginalSession,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  const auto clean_row = std::ranges::find(
+      result->sessions, clean_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(clean_row != result->sessions.end());
+  CHECK(refused_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(refused_row->reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(refused_row->detail == std::optional<std::string>{undeclared});
+  CHECK(clean_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(clean_row->reason.has_value());
+  CHECK_FALSE(clean_row->detail.has_value());
+  CHECK(result->id_map.size() == 1U);
+  CHECK(result->activation.size() == 1U);
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude well-formed escaped ambiguous origins fail decoded verification") {
+  const auto root = make_tmp("escaped-ambiguous-origin");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto record = claude_entry();
+  record.children.clear();
+  auto members = claude_members();
+  members.clear();
+  members.emplace(
+      main_artifact(),
+      bytes(std::string{R"({"cwd":"\/ws\/proj-old","sessionId":")"} +
+            std::string{kOriginalSession} +
+            R"(","version":"2.1.202"})" + "\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"origin_path"});
+  CHECK(result->sessions.front().verify.origin_path_hits > 0U);
+  CHECK(result->sessions.front().verify.artifacts_checked == 1U);
+  CHECK(result->id_map.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude raw-text artifacts refuse origins outside rewrite boundaries") {
+  const auto root = make_tmp("raw-text-boundaries");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto members = claude_members();
+  const auto tool_artifact =
+      "agents/claude-code/" + std::string{kOriginalSession} +
+      "/tool-results/nested/result.txt";
+  const std::string raw =
+      std::string{"path=/ws/proj\npath-control=/ws/proj2\n"
+                  "path-left-control=/other/ws/proj\nid="} +
+      std::string{kOriginalSession} + "\nid-left=f" +
+      std::string{kOriginalSession} + "\nid-right=" +
+      std::string{kOriginalSession} + "f\n";
+  members.emplace(tool_artifact, bytes(raw));
+
+  auto record = claude_entry();
+  record.children.front().artifacts.push_back(tool_artifact);
+  auto target = target_for(workspace, store, members);
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"origin_path"});
+  CHECK(result->sessions.front().verify.origin_path_hits > 0U);
+  CHECK(result->sessions.front().verify.origin_id_hits > 0U);
+  CHECK(result->sessions.front().verify.artifacts_checked == 4U);
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude raw-text artifacts publish the rewritten output with zero verify hits") {
+  const auto root = make_tmp("raw-text-output");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto members = claude_members();
+  const auto tool_artifact =
+      "agents/claude-code/" + std::string{kOriginalSession} +
+      "/tool-results/nested/result.txt";
+  members.emplace(tool_artifact,
+                  bytes("path=/ws/proj\nid=" + std::string{kOriginalSession} + "\n"));
+  auto record = claude_entry();
+  record.children.front().artifacts.push_back(tool_artifact);
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.front().verify.origin_path_hits == 0U);
+  CHECK(result->sessions.front().verify.origin_id_hits == 0U);
+  CHECK(result->sessions.front().verify.artifacts_checked == 4U);
+  REQUIRE(result->id_map.size() == 1U);
+  const auto& installed_id = result->id_map.front().installed_session_id;
+  const auto installed =
+      store / "projects" / claude_project_key(workspace) / installed_id /
+      "tool-results" / "nested" / "result.txt";
+  REQUIRE(fs::is_regular_file(installed));
+  CHECK(read_text(installed) ==
+        "path=" + workspace.generic_string() + "\nid=" + installed_id + "\n");
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude non-staged artifact identity mismatch refuses the whole set") {
+  const auto root = make_tmp("non-staged-identity-mismatch");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  constexpr std::string_view wrong_id =
+      "bbbbbbbb-1111-4000-8000-000000000001";
+  auto record = claude_entry();
+  record.children.clear();
+  record.artifacts = {main_artifact(wrong_id)};
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(record.artifacts.front(), bytes("{}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes,
+      std::vector<biv::manifest::AgentSessionEntry>{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("Claude mixed verify failures preserve rows and publish clean siblings") {
+  const auto root = make_tmp("mixed-verify-radius");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  constexpr std::string_view undecodable_id =
+      "aaaaaaaa-1111-4000-8000-000000000901";
+  constexpr std::string_view verify_id =
+      "aaaaaaaa-1111-4000-8000-000000000902";
+  constexpr std::string_view clean_id =
+      "aaaaaaaa-1111-4000-8000-000000000903";
+  constexpr std::string_view capability_id =
+      "aaaaaaaa-1111-4000-8000-000000000904";
+
+  auto undecodable = claude_entry("/undecodable-origin", std::string{undecodable_id});
+  auto verify = claude_entry("/verify-origin", std::string{verify_id});
+  auto clean = claude_entry("/clean-origin", std::string{clean_id});
+  auto capability =
+      claude_entry("/capability-origin", std::string{capability_id});
+  for (auto* record : {&undecodable, &verify, &clean, &capability}) {
+    record->children.clear();
+  }
+  capability.agent_version_at_pack = "unknown";
+
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(main_artifact(undecodable_id), bytes("{bad\n"));
+  members.emplace(
+      main_artifact(verify_id),
+      bytes(std::string{"{\"type\":\"user\",\"cwd\":\"/verify-origin\","} +
+            "\"message\":\"/verify-origin2\",\"sessionId\":\"" +
+            std::string{verify_id} + "\",\"version\":\"2.1.202\"}\n"));
+  members.emplace(
+      main_artifact(clean_id),
+      bytes(std::string{"{\"type\":\"user\",\"cwd\":\"/clean-origin\","} +
+            "\"sessionId\":\"" + std::string{clean_id} +
+            "\",\"version\":\"2.1.202\"}\n"));
+  members.emplace(main_artifact(capability_id), bytes("{}\n"));
+
+  auto target = target_for(workspace, store, members);
+  const std::vector records{undecodable, verify, clean, capability};
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 4U);
+  const auto row_for = [&](const std::string_view id) {
+    return std::ranges::find(result->sessions, id,
+                             &biv::adapters::InstallSessionOutcome::image_session_id);
+  };
+  const auto undecodable_row = row_for(undecodable_id);
+  const auto verify_row = row_for(verify_id);
+  const auto clean_row = row_for(clean_id);
+  const auto capability_row = row_for(capability_id);
+  REQUIRE(undecodable_row != result->sessions.end());
+  REQUIRE(verify_row != result->sessions.end());
+  REQUIRE(clean_row != result->sessions.end());
+  REQUIRE(capability_row != result->sessions.end());
+  CHECK(undecodable_row->reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(undecodable_row->detail ==
+        std::optional<std::string>{"undecodable_line"});
+  CHECK(verify_row->reason == std::optional<std::string>{"verify-hits"});
+  CHECK(verify_row->detail == std::optional<std::string>{"origin_path"});
+  CHECK(verify_row->verify.origin_path_hits > 0U);
+  CHECK(clean_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(clean_row->reason.has_value());
+  CHECK(capability_row->reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(capability_row->detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == clean_id);
+  REQUIRE(result->activation.size() == 1U);
+  CHECK(result->activation.front().command ==
+        "claude --resume " + result->id_map.front().installed_session_id);
+  const auto installed = store / "projects" / claude_project_key(workspace) /
+                         (result->id_map.front().installed_session_id + ".jsonl");
+  REQUIRE(fs::exists(installed));
+  CHECK(read_text(installed).find("/clean-origin") == std::string::npos);
+  CHECK(read_text(installed).find(workspace.generic_string()) !=
+        std::string::npos);
+  CHECK(regular_files(store).size() == 1U);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "R-1 Claude preserves an unattributed nested subagent agentId verbatim") {
+  constexpr std::string_view origin_id =
+      "aaaaaaaa-1111-4000-8000-000000000a11";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000a12";
+  constexpr std::string_view alias =
+      "00000000-0000-4000-8000-000000000a13";
+  const auto root = make_tmp("unattributed-nested-subagent-alias");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto origin = claude_entry("/srv/alpha", std::string{origin_id});
+  auto recipient = claude_entry("/srv/beta", std::string{recipient_id});
+  origin.children.clear();
+  recipient.children.clear();
+  const auto nested = "agents/claude-code/" + std::string{origin_id} +
+                      "/subagents/workflows/wf-a/agent-unattributed.jsonl";
+  origin.artifacts.push_back(nested);
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(origin_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{origin_id} +
+            "\",\"cwd\":\"/srv/alpha\",\"version\":\"2.1.202\"}\n"));
+  members.emplace(
+      nested,
+      bytes(std::string{"{\"sessionId\":\""} + std::string{origin_id} +
+            "\",\"agentId\":\"" + std::string{alias} +
+            "\",\"cwd\":\"/srv/alpha\"}\n"));
+  members.emplace(
+      main_artifact(recipient_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{recipient_id} +
+            "\",\"cwd\":\"/srv/beta\",\"version\":\"2.1.202\"," +
+            "\"foreignId\":\"" + std::string{alias} + "\"}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{origin, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(result->sessions.at(0).reason.has_value());
+  CHECK(result->sessions.at(0).verify.origin_id_hits == 0U);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(result->sessions.at(1).reason.has_value());
+  CHECK(result->sessions.at(1).verify.origin_id_hits == 0U);
+  REQUIRE(result->id_map.size() == 2U);
+  CHECK(result->id_map.front().image_session_id == origin_id);
+  const auto installed_files = regular_files(store);
+  REQUIRE(installed_files.size() == 3U);
+  std::string installed_bytes;
+  for (const auto& file : installed_files) {
+    installed_bytes += read_text(file);
+  }
+  CHECK(installed_bytes.find(alias) != std::string::npos);
+  CHECK(installed_bytes.find("agentId") != std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE("L-1 Claude preserves a main-transcript-only agentId on both consent "
+          "paths") {
+  constexpr std::string_view origin_id =
+      "aaaaaaaa-1111-4000-8000-000000000b11";
+  constexpr std::string_view alias =
+      "00000000-0000-4000-8000-000000000b12";
+  for (const auto consent : {biv::adapters::Consent::yes,
+                             biv::adapters::Consent::no}) {
+    CAPTURE(consent == biv::adapters::Consent::yes ? "consent-yes"
+                                                   : "consent-no");
+    const auto root = make_tmp(
+        consent == biv::adapters::Consent::yes ? "main-only-alias-yes"
+                                                : "main-only-alias-no");
+    const auto workspace = root / "workspace";
+    const auto store = root / "target-claude";
+    fs::create_directories(workspace);
+    fs::create_directories(store);
+    auto record = claude_entry("/srv/alpha", std::string{origin_id});
+    record.children.clear();
+    std::map<std::string, std::vector<std::byte>> members;
+    members.emplace(
+        main_artifact(origin_id),
+        bytes(std::string{"{\"sessionId\":\""} + std::string{origin_id} +
+              "\",\"agentId\":\"" + std::string{alias} +
+              "\",\"cwd\":\"/srv/alpha\",\"version\":\"2.1.202\"}\n"));
+    auto target = target_for(workspace, store, members);
+    const auto result = biv::adapters::claude_code_adapter().install(
+        target, consent, std::array{record});
+    REQUIRE(result);
+    REQUIRE(result->sessions.size() == 1U);
+    CHECK(result->sessions.front().outcome ==
+          (consent == biv::adapters::Consent::yes
+               ? biv::adapters::InstallSessionOutcome::Outcome::installed
+               : biv::adapters::InstallSessionOutcome::Outcome::staged));
+    CHECK_FALSE(result->sessions.front().reason.has_value());
+    CHECK(result->sessions.front().verify.origin_id_hits == 0U);
+    REQUIRE(result->id_map.size() == 1U);
+    const auto files = consent == biv::adapters::Consent::yes
+                           ? regular_files(store)
+                           : regular_files(workspace / ".biv/agents/claude-code");
+    REQUIRE(files.size() == 1U);
+    const auto installed = read_text(files.front());
+    CHECK(installed.find("\"agentId\":\"" + std::string{alias} + "\"") !=
+          std::string::npos);
+    fs::remove_all(root);
+  }
+}
+
+TEST_CASE(
+    "L-3 Claude boundary-safe replacement strictly refuses embedded canonical ids") {
+  constexpr std::string_view origin_id = "aaaaaaaa-1111-4000-8000-000000000b24";
+  const auto root = make_tmp("hostile-substring-child-alias");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto record = claude_entry("/srv/alpha", std::string{origin_id});
+  const auto raw_artifact =
+      "agents/claude-code/" + std::string{origin_id} +
+      "/tool-results/nested/result.txt";
+  record.artifacts.push_back(raw_artifact);
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(main_artifact(origin_id),
+                  bytes(std::string{"{\"sessionId\":\""} +
+                        std::string{origin_id} + "\",\"x" +
+                        std::string{origin_id} + "x\":\"x" +
+                        std::string{origin_id} + "x\"," +
+                        "\"cwd\":\"/srv/alpha\",\"version\":\"2.1.202\"}\n"));
+  members.emplace(subagent_artifact(origin_id),
+                  bytes(std::string{"{\"sessionId\":\""} +
+                        std::string{origin_id} +
+                        "\",\"agentId\":\"agent-a01\"}\n"));
+  members.emplace(meta_artifact(origin_id), bytes("{}\n"));
+  members.emplace(raw_artifact, bytes("x" + std::string{origin_id} + "x\n"));
+  auto target = target_for(workspace, store, members);
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{record});
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(result->sessions.front().verify.origin_id_hits >= 3U);
+  CHECK(result->id_map.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("M-1 Claude child attribution does not assign agentId aliases") {
+  constexpr std::string_view origin_id =
+      "aaaaaaaa-1111-4000-8000-000000000b31";
+  constexpr std::string_view child_id =
+      "00000000-0000-4000-8000-000000000b32";
+  constexpr std::string_view alias =
+      "00000000-0000-4000-8000-000000000b33";
+  const auto root = make_tmp("child-attribution-precedence");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto record = claude_entry("/srv/alpha", std::string{origin_id});
+  const auto unattributed = "agents/claude-code/" + std::string{origin_id} +
+                            "/subagents/workflows/wf-a/agent-unowned.jsonl";
+  const auto attributed = "agents/claude-code/" + std::string{origin_id} +
+                          "/subagents/" + std::string{child_id} + ".jsonl";
+  record.artifacts.push_back(unattributed);
+  record.children = {{.original_id = std::string{child_id},
+                      .artifacts = {attributed}}};
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(main_artifact(origin_id),
+                  bytes(std::string{"{\"sessionId\":\""} +
+                        std::string{origin_id} +
+                        "\",\"cwd\":\"/srv/alpha\",\"version\":\"2.1.202\"}\n"));
+  members.emplace(unattributed,
+                  bytes(std::string{"{\"sessionId\":\""} +
+                        std::string{origin_id} + "\",\"agentId\":\"" +
+                        std::string{alias} + "\"}\n"));
+  members.emplace(attributed,
+                  bytes(std::string{"{\"sessionId\":\""} +
+                        std::string{origin_id} + "\",\"agentId\":\"" +
+                        std::string{alias} + "\"}\n"));
+  auto target = target_for(workspace, store, members);
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{record});
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  REQUIRE(result->id_map.size() == 1U);
+  REQUIRE(result->id_map.front().children.size() == 1U);
+  CHECK(result->id_map.front().children.front().first == child_id);
+  CHECK(result->id_map.front().children.front().second == child_id);
+  const auto files = regular_files(store);
+  REQUIRE(files.size() == 3U);
+  std::size_t agent_id_files = 0U;
+  for (const auto& file : files) {
+    const auto content = read_text(file);
+    if (content.find("agentId") != std::string::npos) {
+      ++agent_id_files;
+      CHECK(content.find("\"agentId\":\"" + std::string{alias} + "\"") !=
+            std::string::npos);
+    }
+  }
+  CHECK(agent_id_files == 2U);
+  fs::remove_all(root);
+}
+
+TEST_CASE("L-2 Claude does not claim shared agentId values across records") {
+  constexpr std::string_view first_id =
+      "aaaaaaaa-1111-4000-8000-000000000b41";
+  constexpr std::string_view second_id =
+      "aaaaaaaa-1111-4000-8000-000000000b42";
+  constexpr std::string_view first_child =
+      "00000000-0000-4000-8000-000000000b43";
+  constexpr std::string_view second_child =
+      "00000000-0000-4000-8000-000000000b44";
+  constexpr std::string_view alias = "agent-conflict";
+  for (const bool reverse : {false, true}) {
+    DYNAMIC_SECTION("reverse=" << reverse) {
+      const auto root = make_tmp(reverse ? "alias-conflict-reversed"
+                                         : "alias-conflict-forward");
+      const auto workspace = root / "workspace";
+      const auto store = root / "target-claude";
+      fs::create_directories(workspace);
+      fs::create_directories(store);
+      auto first = claude_entry("/srv/first", std::string{first_id});
+      auto second = claude_entry("/srv/second", std::string{second_id});
+      const auto first_artifact =
+          "agents/claude-code/" + std::string{first_id} + "/subagents/" +
+          std::string{first_child} + ".jsonl";
+      const auto second_artifact =
+          "agents/claude-code/" + std::string{second_id} + "/subagents/" +
+          std::string{second_child} + ".jsonl";
+      first.children = {{.original_id = std::string{first_child},
+                         .artifacts = {first_artifact}}};
+      second.children = {{.original_id = std::string{second_child},
+                          .artifacts = {second_artifact}}};
+      std::map<std::string, std::vector<std::byte>> members;
+      members.emplace(main_artifact(first_id),
+                      bytes(std::string{"{\"sessionId\":\""} +
+                            std::string{first_id} +
+                            "\",\"cwd\":\"/srv/first\",\"version\":\"2.1.202\"}\n"));
+      members.emplace(main_artifact(second_id),
+                      bytes(std::string{"{\"sessionId\":\""} +
+                            std::string{second_id} +
+                            "\",\"cwd\":\"/srv/second\",\"version\":\"2.1.202\"}\n"));
+      members.emplace(first_artifact,
+                      bytes(std::string{"{\"sessionId\":\""} +
+                            std::string{first_id} + "\",\"agentId\":\"" +
+                            std::string{alias} + "\"}\n"));
+      members.emplace(second_artifact,
+                      bytes(std::string{"{\"sessionId\":\""} +
+                            std::string{second_id} + "\",\"agentId\":\"" +
+                            std::string{alias} + "\"}\n"));
+      auto target = target_for(workspace, store, members);
+      const std::array records = reverse ? std::array{second, first}
+                                         : std::array{first, second};
+      const auto result = biv::adapters::claude_code_adapter().install(
+          target, biv::adapters::Consent::yes, records);
+      REQUIRE(result);
+      REQUIRE(result->sessions.size() == 2U);
+      for (const auto& row : result->sessions) {
+        CHECK(row.outcome ==
+              biv::adapters::InstallSessionOutcome::Outcome::installed);
+        CHECK_FALSE(row.reason.has_value());
+      }
+      REQUIRE(result->id_map.size() == 2U);
+      for (const auto &ids : result->id_map) {
+        REQUIRE(ids.children.size() == 1U);
+        CHECK(ids.children.front().first == ids.children.front().second);
+      }
+      const auto files = regular_files(store);
+      REQUIRE(files.size() == 4U);
+      CHECK(std::ranges::count_if(files, [&](const auto &file) {
+              return read_text(file).find("\"agentId\":\"" +
+                                          std::string{alias} + "\"") !=
+                     std::string::npos;
+            }) == 2);
+      fs::remove_all(root);
+    }
+  }
+}
+
+TEST_CASE("L-2 Claude preserves one agentId value across independently named "
+          "children") {
+  constexpr std::string_view origin_id =
+      "aaaaaaaa-1111-4000-8000-000000000b45";
+  constexpr std::string_view first_child =
+      "00000000-0000-4000-8000-000000000b46";
+  constexpr std::string_view second_child =
+      "00000000-0000-4000-8000-000000000b47";
+  constexpr std::string_view alias = "agent-conflict-local";
+  for (const bool reverse : {false, true}) {
+    DYNAMIC_SECTION("reverse=" << reverse) {
+      const auto root = make_tmp(reverse ? "local-alias-conflict-reversed"
+                                         : "local-alias-conflict-forward");
+      const auto workspace = root / "workspace";
+      const auto store = root / "target-claude";
+      fs::create_directories(workspace);
+      fs::create_directories(store);
+      auto record = claude_entry("/srv/owner", std::string{origin_id});
+      const auto first_artifact =
+          "agents/claude-code/" + std::string{origin_id} + "/subagents/" +
+          std::string{first_child} + ".jsonl";
+      const auto second_artifact =
+          "agents/claude-code/" + std::string{origin_id} + "/subagents/" +
+          std::string{second_child} + ".jsonl";
+      const biv::manifest::SessionChild first{
+          .original_id = std::string{first_child},
+          .artifacts = {first_artifact}};
+      const biv::manifest::SessionChild second{
+          .original_id = std::string{second_child},
+          .artifacts = {second_artifact}};
+      record.children = reverse ? std::vector{second, first}
+                                : std::vector{first, second};
+      std::map<std::string, std::vector<std::byte>> members;
+      members.emplace(main_artifact(origin_id),
+                      bytes(std::string{"{\"sessionId\":\""} +
+                            std::string{origin_id} +
+                            "\",\"cwd\":\"/srv/owner\",\"version\":\"2.1.202\"}\n"));
+      for (const auto& artifact : {first_artifact, second_artifact}) {
+        members.emplace(artifact,
+                        bytes(std::string{"{\"sessionId\":\""} +
+                              std::string{origin_id} +
+                              "\",\"agentId\":\"" + std::string{alias} +
+                              "\"}\n"));
+      }
+      auto target = target_for(workspace, store, members);
+      const auto result = biv::adapters::claude_code_adapter().install(
+          target, biv::adapters::Consent::yes, std::array{record});
+      REQUIRE(result);
+      REQUIRE(result->sessions.size() == 1U);
+      CHECK(result->sessions.front().outcome ==
+            biv::adapters::InstallSessionOutcome::Outcome::installed);
+      CHECK_FALSE(result->sessions.front().reason.has_value());
+      REQUIRE(result->id_map.size() == 1U);
+      REQUIRE(result->id_map.front().children.size() == 2U);
+      CHECK(std::ranges::all_of(
+          result->id_map.front().children,
+          [](const auto &ids) { return ids.first == ids.second; }));
+      const auto files = regular_files(store);
+      REQUIRE(files.size() == 3U);
+      CHECK(std::ranges::count_if(files, [&](const auto &file) {
+              return read_text(file).find("\"agentId\":\"" +
+                                          std::string{alias} + "\"") !=
+                     std::string::npos;
+            }) == 2);
+      fs::remove_all(root);
+    }
+  }
+}
+
+TEST_CASE("L-2 Claude primary collision falls through to shared session "
+          "identity verification") {
+  constexpr std::string_view owner_id =
+      "aaaaaaaa-1111-4000-8000-000000000b51";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000b52";
+  constexpr std::string_view child_id =
+      "00000000-0000-4000-8000-000000000b53";
+  const auto root = make_tmp("alias-primary-collision");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto owner = claude_entry("/srv/owner", std::string{owner_id});
+  auto recipient = claude_entry("/srv/recipient", std::string{recipient_id});
+  const auto child_artifact =
+      "agents/claude-code/" + std::string{owner_id} + "/subagents/" +
+      std::string{child_id} + ".jsonl";
+  owner.children = {{.original_id = std::string{child_id},
+                     .artifacts = {child_artifact}}};
+  recipient.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(main_artifact(owner_id),
+                  bytes(std::string{"{\"sessionId\":\""} +
+                        std::string{owner_id} +
+                        "\",\"cwd\":\"/srv/owner\",\"version\":\"2.1.202\"}\n"));
+  members.emplace(main_artifact(recipient_id),
+                  bytes(std::string{"{\"sessionId\":\""} +
+                        std::string{recipient_id} +
+                        "\",\"cwd\":\"/srv/recipient\",\"version\":\"2.1.202\"}\n"));
+  members.emplace(child_artifact,
+                  bytes(std::string{"{\"sessionId\":\""} +
+                        std::string{owner_id} + "\",\"agentId\":\"" +
+                        std::string{recipient_id} + "\"}\n"));
+  auto target = target_for(workspace, store, members);
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{owner, recipient});
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"verify-hits"});
+  CHECK(result->sessions.at(0).detail ==
+        std::optional<std::string>{"origin_id"});
+  CHECK(result->sessions.at(0).verify.origin_id_hits == 1U);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(result->sessions.at(1).reason.has_value());
+  REQUIRE(result->id_map.size() == 1U);
+  const auto recipient_map =
+      std::ranges::find(result->id_map, recipient_id,
+                        &biv::adapters::IdMapEntry::image_session_id);
+  REQUIRE(recipient_map != result->id_map.end());
+  CHECK(result->sessions.at(0).detail !=
+        std::optional<std::string>{"child_identity_conflict"});
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "G-3 Claude refuses stale or ill-typed body version evidence and stages a clean sibling") {
+  constexpr std::string_view stale_id =
+      "aaaaaaaa-1111-4000-8000-000000000a21";
+  constexpr std::string_view ill_typed_id =
+      "aaaaaaaa-1111-4000-8000-000000000a22";
+  constexpr std::string_view clean_id =
+      "aaaaaaaa-1111-4000-8000-000000000a23";
+  const auto root = make_tmp("body-version-evidence-establishment");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto stale = claude_entry("/srv/stale", std::string{stale_id});
+  auto ill_typed = claude_entry("/srv/ill-typed", std::string{ill_typed_id});
+  auto clean = claude_entry("/srv/clean", std::string{clean_id});
+  for (auto* record : {&stale, &ill_typed, &clean}) {
+    record->children.clear();
+  }
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(stale_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{stale_id} +
+            "\",\"cwd\":\"/srv/stale\",\"version\":\"2.0.5\"}\n"));
+  members.emplace(
+      main_artifact(ill_typed_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{ill_typed_id} +
+            "\",\"cwd\":\"/srv/ill-typed\",\"version\":7}\n"));
+  members.emplace(
+      main_artifact(clean_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{clean_id} +
+            "\",\"cwd\":\"/srv/clean\"}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no,
+      std::array{stale, ill_typed, clean});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 3U);
+  for (const auto id : {stale_id, ill_typed_id}) {
+    const auto row = std::ranges::find(
+        result->sessions, id,
+        &biv::adapters::InstallSessionOutcome::image_session_id);
+    REQUIRE(row != result->sessions.end());
+    CHECK(row->outcome ==
+          biv::adapters::InstallSessionOutcome::Outcome::failed);
+    CHECK(row->reason ==
+          std::optional<std::string>{"containment_refused"});
+    CHECK(row->detail ==
+          std::optional<std::string>{"staged_version_unestablished"});
+  }
+  const auto clean_row = std::ranges::find(
+      result->sessions, clean_id,
+      &biv::adapters::InstallSessionOutcome::image_session_id);
+  REQUIRE(clean_row != result->sessions.end());
+  CHECK(clean_row->outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  REQUIRE(result->id_map.size() == 1U);
+  CHECK(result->id_map.front().image_session_id == clean_id);
+  const auto staged_files = regular_files(
+      workspace / ".biv/agents/claude-code");
+  REQUIRE(staged_files.size() == 1U);
+  const auto staged_text = read_text(staged_files.front());
+  CHECK(staged_text.find("\"version\":\"2.1.211\"") !=
+        std::string::npos);
+  CHECK(staged_text.find("\"version\":\"2.1.202\"") ==
+        std::string::npos);
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "R-2 Claude skips a non-string body version and accepts later valid evidence") {
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-000000000a41";
+  const auto root = make_tmp("later-valid-body-version");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = claude_entry("/srv/later", std::string{session_id});
+  record.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(session_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{session_id} +
+            "\",\"cwd\":\"/srv/later\",\"version\":7}\n" +
+            "{\"type\":\"system\",\"version\":\"2.1.202\"}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no, std::array{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK_FALSE(result->sessions.front().reason.has_value());
+  REQUIRE(result->id_map.size() == 1U);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "R-3 Claude refuses a below-floor recipient version before injection") {
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-000000000a42";
+  const auto root = make_tmp("below-floor-injection");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = claude_entry("/srv/floor", std::string{session_id});
+  record.children.clear();
+  record.agent_version_at_pack = "2.0.5";
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(session_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{session_id} +
+            "\",\"cwd\":\"/srv/floor\"}\n"));
+  auto capabilities = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"2.0.9"}, false, false,
+      {.collect = true, .install = true, .rewrite = true});
+  auto target = target_for(workspace, store, members, capabilities);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no, std::array{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"staged_version_unestablished"});
+  CHECK(result->id_map.empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "R-4 Claude consent-yes does not synthesize transcript version evidence") {
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-000000000a43";
+  const auto root = make_tmp("consent-yes-no-version-injection");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = claude_entry("/srv/consent", std::string{session_id});
+  record.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(session_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{session_id} +
+            "\",\"cwd\":\"/srv/consent\"}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  REQUIRE(regular_files(store).size() == 1U);
+  CHECK(read_text(regular_files(store).front()).find("\"version\"") ==
+        std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "R-5 Claude keeps a typed version refusal when an earlier artifact has verify hits") {
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-000000000a44";
+  const auto root = make_tmp("typed-version-reason");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = claude_entry("/verify-origin", std::string{session_id});
+  record.children.clear();
+  const auto history = "agents/claude-code/" + std::string{session_id} +
+                       "/history/earlier.jsonl";
+  record.artifacts = {history, main_artifact(session_id)};
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(history, bytes("{\"cwd\":\"/verify-origin2\"}\n"));
+  members.emplace(
+      main_artifact(session_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{session_id} +
+            "\",\"cwd\":\"/verify-origin\",\"version\":\"2.0.5\"}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no, std::array{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"staged_version_unestablished"});
+  CHECK(result->sessions.front().verify.origin_path_hits > 0U);
+  CHECK(result->id_map.empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("R-7 Claude injects valid version JSON into an empty first object") {
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-000000000a45";
+  const auto root = make_tmp("empty-first-object-version");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = claude_entry("/srv/empty", std::string{session_id});
+  record.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(session_id),
+      bytes(std::string{"{}\n{\"sessionId\":\""} + std::string{session_id} +
+            "\",\"cwd\":\"/srv/empty\"}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::no, std::array{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  const auto staged_files = regular_files(
+      workspace / ".biv/agents/claude-code");
+  REQUIRE(staged_files.size() == 1U);
+  const auto staged_text = read_text(staged_files.front());
+  CHECK(staged_text.starts_with("{\"version\":\"2.1.211\"}\n"));
+  CHECK(staged_text.find("{,\"version\"") == std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST_CASE("G-4 Claude does not harvest child-attributed agentId values outside "
+          "subagents") {
+  constexpr std::string_view origin_id =
+      "aaaaaaaa-1111-4000-8000-000000000a31";
+  constexpr std::string_view recipient_id =
+      "aaaaaaaa-1111-4000-8000-000000000a32";
+  constexpr std::string_view alias =
+      "00000000-0000-4000-8000-000000000a33";
+  const auto root = make_tmp("attributed-history-alias");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto origin = claude_entry("/srv/alpha", std::string{origin_id});
+  auto recipient = claude_entry("/srv/beta", std::string{recipient_id});
+  const auto history = "agents/claude-code/" + std::string{origin_id} +
+                       "/history/agent-attributed.jsonl";
+  origin.children = {{.original_id = "agent-attributed",
+                      .artifacts = {history}}};
+  recipient.children.clear();
+  std::map<std::string, std::vector<std::byte>> members;
+  members.emplace(
+      main_artifact(origin_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{origin_id} +
+            "\",\"cwd\":\"/srv/alpha\",\"version\":\"2.1.202\"}\n"));
+  members.emplace(
+      history,
+      bytes(std::string{"{\"sessionId\":\""} + std::string{origin_id} +
+            "\",\"agentId\":\"" + std::string{alias} +
+            "\",\"cwd\":\"/srv/alpha\"}\n"));
+  members.emplace(
+      main_artifact(recipient_id),
+      bytes(std::string{"{\"sessionId\":\""} + std::string{recipient_id} +
+            "\",\"cwd\":\"/srv/beta\",\"version\":\"2.1.202\"," +
+            "\"foreignId\":\"" + std::string{alias} + "\"}\n"));
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::array{origin, recipient});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK_FALSE(result->sessions.at(1).reason.has_value());
+  CHECK(result->sessions.at(1).verify.origin_id_hits == 0U);
+  REQUIRE(result->id_map.size() == 2U);
+  CHECK(result->id_map.front().image_session_id == origin_id);
+  std::string installed_bytes;
+  for (const auto &file : regular_files(store)) {
+    installed_bytes += read_text(file);
+  }
+  CHECK(installed_bytes.find(alias) != std::string::npos);
   fs::remove_all(root);
 }
