@@ -1487,3 +1487,32 @@ separate open operator item; C/B2 231437 WITHDRAWN.
 **Track state:** R-4.8 — republish in flight (STEP 1 carried); merge token withheld pending published==reviewed.
 C/B2 — G-1..G-4 folding at the pair → re-check → fresh paired hand-up. Nothing seals beyond this merge; the
 release hold is ABSOLUTE.
+
+---
+
+## 20260810-173951 — R-4.8 STEP 2 verified by the pair; STEP 3 condition-4 token ISSUED to the matrix implementer
+
+The matrix pair executed STEP 1 (clean fast-forward push 2341667..0ab998d, atomic tip re-verify at
+execution) and verified STEP 2 (published head == 0ab998d byte-exact by ls-remote + PR head OID; stale
+2341667 gone; no merge). Per master's sequence, STEP 3 is mine: re-verify the published head at my seat, then
+issue the bare condition-4 token.
+
+**Disposition (mine):** re-verified INDEPENDENTLY at my seat with both instruments — git ls-remote
+refs/heads/s4-matrix/r48-carrier = 0ab998d AND gh pr view 24 headRefOid = 0ab998d (the PR's own head, base
+main, OPEN). Published == reviewed == 0ab998d8431a20de80b8d769fb82c1350ed0728d, byte-exact; the precondition
+is MET; the merge authorization ACTIVATES. Issued the bare condition-4 token (DISPATCH MERGE, exactly one
+flush-left bare line, no inline occurrences) to s4-matrix.implementer (1fb3287) to merge PR #24 at 0ab998d
+into main. HARD execution conditions: merge ONLY 0ab998d (re-verify PR head immediately before merge,
+moved→STOP); re-verify clean at the ACTUAL merge tip (main docs-lane advancing; surprise conflict→STOP); no
+release/tag/ancillary mutation; STEP 4 report the landed merge SHA up for condition-3-of-record closure
+against the merged SHA. I merge nothing — the merge is the implementer's act under the operator's condition-4
+grant.
+
+**PENDING at my seat:** on the implementer's STEP-4 report (published ref + landed merge SHA), carry it UP to
+master for condition-3-of-record closure. Merge ≠ release — the release hold is ABSOLUTE; local-main timing is
+a separate open operator item.
+
+**Track state:** R-4.8 — condition-4 token issued; merge in the implementer's hands → STEP 4 report → I close
+condition-3-of-record up. C/B2 — G-1..G-4 folding at the pair (per the auto-updated scout memory, the G-cycle
+surfaced two more false guards — the floor pair's track under its own token) → re-check → fresh paired
+hand-up. Nothing releases; the release hold is ABSOLUTE.
