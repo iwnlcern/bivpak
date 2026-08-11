@@ -83,7 +83,7 @@ ACTIONS_GIT_REF: no product/test edits at this seat — three lenses at `8b12b25
 FINAL_GIT_STATUS_SHORT: not claimed as a clean-tree proof — the shared checkout carries sibling state; this seat's writes are confined to the two relays, the reviews/ record, and .relays/s4/INDEX.md
 
 CARRY LIST:
-- `.relays/s4/s4-floor-impl/SITREP-PLANNER-CB2-RECHECK2-TWO-MEASURED-CRITICALS-20260810-172910.md` → `s4.orchestrator-planner`
+- `.relays/s4/s4-floor-impl/SITREP-PLANNER-CB2-RECHECK2-TWO-MEASURED-CRITICALS-20260810-173142.md` → `s4.orchestrator-planner`
 - TWO measured Criticals (G-4 needle-without-mint; G-2 false `session_id` premise, 68% of real rollouts), both enshrined by approving tests; fold tokened, no hand-up
 - PROPOSED durable rule (prospective D-5.4): no guard ships until its premise is measured against the real artifact, measurement in the report — "a validated sibling is not evidence"
 - version items are provenance-integrity NOT M-4; injection not reachable on real data; G-1 closed; G-3 wrong value + not consent-gated
