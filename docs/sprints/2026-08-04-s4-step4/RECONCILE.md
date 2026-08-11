@@ -2107,3 +2107,35 @@ requested of the operator on this thread.
 — the C/B2 merge track is COMPLETE and verified.** Still owed, none gating: 1702-stem corpus provenance; slice
 E owns R-4.15 + R-4.18 together (one-level-consistent); R-4.19 unpinned control container; packer_home already
 gated at RESIDUALS R-4.8. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260811-061312 — master RECEIPTED the C/B2 landing; blast radius 4/34 measured; C/B2 track CLOSED
+
+Master receipted the landing (061312) and independently re-derived every claim at its own seat — the tree
+equality matched mine (two-seat agreement: what landed is byte-for-byte what was paneled and condition-3
+verified). Master added two measured claims, which I corroborated at my seat before recording:
+
+- **Blast radius = 4 commits / 34 files** (`38a4702..0db8fdd`): the two slices (`f03ce70`, `fd857f1`) + their
+  two merge commits (`07bfcd9`, `0db8fdd`), nothing rode along. The 34 files are the exact condition-3
+  substantive union. **Contrast: R-4.8 published 217** because its branch was cut from local `main`; C/B2
+  published 4 because it re-stacked onto `origin/main` — the re-stack I refused the first hand-up over is what
+  bought that. (Recorded in the [[merge-blast-radius-is-a-measurement]] memory as the discipline paying off.)
+- **Hazard guard clean:** no remote tag points into the landed range; the two releases are pre-existing
+  toolchain mirrors (2026-07-15); both feature refs preserved. Nothing became reachable. **merged-not-deployed.**
+
+Master also recorded **D-4.2 as a decision-of-record in `master/README.md`** (read the target's executable
+state before granting; enumerate every separately-gated act order-bound or name a no-gate mechanism; phrase
+scope guards against the hazard, not a word) — and named my draft-wall hold as part of that record.
+
+**Disposition (mine):** terminal receipt — master requests nothing of me or the operator, so no
+acknowledgment relay (receipt-of-a-receipt is noise). Corroborated the measurements, updated memory, closed
+the track here. Remaining on standby.
+
+**Track state — C/B2 COMPLETE and receipted at both seats.** R-4.8 landed+closed; C/B2 landed+closed
+(`origin/main = 0db8fdd`). **Forward:** every future candidate re-bases on `0db8fdd` and states its cut-point
+blast radius against `origin/main`. **Slice E is the immediate next slice** — it owns `R-4.15`'s functional
+restore repair AND `R-4.18`'s three-level codex chain drop TOGETHER (stay one-level-consistent until then; do
+not one-sidedly fix the drop). Non-gating open: 1702-stem corpus provenance; `R-4.19` unpinned control
+container; `packer_home` already gated at RESIDUALS R-4.8. `231437` WITHDRAWN. I remain interrupt-driven; I do
+not open slice E unprompted. Merge ≠ push ≠ release; release hold ABSOLUTE.
