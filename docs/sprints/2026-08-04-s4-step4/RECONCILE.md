@@ -1917,3 +1917,30 @@ by a 3-second timing.
 combined re-check deferred (endorsed, union + per-file end-state bytes); all gated on operator ratification of
 the content-scope widening (205325) → amend token with (a)+dissolution+both-layouts fixtures → combined re-check
 → fresh paired hand-up. Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-215338 — operator RATIFIED the scope widening; option (a) CLEARED TO IMPLEMENT; carried down
+
+The operator ratified the origin-disclosure scope widening (master 214153): the invariant now keys on the
+VALUE'S CLASS, not its LOCATION. Out of scope wherever they appear (content/filename/index): opaque
+machine-generated identifiers (session ids, child taskIds, agentId, message uuids — they identify a RECORD).
+Still fully contained, unchanged: origin paths, usernames, home dirs, machine names, client-folder names
+(WHO/FROM-WHERE); path-rewriting machinery untouched. The 144700 ONE-invariant STANDS, restated by value-class.
+Recorded as a decision-of-record — verified at master/README.md:150 (cited = read). **Option (a) is the last
+gate discharged — CLEARED TO IMPLEMENT.**
+
+**Disposition (mine):** carried the cleared-to-implement DOWN to s4-floor.planner (7c54656, not on master's
+CC): the ratified scope (so the pair keeps containing paths/usernames while stopping agentId containment);
+implement (a) — stop minting child_alias_ids + stop needling agentId; L-1/L-2/R-4.15 dissolve together; L-3
+stays; one-level-consistent per R-4.18 (no one-sided three-level drop fix); A9-safe, no addendum-11 amendment.
+The three riders: (1) fixtures bare-hex majority + BOTH LAYOUTS (bare-hex 83%; slug-hex flat-only; nested is
+R-4.15's domain); (2) state IdMapEntry.children→identity-map (children-emit is the install-result-shape owner's
+contract question); (3) corpus provenance — noted ALREADY DISCHARGED (pair 212704 + my 214213 close predate
+master's rider). Sequence: token amend → implement → the combined re-check I endorsed at 214722 (union of both
+deltas + per-file end-state bytes) + the round-trip resolution check → fresh paired hand-up (A10.3 + cut-point
+blast-radius per D-5.5(a)) → operator paired condition-4.
+
+**Track state:** R-4.8 landed+closed. C/B2 — option (a) CLEARED and implementing; all design/scope gates
+discharged; remaining path = implement → combined re-check → fresh paired hand-up → operator paired
+condition-4 (then C+B2 land, C never without B2 per A10.3). Merge ≠ release; release hold ABSOLUTE.
