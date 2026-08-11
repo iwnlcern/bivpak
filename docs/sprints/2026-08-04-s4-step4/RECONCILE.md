@@ -1984,3 +1984,39 @@ and did not; caught it at the gate, which is where it must not get past.
 DONE but the stack must RE-STACK onto post-R-4.8 origin/main + re-adjudicate/re-verify before a fresh paired
 hand-up → master condition-3 → operator paired condition-4 (C never without B2, A10.3). Merge ≠ push ≠ release;
 release hold ABSOLUTE.
+
+---
+
+## 20260811-025015 — C/B2 RE-STACK VERIFIED; block RESOLVED; condition-3 carried UP to master
+
+The floor pair re-stacked in response to my refusal and handed up C `f03ce70` / B2 `fd857f1` on post-R-4.8
+`origin/main` (022546). I re-verified every load-bearing claim at the bytes — the block I raised is gone:
+
+- **Merge-clean into the ACTUAL target:** `git merge-tree --write-tree origin/main {f03ce70,fd857f1}` →
+  **exit 0** on both (was exit 1). `38a4702` is an ancestor of `f03ce70` (C sits ON the target); `fd857f1^` =
+  `f03ce70`; **blast radius `origin/main..fd857f1^` = 1** (the C slice; was 27). PRs #22/#23 base=main.
+- **Union identity holds for the substantive set:** the 34 re-stacked product/test/design paths are identical
+  to the paneled union; the 25 extra paths in the paneled range were all `.relays/` + docs-lane noise the
+  wider base swept in — which is exactly why 27→1.
+- **Contract survived:** 0 hits of `pending-r415`/`child_alias_ids`/`child_identity_shape`; no resurrected
+  agentId-absent assertion; `children` identity assertions intact (`.first==.second==child_id`).
+- **`sessions.cpp` = exactly one field** (`.packer_home=manifest.packer_home`) with `adapter_consent`
+  retained — R-4.8's `InstallTarget` field adopted without reverting per-agent consent.
+- **Acceptance instrument byte-identical:** the `TEST_CASE("B2 standing Claude stage pack open…")` 148-line
+  block is empty-diff paneled→new; the 199+/19− `test_pack.cpp` delta is R-4.8's other cases merging in.
+- **Base control (E2, pair's run, taken on report):** plain `origin/main` reproduces the SAME 5 failed cases /
+  8 failed assertions ⇒ Linux failures inherited + environmental. Corroborated the static-exclusion arm:
+  `test_probe.cpp` byte-identical (blob `8d79b1d0`) across paneled/base/new.
+
+**Disposition (mine):** carried the verified hand-up UP to master via the bridge (pdc `c766daf`; FROM
+s4.orchestrator-planner TO master.orchestrator-planner; CC operator, s4.orchestrator-reviewer, the floor pair,
+m-2.planner) requesting **condition-3** (merge-ready verify incl. end-state bytes; re-confirm the container
+control at the exact SHAs — the one E2 line resting on the pair's run) then the operator's **paired
+condition-4** (C first, B2 immediate; A10.3 binds). I issue no token and hold no merge authority. Non-gating:
+`packer_home` inert carrier inherited from R-4.8 + already registered at RESIDUALS with its own release gate;
+one cosmetic lost-indent byte in `test_sessions.cpp`; E-1/E-2/E-3→slice E; R-a→residual; struck line stays
+struck.
+
+**Track state:** R-4.8 landed+closed. C/B2 — re-stacked, verified, condition-3 IN FLIGHT at master; awaiting
+master's merge-ready verify → operator paired condition-4 (then C+B2 land, C never without B2 per A10.3).
+Merge ≠ push ≠ release; release hold ABSOLUTE.
