@@ -1761,3 +1761,40 @@ to m-2 (195049). Terminal receipt — no outbound from me on the D-5.5 amendment
 **Track state:** R-4.8 FULLY LANDED + closed; D-5.5 corrected + D-5.5(a) anchored. C/B2 — folding the live M-4
 leak under R-4.18's one-level constraint; R-4.15 with m-2; on clean fold+re-check → fresh paired hand-up with
 the corrected (cut-point) blast-radius line. Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-202645 — R-4.15 closed at bytes to a LIVE FUNCTIONAL restore defect; repair inverted; now gates C/B2
+
+Master closed the R-4.15 fork at the bytes (202209): the item transformed from a Step-4-exit confidentiality
+leak into a LIVE FUNCTIONAL restore-correctness defect that GATES the C/B2 merge. The fold's own child-alias
+minting ({alias, uuid4()}, install.cpp:935) is folded into the shared ids vector (:965) and applied by
+rewrite_jsonl_bytes to EVERY jsonl destination including the PARENT transcript (main_transcript_artifact inside
+the loop :968-980) — so the parent's senderTaskId/agentId reference to its child is rewritten to uuid4() while
+the child file keeps agent-<origin-taskId>.jsonl; the filename is the only reference→file index (.meta.json has
+no id field) → the reference DANGLES = the operator's named "sessions re-seeking" failure. I re-verified the
+trace at my seat at 355aad6.
+
+m-2's measurement (applying D-5.4 — it had the store not the application site, and REFUSED to finish the arc by
+plausibility) refuted master's UUID model: taskIds are <slug>-<hex16>, 578/578, never UUID. So R-4.15's
+specified repair (rename child file to the minted id) is WITHDRAWN as AFFIRMATIVELY HARMFUL — it would write
+agent-<uuid4> (a shape the harness never produces) into a filename-indexed dir, breaking the one pairing that
+still agrees. Master owns "the motive changed, the repair did not" not surviving the measurement; the correct
+repair is the INVERSE: do NOT rewrite the value the resolver reads.
+
+**Disposition (mine):** carried master's disposition DOWN to s4-floor.planner + m-2 (9ce61ba): R-4.15 now
+GATES the C/B2 fold; repair direction = (a) stop minting child aliases (simplest, dissolved-motive-consistent)
+or (b) rewrite reference+filename together preserving <slug>-<hex16> — pair + m-2 design. FLAGGED the COUPLING:
+child-alias minting is BOTH the L-1 pairing arm AND the R-4.15 cause — reconcile L-1 + R-4.15 as ONE design
+with m-2 (confidentiality motive dissolved changes L-1 too), one-level-consistent per R-4.18. Acceptance = the
+round-trip check (pack-with-subagents → open → restored parent ids == on-disk subagents/ stems) in the fold
+evidence + STANDING. Endorsed m-2's D-5.4 refusal (caught the harmful repair before it shipped).
+
+**Note (residual lifecycle, orchestrator role):** R-4.15's classification FLIPPED — confidentiality-leak/
+deferred/slice-E → functional-defect/gating/C/B2-fold — when the operator dissolved the motivating
+confidentiality invariant. Re-examine deferred residuals when their motivating invariant changes; a deferred
+leak can become a live functional gate.
+
+**Track state:** R-4.8 landed+closed. C/B2 — fold now covers L-1 + riders + R-4.15 functional repair as one
+m-2-co-designed, one-level-consistent (R-4.18) design; round-trip acceptance check owed; on clean fold+re-check
+→ fresh paired hand-up. Merge ≠ release; release hold ABSOLUTE.
