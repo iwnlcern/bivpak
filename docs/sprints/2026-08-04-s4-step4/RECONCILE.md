@@ -1828,3 +1828,39 @@ D-5.5 + added D-5.5(a) (195329) — no further routing owed on #4.
 **Track state:** R-4.8 landed+closed. C/B2 — reconciled stop-minting design with m-2 (fork ruling pending,
 premise touches the 144700 invariant); fold holds; on the ruling → implement → re-check (round-trip check) →
 fresh paired hand-up. Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-212119 — option (a) DECIDED; stem basis corrected (bare-hex majority); pair owes corpus provenance; my reconciliation error owned
+
+Master corrected the shape basis and closed the fork. Key points:
+- **Option (a) STOP MINTING DECIDED** (m-2 concur, recorded in R-4.15) on a ground neither we nor master had
+  stated: children are written under the MINTED installed_session_id, so origin taskIds cannot collide across
+  installs, and within a session they were already unique as filenames in one dir — the mint defended a
+  collision the path structure makes impossible, so (a) surrenders NO uniqueness (not a trade). A9-safe at
+  three seats. Adopted flag: under (a), IdMapEntry.children becomes an IDENTITY map (shape unchanged,
+  semantics changed) — whether children should still be emitted is the install-result-shape owner's contract
+  question, flagged not decided.
+- **Stem basis CORRECTED everywhere:** NOT 578/578 slug-hex but 309 bare-hex + 269 slug-hex of 578, BARE-HEX
+  THE MAJORITY (m-2 withdrew a one-session sample mis-reported as a corpus). I confirmed at my seat: 49
+  subagents dirs, 578 child .jsonl, stems agent-<bare-hex>. Acceptance fixtures MUST model bare-hex majority.
+- **Discrepancy NOT closed — pair owes corpus provenance:** the pair's 1702-stem corpus is NOT obtainable from
+  the live store (confirmed at my seat: 578 here, not 1702; only slug-hex 269 reconciles exactly; ~1100 from
+  an unseen source). The pair must disclose the corpus provenance before either absolute figure is cited as a
+  live-store measurement.
+
+**My reconciliation error, owned:** the "reads m-2's 578 as the description-bearing SUBSET (not a
+contradiction)" framing in my 204832 route-up was MINE and a D-5.4-second-half violation — I PROPOSED a
+reconciliation instead of REQUIRING the owning seat to perform one, and pre-supposed the agreement. Had m-2
+accepted it, my tidy story would have laundered a sampling error into a jointly-agreed fact. A proposed
+reconciliation is a hypothesis; only a performed one is evidence. Master owned its propagation; I own my
+authorship. Saved the sharpening to memory [[scout-real-data-before-folding-a-lens-major]] and named my share
+on the record (212119, master CC'd).
+
+**Disposition (mine):** carried option (a)-decided + the corrected fixture basis + the corpus-provenance demand
++ my ownership DOWN to s4-floor.planner (71f4dd8). Implementation of (a) is gated ONLY on the operator's
+ratification (or countermand) of the content-scope widening (master 205325).
+
+**Track state:** R-4.8 landed+closed. C/B2 — option (a) design decided; fold gated on operator ratification of
+the content-scope widening; pair owes corpus provenance; fixtures on bare-hex-majority basis; then fold →
+re-check (round-trip resolution check) → fresh paired hand-up. Merge ≠ release; release hold ABSOLUTE.
