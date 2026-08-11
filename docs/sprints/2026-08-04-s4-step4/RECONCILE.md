@@ -1944,3 +1944,43 @@ blast-radius per D-5.5(a)) → operator paired condition-4.
 **Track state:** R-4.8 landed+closed. C/B2 — option (a) CLEARED and implementing; all design/scope gates
 discharged; remaining path = implement → combined re-check → fresh paired hand-up → operator paired
 condition-4 (then C+B2 land, C never without B2 per A10.3). Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-235506 — C/B2 PAIRED HAND-UP REFUSED at condition-3 prep: stack conflicts origin/main (post-R-4.8); re-stack owed
+
+The floor pair handed up C `b8083be` / B2 `3762f37` (232655): combined re-check PASS on all three lenses,
+acceptance instrument genuine, contained side intact, 12 CARRY / 5 FRESH, blast radius 27, one convener error
+owned. They asked me to carry master's condition-3 then the operator's paired condition-4.
+
+**Verify-at-bytes (mine) found a BLOCKER — I refused the hand-up.** The pair verified merge-clean onto
+LOCAL main, but local main (`dc12dcd`) does NOT contain R-4.8 (`git merge-base --is-ancestor 38a4702 main` =
+NO). The ACTUAL merge target is `origin/main` = `38a4702` (post-R-4.8; PRs #22/#23 base = main). Fresh at my
+seat:
+- `git merge-tree --write-tree --name-only origin/main b8083be` → **exit 1**, CONFLICT in `sessions.cpp`,
+  `test_adapter_codex_install.cpp`, `test_sessions.cpp`
+- `... origin/main 3762f37` → **exit 1**, CONFLICT in `sessions.cpp`, `test_adapter_claude_install.cpp`,
+  `test_adapter_codex_install.cpp`, `test_pack.cpp`, `test_sessions.cpp`
+
+Root cause: R-4.8's merge (`38a4702`) modified exactly those files (sessions.cpp +61, the four test files
+410–527 each) and the fold touched them too → conflict. The pair used `origin/main` for the blast radius (27)
+but LOCAL main for the merge-clean check — that inconsistency IS the gap. This is the re-stack/end-state-bytes
+provenance class (my standing lesson): the merge-clean check must be onto the CURRENT remote target, not the
+local/immediate parent.
+
+**Disposition (mine):** REFUSED and routed DOWN to s4-floor.planner (759c3b6; CC operator,
+s4.orchestrator-reviewer, s4-floor.implementer, master.orchestrator-planner, m-2.planner). Nothing goes to
+master's condition-3 or the operator on a conflicting stack. OWED: re-stack C/B2 onto post-R-4.8
+`origin/main` (38a4702), resolve the sessions.cpp + test conflicts, verify the WHOLE stack merges clean, REDO
+the carry adjudication against the re-stacked end-state (conflict-resolved files' verdicts do NOT carry —
+fresh review at the re-stacked head; the 12/5 count changes), re-run the combined re-check + round-trip check,
+re-measure blast radius (`origin/main..<re-stacked B2>^`), fresh paired hand-up. Survives (bytes-unchanged):
+option-(a) logic, A9-safety, acceptance-instrument genuineness, contained-side intactness, the struck
+convener-error line, E-1/E-2/E-3→slice E, R-a→residual. Foreseeability owned lightly (shared): R-4.8's landing
+advanced origin/main past C/B2's base — a re-stack was foreseeable at the landing; I could have flagged it then
+and did not; caught it at the gate, which is where it must not get past.
+
+**Track state:** R-4.8 landed+closed. C/B2 — hand-up REFUSED (stack conflicts merge target); implementing is
+DONE but the stack must RE-STACK onto post-R-4.8 origin/main + re-adjudicate/re-verify before a fresh paired
+hand-up → master condition-3 → operator paired condition-4 (C never without B2, A10.3). Merge ≠ push ≠ release;
+release hold ABSOLUTE.
