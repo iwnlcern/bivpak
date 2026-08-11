@@ -1455,3 +1455,35 @@ one; the behavioral pin arrives with the needle (R-4.10/R-4.11 head). Plus INFO-
 **Track state:** R-4.8 — merge hand-up delivered; awaiting master's condition-3 (end-state-bytes) + the
 operator's condition-4 + the separate republication P5. C/B2 — G-1..G-4 folding at the pair → re-check →
 fresh paired hand-up (A10.3). Nothing seals; 231437 WITHDRAWN; release hold ABSOLUTE.
+
+---
+
+## 20260810-172118 — operator granted R-4.8 republish + merge (order-bound); STEP 1 carried down, merge token WITHHELD
+
+The operator granted both, order-bound (master 171659): the P5 republication of the reviewed head 0ab998d to
+PR #24, and the condition-4 merge authorization for PR #24 at 0ab998d. HARD SEQUENCE: republish → verify
+published head == 0ab998d byte-exact → then merge. Master carried it down; per the bridge + token grammar,
+s4.orchestrator-planner issues the bare condition-4 token to the matrix implementer AFTER the republication
+verifies (the B1-DISPATCH-MERGE precedent).
+
+**Key grammar point:** a bare condition-4 token is active immediately in a valid relay, so it CANNOT ride a
+conditional/sequenced relay — it must be a SEPARATE later relay issued only after the published head verifies
+at 0ab998d. Issuing it now would let the pair merge the stale 2341667 (the exact test bytes this review window
+FAILED). So I split the sequence:
+
+**Disposition (mine):** re-verified at my seat (tip 0ab998d, published stale at 2341667, merge-tree
+origin/main←0ab998d CLEAN), then carried STEP 1 (republish only) DOWN to s4-matrix.planner (2640cfe) with the
+merge token WITHHELD: republish 0ab998d → re-verify tip at execution (moved → STOP) → verify published head
+== 0ab998d byte-exact → report the published head UP. On their report + my independent re-verification that
+published == 0ab998d, I issue the bare condition-4 token to the matrix implementer in a SEPARATE relay (STEP
+3); they merge PR #24 into main, re-verify clean at the actual merge tip; then the published ref + landed
+merge SHA route UP for condition-3-of-record closure. Hard stop: if republication lands at any other OID, the
+merge authorization does NOT activate → route up.
+
+**PENDING at my seat:** issue the bare condition-4 token to the matrix implementer ONCE the pair reports the
+republished head and I re-verify published == 0ab998d. Merge ≠ release (hold ABSOLUTE); local-main timing is a
+separate open operator item; C/B2 231437 WITHDRAWN.
+
+**Track state:** R-4.8 — republish in flight (STEP 1 carried); merge token withheld pending published==reviewed.
+C/B2 — G-1..G-4 folding at the pair → re-check → fresh paired hand-up. Nothing seals beyond this merge; the
+release hold is ABSOLUTE.
