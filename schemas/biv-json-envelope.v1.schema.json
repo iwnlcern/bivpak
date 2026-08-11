@@ -18,6 +18,8 @@
         "properties": {
           "kind": {"type": "string"},
           "path": {"type": "string"},
+          "artifact": {"type": "string"},
+          "bytes": {"type": "integer", "minimum": 0, "description": "Artifact size in bytes."},
           "detail": {"type": "string"}
         }
       }
@@ -105,7 +107,7 @@
                     "required": ["agent", "capabilities_verdict", "store_root", "sessions", "activation", "caveats"],
                     "properties": {
                       "agent": {"type": "string"},
-                      "capabilities_verdict": {"enum": ["validated", "unvalidated-host", "unvalidated", "absent"]},
+                      "capabilities_verdict": {"enum": ["readable-newer-than-survey", "readable", "unreadable", "absent"]},
                       "probe": {
                         "type": "object",
                         "required": ["agent", "requested", "executed", "pinned", "outcome", "exit_code", "raw", "parsed"],

@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include "adapters/registry.hpp"
+#include "adapters/version_floor.hpp"
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
@@ -136,6 +137,11 @@ manifest::PathFlavor path_flavor(const std::filesystem::path& path) {
     }
   }
   return manifest::PathFlavor::posix;
+}
+
+std::optional<manifest::PackerHome> packer_home_carrier(
+    const std::filesystem::path& home) {
+  return manifest::make_packer_home(home.generic_string());
 }
 
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink);
@@ -334,6 +340,22 @@ Warning adapter_warning(const std::string_view encoded) {
                  .path = std::string{encoded.substr(colon + 1U)}};
 }
 
+std::string terminal_safe(const std::string_view text) {
+  constexpr std::string_view hex = "0123456789ABCDEF";
+  std::string safe;
+  safe.reserve(text.size());
+  for (const unsigned char byte : text) {
+    if (byte < 0x20U || byte == 0x7FU) {
+      safe += "\\x";
+      safe.push_back(hex.at(byte >> 4U));
+      safe.push_back(hex.at(byte & 0x0FU));
+    } else {
+      safe.push_back(static_cast<char>(byte));
+    }
+  }
+  return safe;
+}
+
 struct ChildArtifactMatcher {
   std::string_view child_id;
 
@@ -486,7 +508,9 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   report.flavor = path_flavor(source);
   report.image_id = uuid4();
   for (const auto& path : scan_result->skipped_unsupported) {
-    report.warnings.push_back(Warning{.kind = "UnsupportedFileTypeSkipped", .path = path});
+    report.warnings.push_back(
+        Warning{.kind = std::string{kWarningUnsupportedFileTypeSkipped},
+                .path = path});
   }
   for (const auto& path : scan_result->unreadable) {
     report.warnings.push_back(Warning{.kind = "SourceUnreadableSubpath", .path = path});
@@ -551,6 +575,23 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
                                       "adapter-parent-session-id"});
       }
+      const auto floor = adapters::version_floor::row_for(session.agent);
+      const auto version =
+          adapters::version_floor::parse_grammar(session.agent_version_at_pack);
+      const auto minimum =
+          adapters::version_floor::parse_grammar(floor.min_line);
+      if (version.has_value() && minimum.has_value() &&
+          adapters::version_floor::compare_line(*version, *minimum) ==
+              adapters::version_floor::Order::less) {
+        report.warnings.push_back(Warning{
+            .kind = "SessionBelowMinimumOmitted",
+            .path = session.original_session_id,
+            .artifact = session.agent + " version " +
+                        session.agent_version_at_pack +
+                        " is below minimum " + std::string{floor.min_line} +
+                        " (reason: below-minimum)"});
+        continue;
+      }
       for (const auto& artifact : session.artifacts) {
         if (!manifest::grammar::agent_member_ok(
                 manifest::grammar::AgentId{session.agent},
@@ -561,7 +602,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         }
       }
       if (session.live_at_pack) {
-        report.warnings.push_back(Warning{.kind = "SessionLiveAtPack",
+        report.warnings.push_back(Warning{.kind = std::string{kWarningSessionLiveAtPack},
                                           .path = session.original_session_id});
       }
       auto entry = manifest_entry_for(session, source, created.rfc3339);
@@ -632,6 +673,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .created_at = created.rfc3339,
       .source_path = source.generic_string(),
       .source_path_flavor = report.flavor,
+      .packer_home = packer_home_carrier(env.home),
       .agent_sessions = report.agent_sessions,
       .bivignore = scan_result->bivignore,
   };
@@ -684,6 +726,29 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
 }
 
 }  // namespace
+
+std::string warning_text(const Warning& warning) {
+  if (warning.kind == "SessionBelowMinimumOmitted" &&
+      warning.artifact.has_value()) {
+    return "warning: omitted agent session " + terminal_safe(warning.path) +
+           ": " + terminal_safe(*warning.artifact);
+  }
+  if (warning.kind == kWarningSessionLiveAtPack) {
+    return "warning: session " + terminal_safe(warning.path) +
+           " may have been live at pack time";
+  }
+  if (warning.kind == kWarningTornTailDropped &&
+      warning.artifact.has_value() && warning.bytes.has_value()) {
+    return "warning: torn tail dropped from " +
+           terminal_safe(*warning.artifact) + ": " +
+           std::to_string(*warning.bytes) + " bytes";
+  }
+  auto rendered = "warning: " + terminal_safe(warning.kind);
+  if (!warning.path.empty()) {
+    rendered += ": " + terminal_safe(warning.path);
+  }
+  return rendered;
+}
 
 expected<PackReport> pack(const std::filesystem::path& source_dir) {
   try {

@@ -436,6 +436,58 @@ void write_agent_session(json::Writer& writer, const AgentSessionEntry& entry) {
 
 }  // namespace
 
+namespace {
+
+bool carrier_ascii_alpha(const char value) {
+  return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z');
+}
+
+struct CarrierRoot {
+  PathFlavor flavor;
+  std::size_t root_length;
+};
+
+std::optional<CarrierRoot> classify_carrier_root(const std::string_view path) {
+  if (path.size() >= 7U && path.starts_with("/mnt/") &&
+      carrier_ascii_alpha(path.at(5)) && path.at(6) == '/') {
+    return CarrierRoot{.flavor = PathFlavor::wsl, .root_length = 7U};
+  }
+  if (path.starts_with(R"(\\?\)") || path.starts_with("//?/")) {
+    return CarrierRoot{.flavor = PathFlavor::windows, .root_length = 7U};
+  }
+  if (path.size() >= 3U && carrier_ascii_alpha(path.at(0)) &&
+      path.at(1) == ':' && (path.at(2) == '\\' || path.at(2) == '/')) {
+    return CarrierRoot{.flavor = PathFlavor::windows, .root_length = 3U};
+  }
+  if (path.starts_with('/')) {
+    return CarrierRoot{.flavor = PathFlavor::posix, .root_length = 1U};
+  }
+  return std::nullopt;
+}
+
+}  // namespace
+
+std::optional<PathFlavor> classify_absolute(const std::string_view path) {
+  const auto root = classify_carrier_root(path);
+  return root ? std::optional<PathFlavor>{root->flavor} : std::nullopt;
+}
+
+bool packer_home_valid(const PackerHome& value) {
+  const auto root = classify_carrier_root(value.path);
+  return root && root->flavor == value.flavor &&
+         value.path.size() > root->root_length;
+}
+
+std::optional<PackerHome> make_packer_home(const std::string_view path) {
+  const auto flavor = classify_absolute(path);
+  if (!flavor) {
+    return std::nullopt;
+  }
+  PackerHome value{.path = std::string{path}, .flavor = *flavor};
+  return packer_home_valid(value) ? std::optional<PackerHome>{std::move(value)}
+                                  : std::nullopt;
+}
+
 std::string to_string(const PathFlavor flavor) {
   switch (flavor) {
     case PathFlavor::posix:
@@ -482,6 +534,12 @@ std::string serialize(const Manifest& manifest) {
   writer.value_string(manifest.source_path);
   writer.key("source_path_flavor");
   writer.value_string(to_string(manifest.source_path_flavor));
+  if (manifest.packer_home && packer_home_valid(*manifest.packer_home)) {
+    writer.key("packer_home");
+    writer.value_string(manifest.packer_home->path);
+    writer.key("packer_home_flavor");
+    writer.value_string(to_string(manifest.packer_home->flavor));
+  }
   writer.key("bivignore");
   writer.begin_object();
   writer.key("source");
@@ -567,6 +625,29 @@ expected<Manifest> parse(const std::span<const std::byte> bytes) {
       return std::unexpected(flavor.error());
     }
     manifest.source_path_flavor = *flavor;
+
+    auto packer_home_text = optional_string(object, "packer_home");
+    if (!packer_home_text) {
+      return std::unexpected(packer_home_text.error());
+    }
+    auto packer_home_flavor_text = optional_string(object, "packer_home_flavor");
+    if (!packer_home_flavor_text) {
+      return std::unexpected(packer_home_flavor_text.error());
+    }
+    if (packer_home_text->has_value() != packer_home_flavor_text->has_value()) {
+      return std::unexpected(BivError{ErrKind::ParseError, {}, "packer_home_flavor"});
+    }
+    if (packer_home_text->has_value()) {
+      auto packer_home_flavor = parse_path_flavor(**packer_home_flavor_text);
+      if (!packer_home_flavor) {
+        return std::unexpected(BivError{ErrKind::ParseError, {}, "packer_home_flavor"});
+      }
+      PackerHome value{.path = std::move(**packer_home_text), .flavor = *packer_home_flavor};
+      if (!packer_home_valid(value)) {
+        return std::unexpected(BivError{ErrKind::ParseError, {}, "packer_home"});
+      }
+      manifest.packer_home = std::move(value);
+    }
 
     simdjson::dom::object bivignore;
     if (const auto error = object.at_key("bivignore").get(bivignore); error) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -102,13 +103,54 @@ struct PerVerb {
   bool rewrite{false};
 };
 
-struct Capabilities {
-  std::string agent_version;
-  std::string validated_range;
-  enum class Verdict { validated, unvalidated_host, unvalidated, absent } verdict{Verdict::absent};
+class Capabilities {
+ public:
+  enum class Verdict { readable, unreadable, absent };
+  // These observation fields are orthogonal to the verdict/version/newer
+  // invariant enforced by from_probe().
+  // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes)
   bool long_path_keys_pinned{false};
   PerVerb per_verb;
   std::optional<support::ProbeEvidence> probe;
+  // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes)
+
+  static Capabilities from_probe(
+      const Verdict verdict,
+      std::optional<std::string> parsed_version,
+      const bool newer_than_survey,
+      const bool long_path_keys_pinned = false,
+      const PerVerb per_verb = {},
+      std::optional<support::ProbeEvidence> probe = std::nullopt) {
+    assert((verdict == Verdict::readable) == parsed_version.has_value());
+    assert(verdict == Verdict::readable || !newer_than_survey);
+    Capabilities value;
+    value.verdict_ = verdict;
+    value.agent_version_ = parsed_version.value_or("unknown");
+    value.newer_than_survey_ = newer_than_survey;
+    value.long_path_keys_pinned = long_path_keys_pinned;
+    value.per_verb = per_verb;
+    value.probe = std::move(probe);
+    return value;
+  }
+
+  const std::string& agent_version() const { return agent_version_; }
+  Verdict verdict() const { return verdict_; }
+  bool newer_than_survey() const { return newer_than_survey_; }
+
+  std::string_view wire_verdict() const {
+    assert(verdict_ == Verdict::readable || !newer_than_survey_);
+    if (verdict_ == Verdict::readable) {
+      return newer_than_survey_ ? "readable-newer-than-survey" : "readable";
+    }
+    return verdict_ == Verdict::unreadable ? "unreadable" : "absent";
+  }
+
+ private:
+  Capabilities() = default;
+
+  std::string agent_version_{"unknown"};
+  Verdict verdict_{Verdict::absent};
+  bool newer_than_survey_{false};
 };
 
 struct InstallTarget {
@@ -116,6 +158,7 @@ struct InstallTarget {
   Store target_store;
   MemberRead member_read;
   Capabilities capabilities;
+  std::optional<manifest::PackerHome> packer_home{std::nullopt};
 };
 
 enum class Consent { yes, no };

@@ -24,6 +24,14 @@ void write_warnings(json::Writer& writer, const std::vector<pack::Warning>& warn
       writer.key("path");
       writer.value_string(warning.path);
     }
+    if (warning.artifact.has_value()) {
+      writer.key("artifact");
+      writer.value_string(*warning.artifact);
+    }
+    if (warning.bytes.has_value()) {
+      writer.key("bytes");
+      writer.value_uint(*warning.bytes);
+    }
     writer.end_object();
   }
   writer.end_array();
@@ -137,18 +145,8 @@ void write_pack_result(json::Writer& writer, const pack::PackReport& report) {
   write_manifest_summary(writer, manifest::kFormatVersion, report.agent_sessions_summary);
 }
 
-std::string_view capability_name(const adapters::Capabilities::Verdict verdict) {
-  switch (verdict) {
-    case adapters::Capabilities::Verdict::validated:
-      return "validated";
-    case adapters::Capabilities::Verdict::unvalidated_host:
-      return "unvalidated-host";
-    case adapters::Capabilities::Verdict::unvalidated:
-      return "unvalidated";
-    case adapters::Capabilities::Verdict::absent:
-      return "absent";
-  }
-  return "absent";
+std::string_view capability_name(const adapters::Capabilities& capabilities) {
+  return capabilities.wire_verdict();
 }
 
 std::string_view probe_outcome_name(const support::ProbeOutcome outcome) {
@@ -272,7 +270,8 @@ void write_sessions(json::Writer& writer, const OpenSessionsReport& report) {
     writer.key("agent");
     writer.value_string(agent.agent);
     writer.key("capabilities_verdict");
-    writer.value_string(agent.caps.has_value() ? capability_name(agent.caps->verdict) : "absent");
+    writer.value_string(agent.caps.has_value() ? capability_name(*agent.caps)
+                                               : "absent");
     if (agent.caps.has_value() && agent.caps->probe.has_value()) {
       write_probe(writer, *agent.caps->probe);
     }

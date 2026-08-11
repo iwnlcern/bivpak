@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cerrno>
 #include <chrono>
 #include <cstddef>
@@ -30,6 +31,7 @@
 
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
+#include "adapters/version_floor.hpp"
 #include "core/support/portability.hpp"
 
 namespace biv::adapters {
@@ -328,47 +330,13 @@ fs::path claude_root_for_host(const Host& host) {
   return host.home / ".claude";
 }
 
-bool validated_claude_version(const std::string_view version) { return version.starts_with("2.1."); }
-
-std::optional<std::string> semver_at(const std::string_view raw, size_t position) {
-  const auto component = [&](size_t& cursor) {
-    const auto begin = cursor;
-    while (cursor < raw.size() && raw.at(cursor) >= '0' && raw.at(cursor) <= '9') {
-      ++cursor;
-    }
-    return cursor != begin;
-  };
-  const auto begin = position;
-  if (!component(position)) {
-    return std::nullopt;
-  }
-  if (position >= raw.size() || raw.at(position) != '.') {
-    return std::nullopt;
-  }
-  ++position;
-  if (!component(position)) {
-    return std::nullopt;
-  }
-  if (position >= raw.size() || raw.at(position) != '.') {
-    return std::nullopt;
-  }
-  ++position;
-  if (!component(position)) {
-    return std::nullopt;
-  }
-  if (position < raw.size() && ((raw.at(position) >= '0' && raw.at(position) <= '9') || raw.at(position) == '.')) {
-    return std::nullopt;
-  }
-  return std::string{raw.substr(begin, position - begin)};
-}
-
 std::optional<std::string> parse_claude_version(const std::string_view raw) {
   const auto begin = raw.find_first_not_of(" \t\r\n");
   if (begin == std::string_view::npos) {
     return std::nullopt;
   }
-  auto version = semver_at(raw, begin);
-  if (!version.has_value()) {
+  auto version = version_floor::extract_single_version(raw);
+  if (!version.has_value() || !raw.substr(begin).starts_with(*version)) {
     return std::nullopt;
   }
   auto suffix = begin + version->size();
@@ -405,44 +373,45 @@ std::optional<support::ProbeEvidence> observe_claude(const Host& host) {
   return std::move(*observed);
 }
 
-std::optional<bool> host_version_unverified_for_install(const Capabilities& caps,
-                                                        const std::string_view image_version) {
-  if (caps.verdict == Capabilities::Verdict::validated) {
-    return false;
-  }
-  if (caps.verdict == Capabilities::Verdict::unvalidated_host &&
-      validated_claude_version(image_version)) {
-    return true;
-  }
-  return std::nullopt;
-}
-
 Capabilities probe_capabilities(const Host& host) {
   const auto root = claude_root_for_host(host);
   std::error_code error;
   const bool store_exists = fs::exists(root, error);
-  Capabilities caps{.agent_version = "unknown",
-                    .validated_range = "2.1.x",
-                    .verdict = Capabilities::Verdict::unvalidated_host,
-                    .long_path_keys_pinned = false,
-                    .per_verb = {.collect = store_exists, .install = store_exists, .rewrite = store_exists},
-                    .probe = observe_claude(host)};
-  if (!caps.probe.has_value()) {
-    return caps;
+  auto probe = observe_claude(host);
+  std::optional<std::string> parsed;
+  if (probe.has_value() && probe->outcome == support::ProbeOutcome::ok) {
+    probe->parsed = parse_claude_version(probe->raw);
+    if (probe->parsed.has_value()) {
+      parsed = probe->parsed;
+    } else {
+      probe->outcome = support::ProbeOutcome::unparseable;
+    }
   }
-  if (caps.probe->outcome != support::ProbeOutcome::ok) {
-    caps.verdict = Capabilities::Verdict::unvalidated_host;
-    return caps;
+  const auto verdict = !store_exists
+                           ? Capabilities::Verdict::absent
+                           : parsed.has_value()
+                                 ? Capabilities::Verdict::readable
+                                 : Capabilities::Verdict::unreadable;
+  bool newer_than_survey = false;
+  if (verdict == Capabilities::Verdict::readable && parsed.has_value()) {
+    const auto host_version = version_floor::parse_grammar(*parsed);
+    const auto surveyed = version_floor::parse_grammar(
+        version_floor::row_for("claude-code").surveyed_through);
+    assert(host_version.has_value() && surveyed.has_value());
+    if (host_version.has_value() && surveyed.has_value()) {
+      newer_than_survey =
+          version_floor::compare_line(*host_version, *surveyed) ==
+          version_floor::Order::greater;
+    }
   }
-  caps.probe->parsed = parse_claude_version(caps.probe->raw);
-  if (!caps.probe->parsed.has_value()) {
-    caps.probe->outcome = support::ProbeOutcome::unparseable;
-    return caps;
-  }
-  caps.agent_version = *caps.probe->parsed;
-  caps.verdict = validated_claude_version(caps.agent_version) ? Capabilities::Verdict::validated
-                                                              : Capabilities::Verdict::unvalidated;
-  return caps;
+  return Capabilities::from_probe(
+      verdict, verdict == Capabilities::Verdict::readable ? parsed
+                                                           : std::nullopt,
+      newer_than_survey, false,
+      {.collect = store_exists,
+       .install = store_exists,
+       .rewrite = store_exists},
+      std::move(probe));
 }
 
 }  // namespace
@@ -482,9 +451,11 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
   std::vector<PreparedSession> prepared;
   prepared.reserve(records.size());
   for (const auto& record : records) {
-    const auto host_version_unverified =
-        host_version_unverified_for_install(caps, record.agent_version_at_pack);
-    if (!host_version_unverified.has_value()) {
+    const auto admission = version_floor::admit(
+        {.agent = "claude-code",
+         .host_version = caps.agent_version(),
+         .image_version = record.agent_version_at_pack});
+    if (!admission.admitted) {
       prepared.push_back(PreparedSession{
           .record = record,
           .installed_session_id = {},
@@ -493,15 +464,15 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
           .verify = {},
           .outputs = {},
           .skipped_non_utf8 = 0,
-          .refusal_reason = "error",
-          .refusal_detail = "capability_refused"});
+          .refusal_reason = "not-validated",
+          .refusal_detail = std::string{admission.detail}});
       continue;
     }
     PreparedSession session{.record = record,
                             .installed_session_id = uuid4(),
                             .destinations = {},
                             .host_version_unverified =
-                                *host_version_unverified,
+                                admission.host_version_unverified,
                             .verify = {},
                             .outputs = {},
                             .skipped_non_utf8 = 0,
@@ -579,6 +550,12 @@ expected<InstallResult> claude_code_install(const InstallTarget& target,
                  session.verify.origin_id_hits != 0U;
         })) {
       for (const auto& session : prepared) {
+        if (session.refusal_reason.has_value()) {
+          result.sessions.push_back(failed_outcome(
+              session.record, *session.refusal_reason,
+              session.refusal_detail));
+          continue;
+        }
         auto outcome = failed_outcome(session.record, "containment_refused",
                                       "rewrite_verify_failed");
         outcome.verify = session.verify;

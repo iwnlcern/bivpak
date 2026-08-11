@@ -82,3 +82,15 @@ TEST_CASE("Writer emits int64 bounds and one trailing newline") {
   REQUIRE(out.ends_with('\n'));
   REQUIRE(out[out.size() - 2] != '\n');
 }
+
+TEST_CASE("Writer emits uint64 maximum without sign narrowing") {
+  biv::json::Writer writer;
+  writer.begin_array();
+  writer.value_uint(std::numeric_limits<std::uint64_t>::max());
+  writer.end_array();
+
+  REQUIRE(writer.take() ==
+          "[\n"
+          "  18446744073709551615\n"
+          "]\n");
+}

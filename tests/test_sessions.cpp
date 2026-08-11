@@ -170,7 +170,303 @@ std::vector<biv::manifest::AgentSessionEntry> two_codex_records() {
   return {first, second};
 }
 
+class CountingAdapter final : public biv::adapters::AgentAdapter {
+ public:
+  mutable std::size_t install_calls{0};
+  mutable std::vector<std::optional<biv::manifest::PackerHome>>
+      seen_packer_homes;
+  biv::adapters::InstallResult install_result;
+
+  std::string_view id() const override { return "fixture-agent"; }
+  biv::expected<std::vector<biv::adapters::Store>> discover(
+      const biv::adapters::Env&) const override {
+    return std::vector<biv::adapters::Store>{};
+  }
+  const biv::adapters::Inventory& state_inventory() const override {
+    static const biv::adapters::Inventory inventory{};
+    return inventory;
+  }
+  biv::expected<biv::adapters::CollectReport> collect(
+      const std::filesystem::path&,
+      std::span<const biv::adapters::Store>) const override {
+    return biv::adapters::CollectReport{};
+  }
+  biv::expected<biv::adapters::InstallResult> install(
+      const biv::adapters::InstallTarget& target, biv::adapters::Consent,
+      std::span<const biv::manifest::AgentSessionEntry>) const override {
+    ++install_calls;
+    seen_packer_homes.push_back(target.packer_home);
+    return install_result;
+  }
+  biv::expected<biv::adapters::RewriteReport> rewrite(
+      std::span<const biv::adapters::SessionRecord>,
+      const biv::adapters::InstallTarget&) const override {
+    return biv::adapters::RewriteReport{};
+  }
+  biv::adapters::Capabilities capabilities(
+      const biv::adapters::Host&) const override {
+    return biv::adapters::Capabilities::from_probe(
+        biv::adapters::Capabilities::Verdict::absent, std::nullopt, false);
+  }
+};
+
 }  // namespace
+
+TEST_CASE("FX-VF-O5 unreadable hosts produce CANON-3 rows before consent") {
+  // FX-MG-9's former evaluability input class is extinct after A7.5. This
+  // fixture carries its stronger M4-C1 burden at the live unreadable gate.
+  for (const std::string agent : {"codex", "claude-code"}) {
+    DYNAMIC_SECTION(agent) {
+      auto first = entry(agent);
+      first.original_session_ids.primary =
+          agent == "codex" ? "cx-0001" : "cl-0001";
+      auto second = entry(agent);
+      second.original_session_ids.primary =
+          agent == "codex" ? "cx-0002" : "cl-0002";
+      const auto manifest = model({first, second});
+
+      CountingAdapter adapter;
+      biv::core_sessions::AgentPreview preview_agent;
+      preview_agent.agent = agent;
+      preview_agent.parent_count = 2;
+      preview_agent.known_adapter = true;
+      preview_agent.store = biv::adapters::Store{
+          .root = "/tmp/fixture-store", .locators = {}};
+      preview_agent.caps = biv::adapters::Capabilities::from_probe(
+          biv::adapters::Capabilities::Verdict::unreadable, std::nullopt,
+          false);
+      preview_agent.adapter = &adapter;
+      biv::core_sessions::SessionPreview preview;
+      preview.agents.push_back(std::move(preview_agent));
+
+      biv::core_sessions::ConsentDecision consent;
+      consent.per_agent.emplace_back(agent, false);
+      const auto workspace = make_tmp("o5-" + agent);
+      std::size_t member_reads = 0;
+      const auto outcome = biv::core_sessions::run_session_leg(
+          preview, consent, manifest, workspace,
+          [&](std::string_view)
+              -> biv::expected<std::vector<std::byte>> {
+            ++member_reads;
+            return std::vector<std::byte>{};
+          });
+
+      REQUIRE(outcome);
+      REQUIRE(outcome->rows.size() == 2U);
+      for (std::size_t index = 0; index < outcome->rows.size(); ++index) {
+        const auto& row = outcome->rows.at(index);
+        CHECK(row.agent == agent);
+        CHECK(row.image_session_id ==
+              (index == 0 ? first.original_session_ids.primary
+                          : second.original_session_ids.primary));
+        CHECK(row.row == biv::core_sessions::SessionRowReport::Row::
+                             agent_not_validated_failed);
+        CHECK(row.reason ==
+              std::optional<std::string>{"host-version-unreadable"});
+        CHECK_FALSE(row.installed_session_id.has_value());
+        CHECK_FALSE(row.host_version_unverified);
+        CHECK(row.activation_suppressed);
+        CHECK_FALSE(row.live_at_pack);
+        CHECK_FALSE(row.detail.has_value());  // pending-pin comparator input
+      }
+      CHECK(adapter.install_calls == 0U);
+      CHECK(member_reads == 0U);
+      CHECK_FALSE(std::filesystem::exists(workspace / ".biv"));
+      CHECK(biv::report::exit_for_sessions(*outcome) == 2);
+      std::filesystem::remove_all(workspace);
+    }
+  }
+}
+
+TEST_CASE("absent stores produce refusal rows before consent or adapter calls") {
+  for (const std::string agent : {"codex", "claude-code"}) {
+    DYNAMIC_SECTION(agent) {
+      const auto manifest = model({entry(agent)});
+      CountingAdapter adapter;
+      biv::core_sessions::AgentPreview preview_agent;
+      preview_agent.agent = agent;
+      preview_agent.parent_count = 1;
+      preview_agent.known_adapter = true;
+      preview_agent.caps = biv::adapters::Capabilities::from_probe(
+          biv::adapters::Capabilities::Verdict::absent, std::nullopt, false);
+      preview_agent.adapter = &adapter;
+      biv::core_sessions::SessionPreview preview;
+      preview.agents.push_back(std::move(preview_agent));
+      biv::core_sessions::ConsentDecision consent;
+      consent.per_agent.emplace_back(agent, false);
+      const auto workspace = make_tmp("absent-" + agent);
+      std::size_t member_reads = 0;
+
+      const auto outcome = biv::core_sessions::run_session_leg(
+          preview, consent, manifest, workspace,
+          [&](std::string_view)
+              -> biv::expected<std::vector<std::byte>> {
+            ++member_reads;
+            return std::vector<std::byte>{};
+          });
+
+      REQUIRE(outcome);
+      REQUIRE(outcome->rows.size() == 1U);
+      const auto& row = outcome->rows.front();
+      CHECK(row.row == biv::core_sessions::SessionRowReport::Row::
+                           agent_not_validated_failed);
+      CHECK(row.reason == std::optional<std::string>{"store-absent"});
+      CHECK_FALSE(row.installed_session_id.has_value());
+      CHECK_FALSE(row.host_version_unverified);
+      CHECK(row.activation_suppressed);
+      CHECK_FALSE(row.detail.has_value());
+      CHECK(adapter.install_calls == 0U);
+      CHECK(member_reads == 0U);
+      CHECK(biv::report::exit_for_sessions(*outcome) == 2);
+      std::filesystem::remove_all(workspace);
+    }
+  }
+}
+
+TEST_CASE("version refusal details map to closed reasons without changing siblings") {
+  const auto workspace = make_tmp("version-detail-map");
+  auto newer = entry("fixture-agent");
+  newer.original_session_ids.primary = "basis-newer";
+  auto unorderable = entry("fixture-agent");
+  unorderable.original_session_ids.primary = "basis-unorderable";
+  auto collision = entry("fixture-agent");
+  collision.original_session_ids.primary = "collision";
+  const auto manifest =
+      model({std::move(newer), std::move(unorderable), std::move(collision)});
+  CountingAdapter adapter;
+  adapter.install_result.sessions = {
+      {.image_session_id = manifest.agent_sessions.at(0).original_session_ids.primary,
+       .outcome = biv::adapters::InstallSessionOutcome::Outcome::failed,
+       .reason = std::nullopt,
+       .content_rewrite = std::nullopt,
+       .verify = {},
+       .detail = "basis_newer_than_host"},
+      {.image_session_id = manifest.agent_sessions.at(1).original_session_ids.primary,
+       .outcome = biv::adapters::InstallSessionOutcome::Outcome::failed,
+       .reason = std::nullopt,
+       .content_rewrite = std::nullopt,
+       .verify = {},
+       .detail = "basis_unorderable"},
+      {.image_session_id = manifest.agent_sessions.at(2).original_session_ids.primary,
+       .outcome = biv::adapters::InstallSessionOutcome::Outcome::failed,
+       .reason = "collision_refused",
+       .content_rewrite = std::nullopt,
+       .verify = {},
+       .detail = "collision_refused"},
+  };
+  biv::core_sessions::AgentPreview agent;
+  agent.agent = "fixture-agent";
+  agent.parent_count = 3;
+  agent.known_adapter = true;
+  agent.store =
+      biv::adapters::Store{.root = workspace, .locators = {}};
+  agent.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"9.0.0"}, false);
+  agent.adapter = &adapter;
+  biv::core_sessions::SessionPreview preview;
+  preview.agents.push_back(std::move(agent));
+  biv::core_sessions::ConsentDecision consent;
+  consent.per_agent.emplace_back("fixture-agent", true);
+
+  const auto outcome = biv::core_sessions::run_session_leg(
+      preview, consent, manifest, workspace,
+      [](std::string_view) -> biv::expected<std::vector<std::byte>> {
+        return std::vector<std::byte>{};
+      });
+
+  REQUIRE(outcome);
+  REQUIRE(outcome->rows.size() == 3U);
+  CHECK(outcome->rows.at(0).row == biv::core_sessions::SessionRowReport::Row::
+                                        agent_not_validated_failed);
+  CHECK(outcome->rows.at(0).image_session_id == "basis-newer");
+  CHECK(outcome->rows.at(0).reason == "basis-newer-than-host");
+  CHECK(outcome->rows.at(0).detail == "basis_newer_than_host");
+  CHECK(outcome->rows.at(1).row == biv::core_sessions::SessionRowReport::Row::
+                                        agent_not_validated_failed);
+  CHECK(outcome->rows.at(1).image_session_id == "basis-unorderable");
+  CHECK(outcome->rows.at(1).reason == "basis-unorderable");
+  CHECK(outcome->rows.at(1).detail == "basis_unorderable");
+  CHECK(outcome->rows.at(2).row ==
+        biv::core_sessions::SessionRowReport::Row::session_install_failed);
+  CHECK(outcome->rows.at(2).image_session_id == "collision");
+  CHECK(outcome->rows.at(2).reason == "collision_refused");
+  CHECK(outcome->rows.at(2).detail == "collision_refused");
+  CHECK(adapter.install_calls == 1U);
+  std::filesystem::remove_all(workspace);
+}
+
+TEST_CASE("run_session_leg transports packer_home to every adapter leg") {
+  const auto workspace = make_tmp("packer-home-present");
+  auto manifest = model({entry("fixture-agent-a"), entry("fixture-agent-b")});
+  manifest.packer_home = biv::manifest::PackerHome{
+      "/Users/packer", biv::manifest::PathFlavor::posix};
+  CountingAdapter adapter;
+  biv::core_sessions::SessionPreview preview;
+  biv::core_sessions::ConsentDecision consent;
+  for (const std::string agent_name : {"fixture-agent-a", "fixture-agent-b"}) {
+    biv::core_sessions::AgentPreview agent;
+    agent.agent = agent_name;
+    agent.parent_count = 1;
+    agent.known_adapter = true;
+    agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
+    agent.caps = biv::adapters::Capabilities::from_probe(
+        biv::adapters::Capabilities::Verdict::readable,
+        std::optional<std::string>{"9.0.0"}, false);
+    agent.adapter = &adapter;
+    preview.agents.push_back(std::move(agent));
+    consent.per_agent.emplace_back(agent_name, true);
+  }
+
+  const auto outcome = biv::core_sessions::run_session_leg(
+      preview, consent, manifest, workspace,
+      [](std::string_view) -> biv::expected<std::vector<std::byte>> {
+        return std::vector<std::byte>{};
+      });
+
+  REQUIRE(outcome);
+  const biv::manifest::PackerHome expected{
+      "/Users/packer", biv::manifest::PathFlavor::posix};
+  REQUIRE(adapter.install_calls == 2U);
+  REQUIRE(adapter.seen_packer_homes ==
+          std::vector<std::optional<biv::manifest::PackerHome>>{expected,
+                                                               expected});
+  std::filesystem::remove_all(workspace);
+}
+
+TEST_CASE("run_session_leg passes absent packer_home through unchanged") {
+  const auto workspace = make_tmp("packer-home-absent");
+  auto manifest = model({entry("fixture-agent-a"), entry("fixture-agent-b")});
+  CountingAdapter adapter;
+  biv::core_sessions::SessionPreview preview;
+  biv::core_sessions::ConsentDecision consent;
+  for (const std::string agent_name : {"fixture-agent-a", "fixture-agent-b"}) {
+    biv::core_sessions::AgentPreview agent;
+    agent.agent = agent_name;
+    agent.parent_count = 1;
+    agent.known_adapter = true;
+    agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
+    agent.caps = biv::adapters::Capabilities::from_probe(
+        biv::adapters::Capabilities::Verdict::readable,
+        std::optional<std::string>{"9.0.0"}, false);
+    agent.adapter = &adapter;
+    preview.agents.push_back(std::move(agent));
+    consent.per_agent.emplace_back(agent_name, true);
+  }
+
+  const auto outcome = biv::core_sessions::run_session_leg(
+      preview, consent, manifest, workspace,
+      [](std::string_view) -> biv::expected<std::vector<std::byte>> {
+        return std::vector<std::byte>{};
+      });
+
+  REQUIRE(outcome);
+  REQUIRE(adapter.install_calls == 2U);
+  REQUIRE(adapter.seen_packer_homes ==
+          std::vector<std::optional<biv::manifest::PackerHome>>{std::nullopt,
+                                                               std::nullopt});
+  std::filesystem::remove_all(workspace);
+}
 
 TEST_CASE("the cross-family control catches an illegal constructed reason/detail pair") {
   // The report layer is a verbatim pass-through and enforces no pairing
@@ -224,8 +520,8 @@ TEST_CASE("session preview groups manifest agents and flags unsupported rows") {
   REQUIRE(unwired_preview->agents.size() == 2U);
   for (const auto& agent : unwired_preview->agents) {
     REQUIRE(agent.caps.has_value());
-    CHECK(agent.caps->verdict ==
-          biv::adapters::Capabilities::Verdict::unvalidated_host);
+    CHECK(agent.caps->verdict() ==
+          biv::adapters::Capabilities::Verdict::absent);
     CHECK_FALSE(agent.caps->probe.has_value());
   }
   std::filesystem::remove_all(unwired_home);
@@ -331,32 +627,37 @@ TEST_CASE("activation filtering suppresses only the failed session command") {
   CHECK(safe.front().command == "future resume clean-id");
 }
 
-TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
+TEST_CASE("Codex session outcomes map admitted and refusing version directions") {
   struct VersionCase {
-    std::string_view version;
+    std::string_view image_version;
+    std::string_view host_version;
     bool accepted;
   };
-  constexpr VersionCase cases[]{{"0.142.5", true},
-                                {"0.144.1", true},
-                                {"0.143.0", false},
-                                {"0.145.0", false},
-                                {"0.61.0", false}};
+  constexpr VersionCase cases[]{{"0.142.5", "0.142.5", true},
+                                {"0.144.1", "0.144.1", true},
+                                {"0.143.0", "0.143.0", true},
+                                {"0.145.0", "0.145.0", true},
+                                {"0.61.0", "0.61.0", true},
+                                {"0.145.0", "0.144.1", false}};
   constexpr std::string_view session_id =
       "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1440";
 
   for (const auto& version_case : cases) {
-    DYNAMIC_SECTION(version_case.version) {
+    DYNAMIC_SECTION("image " << version_case.image_version << " on host "
+                              << version_case.host_version) {
       const auto home =
-          make_tmp("codex-range-" + std::string{version_case.version});
+          make_tmp("codex-range-" + std::string{version_case.image_version} +
+                   "-on-" + std::string{version_case.host_version});
       const auto store = home / ".codex";
       const auto workspace = home / "workspace";
       std::filesystem::create_directories(store);
       std::filesystem::create_directories(workspace);
       {
         std::ofstream marker{store / "version.json"};
-        marker << "{\"version\":\"" << version_case.version << "\"}\n";
+        marker << "{\"version\":\"" << version_case.host_version
+               << "\"}\n";
       }
-      auto manifest = model({codex_entry(version_case.version)});
+      auto manifest = model({codex_entry(version_case.image_version)});
       const biv::adapters::Host host{
           .home = home,
           .env = env(home),
@@ -368,7 +669,7 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
                                                .pinned = false,
                                                .outcome = biv::support::ProbeOutcome::ok,
                                                .exit_code = 0,
-                                               .raw = "codex-cli " + std::string{version_case.version},
+                                               .raw = "codex-cli " + std::string{version_case.host_version},
                                                .parsed = std::nullopt};
           },
           .pinned_bins = {}};
@@ -386,7 +687,7 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
           std::string{session_id} + "\",\"session_id\":\"" +
           std::string{session_id} +
           "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"" +
-          std::string{version_case.version} + "\"}}\n");
+          std::string{version_case.image_version} + "\"}}\n");
       const biv::adapters::MemberRead reader =
           [&](std::string_view path) -> biv::expected<std::vector<std::byte>> {
         if (path != artifact) {
@@ -412,7 +713,8 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
       } else {
         CHECK(row.row == biv::core_sessions::SessionRowReport::Row::
                              agent_not_validated_failed);
-        CHECK(row.reason == std::optional<std::string>{"not-validated"});
+        CHECK(row.reason ==
+              std::optional<std::string>{"basis-newer-than-host"});
         CHECK_FALSE(row.installed_session_id.has_value());
         CHECK(row.activation_suppressed);
         CHECK(outcome->activation.empty());
@@ -424,7 +726,100 @@ TEST_CASE("Codex session outcomes accept only the enumerated validated lines") {
   }
 }
 
-TEST_CASE("the seam copies an adapter-authored detail to the row verbatim") {
+TEST_CASE(
+    "Codex session leg preserves a version refusal beside a verify-hit sibling") {
+  constexpr std::string_view refused_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1440";
+  constexpr std::string_view verify_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1441";
+  const auto home = make_tmp("codex-refusal-verify-cohort");
+  const auto store = home / ".codex";
+  const auto workspace = home / "workspace";
+  std::filesystem::create_directories(store);
+  std::filesystem::create_directories(workspace);
+  {
+    std::ofstream marker{store / "version.json"};
+    marker << "{\"version\":\"0.144.1\"}\n";
+  }
+  auto refused = codex_entry("0.145.0");
+  auto verify = codex_entry("0.144.1");
+  verify.original_session_ids.primary = verify_id;
+  verify.artifacts = {
+      "agents/codex/" + std::string{verify_id} + ".jsonl"};
+  auto manifest = model({refused, verify});
+  const biv::adapters::Host host{
+      .home = home,
+      .env = env(home),
+      .version_probe = [&](const std::string_view agent,
+                           const std::optional<std::filesystem::path>&)
+          -> biv::expected<biv::support::ProbeEvidence> {
+        return biv::support::ProbeEvidence{
+            .agent = std::string{agent},
+            .requested = std::nullopt,
+            .executed = home / "bin" / "codex",
+            .pinned = false,
+            .outcome = biv::support::ProbeOutcome::ok,
+            .exit_code = 0,
+            .raw = "codex-cli 0.144.1",
+            .parsed = std::nullopt};
+      },
+      .pinned_bins = {}};
+  auto preview = biv::core_sessions::build_preview(manifest, host);
+  REQUIRE(preview);
+  biv::core_sessions::ConsentSpec consent_spec;
+  consent_spec.global = biv::core_sessions::ConsentValue::yes;
+  const auto consent =
+      biv::core_sessions::resolve_consent(consent_spec, *preview, std::nullopt);
+  auto hostile = bytes("{\"type\":\"session_meta\",\"payload\":{\"id\":\"" +
+                       std::string{verify_id} + "\",\"session_id\":\"" +
+                       std::string{verify_id} +
+                       "\",\"cwd\":\"/ws/proj\"}}");
+  hostile.push_back(static_cast<std::byte>(0xff));
+  hostile.push_back(static_cast<std::byte>('\n'));
+  const auto verify_artifact = verify.artifacts.front();
+  const biv::adapters::MemberRead reader =
+      [&](const std::string_view path)
+          -> biv::expected<std::vector<std::byte>> {
+    if (path == verify_artifact) {
+      return hostile;
+    }
+    return std::unexpected(
+        biv::BivError{biv::ErrKind::ImageUnreadable, std::string{path}});
+  };
+
+  const auto outcome = biv::core_sessions::run_session_leg(
+      *preview, consent, manifest, workspace, reader);
+
+  REQUIRE(outcome);
+  REQUIRE(outcome->rows.size() == 2U);
+  const auto row_for = [&](const std::string_view id) {
+    return std::ranges::find_if(outcome->rows, [&](const auto& row) {
+      return row.image_session_id == id;
+    });
+  };
+  const auto refused_row = row_for(refused_id);
+  const auto verify_row = row_for(verify_id);
+  REQUIRE(refused_row != outcome->rows.end());
+  REQUIRE(verify_row != outcome->rows.end());
+  CHECK(refused_row->row == biv::core_sessions::SessionRowReport::Row::
+                                 agent_not_validated_failed);
+  CHECK(refused_row->reason ==
+        std::optional<std::string>{"basis-newer-than-host"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"basis_newer_than_host"});
+  CHECK(refused_row->activation_suppressed);
+  CHECK(verify_row->row ==
+        biv::core_sessions::SessionRowReport::Row::containment_refused);
+  CHECK(verify_row->reason == std::optional<std::string>{"verify-hits"});
+  CHECK(verify_row->detail ==
+        std::optional<std::string>{"rewrite_verify_failed"});
+  CHECK(verify_row->activation_suppressed);
+  CHECK(outcome->activation.empty());
+  CHECK_FALSE(std::filesystem::exists(store / "sessions"));
+  std::filesystem::remove_all(home);
+}
+
+TEST_CASE("unreadable probes stop before adapter-authored detail exists") {
   const auto home = make_tmp("carrier-verbatim");
   const auto store = home / ".codex";
   const auto workspace = home / "workspace";
@@ -434,9 +829,7 @@ TEST_CASE("the seam copies an adapter-authored detail to the row verbatim") {
     std::ofstream marker{store / "version.json"};
     marker << "{\"version\":\"0.144.1\"}\n";
   }
-  // agent_version_at_pack "unknown" drives the capability refusal at
-  // codex/install.cpp:350-360, which pushes a row with detail
-  // "capability_refused" and returns a SUCCESSFUL InstallResult.
+  // A7 moves this former adapter call to the agent-level unreadable gate.
   auto record = codex_entry("0.144.1");
   record.agent_version_at_pack = "unknown";
   auto manifest = model({record});
@@ -473,8 +866,11 @@ TEST_CASE("the seam copies an adapter-authored detail to the row verbatim") {
 
   REQUIRE(outcome);
   REQUIRE(outcome->rows.size() == 1U);
-  CHECK(outcome->rows.front().detail ==
-        std::optional<std::string>{"capability_refused"});
+  CHECK(outcome->rows.front().row ==
+        biv::core_sessions::SessionRowReport::Row::agent_not_validated_failed);
+  CHECK(outcome->rows.front().reason ==
+        std::optional<std::string>{"host-version-unreadable"});
+  CHECK_FALSE(outcome->rows.front().detail.has_value());
   std::filesystem::remove_all(home);
 }
 
@@ -514,7 +910,8 @@ TEST_CASE(
   REQUIRE(preview);
   REQUIRE(preview->agents.size() == 1);
   REQUIRE(preview->agents.front().caps.has_value());
-  CHECK(preview->agents.front().caps->verdict == biv::adapters::Capabilities::Verdict::validated);
+  CHECK(preview->agents.front().caps->verdict() ==
+        biv::adapters::Capabilities::Verdict::readable);
   CHECK(observations == 1);
 
   biv::core_sessions::ConsentSpec consent_spec;

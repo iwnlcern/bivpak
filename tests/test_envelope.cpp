@@ -1,7 +1,10 @@
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -90,6 +93,64 @@ TEST_CASE("pack success envelope includes advisories") {
   CHECK(json.find("\"session_count\": 1") != std::string::npos);
   CHECK(json.find("\"manifest\"") != std::string::npos);
   CHECK(json.find("\"error\": null") != std::string::npos);
+}
+
+TEST_CASE("pack warning carrier serializes optional artifact and byte facts") {
+  biv::pack::PackReport report;
+  report.image_path = "/tmp/sample.bvpk";
+  report.source_path = "/tmp/sample";
+  report.image_id = "00000000-0000-4000-8000-000000000000";
+  report.warnings.push_back(biv::pack::Warning{
+      .kind = std::string{biv::pack::kWarningTornTailDropped},
+      .path = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee2001",
+      .artifact = "agents/codex/session.jsonl",
+      .bytes = 42U});
+  report.warnings.push_back(biv::pack::Warning{
+      .kind = "SourceUnreadableSubpath", .path = "unreadable.txt"});
+
+  const auto json = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 2);
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(json).get(document) == simdjson::SUCCESS);
+
+  simdjson::dom::array warnings;
+  REQUIRE(document["warnings"].get(warnings) == simdjson::SUCCESS);
+  const auto warning_count = std::distance(warnings.begin(), warnings.end());
+  REQUIRE(warning_count == 2);
+
+  std::string_view artifact;
+  REQUIRE(warnings.at(0)["artifact"].get(artifact) == simdjson::SUCCESS);
+  CHECK(artifact == "agents/codex/session.jsonl");
+  std::uint64_t bytes = 0;
+  REQUIRE(warnings.at(0)["bytes"].get(bytes) == simdjson::SUCCESS);
+  CHECK(bytes == 42U);
+
+  simdjson::dom::element absent;
+  CHECK(warnings.at(1)["artifact"].get(absent) == simdjson::NO_SUCH_FIELD);
+  CHECK(warnings.at(1)["bytes"].get(absent) == simdjson::NO_SUCH_FIELD);
+}
+
+TEST_CASE("pack warning bytes serialize uint64 maximum as an unsigned JSON integer") {
+  biv::pack::PackReport report;
+  report.image_path = "/tmp/sample.bvpk";
+  report.source_path = "/tmp/sample";
+  report.image_id = "00000000-0000-4000-8000-000000000000";
+  report.warnings.push_back(biv::pack::Warning{
+      .kind = std::string{biv::pack::kWarningTornTailDropped},
+      .path = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee2001",
+      .artifact = "agents/codex/session.jsonl",
+      .bytes = std::numeric_limits<std::uint64_t>::max()});
+
+  const auto json = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 2);
+  CHECK(json.find("\"bytes\": 18446744073709551615") != std::string::npos);
+  CHECK(json.find("\"bytes\": \"18446744073709551615\"") == std::string::npos);
+
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(json).get(document) == simdjson::SUCCESS);
+  std::uint64_t bytes = 0;
+  REQUIRE(document["warnings"].at(0)["bytes"].get(bytes) == simdjson::SUCCESS);
+  CHECK(bytes == std::numeric_limits<std::uint64_t>::max());
 }
 
 TEST_CASE("pack envelope uses per-kind advisory shapes") {
@@ -222,6 +283,76 @@ TEST_CASE("session exit composition uses typed skip reasons") {
   CHECK(biv::report::exit_for_sessions({}) == 0);
 }
 
+TEST_CASE("capability factory enforces four deterministic wire states") {
+  using Capabilities = biv::adapters::Capabilities;
+  CHECK_FALSE(std::is_aggregate_v<Capabilities>);
+  CHECK_FALSE(std::is_default_constructible_v<Capabilities>);
+  struct Case {
+    Capabilities::Verdict verdict;
+    std::optional<std::string> parsed;
+    bool newer;
+    std::string_view wire;
+  };
+  const Case cases[] = {
+      {Capabilities::Verdict::readable, "0.300.0", true,
+       "readable-newer-than-survey"},
+      {Capabilities::Verdict::readable, "0.144.4", false, "readable"},
+      {Capabilities::Verdict::unreadable, std::nullopt, false, "unreadable"},
+      {Capabilities::Verdict::absent, std::nullopt, false, "absent"},
+  };
+
+  for (const auto& item : cases) {
+    const auto caps =
+        Capabilities::from_probe(item.verdict, item.parsed, item.newer);
+    CHECK(caps.wire_verdict() == item.wire);
+    CHECK(caps.newer_than_survey() == item.newer);
+    CHECK(caps.agent_version() ==
+          (item.verdict == Capabilities::Verdict::readable
+               ? *item.parsed
+               : std::string{"unknown"}));
+    if (item.verdict != Capabilities::Verdict::readable) {
+      CHECK_FALSE(caps.newer_than_survey());
+    }
+  }
+}
+
+TEST_CASE("envelope serializes each derived capability state exactly once") {
+  using Capabilities = biv::adapters::Capabilities;
+  biv::report::OpenSessionsReport sessions;
+  const auto add = [&](std::string agent, Capabilities capabilities) {
+    biv::core_sessions::AgentPreview preview;
+    preview.agent = std::move(agent);
+    preview.parent_count = 1;
+    preview.caps = std::move(capabilities);
+    sessions.preview.agents.push_back(std::move(preview));
+  };
+  add("newer", Capabilities::from_probe(
+                   Capabilities::Verdict::readable, "0.300.0", true));
+  add("readable", Capabilities::from_probe(
+                     Capabilities::Verdict::readable, "0.144.4", false));
+  add("unreadable", Capabilities::from_probe(
+                       Capabilities::Verdict::unreadable, std::nullopt, false));
+  add("absent", Capabilities::from_probe(
+                   Capabilities::Verdict::absent, std::nullopt, false));
+  const biv::open::OpenReport opened{
+      .image_path = "/tmp/image.bvpk",
+      .output_dir = "/tmp/restored",
+      .collision_action = "none",
+      .restored_member_count = 0,
+      .checksums_verified = true,
+      .manifest_format_version = 1};
+
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, 0, sessions);
+
+  for (const std::string_view spelling : {
+           "readable-newer-than-survey", "readable", "unreadable", "absent"}) {
+    CHECK(count_occurrences(
+              json, "\"capabilities_verdict\": \"" +
+                        std::string{spelling} + "\"") == 1U);
+  }
+}
+
 TEST_CASE("open envelope includes typed sessions report") {
   biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
                                .output_dir = "/tmp/restored",
@@ -236,13 +367,11 @@ TEST_CASE("open envelope includes typed sessions report") {
   biv::core_sessions::AgentPreview preview;
   preview.agent = "future-tool";
   preview.parent_count = 1;
-  preview.caps = biv::adapters::Capabilities{
-      .agent_version = "0.144.4",
-      .validated_range = "0.144.x",
-      .verdict = biv::adapters::Capabilities::Verdict::validated,
-      .long_path_keys_pinned = true,
-      .per_verb = {.collect = true, .install = true, .rewrite = true},
-      .probe = biv::support::ProbeEvidence{
+  preview.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"0.144.4"}, false, true,
+      {.collect = true, .install = true, .rewrite = true},
+      biv::support::ProbeEvidence{
           .agent = "future-tool",
           .requested = "/opt/future",
           .executed = "/opt/future",
@@ -250,18 +379,15 @@ TEST_CASE("open envelope includes typed sessions report") {
           .outcome = biv::support::ProbeOutcome::ok,
           .exit_code = 0,
           .raw = "future 0.144.4\n",
-          .parsed = "0.144.4"}};
+          .parsed = "0.144.4"});
   sessions.preview.agents.push_back(std::move(preview));
   biv::core_sessions::AgentPreview failed_preview;
   failed_preview.agent = "missing-tool";
   failed_preview.parent_count = 1;
-  failed_preview.caps = biv::adapters::Capabilities{
-      .agent_version = "unknown",
-      .validated_range = "2.1.x",
-      .verdict = biv::adapters::Capabilities::Verdict::unvalidated_host,
-      .long_path_keys_pinned = false,
-      .per_verb = {.collect = true, .install = true, .rewrite = true},
-      .probe = biv::support::ProbeEvidence{
+  failed_preview.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false,
+      false, {.collect = true, .install = true, .rewrite = true},
+      biv::support::ProbeEvidence{
           .agent = "missing-tool",
           .requested = std::nullopt,
           .executed = std::nullopt,
@@ -269,7 +395,7 @@ TEST_CASE("open envelope includes typed sessions report") {
           .outcome = biv::support::ProbeOutcome::not_executable,
           .exit_code = -1,
           .raw = "",
-          .parsed = std::nullopt}};
+          .parsed = std::nullopt});
   sessions.preview.agents.push_back(std::move(failed_preview));
   auto io_preview = sessions.preview.agents.back();
   io_preview.agent = "io-failed-tool";
@@ -335,13 +461,9 @@ TEST_CASE("open envelope includes typed sessions report") {
   biv::core_sessions::AgentPreview unwired_preview;
   unwired_preview.agent = "codex";
   unwired_preview.parent_count = 1;
-  unwired_preview.caps = biv::adapters::Capabilities{
-      .agent_version = "unknown",
-      .validated_range = "0.142.x, 0.144.x",
-      .verdict = biv::adapters::Capabilities::Verdict::unvalidated_host,
-      .long_path_keys_pinned = true,
-      .per_verb = {},
-      .probe = std::nullopt};
+  unwired_preview.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false,
+      true);
   unwired_sessions.preview.agents.push_back(std::move(unwired_preview));
 
   const auto unwired_json =
@@ -349,7 +471,7 @@ TEST_CASE("open envelope includes typed sessions report") {
                             unwired_sessions);
 
   CHECK(unwired_json.find(
-            "\"capabilities_verdict\": \"unvalidated-host\"") !=
+            "\"capabilities_verdict\": \"unreadable\"") !=
         std::string::npos);
   CHECK(unwired_json.find("\"probe\"") == std::string::npos);
 }
@@ -372,13 +494,11 @@ TEST_CASE("probe fields replace invalid UTF-8 before envelope serialization") {
   preview.parent_count = 1;
   std::string full_raw(300, 'r');
   full_raw += invalid("-");
-  preview.caps = biv::adapters::Capabilities{
-      .agent_version = "0.144.4",
-      .validated_range = "0.144.x",
-      .verdict = biv::adapters::Capabilities::Verdict::validated,
-      .long_path_keys_pinned = true,
-      .per_verb = {.collect = true, .install = true, .rewrite = true},
-      .probe = biv::support::ProbeEvidence{
+  preview.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"0.144.4"}, false, true,
+      {.collect = true, .install = true, .rewrite = true},
+      biv::support::ProbeEvidence{
           .agent = invalid("agent-"),
           .requested = std::filesystem::path{invalid("/tmp/requested-")},
           .executed = std::filesystem::path{invalid("/tmp/executed-")},
@@ -386,7 +506,7 @@ TEST_CASE("probe fields replace invalid UTF-8 before envelope serialization") {
           .outcome = biv::support::ProbeOutcome::ok,
           .exit_code = 0,
           .raw = full_raw,
-          .parsed = invalid("parsed-")}};
+          .parsed = invalid("parsed-")});
   sessions.preview.agents.push_back(std::move(preview));
 
   const auto json = biv::report::envelope(

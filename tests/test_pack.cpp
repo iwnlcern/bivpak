@@ -139,11 +139,16 @@ void copy_fixture_tree_with_workspace(const std::filesystem::path& from,
 
 class ScopedEnv {
  public:
-  ScopedEnv(std::string name, std::string value) : name_{std::move(name)} {
+  ScopedEnv(std::string name, std::optional<std::string> value)
+      : name_{std::move(name)} {
     if (const char* old = std::getenv(name_.c_str()); old != nullptr) {
       old_value_ = std::string{old};
     }
-    setenv(name_.c_str(), value.c_str(), 1);
+    if (value) {
+      setenv(name_.c_str(), value->c_str(), 1);
+    } else {
+      unsetenv(name_.c_str());
+    }
   }
 
   ~ScopedEnv() {
@@ -164,7 +169,286 @@ class ScopedEnv {
   std::optional<std::string> old_value_;
 };
 
+struct PackDiscoveryEnvValues {
+  std::optional<std::string> home;
+  std::optional<std::string> claude_config_dir;
+  std::optional<std::string> codex_home;
+  std::optional<std::string> codex_sqlite_home;
+};
+
+PackDiscoveryEnvValues isolated_pack_discovery_env(
+    const std::filesystem::path& root) {
+  return {
+      .home = (root / "home").string(),
+      .claude_config_dir = (root / "claude").string(),
+      .codex_home = (root / "codex").string(),
+      .codex_sqlite_home = (root / "codex-sqlite").string(),
+  };
+}
+
+class ScopedPackDiscoveryEnv {
+ public:
+  explicit ScopedPackDiscoveryEnv(const PackDiscoveryEnvValues& values)
+      : home_{"HOME", values.home},
+        claude_config_dir_{"CLAUDE_CONFIG_DIR", values.claude_config_dir},
+        codex_home_{"CODEX_HOME", values.codex_home},
+        codex_sqlite_home_{"CODEX_SQLITE_HOME",
+                           values.codex_sqlite_home} {}
+
+ private:
+  ScopedEnv home_;
+  ScopedEnv claude_config_dir_;
+  ScopedEnv codex_home_;
+  ScopedEnv codex_sqlite_home_;
+};
+
+void require_store_roots_under(const biv::pack::PackReport& report,
+                               const std::filesystem::path& root) {
+  const auto canonical_root = std::filesystem::weakly_canonical(root);
+  for (const auto& session : report.agent_sessions) {
+    const auto store_root = std::filesystem::weakly_canonical(
+        std::filesystem::path{session.provenance.store_root});
+    const auto relative = store_root.lexically_relative(canonical_root);
+    CAPTURE(store_root, canonical_root, relative);
+    REQUIRE_FALSE(relative.empty());
+    REQUIRE(relative != ".");
+    REQUIRE_FALSE(relative.is_absolute());
+    REQUIRE(*relative.begin() != "..");
+  }
+}
+
+void write_agent_session(const std::filesystem::path& store,
+                         const std::filesystem::path& source,
+                         const std::string_view agent,
+                         const std::string_view session_id,
+                         const std::string_view version) {
+  if (agent == "codex") {
+    write_file(store / "sessions" / "2026" / "08" / "06" /
+                   ("rollout-2026-08-06T01-00-00-" +
+                    std::string{session_id} + ".jsonl"),
+               "{\"timestamp\":\"2026-08-06T01:00:00Z\",\"type\":"
+               "\"session_meta\",\"payload\":{\"id\":\"" +
+                   std::string{session_id} + "\",\"session_id\":\"" +
+                   std::string{session_id} + "\",\"cwd\":\"" +
+                   source.generic_string() + "\",\"cli_version\":\"" +
+                   std::string{version} + "\"}}\n");
+    return;
+  }
+  write_file(store / "projects" / "project" /
+                 (std::string{session_id} + ".jsonl"),
+             "{\"type\":\"user\",\"cwd\":\"" +
+                 source.generic_string() + "\",\"sessionId\":\"" +
+                 std::string{session_id} + "\",\"version\":\"" +
+                 std::string{version} + "\"}\n");
+}
+
 }  // namespace
+
+TEST_CASE("pack captures packer_home per HOME shape") {
+  {
+    // A valid store outside the pinned temp universe is unreachable even when
+    // the runner's ambient HOME points directly at it.
+    const auto root = make_tmp("ambient-home-guard");
+    const auto source = root / "proj";
+    const auto decoy_home = make_tmp("ambient-home-decoy");
+    const auto decoy_store = decoy_home / ".codex";
+    std::filesystem::create_directories(source);
+    write_file(source / "work.txt", "workspace");
+    write_agent_session(decoy_store, source, "codex",
+                        "019faaaa-bbbb-7ccc-8ddd-eeeeeeee8800", "0.142.5");
+    const ScopedEnv ambient_home{"HOME", decoy_home.string()};
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+
+    const auto report = biv::pack::pack(source);
+
+    REQUIRE(report.has_value());
+    require_store_roots_under(*report, root);
+    CHECK(report->agent_sessions.empty());
+    CHECK(std::ranges::none_of(
+        report->agent_sessions, [&](const auto& session) {
+          return session.provenance.store_root == decoy_store.generic_string();
+        }));
+    std::filesystem::remove_all(root);
+    std::filesystem::remove_all(decoy_home);
+  }
+
+  struct Row {
+    std::string_view label;
+    std::optional<std::string> home;
+    bool use_temp_home;
+    std::optional<biv::manifest::PathFlavor> expected_flavor;
+  };
+  const auto rows = std::array{
+      Row{.label = "absolute-posix", .home = std::nullopt,
+          .use_temp_home = true,
+          .expected_flavor = biv::manifest::PathFlavor::posix},
+      Row{.label = "unset", .home = std::nullopt, .use_temp_home = false,
+          .expected_flavor = std::nullopt},
+      Row{.label = "empty", .home = "", .use_temp_home = false,
+          .expected_flavor = std::nullopt},
+      Row{.label = "relative", .home = "relative/home", .use_temp_home = false,
+          .expected_flavor = std::nullopt},
+      Row{.label = "degenerate-root", .home = "/", .use_temp_home = false,
+          .expected_flavor = std::nullopt},
+      Row{.label = "wsl-mount", .home = "/mnt/c/Users/x",
+          .use_temp_home = false,
+          .expected_flavor = biv::manifest::PathFlavor::wsl},
+      Row{.label = "windows-drive", .home = "C:/Users/x",
+          .use_temp_home = false,
+          .expected_flavor = biv::manifest::PathFlavor::windows},
+  };
+  for (const auto& row : rows) {
+    CAPTURE(row.label);
+    const auto root = make_tmp("packer-home-" + std::string{row.label});
+    const auto source = root / "proj";
+    const auto codex_store = root / "codex";
+    const auto claude_store = root / "claude";
+    std::filesystem::create_directories(source);
+    std::filesystem::create_directories(codex_store);
+    std::filesystem::create_directories(claude_store);
+    write_file(source / "work.txt", "workspace");
+    const auto home_value = row.use_temp_home
+                                ? std::optional<std::string>{(root / "home").string()}
+                                : row.home;
+    auto env_values = isolated_pack_discovery_env(root);
+    env_values.home = home_value;
+    env_values.codex_home = codex_store.string();
+    env_values.claude_config_dir = claude_store.string();
+    const ScopedPackDiscoveryEnv discovery_env{env_values};
+
+    const auto report = biv::pack::pack(source);
+
+    REQUIRE(report.has_value());
+    require_store_roots_under(*report, root);
+    CHECK(report->agent_sessions.empty());
+    const auto members = read_archive(root / "proj.bvpk");
+    auto manifest = biv::manifest::parse(as_span(members.at(0).data));
+    REQUIRE(manifest.has_value());
+    const auto expected = row.expected_flavor
+                              ? std::optional<biv::manifest::PackerHome>{
+                                    biv::manifest::PackerHome{
+                                        .path = *home_value,
+                                        .flavor = *row.expected_flavor}}
+                              : std::nullopt;
+    REQUIRE(manifest->packer_home == expected);
+    REQUIRE(manifest->source_path_flavor == biv::manifest::PathFlavor::posix);
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("Task 6 pack omits known below-minimum sessions and reports every floor fact") {
+  struct Case {
+    std::string_view agent;
+    std::string_view session_id;
+    std::string_view version;
+    std::string_view minimum;
+  };
+  for (const auto& test : std::array{
+           Case{"codex", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee6100", "0.61.0",
+                "0.142"},
+           Case{"claude-code", "aaaaaaaa-1111-4000-8000-000000000205",
+                "2.0.5", "2.1"},
+       }) {
+    CAPTURE(test.agent);
+    const auto root = make_tmp("below-min-" + std::string{test.agent});
+    const auto source = root / "proj";
+    const auto codex_store = root / "codex";
+    const auto claude_store = root / "claude";
+    std::filesystem::create_directories(source);
+    write_file(source / "work.txt", "workspace");
+    write_agent_session(test.agent == "codex" ? codex_store : claude_store,
+                        source, test.agent, test.session_id, test.version);
+    auto env_values = isolated_pack_discovery_env(root);
+    env_values.codex_home = codex_store.string();
+    env_values.claude_config_dir = claude_store.string();
+    const ScopedPackDiscoveryEnv discovery_env{env_values};
+
+    const auto report = biv::pack::pack(source);
+
+    REQUIRE(report.has_value());
+    require_store_roots_under(*report, root);
+    // FX-VF-P1/*/not-in-image
+    CHECK(report->agent_sessions.empty());
+    CHECK(report->agent_sessions_summary.empty());
+    const auto members = read_archive(root / "proj.bvpk");
+    CHECK(std::ranges::none_of(members, [&](const ArchiveMember& member) {
+      return member.meta.path.starts_with("agents/" + std::string{test.agent} +
+                                          "/");
+    }));
+    auto manifest = biv::manifest::parse(as_span(members.at(0).data));
+    REQUIRE(manifest.has_value());
+    CHECK(manifest->agent_sessions.empty());
+
+    const auto warning = std::ranges::find_if(
+        report->warnings, [&](const biv::pack::Warning& candidate) {
+          return candidate.kind == "SessionBelowMinimumOmitted" &&
+                 candidate.path == test.session_id;
+        });
+    // FX-VF-P1/*/skip-report-default-visible and report-names-{version,min,reason}
+    REQUIRE(warning != report->warnings.end());
+    const auto visible = biv::pack::warning_text(*warning);
+    CHECK(visible.find(test.session_id) != std::string::npos);
+    CHECK(visible.find(test.version) != std::string::npos);
+    CHECK(visible.find(test.minimum) != std::string::npos);
+    CHECK(visible.find("below-minimum") != std::string::npos);
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("Task 6 pack keeps minimum and forward-known sessions at entry schema one") {
+  struct Case {
+    std::string_view key;
+    std::string_view agent;
+    std::string_view session_id;
+    std::string_view version;
+  };
+  for (const auto& test : std::array{
+           Case{"P2", "codex", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1425",
+                "0.142.5"},
+           Case{"P2", "claude-code",
+                "aaaaaaaa-1111-4000-8000-000000000217", "2.1.207"},
+           Case{"P4", "codex", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee3000",
+                "0.300.0"},
+           Case{"P4", "claude-code",
+                "aaaaaaaa-1111-4000-8000-000000000290", "2.9.0"},
+           Case{"P3", "codex", "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0003",
+                "unknown"},
+       }) {
+    CAPTURE(test.key, test.agent);
+    const auto root =
+        make_tmp(std::string{test.key} + "-schema-one-" + std::string{test.agent});
+    const auto source = root / "proj";
+    const auto codex_store = root / "codex";
+    const auto claude_store = root / "claude";
+    std::filesystem::create_directories(source);
+    write_file(source / "work.txt", "workspace");
+    write_agent_session(test.agent == "codex" ? codex_store : claude_store,
+                        source, test.agent, test.session_id, test.version);
+    auto env_values = isolated_pack_discovery_env(root);
+    env_values.codex_home = codex_store.string();
+    env_values.claude_config_dir = claude_store.string();
+    const ScopedPackDiscoveryEnv discovery_env{env_values};
+
+    const auto report = biv::pack::pack(source);
+
+    REQUIRE(report.has_value());
+    require_store_roots_under(*report, root);
+    REQUIRE(report->agent_sessions.size() == 1);
+    CHECK(report->agent_sessions.front().agent_version_at_pack == test.version);
+    CHECK(report->agent_sessions.front().entry_schema == 1);
+    const auto members = read_archive(root / "proj.bvpk");
+    auto manifest = biv::manifest::parse(as_span(members.at(0).data));
+    REQUIRE(manifest.has_value());
+    REQUIRE(manifest->agent_sessions.size() == 1);
+    CHECK(manifest->agent_sessions.front().entry_schema == 1);
+    CHECK(std::ranges::any_of(members, [&](const ArchiveMember& member) {
+      return member.meta.path.starts_with("agents/" + std::string{test.agent} +
+                                          "/");
+    }));
+    std::filesystem::remove_all(root);
+  }
+}
 
 TEST_CASE("pack writes manifest, checksums, and payload extents") {
   const auto root = make_tmp("happy");
@@ -176,9 +460,12 @@ TEST_CASE("pack writes manifest, checksums, and payload extents") {
   std::filesystem::create_directories(source / "target");
   write_file(source / "target" / "skip.txt", "skip");
   std::filesystem::create_symlink("a.txt", source / "link.txt");
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
 
   auto report = biv::pack::pack(source);
   REQUIRE(report.has_value());
+  require_store_roots_under(*report, root);
   CHECK(report->image_path == (root / "sample.bvpk").generic_string());
   CHECK(std::filesystem::exists(root / "sample.bvpk"));
   CHECK_FALSE(std::filesystem::exists(source / "sample.bvpk"));
@@ -224,6 +511,8 @@ TEST_CASE("pack refuses stale partial and reports facts") {
   std::filesystem::create_directories(source);
   write_file(source / "a.txt", "alpha");
   write_file(root / "sample.bvpk.partial", "stale");
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
 
   auto report = biv::pack::pack(source);
   REQUIRE_FALSE(report.has_value());
@@ -237,6 +526,8 @@ TEST_CASE("pack refuses repo-bearing source") {
   const auto root = make_tmp("repo");
   const auto source = root / "sample";
   std::filesystem::create_directories(source / ".git");
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
   auto report = biv::pack::pack(source);
   REQUIRE_FALSE(report.has_value());
   CHECK(report.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
@@ -257,11 +548,14 @@ TEST_CASE(
                                    source);
   const auto source_before = snapshot_files(source);
   const auto store_before = snapshot_files(store);
-  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+  auto env_values = isolated_pack_discovery_env(root);
+  env_values.claude_config_dir = store.string();
+  const ScopedPackDiscoveryEnv discovery_env{env_values};
 
   auto report = biv::pack::pack(source);
 
   REQUIRE(report.has_value());
+  require_store_roots_under(*report, root);
   REQUIRE(report->agent_sessions.size() == 1);
   CHECK(report->agent_sessions.front().agent == "claude-code");
   REQUIRE(report->agent_sessions_summary.size() == 1);
@@ -321,7 +615,9 @@ TEST_CASE("pack rejects duplicate adapter members before publishing an image") {
              "{\"type\":\"user\",\"cwd\":\"" + source.generic_string() +
                  "\",\"sessionId\":\"" + session_id +
                  "\",\"version\":\"2.1.202\"}\n");
-  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+  auto env_values = isolated_pack_discovery_env(root);
+  env_values.claude_config_dir = store.string();
+  const ScopedPackDiscoveryEnv discovery_env{env_values};
 
   const auto report = biv::pack::pack(source);
 
@@ -347,7 +643,9 @@ TEST_CASE("pack rejects traversal and control-character session ids atomically")
                "{\"type\":\"user\",\"cwd\":\"" + source.generic_string() +
                    "\",\"sessionId\":\"" + hostile_id +
                    "\",\"version\":\"2.1.202\"}\n");
-    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+    auto env_values = isolated_pack_discovery_env(root);
+    env_values.claude_config_dir = store.string();
+    const ScopedPackDiscoveryEnv discovery_env{env_values};
 
     const auto report = biv::pack::pack(source);
 
@@ -372,7 +670,9 @@ TEST_CASE("pack rejects control and DEL bytes in collected artifact members") {
     write_file(store / "projects" / "-ws-proj" /
                    "aaaaaaaa-1111-4000-8000-000000000001" / hostile_name,
                "{\"message\":\"must-not-pack\"}\n");
-    const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+    auto env_values = isolated_pack_discovery_env(root);
+    env_values.claude_config_dir = store.string();
+    const ScopedPackDiscoveryEnv discovery_env{env_values};
 
     const auto report = biv::pack::pack(source);
 
@@ -402,17 +702,20 @@ TEST_CASE("pack carries duplicate-store warning and A5 pick into the envelope") 
   };
   rollout(env_store, "2026-07-06T01:00:00Z");
   rollout(default_store, "2026-07-06T02:00:00Z");
-  const ScopedEnv codex_home{"CODEX_HOME", env_store.string()};
-  const ScopedEnv home{"HOME", (root / "home").string()};
+  auto env_values = isolated_pack_discovery_env(root);
+  env_values.codex_home = env_store.string();
+  const ScopedPackDiscoveryEnv discovery_env{env_values};
 
   const auto report = biv::pack::pack(source);
 
   REQUIRE(report.has_value());
+  require_store_roots_under(*report, root);
   REQUIRE(report->agent_sessions.size() == 1);
   CHECK(report->agent_sessions.front().provenance.store_root ==
         default_store.generic_string());
   CHECK(std::ranges::any_of(report->warnings, [&](const biv::pack::Warning& warning) {
-    return warning.kind == "SessionDuplicateStore" && warning.path == session_id;
+    return warning.kind == "SessionDuplicateStore" && warning.path == session_id &&
+           !warning.artifact.has_value() && !warning.bytes.has_value();
   }));
   const auto json = biv::report::envelope("pack", *report, std::nullopt,
                                           std::nullopt, 2);
@@ -455,11 +758,14 @@ TEST_CASE("pack excludes symlinked Claude agent artifacts") {
   write_file(store / "projects" / "-ws-proj" /
                  "aaaaaaaa-1111-4000-8000-000000000001" / "history.jsonl",
              "DO_NOT_COLLECT_SUBTREE_HISTORY");
-  const ScopedEnv claude_config{"CLAUDE_CONFIG_DIR", store.string()};
+  auto env_values = isolated_pack_discovery_env(root);
+  env_values.claude_config_dir = store.string();
+  const ScopedPackDiscoveryEnv discovery_env{env_values};
 
   auto report = biv::pack::pack(source);
 
   REQUIRE(report.has_value());
+  require_store_roots_under(*report, root);
   const auto members = read_archive(root / "proj.bvpk");
   CHECK(std::ranges::none_of(members, [](const ArchiveMember& member) {
     return member.meta.path.find("leak.jsonl") != std::string::npos;
@@ -500,11 +806,14 @@ TEST_CASE("pack derives relpath from slash-form Windows extended paths") {
                  "\",\"session_id\":\"" + session_id +
                  "\",\"cwd\":\"//?/C:/tmp/" + token +
                  "/proj/sub\",\"cli_version\":\"0.142.5\"}}\n");
-  const ScopedEnv codex_home{"CODEX_HOME", store.string()};
+  auto env_values = isolated_pack_discovery_env(root);
+  env_values.codex_home = store.string();
+  const ScopedPackDiscoveryEnv discovery_env{env_values};
 
   const auto report = biv::pack::pack(source);
 
   REQUIRE(report.has_value());
+  require_store_roots_under(*report, root);
   REQUIRE(report->agent_sessions.size() == 1);
   CHECK(report->agent_sessions.front().relpath_key == "sub");
   std::filesystem::remove_all(source.parent_path());
@@ -542,11 +851,14 @@ TEST_CASE("pack computes foreign-flavor session relpaths without host path parsi
                  "\",\"session_id\":\"" + session_id +
                  "\",\"cwd\":\"" + json_cwd +
                  "\",\"cli_version\":\"0.142.5\"}}\n");
-  const ScopedEnv codex_home{"CODEX_HOME", store.string()};
+  auto env_values = isolated_pack_discovery_env(root);
+  env_values.codex_home = store.string();
+  const ScopedPackDiscoveryEnv discovery_env{env_values};
 
   const auto report = biv::pack::pack(source);
 
   REQUIRE(report.has_value());
+  require_store_roots_under(*report, root);
   REQUIRE(report->agent_sessions.size() == 1);
   CHECK(report->agent_sessions.front().relpath_key == "sub");
   std::filesystem::remove_all(root);
@@ -569,11 +881,14 @@ TEST_CASE("pack writes dangling Codex parent fields as parent not in image") {
                  source.generic_string() +
                  "\",\"cli_version\":\"0.142.5\",\"parent_thread_id\":\"" +
                  missing_parent + "\"}}\n");
-  const ScopedEnv codex_home{"CODEX_HOME", store.string()};
+  auto env_values = isolated_pack_discovery_env(root);
+  env_values.codex_home = store.string();
+  const ScopedPackDiscoveryEnv discovery_env{env_values};
 
   auto report = biv::pack::pack(source);
 
   REQUIRE(report.has_value());
+  require_store_roots_under(*report, root);
   REQUIRE(report->agent_sessions.size() == 1);
   const auto& entry = report->agent_sessions.front();
   CHECK(entry.agent == "codex");

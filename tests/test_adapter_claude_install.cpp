@@ -4,6 +4,7 @@
 #include <csignal>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <set>
@@ -21,6 +22,7 @@
 #include "adapters/rewrite_common.hpp"
 #include "adapters/secure_io.hpp"
 #include "adapters/secure_io_fstat_seam.hpp"
+#include "adapters/version_floor.hpp"
 #include "core/open/sessions.hpp"
 #include "core/support/probe.hpp"
 
@@ -86,6 +88,28 @@ constexpr std::string_view kLeafUuid = "00000000-0000-4000-8000-000000000102";
 constexpr std::string_view kToolUuid = "00000000-0000-4000-8000-000000000103";
 constexpr std::string_view kSubagentUuid =
     "00000000-0000-4000-8000-000000000201";
+constexpr std::string_view kIdPlaceholder = "<installed-id>";
+
+void replace_all(std::string& value, const std::string_view token,
+                 const std::string_view replacement) {
+  REQUIRE_FALSE(token.empty());
+  auto position = value.find(token);
+  while (position != std::string::npos) {
+    value.replace(position, token.size(), replacement.data(), replacement.size());
+    position = value.find(token, position + replacement.size());
+  }
+}
+
+void normalize_minted_ids(
+    std::string& value,
+    const std::vector<biv::adapters::IdMapEntry>& id_map) {
+  for (const auto& row : id_map) {
+    replace_all(value, row.installed_session_id, kIdPlaceholder);
+    for (const auto& child : row.children) {
+      replace_all(value, child.second, kIdPlaceholder);
+    }
+  }
+}
 
 fs::path make_tmp(std::string_view name) {
   auto base = fs::temp_directory_path() /
@@ -260,13 +284,10 @@ void add_claude_members(std::map<std::string, std::vector<std::byte>>& members, 
 biv::adapters::InstallTarget target_for(
     fs::path workspace, fs::path store, std::map<std::string, std::vector<std::byte>>& members,
     biv::adapters::Capabilities capabilities = [] {
-      biv::adapters::Capabilities value;
-      value.agent_version = "unknown";
-      value.validated_range = "2.1.x";
-      value.verdict = biv::adapters::Capabilities::Verdict::unvalidated_host;
-      value.long_path_keys_pinned = false;
-      value.per_verb = {.collect = true, .install = true, .rewrite = true};
-      return value;
+      return biv::adapters::Capabilities::from_probe(
+          biv::adapters::Capabilities::Verdict::readable,
+          std::optional<std::string>{"2.1.211"}, false, false,
+          {.collect = true, .install = true, .rewrite = true});
     }()) {
   return biv::adapters::InstallTarget{
       .workspace_root = std::move(workspace),
@@ -285,6 +306,119 @@ biv::adapters::InstallTarget target_for(
 }
 
 }  // namespace
+
+TEST_CASE("FX-VF-O2 claude direction refusal is per-session and transports detail") {
+  const auto root = make_tmp("fx-vf-o2");
+  auto members = std::map<std::string, std::vector<std::byte>>{};
+  auto target = target_for(root / "workspace", root / "claude", members);
+  target.capabilities = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"2.1.100"}, false, false,
+      {.collect = true, .install = true, .rewrite = true});
+  auto newer = claude_entry("/ws/proj", "aaaaaaaa-1111-4000-8000-000000000201");
+  newer.agent_version_at_pack = "2.2.0";
+  newer.children.clear();
+  newer.artifacts.clear();
+  auto older = claude_entry("/ws/proj", "aaaaaaaa-1111-4000-8000-000000000202");
+  older.agent_version_at_pack = "2.0.5";
+  older.children.clear();
+  older.artifacts.clear();
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{newer, older});
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2U);
+  CHECK(result->sessions.at(0).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.at(0).reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.at(0).detail ==
+        std::optional<std::string>{std::string{
+            biv::adapters::version_floor::kBasisNewerThanHost}});
+  CHECK(result->sessions.at(1).outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  fs::remove_all(root);
+}
+
+TEST_CASE(
+    "Claude admission refuses an unparseable host version through InstallTarget") {
+  const auto root = make_tmp("host-unparseable");
+  auto members = std::map<std::string, std::vector<std::byte>>{};
+  auto capabilities = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"unknown"}, false, false,
+      {.collect = true, .install = true, .rewrite = true});
+  auto target = target_for(root / "workspace", root / "claude", members,
+                           std::move(capabilities));
+  auto record = claude_entry(
+      "/ws/proj", "aaaaaaaa-1111-4000-8000-000000000402");
+  record.children.clear();
+  record.artifacts.clear();
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, std::vector{record});
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"not-validated"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK_FALSE(result->sessions.front().host_version_unverified);
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("FX-VF-O4 and FX-MG-7 claude hostile bases refuse before ordering") {
+  const std::string nul_bearing{"2.1.\0", 5U};
+  const std::string control_bearing{"2.1.\x1f", 5U};
+  const std::vector<std::pair<std::string, std::string>> cases{
+      {"basis-absent", ""},
+      {"basis-null", "null"},
+      {"basis-nul-bearing", nul_bearing},
+      {"basis-non-numeric", "2.1.x7"},
+      {"basis-overlong-patch", "2.1.1234567890"},
+      {"basis-control-bearing", control_bearing},
+      {"basis-unicode-bearing", "2.1.\xE2\x98\x83"},
+      {"basis-line-valid-but-unparseable", "2.1."}};
+
+  for (const auto& [name, basis] : cases) {
+    DYNAMIC_SECTION(name) {
+      const auto root = make_tmp("fx-vf-o4-" + name);
+      auto members = std::map<std::string, std::vector<std::byte>>{};
+      auto target = target_for(root / "workspace", root / "claude", members);
+      target.capabilities = biv::adapters::Capabilities::from_probe(
+          biv::adapters::Capabilities::Verdict::readable,
+          std::optional<std::string>{"2.1.100"}, false, false,
+          {.collect = true, .install = true, .rewrite = true});
+      auto record =
+          claude_entry("/ws/proj", "aaaaaaaa-1111-4000-8000-000000000401");
+      record.agent_version_at_pack = basis;
+      record.children.clear();
+      record.artifacts.clear();
+
+      const auto result = biv::adapters::claude_code_adapter().install(
+          target, biv::adapters::Consent::yes, std::vector{record});
+
+      REQUIRE(result.has_value());
+      REQUIRE(result->sessions.size() == 1U);
+      CHECK(result->sessions.front().outcome ==
+            biv::adapters::InstallSessionOutcome::Outcome::failed);
+      CHECK(result->sessions.front().reason ==
+            std::optional<std::string>{"not-validated"});
+      CHECK(result->sessions.front().detail ==
+            std::optional<std::string>{std::string{
+                biv::adapters::version_floor::kBasisUnorderable}});
+      CHECK(result->id_map.empty());
+      CHECK(result->activation.empty());
+      fs::remove_all(root);
+    }
+  }
+}
 
 TEST_CASE("rewrite common derives pair sets and rewrites JSONL strings") {
   const auto pairs = biv::adapters::rewrite::derive_pair_set("/mnt/c/Users/Me/Proj",
@@ -420,6 +554,98 @@ TEST_CASE("rewrite common decodes only string values and verifies decoded values
   CHECK(verify.origin_path_hits > 0);
 }
 
+TEST_CASE("Claude install produces identical bytes with or without packer_home") {
+  const auto root = make_tmp("packer-home-receipt");
+  const auto workspace = root / "workspace";
+  constexpr std::string_view kEngagedCarrier = "/ws";
+  fs::create_directories(workspace);
+  auto members = claude_members();
+  members.at(main_artifact()) = bytes(
+      std::string{"{\"/ws/proj\":\"key-must-not-change\",\"type\":\"user\","
+                  "\"cwd\":\"\\/ws\\/\\u0070roj\",\"sessionId\":\""} +
+      std::string{kOriginalSession} +
+      "\",\"decimal\":0.1,\"integral\":1.0,\"exponent\":1e+03,"
+      "\"unsigned\":18446744073709551615}\n");
+  auto record = claude_entry();
+  record.children.clear();
+  CHECK(record.original_path.starts_with(std::string{kEngagedCarrier} + "/"));
+  std::string escaped_member_needle;
+  for (const char value : kEngagedCarrier) {
+    if (value == '/') {
+      escaped_member_needle += '\\';
+    }
+    escaped_member_needle += value;
+  }
+  const auto escaped_member_bytes = bytes(escaped_member_needle);
+  const auto& raw_member = members.at(main_artifact());
+  CHECK(std::search(raw_member.begin(), raw_member.end(),
+                    escaped_member_bytes.begin(), escaped_member_bytes.end()) !=
+        raw_member.end());
+  const std::vector<biv::manifest::AgentSessionEntry> records{record};
+  struct StoreReceipt {
+    struct IdMapShape {
+      std::string agent;
+      std::string image_session_id;
+      std::vector<std::string> image_children;
+
+      bool operator==(const IdMapShape&) const = default;
+    };
+
+    std::vector<std::string> files;
+    std::map<std::string, std::string> contents;
+    std::vector<IdMapShape> id_map_shape;
+  };
+  const auto install_receipt = [&](const std::string_view arm,
+                                   std::optional<biv::manifest::PackerHome> home) {
+    const auto store = root / std::string{arm};
+    fs::create_directories(store);
+    auto target = target_for(workspace, store, members);
+    target.packer_home = std::move(home);
+    const auto result = biv::adapters::claude_code_adapter().install(
+        target, biv::adapters::Consent::yes, records);
+    REQUIRE(result.has_value());
+    REQUIRE(result->sessions.size() == 1U);
+    REQUIRE(result->sessions.front().outcome ==
+            biv::adapters::InstallSessionOutcome::Outcome::installed);
+    REQUIRE(result->id_map.size() == 1U);
+    StoreReceipt receipt;
+    for (const auto& row : result->id_map) {
+      std::vector<std::string> image_children;
+      image_children.reserve(row.children.size());
+      std::ranges::transform(row.children, std::back_inserter(image_children),
+                             [](const auto& child) { return child.first; });
+      receipt.id_map_shape.push_back({.agent = row.agent,
+                                      .image_session_id = row.image_session_id,
+                                      .image_children =
+                                          std::move(image_children)});
+    }
+    for (const auto& file : regular_files(store)) {
+      auto relative = fs::relative(file, store).generic_string();
+      auto installed = read_text(file);
+      normalize_minted_ids(relative, result->id_map);
+      normalize_minted_ids(installed, result->id_map);
+      receipt.files.push_back(relative);
+      REQUIRE(receipt.contents.emplace(std::move(relative),
+                                       std::move(installed)).second);
+    }
+    std::ranges::sort(receipt.files);
+    REQUIRE_FALSE(receipt.files.empty());
+    return receipt;
+  };
+
+  const auto engaged = install_receipt(
+      "engaged", biv::manifest::PackerHome{
+                     std::string{kEngagedCarrier}, biv::manifest::PathFlavor::posix});
+  const auto absent = install_receipt("absent", std::nullopt);
+  // Minted installed ids are normalized across arms by construction, so these
+  // byte-identity checks deliberately exclude id-only divergence.
+  REQUIRE(engaged.files == absent.files);
+  REQUIRE(engaged.contents == absent.contents);
+  REQUIRE(engaged.id_map_shape.size() == absent.id_map_shape.size());
+  REQUIRE(engaged.id_map_shape == absent.id_map_shape);
+  fs::remove_all(root);
+}
+
 TEST_CASE("Claude install rewrites escaped values without changing keys or numbers") {
   const auto root = make_tmp("escaped-values");
   const auto workspace = root / "workspace";
@@ -478,7 +704,7 @@ TEST_CASE(
   REQUIRE(first->sessions.size() == 1);
   CHECK(first->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::installed);
   CHECK(first->sessions.front().image_session_id == kOriginalSession);
-  CHECK(first->sessions.front().host_version_unverified);
+  CHECK_FALSE(first->sessions.front().host_version_unverified);
   REQUIRE(first->sessions.front().content_rewrite.has_value());
   CHECK(*first->sessions.front().content_rewrite == "pair");
   CHECK(first->sessions.front().verify.origin_path_hits == 0);
@@ -537,7 +763,7 @@ TEST_CASE(
   fs::remove_all(root);
 }
 
-TEST_CASE("Task 3 Claude install keeps the existing unverified image-version gate") {
+TEST_CASE("Claude install uses grammar and direction instead of an allowlist") {
   const auto root = make_tmp("capability-gate");
   const auto workspace = root / "workspace";
   fs::create_directories(workspace);
@@ -554,7 +780,7 @@ TEST_CASE("Task 3 Claude install keeps the existing unverified image-version gat
   REQUIRE(supported->sessions.size() == 1);
   CHECK(supported->mode == biv::adapters::InstallResult::Mode::host_installed);
   CHECK(supported->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::installed);
-  CHECK(supported->sessions.front().host_version_unverified);
+  CHECK_FALSE(supported->sessions.front().host_version_unverified);
   REQUIRE(supported->activation.size() == 1);
 
   const auto unknown_image_store = root / "unknown-image-claude";
@@ -570,26 +796,34 @@ TEST_CASE("Task 3 Claude install keeps the existing unverified image-version gat
   REQUIRE(unknown->sessions.size() == 1);
   CHECK(unknown->sessions.front().outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(unknown->sessions.front().reason ==
+        std::optional<std::string>{"not-validated"});
   CHECK(unknown->sessions.front().detail ==
-        std::optional<std::string>{"capability_refused"});
+        std::optional<std::string>{"basis_unorderable"});
   CHECK_FALSE(unknown->sessions.front().host_version_unverified);
   CHECK(unknown->id_map.empty());
   CHECK(unknown->activation.empty());
   CHECK(regular_files(unknown_image_store).empty());
 
-  const auto unvalidated_store = root / "unvalidated-claude";
-  fs::create_directories(unvalidated_store);
-  auto unvalidated_caps = supported_target.capabilities;
-  unvalidated_caps.verdict = biv::adapters::Capabilities::Verdict::unvalidated;
-  auto unvalidated_target = target_for(workspace, unvalidated_store, members, unvalidated_caps);
-  const auto unvalidated = adapter.install(unvalidated_target, biv::adapters::Consent::yes, valid_records);
-  REQUIRE(unvalidated.has_value());
-  REQUIRE(unvalidated->sessions.size() == 1);
-  CHECK(unvalidated->sessions.front().outcome == biv::adapters::InstallSessionOutcome::Outcome::failed);
-  CHECK(unvalidated->sessions.front().detail == std::optional<std::string>{"capability_refused"});
-  CHECK(unvalidated->id_map.empty());
-  CHECK(unvalidated->activation.empty());
-  CHECK_FALSE(fs::exists(unvalidated_store / "projects"));
+  const auto forward_store = root / "forward-claude";
+  fs::create_directories(forward_store);
+  auto forward_caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"2.9.0"}, true, false,
+      {.collect = true, .install = true, .rewrite = true});
+  auto forward_target =
+      target_for(workspace, forward_store, members, std::move(forward_caps));
+  const auto forward = adapter.install(
+      forward_target, biv::adapters::Consent::yes, valid_records);
+  REQUIRE(forward.has_value());
+  REQUIRE(forward->sessions.size() == 1);
+  CHECK(forward->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::installed);
+  CHECK(forward->sessions.front().host_version_unverified);
+  CHECK_FALSE(forward->sessions.front().detail.has_value());
+  REQUIRE(forward->id_map.size() == 1U);
+  REQUIRE(forward->activation.size() == 1U);
+  CHECK(fs::exists(forward_store / "projects"));
   fs::remove_all(root);
 }
 
@@ -628,7 +862,8 @@ TEST_CASE(
                                             &biv::adapters::InstallSessionOutcome::image_session_id);
   REQUIRE(failed_row != installed->sessions.end());
   CHECK(failed_row->outcome == biv::adapters::InstallSessionOutcome::Outcome::failed);
-  CHECK(failed_row->detail == std::optional<std::string>{"capability_refused"});
+  CHECK(failed_row->detail ==
+        std::optional<std::string>{"basis_newer_than_host"});
   fs::remove_all(root);
 }
 
@@ -867,6 +1102,57 @@ TEST_CASE("Claude install refuses nonzero rewrite verification before writing") 
   fs::remove_all(root);
 }
 
+TEST_CASE(
+    "Claude rewrite verification preserves a sibling capability refusal") {
+  const auto root = make_tmp("verify-refusal-cohort");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-claude";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  auto members = claude_members();
+  auto hostile = bytes(std::string{"{\"cwd\":\"/ws/proj\",\"sessionId\":\""} +
+                       std::string{kOriginalSession} + "\"}");
+  hostile.push_back(static_cast<std::byte>(0xff));
+  hostile.push_back(static_cast<std::byte>('\n'));
+  members.at(main_artifact()) = std::move(hostile);
+  auto target = target_for(workspace, store, members);
+  auto refused = claude_entry(
+      "/ws/proj", "aaaaaaaa-1111-4000-8000-000000000905");
+  refused.agent_version_at_pack = "unknown";
+  refused.children.clear();
+  refused.artifacts.clear();
+  const std::vector<biv::manifest::AgentSessionEntry> records{refused,
+                                                              claude_entry()};
+
+  const auto result = biv::adapters::claude_code_adapter().install(
+      target, biv::adapters::Consent::yes, records);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->sessions.size() == 2U);
+  const auto row_for = [&](const std::string_view id) {
+    return std::ranges::find_if(result->sessions, [&](const auto& row) {
+      return row.image_session_id == id;
+    });
+  };
+  const auto refused_row = row_for(refused.original_session_ids.primary);
+  const auto verify_row = row_for(claude_entry().original_session_ids.primary);
+  REQUIRE(refused_row != result->sessions.end());
+  REQUIRE(verify_row != result->sessions.end());
+  CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
+  CHECK(refused_row->detail ==
+        std::optional<std::string>{"basis_unorderable"});
+  CHECK(verify_row->reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(verify_row->detail ==
+        std::optional<std::string>{"rewrite_verify_failed"});
+  CHECK(verify_row->verify.origin_path_hits > 0U);
+  CHECK(verify_row->verify.origin_id_hits > 0U);
+  CHECK(result->id_map.empty());
+  CHECK(result->activation.empty());
+  CHECK(regular_files(store).empty());
+  fs::remove_all(root);
+}
+
 TEST_CASE("Claude install refuses every unverifiable escaped origin line") {
   struct HostileLine {
     std::string name;
@@ -918,15 +1204,29 @@ TEST_CASE("Task 3 Claude capabilities parse one probe observation") {
     biv::adapters::Capabilities::Verdict verdict;
     std::optional<std::string> parsed;
     biv::support::ProbeOutcome outcome;
+    bool newer_than_survey;
   };
-  const std::vector<ProbeCase> cases{{"2.1.211 (Claude Code)\n", biv::adapters::Capabilities::Verdict::validated,
-                                      "2.1.211", biv::support::ProbeOutcome::ok},
-                                     {"2.2.0 (Claude Code)", biv::adapters::Capabilities::Verdict::unvalidated, "2.2.0",
-                                      biv::support::ProbeOutcome::ok},
-                                     {"not a version", biv::adapters::Capabilities::Verdict::unvalidated_host,
-                                      std::nullopt, biv::support::ProbeOutcome::unparseable},
-                                     {"", biv::adapters::Capabilities::Verdict::unvalidated_host, std::nullopt,
-                                      biv::support::ProbeOutcome::unparseable}};
+  const std::vector<ProbeCase> cases{{"2.1.211 (Claude Code)\n", biv::adapters::Capabilities::Verdict::readable,
+                                      "2.1.211", biv::support::ProbeOutcome::ok, false},
+                                     {"2.2.0 (Claude Code)", biv::adapters::Capabilities::Verdict::readable, "2.2.0",
+                                      biv::support::ProbeOutcome::ok, true},
+                                     {"v2.2.0-alpha.1+build (Claude Code)",
+                                      biv::adapters::Capabilities::Verdict::readable,
+                                      "v2.2.0-alpha.1+build",
+                                      biv::support::ProbeOutcome::ok, true},
+                                     {"2.2.0.1 (Claude Code)",
+                                      biv::adapters::Capabilities::Verdict::readable,
+                                      "2.2.0.1", biv::support::ProbeOutcome::ok,
+                                      true},
+                                     {"2.2.0 (Claude Code)\nruntime 2.1.0",
+                                      biv::adapters::Capabilities::Verdict::unreadable,
+                                      std::nullopt,
+                                      biv::support::ProbeOutcome::unparseable,
+                                      false},
+                                     {"not a version", biv::adapters::Capabilities::Verdict::unreadable,
+                                      std::nullopt, biv::support::ProbeOutcome::unparseable, false},
+                                     {"", biv::adapters::Capabilities::Verdict::unreadable, std::nullopt,
+                                      biv::support::ProbeOutcome::unparseable, false}};
 
   for (const auto& probe_case : cases) {
     DYNAMIC_SECTION(probe_case.raw) {
@@ -963,9 +1263,9 @@ TEST_CASE("Task 3 Claude capabilities parse one probe observation") {
       const auto caps = biv::adapters::claude_code_adapter().capabilities(host);
 
       CHECK(observations == 1);
-      CHECK(caps.validated_range == "2.1.x");
-      CHECK(caps.verdict == probe_case.verdict);
-      CHECK(caps.agent_version == probe_case.parsed.value_or("unknown"));
+      CHECK(caps.verdict() == probe_case.verdict);
+      CHECK(caps.agent_version() == probe_case.parsed.value_or("unknown"));
+      CHECK(caps.newer_than_survey() == probe_case.newer_than_survey);
       REQUIRE(caps.probe.has_value());
       CHECK(caps.probe->parsed == probe_case.parsed);
       CHECK(caps.probe->outcome == probe_case.outcome);
@@ -1012,9 +1312,9 @@ TEST_CASE("Task 3 Claude capabilities preserve not-found and timeout evidence") 
           biv::adapters::claude_code_adapter().capabilities(host);
 
       CHECK(observations == 1);
-      CHECK(caps.verdict ==
-            biv::adapters::Capabilities::Verdict::unvalidated_host);
-      CHECK(caps.agent_version == "unknown");
+      CHECK(caps.verdict() ==
+            biv::adapters::Capabilities::Verdict::absent);
+      CHECK(caps.agent_version() == "unknown");
       REQUIRE(caps.probe.has_value());
       CHECK(caps.probe->outcome == outcome);
       CHECK_FALSE(caps.probe->parsed.has_value());
@@ -1035,8 +1335,8 @@ TEST_CASE("Task 3 Claude capabilities preserve not-found and timeout evidence") 
 
   const auto caps = biv::adapters::claude_code_adapter().capabilities(host);
 
-  CHECK(caps.verdict ==
-        biv::adapters::Capabilities::Verdict::unvalidated_host);
+  CHECK(caps.verdict() ==
+        biv::adapters::Capabilities::Verdict::absent);
   CHECK_FALSE(caps.probe.has_value());
   fs::remove_all(root);
 
@@ -1073,9 +1373,7 @@ TEST_CASE("Task 3 Claude capabilities preserve not-found and timeout evidence") 
   fs::remove_all(error_root);
 }
 
-TEST_CASE(
-    "Task 3 Claude probe verdict is orthogonal to store availability and "
-    "failures") {
+TEST_CASE("Task 5 Claude absent store dominates readable probe") {
   const auto root = make_tmp("probe-store-orthogonal");
   const auto& adapter = biv::adapters::claude_code_adapter();
   const biv::adapters::Env env{.getenv = [](std::string_view) -> std::optional<std::string> { return std::nullopt; },
@@ -1100,7 +1398,9 @@ TEST_CASE(
 
   const auto caps = adapter.capabilities(working_host);
   CHECK(observations == 1);
-  CHECK(caps.verdict == biv::adapters::Capabilities::Verdict::validated);
+  CHECK(caps.verdict() == biv::adapters::Capabilities::Verdict::absent);
+  CHECK(caps.agent_version() == "unknown");
+  CHECK_FALSE(caps.newer_than_survey());
   CHECK_FALSE(caps.per_verb.collect);
   CHECK_FALSE(caps.per_verb.install);
   CHECK_FALSE(caps.per_verb.rewrite);
@@ -1123,7 +1423,7 @@ TEST_CASE(
       },
       .pinned_bins = {}};
   const auto failed = adapter.capabilities(failed_host);
-  CHECK(failed.verdict == biv::adapters::Capabilities::Verdict::unvalidated_host);
+  CHECK(failed.verdict() == biv::adapters::Capabilities::Verdict::unreadable);
   REQUIRE(failed.probe.has_value());
   CHECK(failed.probe->outcome == biv::support::ProbeOutcome::nonzero_exit);
   CHECK(failed.per_verb.collect);
@@ -1145,12 +1445,10 @@ TEST_CASE(
     marker << "{\"version\":\"3.0.0\"}\n";
   }
   auto members = claude_members();
-  biv::adapters::Capabilities capabilities;
-  capabilities.agent_version = "2.1.211";
-  capabilities.validated_range = "2.1.x";
-  capabilities.verdict = biv::adapters::Capabilities::Verdict::validated;
-  capabilities.long_path_keys_pinned = false;
-  capabilities.per_verb = {.collect = true, .install = true, .rewrite = true};
+  auto capabilities = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"2.1.211"}, false, false,
+      {.collect = true, .install = true, .rewrite = true});
   auto target = target_for(workspace, store, members, std::move(capabilities));
 
   const auto installed = biv::adapters::claude_code_adapter().install(
@@ -1589,9 +1887,9 @@ TEST_CASE("Claude preserves a capability refusal through a containment publish f
   REQUIRE(refused_row != result->sessions.end());
   REQUIRE(cohort_row != result->sessions.end());
 
-  CHECK(refused_row->reason == std::optional<std::string>{"error"});
+  CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
   CHECK(refused_row->detail ==
-        std::optional<std::string>{"capability_refused"});
+        std::optional<std::string>{"basis_unorderable"});
   CHECK(cohort_row->reason ==
         std::optional<std::string>{"containment_refused"});
   CHECK(cohort_row->detail != std::optional<std::string>{"ELOOP"});
@@ -1631,9 +1929,9 @@ TEST_CASE("Claude preserves a capability refusal through an ambient publish faul
   REQUIRE(refused_row != result->sessions.end());
   REQUIRE(cohort_row != result->sessions.end());
 
-  CHECK(refused_row->reason == std::optional<std::string>{"error"});
+  CHECK(refused_row->reason == std::optional<std::string>{"not-validated"});
   CHECK(refused_row->detail ==
-        std::optional<std::string>{"capability_refused"});
+        std::optional<std::string>{"basis_unorderable"});
   CHECK(cohort_row->outcome ==
         biv::adapters::InstallSessionOutcome::Outcome::failed);
   CHECK(cohort_row->reason == std::optional<std::string>{"error"});

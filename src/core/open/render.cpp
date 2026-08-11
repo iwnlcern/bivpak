@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <sstream>
 
+#include "adapters/version_floor.hpp"
+
 namespace biv::open_render {
 
 namespace {
@@ -177,23 +179,24 @@ std::string render_probe_disclosure(
     if (agent.caps.has_value() && agent.caps->probe.has_value()) {
       const auto& caps = *agent.caps;
       const auto& probe = *caps.probe;
-      if (probe.outcome == support::ProbeOutcome::ok &&
+      if (caps.verdict() == adapters::Capabilities::Verdict::absent) {
+        out << "  " << display(agent.agent)
+            << ": not validated on this host (agent store absent) \u2014 "
+               "sessions will not be installed or staged\n";
+      } else if (caps.verdict() == adapters::Capabilities::Verdict::readable &&
+                 probe.outcome == support::ProbeOutcome::ok &&
           probe.parsed.has_value()) {
+        const auto floor = adapters::version_floor::row_for(agent.agent);
         out << "  " << display(agent.agent) << ": "
             << display(probe.executed.has_value()
                            ? probe.executed->generic_string()
                            : std::string{"<not resolved>"})
-            << " --version -> " << trimmed_probe_raw(probe.raw) << " ("
-            << (caps.verdict == adapters::Capabilities::Verdict::validated
-                    ? "validated; supported "
-                    : "not validated; supported ")
-            << display(caps.validated_range) << ')';
+            << " --version -> " << trimmed_probe_raw(probe.raw)
+            << " (readable; minimum " << display(floor.min_line)
+            << "; surveyed through " << display(floor.surveyed_through)
+            << ')';
         if (probe.pinned) {
           out << " (pinned)";
-        }
-        if (caps.verdict == adapters::Capabilities::Verdict::unvalidated) {
-          out << " — host version unsupported; consent-yes refuses this "
-                 "agent's sessions";
         }
         out << '\n';
       } else {
@@ -211,10 +214,20 @@ std::string render_probe_disclosure(
         if (probe.pinned) {
           out << " (pinned)";
         }
-        out << " \u2014 host version unverified; consent-yes installs with "
-               "host_version_unverified=true when the image entry's version "
-               "is supported, and refuses otherwise\n";
+        /* m-3 spelling at consumer review */
+        out << " \u2014 host version unreadable; make " << display(agent.agent)
+            << " --version return one readable version and retry; sessions "
+               "will not be installed or staged\n";
       }
+    }
+    if (agent.caps.has_value() &&
+        agent.caps->wire_verdict() == "readable-newer-than-survey") {
+      const auto floor = adapters::version_floor::row_for(agent.agent);
+      out << "  " << display(agent.agent) << " host version "
+          << display(agent.caps->agent_version())
+          << " is newer than surveyed through "
+          << display(floor.surveyed_through)
+          << "; session import compatibility is uncertain\n";
     }
   }
   return out.str();
@@ -234,18 +247,18 @@ std::string render_prompt_b(const core_sessions::SessionPreview& preview,
     }
     out << '\n';
     if (agent.caps.has_value() && !agent.caps->probe.has_value() &&
-        agent.caps->verdict == adapters::Capabilities::Verdict::unvalidated_host) {
+        agent.caps->verdict() == adapters::Capabilities::Verdict::unreadable) {
+      /* m-3 spelling at consumer review */
       out << "  " << display(agent.agent)
-          << ": host version unverified \u2014 import proceeds on the image entry's version\n";
+          << ": host version unreadable \u2014 make " << display(agent.agent)
+          << " --version return one readable version and retry; sessions will "
+             "not be installed or staged\n";
     } else if (agent.caps.has_value() && !agent.caps->probe.has_value() &&
-               (agent.caps->verdict == adapters::Capabilities::Verdict::unvalidated ||
-                agent.caps->verdict == adapters::Capabilities::Verdict::absent)) {
-      const auto detail = agent.caps->verdict == adapters::Capabilities::Verdict::absent
-                              ? std::string{"agent store absent"}
-                              : "version " + display(agent.caps->agent_version) + " outside " +
-                                    display(agent.caps->validated_range);
+               agent.caps->verdict() == adapters::Capabilities::Verdict::absent) {
+      const std::string detail{"agent store absent"};
+      /* m-3 spelling at consumer review */
       out << "  " << display(agent.agent) << ": not validated on this host (" << detail
-          << ") \u2014 consent-yes will report FAILED for this agent's sessions (no staging in Step 3)\n";
+          << ") \u2014 sessions will not be installed or staged\n";
     }
   }
   out << "\nImage provenance: packed from " << display(manifest.source_path) << " by biv "

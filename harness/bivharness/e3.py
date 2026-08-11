@@ -60,6 +60,10 @@ SESSION_LOCATIONS: dict[str, tuple[str, ...]] = {
     "claude-code": ("projects",),
     "codex": ("sessions", "session_index.jsonl", "archived_sessions"),
 }
+VERSION_FLOOR_MIRROR = {
+    "codex": {"min_line": "0.142", "surveyed_through": "0.144"},
+    "claude-code": {"min_line": "2.1", "surveyed_through": "2.1"},
+}
 # C1 guards the read/pack-side session-location surface used by the zero-session
 # negative control. Adapter install.cpp files are deliberately excluded: they
 # are write/restore-side, cannot desync SESSION_LOCATIONS, and are covered by
@@ -72,7 +76,7 @@ _ADAPTER_SOURCE_ANCHORS = {
     ),
     "codex_adapter_file": (
         "src/adapters/codex/codex.cpp",
-        "4fb3b38ca8df11dfc92e735c69ac8717a4920d54724d85cde49a93c24ace56cb",
+        "6f8ec5721e7aed0950d6d2a16bc2463cf5f5085412594fafc338ea8ae1f318cf",
     ),
 }
 
@@ -91,6 +95,16 @@ class _OpenResultOutcome(NamedTuple):
     detail: str
 
 
+class VersionFloorAssessment(NamedTuple):
+    version: str
+    at_or_above_min: bool
+    newer_than_surveyed: bool
+
+
+class _VersionFloorEvidence(str):
+    """Internally generated, bounded evidence distinct from untrusted warnings."""
+
+
 class _ScenarioExit(Exception):
     def __init__(self, result: ScenarioResult) -> None:
         super().__init__()
@@ -107,6 +121,21 @@ class _NofollowParent(NamedTuple):
 class _CredentialGuard(NamedTuple):
     path: Path
     status: os.stat_result
+
+
+class _CredentialGuards(dict[str, _CredentialGuard]):
+    def __init__(self, version_evidence: list[str]) -> None:
+        super().__init__()
+        self._version_evidence = version_evidence
+
+    def retain_version_assessments(
+        self,
+        scope: str,
+        assessments: dict[str, VersionFloorAssessment],
+    ) -> None:
+        self._version_evidence.extend(
+            _version_evidence_rows(scope, assessments)
+        )
 
 
 class _CredentialScanOutcome(NamedTuple):
@@ -492,8 +521,13 @@ def _typed_post_materialization_result(
         Status.INVALID: "e3-post-materialization-invalid",
         Status.XFAIL_PENDING: "e3-post-materialization-pending",
     }[status]
-    warnings = [*integrity_notes, *cleanup_notes]
-    if primary.warnings:
+    version_evidence = [
+        str(warning)
+        for warning in primary.warnings
+        if type(warning) is _VersionFloorEvidence
+    ]
+    warnings = [*version_evidence, *integrity_notes, *cleanup_notes]
+    if len(version_evidence) != len(primary.warnings):
         warnings.insert(0, "biv-warning-present")
     return ScenarioResult(
         id=safe_id,
@@ -755,27 +789,70 @@ def scan_image_secret_values(image: Path, secret_values: list[str]) -> list[str]
     return hits
 
 
-def _is_prefix_list(value: object) -> bool:
-    return (
-        isinstance(value, list)
-        and bool(value)
-        and all(isinstance(prefix, str) and prefix for prefix in value)
+_VERSION_GRAMMAR = re.compile(
+    r"(?<![0-9A-Za-z.+-])"
+    r"(v?[0-9]{1,9}(?:\.[0-9]{1,9}){0,3}"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)"
+    r"(?![0-9A-Za-z.+-])"
+)
+def _parsed_line(version: str) -> tuple[int, int]:
+    numeric = version[1:] if version.startswith("v") else version
+    numeric = numeric.split("+", 1)[0].split("-", 1)[0]
+    components = [int(component) for component in numeric.split(".")]
+    return components[0], components[1] if len(components) > 1 else 0
+
+
+def _is_version_floor(value: object) -> bool:
+    if not isinstance(value, dict) or set(value) != {
+        "min_line", "surveyed_through"
+    }:
+        return False
+    return all(
+        isinstance(value[field], str)
+        and _VERSION_GRAMMAR.fullmatch(value[field]) is not None
+        for field in ("min_line", "surveyed_through")
     )
 
 
-def version_in_validated_range(version_output: str, validated_prefixes: list[str]) -> bool:
-    if not _is_prefix_list(validated_prefixes):
+def version_floor_assessment(
+    version_output: str, floor: dict[str, str]
+) -> VersionFloorAssessment | None:
+    if not _is_version_floor(floor):
         raise TypeError(
-            "validated_version_prefixes must be a non-empty list of non-empty strings; "
-            f"got {validated_prefixes!r} (a bare string character-iterates and fails open)"
+            "version_floor must contain grammar-valid min_line and "
+            f"surveyed_through strings; got {floor!r}"
         )
-    versions = re.findall(
-        r"(?<![0-9])([0-9]+\.[0-9]+\.[0-9]+)(?![0-9])",
-        version_output,
+    if "\0" in version_output:
+        return None
+    versions = _VERSION_GRAMMAR.findall(version_output)
+    if len(versions) != 1:
+        return None
+    version = versions[0]
+    line = _parsed_line(version)
+    return VersionFloorAssessment(
+        version=version,
+        at_or_above_min=line >= _parsed_line(floor["min_line"]),
+        newer_than_surveyed=line > _parsed_line(floor["surveyed_through"]),
     )
-    return len(versions) == 1 and any(
-        versions[0].startswith(prefix) for prefix in validated_prefixes
-    )
+
+
+def _version_evidence_rows(
+    scope: str,
+    assessments: dict[str, VersionFloorAssessment],
+) -> list[_VersionFloorEvidence]:
+    if scope not in ("live", "host2"):
+        return []
+    return [
+        _VersionFloorEvidence(
+            "version-floor-evidence:"
+            f"{scope}:{agent}:version={assessment.version};"
+            "newer_than_surveyed="
+            f"{'true' if assessment.newer_than_surveyed else 'false'}"
+        )
+        for agent, assessment in assessments.items()
+        if agent in VERSION_FLOOR_MIRROR
+    ]
 
 
 def class_j_failures(seed_workspace: Path, restored_workspace: Path, app_state_paths: list[Path]) -> list[str]:
@@ -1673,18 +1750,26 @@ def _version_gate_agents(
     cwd: Path,
     spawn: Callable[[list[str], Path, dict[str, str]], Any],
     scope: str = "",
-) -> None:
+    evidence: list[str] | None = None,
+) -> dict[str, VersionFloorAssessment]:
     failures: list[str] = []
+    assessments: dict[str, VersionFloorAssessment] = {}
     for agent, _, env in contexts:
         command = _rewrite_agent_command(
             agent["version_command"], resolved_binaries[agent["id"]]
         )
         try:
             version = spawn(command, cwd, env)
-            valid = version.returncode == 0 and version_in_validated_range(
-                version.stdout + version.stderr,
-                agent["validated_version_prefixes"],
+            assessment = version_floor_assessment(
+                version.stdout + version.stderr, agent["version_floor"]
             )
+            valid = (
+                version.returncode == 0
+                and assessment is not None
+                and assessment.at_or_above_min
+            )
+            if valid:
+                assessments[agent["id"]] = assessment
         except (OSError, subprocess.TimeoutExpired, TypeError, ValueError):
             valid = False
         if not valid:
@@ -1693,7 +1778,10 @@ def _version_gate_agents(
         label = f"{failures[0]} " if failures else ""
         if scope:
             label += f"{scope} "
-        raise ValueError(f"{label}version is outside the validated range")
+        raise ValueError(f"{label}version is unreadable or below the minimum")
+    if evidence is not None:
+        evidence.extend(_version_evidence_rows(scope, assessments))
+    return assessments
 
 
 def _agent_profile(agent: dict[str, Any], profile_root: Path, *, live: bool) -> Path:
@@ -1799,7 +1887,13 @@ def setup_host2_credentials(
     except (OSError, TypeError, ValueError):
         raise ValueError("host2 profile topology unavailable") from None
 
-    _version_gate_agents(contexts, resolved_binaries, host2, spawn, "host2")
+    version_assessments = _version_gate_agents(
+        contexts, resolved_binaries, host2, spawn, "host2"
+    )
+    if isinstance(credential_guards, _CredentialGuards):
+        credential_guards.retain_version_assessments(
+            "host2", version_assessments
+        )
 
     claude = next((item for item in contexts if item[0]["id"] == "claude-code"), None)
     codex = next((item for item in contexts if item[0]["id"] == "codex"), None)
@@ -2356,7 +2450,7 @@ def _validate_spec(spec: object) -> list[str]:
     else:
         required_agent_fields = (
             "id", "live_profile", "auth_status", "version_command",
-            "validated_version_prefixes", "seed_start_command", "seed_continue_command",
+            "version_floor", "seed_start_command", "seed_continue_command",
             "seed_retry_resume_command", "ownership_glob", "run_token_prefix", "resume_command",
             "cheapest_model",
         )
@@ -2367,12 +2461,14 @@ def _validate_spec(spec: object) -> list[str]:
                     "id", "live_profile", "ownership_glob", "run_token_prefix", "cheapest_model",
                 ):
                     require_string(agent, field, f"agent {field}")
+                elif field == "version_floor":
+                    continue
                 elif not _is_string_list(agent.get(field)):
                     failures.append(f"agent {field} must be a non-empty list of non-empty strings")
-            if not _is_prefix_list(agent.get("validated_version_prefixes")):
+            if not _is_version_floor(agent.get("version_floor")):
                 failures.append(
-                    f"{agent_id} validated_version_prefixes must be "
-                    "a non-empty list of non-empty strings"
+                    f"{agent_id} version_floor must contain grammar-valid "
+                    "min_line and surveyed_through strings"
                 )
             optional_string(agent, "host2_profile", "agent host2_profile")
             if "env" in agent and (
@@ -2788,7 +2884,9 @@ def run_e3(
     scanner: _CredentialScanner | None = None
     child_outputs: list[bytes] = []
     ambient_snapshots: dict[str, SourceIdentity] = {}
-    credential_guards: dict[str, _CredentialGuard] = {}
+    credential_guards: dict[str, _CredentialGuard] = _CredentialGuards(
+        run_warnings
+    )
     seed_parent: Path | None = None
     host2: Path | None = None
     claude_dest: Path | None = None
@@ -2837,7 +2935,10 @@ def run_e3(
             env = _agent_env(agent, live_profile, live=True)
             live_contexts.append((agent, live_profile, env))
 
-        _version_gate_agents(live_contexts, resolved_binaries, seed_ws, _spawn)
+        _version_gate_agents(
+            live_contexts, resolved_binaries, seed_ws, _spawn, "live",
+            run_warnings,
+        )
         for agent, live_profile, env in live_contexts:
             auth = _spawn(
                 _rewrite_agent_command(

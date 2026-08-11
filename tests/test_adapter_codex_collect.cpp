@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <csignal>
 #include <cstdint>
@@ -79,6 +80,8 @@ constexpr std::string_view kDuplicate = "019faaaa-bbbb-7ccc-8ddd-eeeeeeee0003";
 fs::path fixture_root() {
   return fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" / "codex_store";
 }
+
+fs::path tail_fixture_root() { return fixture_root() / "tail_matrix"; }
 
 struct FileStamp {
   std::uintmax_t size{};
@@ -357,6 +360,114 @@ TEST_CASE("Codex adapter collects rollout parent, child, and same-store newest d
   CHECK(joined_record_text(parent).find("DO_NOT_COLLECT") == std::string::npos);
   CHECK(joined_record_text(parent).find("eeeeeeee9999") == std::string::npos);
   CHECK(snapshot_tree(root) == before);
+}
+
+TEST_CASE("Codex adapter derives liveness from exactly the final rollout record") {
+  struct TailCase {
+    std::string_view fixture;
+    std::string_view id;
+    bool live;
+    bool collectable;
+  };
+  const std::array cases{
+      TailCase{"rollout-task-complete-with-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001", false, true},
+      TailCase{"rollout-task-complete-without-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1002.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1002", false, true},
+      TailCase{"rollout-turn-aborted-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1003.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1003", false, true},
+      TailCase{"rollout-thread-rolled-back-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1004.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1004", false, true},
+      TailCase{"rollout-session-meta-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1005.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1005", true, true},
+      TailCase{"rollout-dangling-tool-call-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1006.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1006", true, true},
+      TailCase{"rollout-malformed-complete-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1007.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1007", true, true},
+      TailCase{"rollout-truncated-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1008.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1008", true, true},
+      TailCase{"rollout-empty-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1009.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1009", true, false},
+      TailCase{"rollout-terminal-before-corrupt-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1010.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1010", true, true},
+      TailCase{"rollout-trailing-blank-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1011.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1011", true, true},
+      TailCase{"rollout-lone-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1012.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1012", true, false},
+      TailCase{"rollout-final-record-missing-type-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1013.jsonl",
+               "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1013", true, true},
+  };
+
+  for (const auto& test_case : cases) {
+    DYNAMIC_SECTION(test_case.fixture) {
+      const auto fixture = tail_fixture_root() / test_case.fixture;
+      REQUIRE(fs::is_regular_file(fixture));
+      const auto rollout = read_text(fixture);
+      CHECK(biv::adapters::has_terminal_tail_record(rollout) ==
+            !test_case.live);
+
+      const auto root = make_tmp(test_case.id);
+      const auto store = root / "codex";
+      const auto destination = store / "sessions" / "2026" / "08" / "05" /
+                               std::string{test_case.fixture};
+      fs::create_directories(destination.parent_path());
+      fs::copy_file(fixture, destination);
+      const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+          .root = store,
+          .locators = {biv::adapters::StoreLocator{
+              .kind = "sessions_root", .path = store / "sessions"}},
+          .tier = biv::adapters::DiscoveryTier::defaults,
+          .archived = false}};
+
+      const auto report =
+          biv::adapters::codex_adapter().collect("/ws/proj", stores);
+
+      REQUIRE(report.has_value());
+      if (!test_case.collectable) {
+        CHECK(report->sessions.empty());
+        fs::remove_all(root);
+        continue;
+      }
+      REQUIRE(report->sessions.size() == 1);
+      CHECK(report->sessions.front().original_session_id == test_case.id);
+      CHECK(report->sessions.front().live_at_pack == test_case.live);
+      fs::remove_all(root);
+    }
+  }
+}
+
+TEST_CASE("Codex parent liveness includes an absorbed live child") {
+  constexpr std::string_view parent_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1014";
+  constexpr std::string_view child_id =
+      "019faaaa-bbbb-7ccc-8ddd-eeeeeeee1015";
+  const auto root = make_tmp("terminal-parent-live-child");
+  const auto store = root / "codex";
+  const auto sessions = store / "sessions" / "2026" / "08" / "05";
+  fs::create_directories(sessions);
+  for (const auto name : {
+           "rollout-terminal-parent-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1014.jsonl",
+           "rollout-live-child-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1015.jsonl"}) {
+    fs::copy_file(tail_fixture_root() / name, sessions / name);
+  }
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{
+          .kind = "sessions_root", .path = store / "sessions"}},
+      .tier = biv::adapters::DiscoveryTier::defaults,
+      .archived = false}};
+
+  const auto report =
+      biv::adapters::codex_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(report.has_value());
+  REQUIRE(report->sessions.size() == 1);
+  const auto& parent = report->sessions.front();
+  CHECK(parent.original_session_id == parent_id);
+  CHECK(parent.child_ids ==
+        std::vector<std::string>{std::string{child_id}});
+  CHECK(parent.live_at_pack);
+  fs::remove_all(root);
 }
 
 TEST_CASE("Codex adapter matches Windows cwd to its WSL workspace") {
