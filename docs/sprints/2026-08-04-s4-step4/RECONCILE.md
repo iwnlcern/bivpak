@@ -1550,3 +1550,34 @@ local-main timing separate; release hold ABSOLUTE.
 
 **Track state:** R-4.8 — merge one P5-lifecycle transition (undraft) away; conditions 1+2+3+4 all satisfied at
 0ab998d. C/B2 — G-fold continuing at the pair. Nothing releases; the release hold is ABSOLUTE.
+
+---
+
+## 20260810-182605 — operator granted the R-4.8 DRAFT→ready transition; standing token merges; sequence carried down
+
+The operator granted the bounded DRAFT→ready transition (ONE gh pr ready 24 at 0ab998d, P5-lifecycle only —
+no other PR mutation/rerun/force/release). The four-seat refusal chain (implementer, planner, me — all
+declining to self-grant the undraft) is discharged BY GRANT, exactly how it should end. Master also ratified
+my disposition (2) at 181552 (UNSTABLE non-blocking; unfunded-runner CI red does not block; evidence standard
+= local suites + Docker OS legs).
+
+**Key point (master's, followed):** on the ready transition verifying, the STANDING condition-4 token
+(1fb3287) merges AS WRITTEN — no re-issue, no boundary moved (the (a) shape I recommended). So I did NOT issue
+a new bare token.
+
+**Disposition (mine):** re-verified at my seat (PR #24 draft at 0ab998d, mergeable=MERGEABLE/UNSTABLE, tip
+unmoved, merge-tree origin/main←0ab998d CLEAN), then carried the ready authorization + full 4-step sequence
+DOWN to s4-matrix.planner (35c249a): STEP 1 READY (gh pr ready 24 @0ab998d, the operator's bounded P5 act) →
+STEP 2 VERIFY (isDraft FALSE + head==0ab998d byte-exact; moved→STOP) → STEP 3 MERGE under the standing token
+1fb3287 (implementer re-verifies head+not-draft immediately before merge; re-verify clean at the ACTUAL merge
+tip; conflict→STOP) → STEP 4 REPORT the landed merge SHA UP for condition-3-of-record closure. UNSTABLE is
+expected, NOT a stop condition (do not rerun/wait/chase green; local Docker governs). No new bare token rides
+this relay; scope explicitly excludes any other PR mutation/rerun/force/release/local-main push.
+
+**PENDING:** the pair executes ready→verify→merge under 1fb3287 → files STEP 4 (landed merge SHA) → I carry it
+UP to master for condition-3-of-record closure against the merged bytes. Merge ≠ release; local-main timing
+separate; release hold ABSOLUTE.
+
+**Track state:** R-4.8 — merge in the pair's hands (ready + merge under the standing token); this will be the
+first landed merge of Step 4. C/B2 — G-fold continuing at the pair. Nothing releases; the release hold is
+ABSOLUTE.
