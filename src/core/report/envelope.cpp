@@ -219,6 +219,8 @@ std::string_view row_name(const core_sessions::SessionRowReport::Row row) {
     case core_sessions::SessionRowReport::Row::unknown_agent_skipped:
     case core_sessions::SessionRowReport::Row::sessions_consent_skipped:
       return "skipped";
+    case core_sessions::SessionRowReport::Row::sessions_staged:
+      return "staged";
     case core_sessions::SessionRowReport::Row::failed:
     case core_sessions::SessionRowReport::Row::containment_refused:
     case core_sessions::SessionRowReport::Row::session_install_failed:
@@ -393,6 +395,7 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::AgentNotValidatedFailed:
       return 2;
     case ErrKind::SessionsConsentSkipped:
+    case ErrKind::SessionsStaged:
       return 0;
     case ErrKind::SourceUnreadableRoot:
     case ErrKind::RepoDiscoveredUnsupported:

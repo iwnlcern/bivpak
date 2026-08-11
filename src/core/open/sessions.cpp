@@ -1,13 +1,18 @@
 #include "core/open/sessions.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <iterator>
 #include <span>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <vector>
 
 #include "adapters/registry.hpp"
 #include "adapters/secure_io.hpp"
 #include "adapters/version_floor.hpp"
+#include "core/json/writer.hpp"
 
 namespace biv::core_sessions {
 
@@ -16,6 +21,185 @@ namespace {
 bool decision_for(const ConsentDecision& consent, const std::string_view agent) {
   const auto found = std::ranges::find(consent.per_agent, agent, &std::pair<std::string, bool>::first);
   return found != consent.per_agent.end() && found->second;
+}
+
+std::vector<std::byte> bytes(const std::string_view text) {
+  std::vector<std::byte> out;
+  out.reserve(text.size());
+  for (const char value : text) {
+    out.push_back(static_cast<std::byte>(value));
+  }
+  return out;
+}
+
+bool windows_drive_path(const std::string_view path) {
+  const auto alpha = [](const char value) {
+    return (value >= 'A' && value <= 'Z') ||
+           (value >= 'a' && value <= 'z');
+  };
+  return path.size() >= 3U && alpha(path.at(0)) && path.at(1) == ':' &&
+         (path.at(2) == '\\' || path.at(2) == '/');
+}
+
+expected<std::string> staged_original_path(
+    const manifest::AgentSessionEntry& record,
+    const std::span<const std::pair<std::string, std::string>>
+        pair_set_applied) {
+  std::string representative = record.original_path;
+  if (windows_drive_path(representative)) {
+    std::ranges::replace(representative, '/', '\\');
+  }
+  if (std::ranges::find(pair_set_applied, representative,
+                        &std::pair<std::string, std::string>::first) ==
+      pair_set_applied.end()) {
+    return std::unexpected(BivError{ErrKind::RestoreWriteFailed,
+                                    ".biv/agents/manifest.json",
+                                    "invalid_staged_sidecar"});
+  }
+  return representative;
+}
+
+expected<std::string> staging_manifest_json(
+    const std::vector<adapters::IdMapEntry>& id_map,
+    const std::vector<manifest::AgentSessionEntry>& records,
+    const std::vector<std::pair<std::string, std::string>>&
+        pair_set_applied) {
+  json::Writer writer;
+  writer.begin_object();
+  writer.key("id_map");
+  writer.begin_array();
+  for (const auto& entry : id_map) {
+    const manifest::AgentSessionEntry* matched_record = nullptr;
+    for (const auto& record : records) {
+      if (record.agent != entry.agent ||
+          record.original_session_ids.primary != entry.image_session_id) {
+        continue;
+      }
+      if (matched_record != nullptr) {
+        return std::unexpected(BivError{ErrKind::RestoreWriteFailed,
+                                        ".biv/agents/manifest.json",
+                                        "invalid_staged_sidecar"});
+      }
+      matched_record = &record;
+    }
+    if (matched_record == nullptr) {
+      return std::unexpected(BivError{ErrKind::RestoreWriteFailed,
+                                      ".biv/agents/manifest.json",
+                                      "invalid_staged_sidecar"});
+    }
+    auto original_path =
+        staged_original_path(*matched_record, pair_set_applied);
+    if (!original_path) {
+      return std::unexpected(original_path.error());
+    }
+    writer.begin_object();
+    writer.key("agent");
+    writer.value_string(entry.agent);
+    writer.key("image_session_id");
+    writer.value_string(entry.image_session_id);
+    writer.key("installed_session_id");
+    writer.value_string(entry.installed_session_id);
+    writer.key("original_path");
+    writer.value_string(*original_path);
+    writer.key("children");
+    writer.begin_array();
+    for (const auto& [image_id, installed_id] : entry.children) {
+      writer.begin_array();
+      writer.value_string(image_id);
+      writer.value_string(installed_id);
+      writer.end_array();
+    }
+    writer.end_array();
+    writer.end_object();
+  }
+  writer.end_array();
+
+  writer.key("provenance_chain");
+  writer.begin_array();
+  std::vector<std::string> provenance_chain;
+  for (const auto& record : records) {
+    provenance_chain.push_back(record.original_session_ids.primary);
+    for (const auto& child : record.children) {
+      provenance_chain.push_back(child.original_id);
+    }
+  }
+  std::ranges::sort(provenance_chain);
+  const auto provenance_end =
+      std::ranges::unique(provenance_chain).begin();
+  provenance_chain.erase(provenance_end, provenance_chain.end());
+  for (const auto& original_id : provenance_chain) {
+    writer.value_string(original_id);
+  }
+  writer.end_array();
+
+  writer.key("pair_set_applied");
+  writer.begin_array();
+  auto pair_set = pair_set_applied;
+  std::ranges::sort(pair_set);
+  const auto pair_end = std::ranges::unique(pair_set).begin();
+  pair_set.erase(pair_end, pair_set.end());
+  for (const auto& [original_path, staged_path] : pair_set) {
+    writer.begin_array();
+    writer.value_string(original_path);
+    writer.value_string(staged_path);
+    writer.end_array();
+  }
+  writer.end_array();
+  writer.end_object();
+  return writer.take();
+}
+
+expected<void> publish_staging_manifest(
+    const std::filesystem::path& workspace_root,
+    const std::vector<adapters::IdMapEntry>& id_map,
+    const std::vector<manifest::AgentSessionEntry>& records,
+    const std::vector<std::pair<std::string, std::string>>&
+        pair_set_applied) {
+  auto json = staging_manifest_json(id_map, records, pair_set_applied);
+  if (!json) {
+    return std::unexpected(json.error());
+  }
+  const auto payload = bytes(*json);
+  const std::vector<adapters::secure_io::WriteRequest> writes{
+      {.relative_path = ".biv/agents/manifest.json", .bytes = payload}};
+  return adapters::secure_io::write_batch_no_replace(workspace_root, writes);
+}
+
+std::vector<AgentCaveat> staged_path_caveats(
+    const std::filesystem::path& workspace_root,
+    const std::vector<adapters::IdMapEntry>& id_map) {
+  std::vector<AgentCaveat> out;
+  for (const auto& ids : id_map) {
+    const auto agent_root =
+        workspace_root / ".biv" / "agents" / ids.agent;
+    std::vector<std::string> installed_ids{ids.installed_session_id};
+    for (const auto& child : ids.children) {
+      installed_ids.push_back(child.second);
+    }
+    std::error_code error;
+    std::filesystem::recursive_directory_iterator current{agent_root, error};
+    const std::filesystem::recursive_directory_iterator end;
+    while (!error && current != end) {
+      const auto path = current->path();
+      if (current->is_regular_file(error) && !error) {
+        const auto relative =
+            path.lexically_relative(workspace_root).generic_string();
+        if (std::ranges::any_of(installed_ids, [&](const auto& id) {
+              return relative.find(id) != std::string::npos;
+            })) {
+          out.push_back(AgentCaveat{.agent = ids.agent,
+                                    .kind = "staged-byte-path",
+                                    .note = relative});
+        }
+      }
+      current.increment(error);
+    }
+  }
+  std::ranges::sort(out, [](const AgentCaveat& left,
+                            const AgentCaveat& right) {
+    return std::tie(left.agent, left.note) < std::tie(right.agent, right.note);
+  });
+  return out;
 }
 
 std::optional<std::string> installed_id(const std::vector<adapters::IdMapEntry>& ids,
@@ -37,6 +221,28 @@ bool store_write_bits_absent(const std::filesystem::path& root) {
                               std::filesystem::perms::group_write |
                               std::filesystem::perms::others_write;
   return (permissions & write_bits) == std::filesystem::perms::none;
+}
+
+bool staging_carrier_preexists(const std::filesystem::path& workspace_root) {
+  std::error_code error;
+  const auto status = std::filesystem::symlink_status(
+      workspace_root / ".biv" / "agents", error);
+  if (!error) {
+    return status.type() != std::filesystem::file_type::not_found;
+  }
+  return error != std::errc::no_such_file_or_directory;
+}
+
+std::optional<std::string> merged_detail(
+    const std::optional<std::string>& existing,
+    const std::optional<std::string>& additional) {
+  if (!additional.has_value() || existing == additional) {
+    return existing;
+  }
+  if (!existing.has_value()) {
+    return additional;
+  }
+  return *existing + "; " + *additional;
 }
 
 }  // namespace
@@ -62,6 +268,8 @@ std::optional<ErrKind> kind_for_row(const SessionRowReport::Row row, const std::
       return ErrKind::UnknownAgentSkipped;
     case SessionRowReport::Row::sessions_consent_skipped:
       return ErrKind::SessionsConsentSkipped;
+    case SessionRowReport::Row::sessions_staged:
+      return ErrKind::SessionsStaged;
     case SessionRowReport::Row::agent_not_validated_failed:
       return ErrKind::AgentNotValidatedFailed;
     case SessionRowReport::Row::skipped:
@@ -178,6 +386,11 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                           const std::filesystem::path& final_workspace_root,
                                           const adapters::MemberRead& member_read) {
   SessionsOutcome outcome;
+  std::vector<adapters::IdMapEntry> staged_id_map;
+  std::vector<manifest::AgentSessionEntry> staged_records;
+  std::vector<std::pair<std::string, std::string>> staged_pair_set;
+  const bool foreign_staging_carrier =
+      staging_carrier_preexists(final_workspace_root);
   for (const auto& agent : preview.agents) {
     std::vector<manifest::AgentSessionEntry> eligible;
     for (const auto& entry : manifest.agent_sessions) {
@@ -232,23 +445,29 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
       }
       continue;
     }
-    if (!decision_for(consent, agent.agent)) {
+    const auto& caps = *agent.caps;
+    const auto& target_store = *agent.store;
+    const auto adapter_consent = decision_for(consent, agent.agent)
+                                     ? adapters::Consent::yes
+                                     : adapters::Consent::no;
+    if (adapter_consent == adapters::Consent::no &&
+        foreign_staging_carrier) {
       for (const auto& entry : eligible) {
-        outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
-                                                .image_session_id = entry.original_session_ids.primary,
-                                                .row = SessionRowReport::Row::sessions_consent_skipped,
-                                                .reason = "consent-denied",
-                                                .installed_session_id = std::nullopt,
-                                                .host_version_unverified = false,
-                                                .activation_suppressed = false,
-                                                .live_at_pack = entry.live_at_pack,
-                                                .detail = std::nullopt});
+        outcome.rows.push_back(SessionRowReport{
+            .agent = entry.agent,
+            .image_session_id = entry.original_session_ids.primary,
+            .row = SessionRowReport::Row::containment_refused,
+            .reason = "foreign_staging_carrier",
+            .installed_session_id = std::nullopt,
+            .host_version_unverified = false,
+            .activation_suppressed = true,
+            .live_at_pack = entry.live_at_pack,
+            .detail = std::nullopt});
       }
       continue;
     }
-    const auto& caps = *agent.caps;
-    const auto& target_store = *agent.store;
-    if (store_write_bits_absent(target_store.root)) {
+    if (adapter_consent == adapters::Consent::yes &&
+        store_write_bits_absent(target_store.root)) {
       for (const auto& entry : eligible) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
@@ -269,7 +488,8 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                        .member_read = member_read,
                                                        .capabilities = caps,
                                                        .packer_home = manifest.packer_home},
-                               adapters::Consent::yes, std::span<const manifest::AgentSessionEntry>{eligible});
+                               adapter_consent,
+                               std::span<const manifest::AgentSessionEntry>{eligible});
     if (!installed) {
       const auto reason = install_failure_reason(installed.error());
       const bool containment = reason == "containment_refused";
@@ -300,6 +520,7 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
     }
 
     bool any_clean = false;
+    bool any_staged = false;
     const size_t first_adapter_row = outcome.rows.size();
     for (const auto& row : installed->sessions) {
       const bool verify_hits = row.verify.origin_path_hits != 0U || row.verify.origin_id_hits != 0U;
@@ -314,7 +535,7 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                               .activation_suppressed =
                                   row.outcome == adapters::InstallSessionOutcome::Outcome::failed ||
                                   verify_hits,
-                              .live_at_pack = false,
+                              .live_at_pack = true,
                               .detail = row.detail};
       const auto source = std::ranges::find_if(manifest.agent_sessions, [&](const auto& entry) {
         return entry.agent == agent.agent && entry.original_session_ids.primary == row.image_session_id;
@@ -340,10 +561,24 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
         report.reason.reset();
         any_clean = true;
       } else if (row.outcome == adapters::InstallSessionOutcome::Outcome::staged) {
-        report.row = SessionRowReport::Row::session_install_failed;
-        report.reason = "error";
+        report.row = SessionRowReport::Row::sessions_staged;
+        report.reason.reset();
+        any_staged = true;
+        const auto map_entry = std::ranges::find(
+            installed->id_map, row.image_session_id,
+            &adapters::IdMapEntry::image_session_id);
+        if (map_entry != installed->id_map.end() &&
+            source != manifest.agent_sessions.end()) {
+          staged_id_map.push_back(*map_entry);
+          staged_records.push_back(*source);
+        }
       }
       outcome.rows.push_back(std::move(report));
+    }
+    if (any_staged) {
+      staged_pair_set.insert(staged_pair_set.end(),
+                             installed->pair_set_applied.begin(),
+                             installed->pair_set_applied.end());
     }
     outcome.id_map.insert(outcome.id_map.end(), installed->id_map.begin(), installed->id_map.end());
     if (any_clean) {
@@ -353,6 +588,38 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
     }
     for (const auto& note : agent.adapter->state_inventory().caveat_facts.notes) {
       outcome.caveats.push_back(AgentCaveat{.agent = agent.agent, .kind = note.first, .note = note.second});
+    }
+  }
+  if (!staged_id_map.empty()) {
+    if (auto published = publish_staging_manifest(
+            final_workspace_root, staged_id_map, staged_records,
+            staged_pair_set);
+        !published) {
+      auto disclosures =
+          staged_path_caveats(final_workspace_root, staged_id_map);
+      outcome.caveats.insert(outcome.caveats.end(), disclosures.begin(),
+                             disclosures.end());
+      const auto reason = install_failure_reason(published.error());
+      const bool containment = reason == "containment_refused";
+      std::optional<std::string> detail;
+      if (!containment) {
+        if (const auto symbol =
+                adapters::secure_io::errno_symbol(published.error().err_no);
+            symbol.has_value()) {
+          detail = std::string{*symbol};
+        }
+      }
+      for (auto& row : outcome.rows) {
+        if (row.row != SessionRowReport::Row::sessions_staged) {
+          continue;
+        }
+        row.row = containment
+                      ? SessionRowReport::Row::containment_refused
+                      : SessionRowReport::Row::session_install_failed;
+        row.reason = reason;
+        row.detail = merged_detail(row.detail, detail);
+        row.activation_suppressed = true;
+      }
     }
   }
   return outcome;

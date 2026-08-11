@@ -23,6 +23,7 @@
     {"kind": "SessionInstallFailed", "class": "divergence", "exit": 2},
     {"kind": "UnknownAgentSkipped", "class": "divergence", "exit": 2},
     {"kind": "SessionsConsentSkipped", "class": "advisory", "exit": 0},
+    {"kind": "SessionsStaged", "class": "advisory", "exit": 0},
     {"kind": "AgentNotValidatedFailed", "class": "divergence", "exit": 2},
     {"kind": "InternalError", "class": "mid-fail", "exit": 4},
     {"kind": "UsageError", "class": "usage", "exit": 5, "transitional": true, "note": "Reserved verbs list/info return UsageError with NotYetImplemented detail until implemented."}

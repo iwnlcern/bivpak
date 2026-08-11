@@ -27,6 +27,7 @@ enum class ErrKind {
   SessionInstallFailed,
   UnknownAgentSkipped,
   SessionsConsentSkipped,
+  SessionsStaged,
   AgentNotValidatedFailed,
   InternalError,
   UsageError,

@@ -1,7 +1,7 @@
 import json
 import os
 import stat
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 
@@ -69,8 +69,36 @@ def _validate_tolerance(tolerance: dict[str, Any]) -> None:
             raise ValueError(f"unknown tolerance policy for {name}: {policy}")
 
 
-def compare_trees(src: Path, restored: Path, tol: dict[str, Any]) -> list[str]:
+def _validated_additive_roots(roots: list[str]) -> tuple[str, ...]:
+    result: list[str] = []
+    for root in roots:
+        path = PurePosixPath(root)
+        if (
+            not root
+            or root == "."
+            or path.is_absolute()
+            or path.as_posix() != root
+            or any(part in {".", ".."} for part in path.parts)
+        ):
+            raise ValueError(f"invalid additive root: {root}")
+        result.append(root)
+    return tuple(result)
+
+
+def _allowed_extra(rel: str, kind: str, roots: tuple[str, ...]) -> bool:
+    if any(rel == root or rel.startswith(root + "/") for root in roots):
+        return True
+    return kind == "dir" and any(root.startswith(rel + "/") for root in roots)
+
+
+def compare_trees(
+    src: Path,
+    restored: Path,
+    tol: dict[str, Any],
+    additive_roots: list[str] | None = None,
+) -> list[str]:
     _validate_tolerance(tol)
+    allowed_roots = _validated_additive_roots(additive_roots or [])
     findings: list[str] = []
     src_entries = _entries(src)
     restored_entries = _entries(restored)
@@ -78,7 +106,8 @@ def compare_trees(src: Path, restored: Path, tol: dict[str, Any]) -> list[str]:
     for rel in sorted(src_entries.keys() - restored_entries.keys()):
         findings.append(f"C: missing path: {rel}")
     for rel in sorted(restored_entries.keys() - src_entries.keys()):
-        findings.append(f"C: extra path: {rel}")
+        if not _allowed_extra(rel, restored_entries[rel], allowed_roots):
+            findings.append(f"C: extra path: {rel}")
 
     for rel in sorted(src_entries.keys() & restored_entries.keys()):
         src_kind = src_entries[rel]

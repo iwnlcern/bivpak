@@ -196,6 +196,7 @@ struct InstallResult {
   std::vector<InstallSessionOutcome> sessions;
   std::vector<IdMapEntry> id_map;
   std::vector<Activation> activation;
+  std::vector<std::pair<std::string, std::string>> pair_set_applied;
 };
 
 struct RewriteReport {

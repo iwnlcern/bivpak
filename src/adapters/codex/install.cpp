@@ -51,6 +51,7 @@ struct PreparedSession {
   std::vector<WritePlan> writes;
   bool host_version_unverified{false};
   InstallVerify verify;
+  rewrite::ReplacementPairs pair_set_applied;
   std::vector<std::vector<std::byte>> outputs;
   size_t skipped_non_utf8{0};
 };
@@ -289,6 +290,12 @@ expected<InstallResult> codex_install(const InstallTarget& target,
                                       const std::span<const manifest::AgentSessionEntry> records) {
   InstallResult result;
   result.mode = consent == Consent::yes ? InstallResult::Mode::host_installed : InstallResult::Mode::staged;
+  const auto install_root = consent == Consent::yes
+                                ? target.target_store.root
+                                : target.workspace_root / ".biv" / "agents" /
+                                      "codex";
+  const auto publish_root = consent == Consent::yes ? target.target_store.root
+                                                    : target.workspace_root;
   for (const auto& record : records) {
     std::set<std::string> image_ids{record.original_session_ids.primary};
     for (const auto& child : record.children) {
@@ -340,6 +347,7 @@ expected<InstallResult> codex_install(const InstallTarget& target,
                              .host_version_unverified =
                                  admission.host_version_unverified,
                              .verify = {},
+                             .pair_set_applied = {},
                              .outputs = {},
                              .skipped_non_utf8 = 0};
     for (const auto& child : record.children) {
@@ -367,7 +375,7 @@ expected<InstallResult> codex_install(const InstallTarget& target,
       const auto rollout_found = rollouts.find(*original_id);
       const auto& rollout = rollout_found->second;
       const auto path =
-          target.target_store.root / "sessions" / rollout.year / rollout.month /
+          install_root / "sessions" / rollout.year / rollout.month /
           rollout.day /
           ("rollout-" + rollout.file_stamp + "-" + rollout.id + ".jsonl");
       prepared.writes.push_back(WritePlan{
@@ -376,13 +384,14 @@ expected<InstallResult> codex_install(const InstallTarget& target,
     prepared_sessions.push_back(std::move(prepared));
   }
 
-  if (consent == Consent::yes) {
+  {
     for (auto& prepared : prepared_sessions) {
-      const auto pair_set = rewrite::derive_pair_set(
+      prepared.pair_set_applied = rewrite::derive_pair_set(
           prepared.record.original_path, prepared.record.path_flavor,
           target.workspace_root.generic_string(),
           path_flavor_for(target.workspace_root));
-      const auto origins = rewrite::origins_from_pairs(pair_set);
+      const auto origins =
+          rewrite::origins_from_pairs(prepared.pair_set_applied);
       const auto id_map = id_pairs_for(prepared.record, prepared.installed_id,
                                        prepared.child_ids);
       const auto origin_ids = origin_ids_for(prepared.record);
@@ -392,7 +401,7 @@ expected<InstallResult> codex_install(const InstallTarget& target,
           return std::unexpected(data.error());
         }
         auto rewritten = rewrite::rewrite_jsonl_bytes(
-            *data, rewrite::PathPairsView{pair_set},
+            *data, rewrite::PathPairsView{prepared.pair_set_applied},
             rewrite::IdPairsView{id_map});
         prepared.skipped_non_utf8 += rewritten.skipped_non_utf8;
         merge_verify(prepared.verify,
@@ -427,12 +436,12 @@ expected<InstallResult> codex_install(const InstallTarget& target,
       for (size_t i = 0; i < prepared.writes.size(); ++i) {
         writes.push_back(secure_io::WriteRequest{
             .relative_path = prepared.writes.at(i).path.lexically_relative(
-                target.target_store.root),
+                publish_root),
             .bytes = prepared.outputs.at(i)});
       }
     }
     if (!writes.empty()) {
-      auto ok = secure_io::write_batch_no_replace(target.target_store.root, writes);
+      auto ok = secure_io::write_batch_no_replace(publish_root, writes);
       if (!ok) {
         const bool containment = ok.error().detail == "containment_refused";
         std::optional<std::string> cohort_detail;
@@ -470,15 +479,18 @@ expected<InstallResult> codex_install(const InstallTarget& target,
         .image_session_id = prepared.record.original_session_ids.primary,
         .installed_session_id = prepared.installed_id,
         .children = prepared.child_ids});
+    result.pair_set_applied.insert(result.pair_set_applied.end(),
+                                   prepared.pair_set_applied.begin(),
+                                   prepared.pair_set_applied.end());
     if (consent == Consent::no) {
       result.sessions.push_back(InstallSessionOutcome{
           .image_session_id = prepared.record.original_session_ids.primary,
           .outcome = InstallSessionOutcome::Outcome::staged,
           .reason = std::nullopt,
-          .content_rewrite = std::nullopt,
+          .content_rewrite = "pair",
           .host_version_unverified = prepared.host_version_unverified,
-          .verify = {},
-          .detail = std::nullopt});
+          .verify = prepared.verify,
+          .detail = non_utf8_detail(prepared.skipped_non_utf8)});
       continue;
     }
 

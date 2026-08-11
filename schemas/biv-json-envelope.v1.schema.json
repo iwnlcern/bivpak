@@ -131,8 +131,8 @@
                           "properties": {
                             "image_session_id": {"type": "string"},
                             "installed_session_id": {"type": "string"},
-                            "outcome": {"enum": ["installed", "skipped", "failed"]},
-                            "kind": {"enum": ["ContainmentRefused", "SessionInstallFailed", "UnknownAgentSkipped", "SessionsConsentSkipped", "AgentNotValidatedFailed"]},
+                            "outcome": {"enum": ["installed", "staged", "skipped", "failed"]},
+                            "kind": {"enum": ["ContainmentRefused", "SessionInstallFailed", "UnknownAgentSkipped", "SessionsConsentSkipped", "SessionsStaged", "AgentNotValidatedFailed"]},
                             "reason": {"type": "string"},
                             "host_version_unverified": {"type": "boolean"},
                             "activation_suppressed": {"type": "boolean"}

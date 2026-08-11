@@ -63,6 +63,26 @@ def test_extra_and_missing_paths_report_class_c_findings(tmp_path):
     assert any("missing" in item for item in findings)
 
 
+def test_declared_additive_root_is_the_only_restored_tree_tolerance(tmp_path):
+    src, restored = _matching_trees(tmp_path)
+    _write(restored / ".biv/agents/manifest.json", b"sealed\n")
+    _write(restored / ".biv/agents/claude-code/session.jsonl", b"staged\n")
+    _write(restored / ".biv/foreign.txt", b"not allowed\n")
+
+    findings = compare_trees(src, restored, load_tolerance(), [".biv/agents"])
+
+    assert not any(".biv/agents" in item for item in findings)
+    assert findings == ["C: extra path: .biv/foreign.txt"]
+
+
+@pytest.mark.parametrize("root", ["", ".", "../agents", "/tmp/agents", ".biv/../agents"])
+def test_additive_root_must_be_a_normalized_relative_path(tmp_path, root):
+    src, restored = _matching_trees(tmp_path)
+
+    with pytest.raises(ValueError, match="invalid additive root"):
+        compare_trees(src, restored, load_tolerance(), [root])
+
+
 def test_dir_mtime_skew_reports_class_b_finding(tmp_path):
     src, restored = _matching_trees(tmp_path)
     _stamp(restored / "empty", 1_700_000_000_000_000_301)
