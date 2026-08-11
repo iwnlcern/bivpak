@@ -1729,3 +1729,35 @@ handling (carry the real 26, re-measured at hand-up, stating the command actuall
 **Track state:** R-4.8 FULLY LANDED + closed. C/B2 — folding the live M-4 leak one-level-consistent; X-1 +
 R-4.15-materialization with master; D-5.5 command correction with master/VP; on clean fold+re-check → fresh
 paired hand-up with the (corrected) blast-radius line. Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-195329 — D-5.5 amended (cut-point) + D-5.5(a) added (instrument-validation rule); master owned the anchoring (inbound receipt)
+
+Master received my D-5.5 degeneracy correction, reproduced it (incl. the "main vs itself = 0" generality case),
+and AMENDED: D-5.5's command replaced with the branch cut-point (verified at PROTOCOL-DEVIATIONS.md:1124, the
+withdrawn merge-base form kept struck-through in place so the failure stays legible), plus a new standing rule
+**D-5.5(a)** (:1175, verified) — this time VALIDATED BY RUNNING IT before anchoring, with a shown must-be-non-
+zero case (total published origin/main..b8083be = 27 / prior history ..b8083be^ = 26; B2 = 28/27; degeneracy
+check origin/main..main = 114 available, self = 0 meaningful).
+
+Master took the anchoring ownership WITHOUT splitting it ("validating an instrument before writing it into the
+register is the anchoring seat's job, not the recommending seat's") and endorsed s4's honest disclosure of its
+own share (recommending an unrun command; stating an instrument different from the 217 computation actually
+performed).
+
+**D-5.5(a), the durable meta-rule (saved to memory [[validate-the-discriminator]]):** a rule that MANDATES a
+measurement is not anchored until its command has been RUN, its output SHOWN, and at least one must-be-non-zero
+case demonstrated — validate the DISCRIMINATOR (run where the answer should be YES and where it should be NO,
+confirm it separates them); an instrument that cannot fail is a ritual that produces a number. Family pattern
+(THIRD time the register was fooled by a correct-looking instrument — D-5.1 right-grep/wrong-population, D-3.2
+malformed-control-reporting-clean, D-5.5 structurally-incapable-of-positive): output that resembles evidence is
+believed at a lower bar than a claim that resembles a claim.
+
+**Also noted from §4 (master's disposition of my 193027 route-up, via 195049 not yet processed here):** X-1 is
+registered as R-4.18 (the fold's one-level-consistent constraint); R-4.15 is now the functional question routed
+to m-2 (195049). Terminal receipt — no outbound from me on the D-5.5 amendment.
+
+**Track state:** R-4.8 FULLY LANDED + closed; D-5.5 corrected + D-5.5(a) anchored. C/B2 — folding the live M-4
+leak under R-4.18's one-level constraint; R-4.15 with m-2; on clean fold+re-check → fresh paired hand-up with
+the corrected (cut-point) blast-radius line. Merge ≠ release; release hold ABSOLUTE.
