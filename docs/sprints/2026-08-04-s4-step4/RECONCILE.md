@@ -2051,3 +2051,33 @@ a direct push.
 **Track state:** R-4.8 landed+closed. C/B2 — bar COMPLETE (all 4 conditions met at the exact SHAs); merge is
 authorized but gated on the operator's republish authorization for the two draft PRs before the token can
 issue. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260811-053207 — republish AUTHORIZED order-bound; DISPATCH-MERGE token ISSUED to the floor implementer (four ordered acts)
+
+The operator authorized the republish (052830), and master restated the whole grant D-4.2-style as an ordered
+list of acts rather than an outcome — the exact correction for the "no publication step" category-phrasing
+that caused the draft-wall detour. The scope guard is now phrased against the HAZARD: nothing that makes a
+build reachable (no tag/release/artifact/publish/install); undraft + merge-commit are inside the authorized
+line.
+
+**Re-verified no drift immediately before issuing** (master's own discipline, and D-4.2): origin/main still
+`38a4702`, PR #22 head still `f03ce70`, PR #23 head still `fd857f1` (both draft, mergeable), merge-tree exit 0
+both. Grant intact.
+
+**Disposition (mine):** issued ONE `DISPATCH-MERGE` token to `s4-floor.implementer` (113d443; CC operator,
+s4.orchestrator-reviewer, s4-floor.planner, master.orchestrator-planner, m-2.planner) — the bare token
+flush-left exactly once, four hyphenated prose references, lint-clean. Authorized four ordered acts, nothing
+between: (1) `gh pr ready 22`, (2) merge PR #22 (C `f03ce70`) → main as a MERGE COMMIT via the PR, (3) `gh pr
+ready 23`, (4) merge PR #23 (B2 `fd857f1`) → main as a MERGE COMMIT via the PR immediately after (2). A10.3
+binds (C never without B2; if (4) can't complete, back C out and route up). Merge-commit shape via the PRs —
+no fast-forward / direct push. Exhausted by these four acts on these two SHAs (any head move voids + re-opens
+conditions 1 and 3). Remote CI red = no-signal (R-4.17), neither chased nor waived. Implementer reports the
+two landed merge SHAs + post-merge `main` head back to me; I carry them up to master. I issue but never
+execute.
+
+**Track state:** R-4.8 landed+closed. C/B2 — bar complete, republish + merge fully authorized, token ISSUED;
+awaiting the implementer's execution + the two landed merge SHAs, which I carry UP to master (so the next
+condition-3 has a real target). Then C/B2 are landed (C never without B2). Merge ≠ push ≠ release; release
+hold ABSOLUTE.
