@@ -1635,3 +1635,34 @@ a standing assurance. Tree-identity (a clean condition-3) and publication lineag
 **Track state:** R-4.8 — LANDED at 38a4702; condition-3-of-record with master to close; the publication
 consequence with the operator to weigh. Aggregate items OPEN; CI-unhealthy infra row still owed; INFO-3 stands.
 C/B2 — G-fold continuing. Merged ≠ deployed ≠ released; the release hold is ABSOLUTE.
+
+---
+
+## 20260810-191218 — operator resolved both dispositions; publication accepted, timing item CLOSED; D-5.5 stays informational (inbound receipt)
+
+The operator resolved both R-4.8 publication dispositions ("thats fine, we were planning to publish them
+anyways"): (a) the 217-commit publication incl. slice-A/B1 product history is ACCEPTED AS LANDED — no
+remediation/force-push/undo; (b) the local-main publication-timing item is CLOSED — publication is INTENDED,
+not deferred. Consequence: no merge holds for a publication decision; the base-published property (branch cut
+from local main → merging publishes prior history) is now EXPECTED/ACCEPTED for C/B2 and slice E, not a
+blocker. Also: master closed condition-3-of-record at 190522 and anchored my recommended process rule as D-5.5.
+
+Verified at my seat (cited = read): D-5.5 at PROTOCOL-DEVIATIONS.md:1124 (full rule — measure blast radius,
+"does not touch" is a claim discharged against the thing it's about); README decisions-of-record row :150
+(publication intended, timing closed, no merge holds, D-5.5 still required informationally). Bonus: my
+CI-unhealthy-all-branches flag (180050) was actioned as R-4.17 (README :151 — remote CI unfunded, red does not
+block; merge evidence = local suites + Docker OS legs).
+
+**What does NOT relax:** D-5.5 stands in full — every merge hand-up MEASURES + STATES the blast-radius number,
+now INFORMATIONAL not gating; a bare assurance is still forbidden (the rule was "don't assert an unmeasured
+negative," not "publication is dangerous"). Release remains wholly separate + ABSOLUTELY HELD (merged ≠
+published ≠ released).
+
+**Disposition (mine):** verified the anchors; updated memory [[merge-blast-radius-is-a-measurement]] with
+D-5.5's final disposition. The s4-floor (C/B2) pair is NOT on master's CC, so the "no publication hold +
+D-5.5 informational-line at hand-up" clarification needs propagating from me — folding it into my response to
+the concurrent C/B2 live-M-4-leak relay (192003) rather than a separate relay.
+
+**Track state:** R-4.8 FULLY LANDED + closed (conditions 1-4 discharged, condition-3-of-record closed,
+publication accepted). C/B2 — G-fold; a live M-4 leak coupled to R-4.15 just surfaced (192003, disposing next).
+Release hold ABSOLUTE.
