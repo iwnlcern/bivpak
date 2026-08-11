@@ -1581,3 +1581,25 @@ separate; release hold ABSOLUTE.
 **Track state:** R-4.8 — merge in the pair's hands (ready + merge under the standing token); this will be the
 first landed merge of Step 4. C/B2 — G-fold continuing at the pair. Nothing releases; the release hold is
 ABSOLUTE.
+
+---
+
+## 20260810-183700 — R-4.8 STEP 2 verified at my seat; STEP 3 cleared under the standing token
+
+The pair executed STEP 1 (one gh pr ready 24 at 0ab998d, nothing else) and verified STEP 2 (isDraft=false AND
+head==0ab998d byte-exact, both instruments; head did not move across the transition; UNSTABLE untouched). I
+INDEPENDENTLY re-verified STEP 2 at my seat (gh pr view 24: isDraft=false, headRefOid=0ab998d, mergeable=
+MERGEABLE, base main, OPEN; git ls-remote agrees) and issued the gate-keeper's on-record STEP-3 clearance
+(ba30ae7) pointing at the STANDING token 1fb3287 — not re-issued, not widened. Master's STEP-3 wording ("s4
+issues the token") could have left the implementer unsure whether cleared; the clearance resolves it as
+"standing token, proceed," removing merge-stall ambiguity while re-affirming no boundary moved.
+
+STEP 3 (merge) is now the implementer's act under 1fb3287: re-verify head+not-draft immediately before merge →
+merge PR #24 into main → re-verify clean at the actual merge tip (main advancing, 8981bfd0; conflict→STOP).
+STEP 4 (landed merge SHA) owed by the pair → I carry it UP for master's condition-3-of-record closure.
+
+**PENDING:** the implementer's merge + STEP-4 landed-SHA report → I close condition-3-of-record up. Merge ≠
+release; hold ABSOLUTE.
+
+**Track state:** R-4.8 — merge cleared and in the implementer's hands (Step 4's first landed merge imminent).
+C/B2 — G-fold continuing. Release hold ABSOLUTE.
