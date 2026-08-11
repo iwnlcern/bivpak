@@ -1603,3 +1603,35 @@ release; hold ABSOLUTE.
 
 **Track state:** R-4.8 — merge cleared and in the implementer's hands (Step 4's first landed merge imminent).
 C/B2 — G-fold continuing. Release hold ABSOLUTE.
+
+---
+
+## 20260810-184931 — R-4.8 LANDED at 38a4702 (first Step-4 merge); condition-3 whole-tree identity; publication side effect owned
+
+The matrix implementer merged PR #24 under the standing token 1fb3287. R-4.8 LANDED at merge 38a4702 — the
+FIRST Step-4 merge. Verified at my seat:
+- **Condition-3-of-record at the strongest grade:** merged tree 38a4702^{tree} = reviewed tree 0ab998d^{tree}
+  = eb0e291f3bf8aa2e2513ec1381c4aff7339367bd — WHOLE-TREE byte-identity, every path (stronger than the C→B2
+  ten-path end-state rule). Parents 8981bfd (exec-time remote main) + 0ab998d (reviewed candidate). Remote main
+  now 38a4702. All six sealed records describe the landed bytes exactly. → routed to master for condition-3-of-
+  record closure (pdc 7f1afa5).
+- **Publication side effect (operator-visible, verified):** rev-list 8981bfd..38a4702 = 217 commits now on
+  remote main that weren't before; 18 touch src/tests, ~10 are slice-A/B1 product commits (version-floor
+  3315313, cli/json warnings 581a211/2629e9b — all now ancestors of remote main). Cause: the carrier branched
+  from LOCAL main (6047ab03) which was 208 ahead of remote (rev-list 6047ab03..8981bfd = 0 → remote main was an
+  ancestor of the review base). Merging a branch whose base is unpublished publishes that whole lineage.
+
+**The miss I own:** every R-4.8 merge-gate relay — mine included — carried "the local-main publication-timing
+question is a separate item this merge does not touch" as an ASSURANCE. It was false the moment the merged
+branch's base was unpublished. I asserted a negative (does not touch X) without measuring the base's published
+state. Surfaced + owned to master; two operator decisions flagged: (a) acceptability of publishing that
+slice-A/B1 product history now (its review lineage is its own lane, not R-4.8's), (b) the process fix.
+
+**Process lesson (recommended to master to anchor beside D-5.4; saved at my seat as
+[[merge-blast-radius-is-a-measurement]]):** "this merge does not touch X" is a blast-radius CLAIM discharged
+against the thing it is about — MEASURE rev-list <remote-target>..<merge-base> before asserting; a CHECK, never
+a standing assurance. Tree-identity (a clean condition-3) and publication lineage are orthogonal — verify both.
+
+**Track state:** R-4.8 — LANDED at 38a4702; condition-3-of-record with master to close; the publication
+consequence with the operator to weigh. Aggregate items OPEN; CI-unhealthy infra row still owed; INFO-3 stands.
+C/B2 — G-fold continuing. Merged ≠ deployed ≠ released; the release hold is ABSOLUTE.
