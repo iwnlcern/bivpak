@@ -1798,3 +1798,33 @@ leak can become a live functional gate.
 **Track state:** R-4.8 landed+closed. C/B2 — fold now covers L-1 + riders + R-4.15 functional repair as one
 m-2-co-designed, one-level-consistent (R-4.18) design; round-trip acceptance check owed; on clean fold+re-check
 → fresh paired hand-up. Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-204832 — C/B2 stop-minting design routed to m-2; the fork touches master's 144700 origin invariant
+
+The floor pair reconciled L-1 + R-4.15 into ONE design: option (a) STOP MINTING child_alias_ids (+ stop
+needling agentId). It dissolves R-4.15 (reference never rewritten → no dangle), L-1 (verbatim agentId no longer
+a leak once the opaque-id confidentiality motive is dissolved), and L-2 (needle-driven cross-session refusal)
+together; L-3's unbounded-substring shape guard stays. The pair withdrew its own "harvest every jsonl
+destination" arm as harmful and held it at the implementer.
+
+Verified at my seat: option (a) is A9-safe — child_alias_ids feeds only the install-side rewrite ids vector
+(:965) and never result.id_map (:1084 = primary/installed/child_ids), so no addendum-11 contract touch. The
+pair's store measurements correct m-2's stem premise (1408 bare-hex / 269 slug-hex / 25 other of 1702 vs m-2's
+578/578 description-bearing subset; uuid4 matches neither shape — the shape-change caveat holds), and confirm
+.meta.json has no id member (filename is the only reference index).
+
+**Disposition (mine):** routed the design UP to master → m-2 (204832), framing the ONE fork m-2 must rule —
+does the dissolved confidentiality motive extend to taskIds in CONTENT, or only as FILENAMES? (a) needs
+content-too-dissolved; else (b) shape-preserving rename. Its PREMISE touches master's 144700 origin-disclosure
+ONE-invariant, so I flagged that m-2 likely needs master/operator to fix the invariant's post-dissolution scope
+before ruling (D-5.4 — don't finish the arc by plausibility). Endorsed (a) on the merits subject to the fork;
+acceptance = the STANDING round-trip resolution check with real-shaped fixtures.
+
+Also confirmed for the record: the D-5.5 correction (193623) was already routed up (194606) and master amended
+D-5.5 + added D-5.5(a) (195329) — no further routing owed on #4.
+
+**Track state:** R-4.8 landed+closed. C/B2 — reconciled stop-minting design with m-2 (fork ruling pending,
+premise touches the 144700 invariant); fold holds; on the ruling → implement → re-check (round-trip check) →
+fresh paired hand-up. Merge ≠ release; release hold ABSOLUTE.
