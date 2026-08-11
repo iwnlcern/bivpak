@@ -2172,3 +2172,48 @@ reinforced: `.github`, `manifest.cpp` fence-2, sealed docs — manifest child ca
 the floor pair; awaiting the paired audit back to me → reconcile → DESIGN (fold m-2's predicate) → PLAN →
 build. m-2's R-4.18 design predicate in flight in parallel. Non-gating open: 1702-stem corpus provenance,
 R-4.19, R-3.40 item 13, packer_home (gated at RESIDUALS R-4.8). Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260811-145820 — slice E paired audits RECONCILED; boundary may not reach m-1; two basis corrections routed UP
+
+The floor pair returned both audit halves (143835 planner, 144528 implementer). They converge on every
+load-bearing point and I re-verified each at `0db8fdd`:
+
+- **R-4.18 drop confirmed:** `codex.cpp:452 session_for` loops direct children once (no recursion); the
+  `1294+` grouping/emit inserts children into `child_ids` + `children_by_parent[parent]`, the emit loop skips
+  `child_ids`, and `session_for` runs only for non-children — so for `R←P←C`, `children_by_parent[P]=[C]` is
+  never consumed and C's rollout is silently dropped.
+- **One-level coupling confirmed:** writer `installed_thread_id` + staged reader model ONE identity; census of
+  `mapped_root`/`chain_root`/`root_id` in `src/adapters/codex` = 0 hits; a three-level leaf is refused →
+  `staged_identity_mismatch` → whole-pack abort. Collector-only repair invalid.
+- **R-4.15 closed; real CLI E2E absent** (`test_pack.cpp:1748` is an in-process fixture, not a `biv pack`/`open` run).
+
+**Scope-critical finding (verified at bytes, routed to m-2):** the manifest schema does NOT force a
+`manifest.cpp` fence-2 change — `SessionChild = {original_id, artifacts}` has no parent linkage, the envelope
+schema has 0 occurrences of `children`, and `AgentSessionEntry` already carries parent via
+`original_session_ids.parent`. So flatten-or-promote both fit the existing schema and **m-1's `agent_sessions[]`
+joint-lock is likely OFF slice E's critical path**; only a new child-edge/cardinality contract reaches fence-2
++ m-1. m-2 decides; I make no schema choice.
+
+**Two basis corrections (propagated UP, one to master's own relay):** master's `145/635/7 of 940` is the
+BOTH-KEYS SUBSET (sums 787), not the corpus (949 = 796 both-keys + 153 id-only, live/growing) — the drop
+mechanism is confirmed independent of the count; and the "1702-stem provenance still owed" line in master
+`062724` §5 is STALE (disclosed 212704, closed 214213, discharged in master's own option-(a) rider 3 — a `D-6`
+stale-register carry, same class master caught on R-4.15; I carried it in my dispatch too). Warning refined:
+the generic transport EXISTS (`pack.cpp:334/558` → cli); a chain-drop producer+policy is owed, and the policy
+(silent vs loud-refuse vs partial-pack-warn) is m-2's to lock.
+
+**Disposition (mine):** carried the reconciled outcome + the m-2 scoping inputs + the basis corrections UP to
+master (pdc `64ecf41`; CC operator, s4.orchestrator-reviewer, floor pair, m-2). Stated the reconciled coupled-
+slice scope (collector recursion + both root-mapped gates + killing tests + disposable-store CLI pack/open E2E
+reusing R-4.8 isolation + `test_cli` harness; manifest surface conditional). **PLAN HELD** pending m-2's design
+predicate (in flight, master `062353`). Noted in the ecosystem: m-3's parallel R-4.18 ruling (`466ddf1`) frames
+it as a consent-integrity defect (`render.cpp:240` pre-consent prompt: user consents to N, gets N+k) — flows
+through m-2's policy choice, not mine to reconcile. Disclosed a pre-existing sibling INDEX inversion
+(145320/145431, m-3's committed rows) — not mine, not swept, not rewritten.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** audits reconciled; awaiting
+m-2's design predicate → DESIGN fold → PLAN → build; floor pair holds (no build). Non-gating open: R-4.19,
+R-3.40 item 13, packer_home (gated at RESIDUALS R-4.8); corpus figures are moment-in-time (store live). Merge ≠
+push ≠ release; release hold ABSOLUTE.
