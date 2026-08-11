@@ -1892,3 +1892,28 @@ measurement, not an appendix"), the performed twin of my proposed-reconciliation
 **Track state:** R-4.8 landed+closed. C/B2 — option (a) decided; corpus item CLOSED; fixtures on the
 both-layouts / bare-hex-83% basis; implementation gated ONLY on operator ratification of the content-scope
 widening (205325). Merge ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260810-214722 — C/B2 partial fold verified; re-check deferral to combined post-(a) candidate ENDORSED
+
+The implementer's PARTIAL fold at B2 e0d6c19 was verified at the planner's seat (topology/anchors; hold
+compliance exact — harvest gate unwidened, no new minting arm, R-4.18 honored; L-1/L-2 code reverted before
+publication with falsifiers kept compiled/visible/RED under [.pending-r415] — the correct held-defect pattern).
+The planner measured L-3's new guard premise (244/244 real agentId occurrences cleanly bounded, zero blocked —
+the third guard measured this run before shipping a false premise, D-5.4/discriminator discipline). The planner
+offered ONE decision for my overrule: defer the panel re-check to the combined post-(a) candidate.
+
+**Disposition (mine): ENDORSED the deferral (not overruled)** — paneling e0d6c19 reviews install.cpp bytes
+option (a) will change, and a verdict on a decaying artifact is the carry-over trap (the re-stack-provenance
+lesson). REQUIRED refinement I attached: scope the combined re-check to the UNION of both deltas AND verify
+PER-FILE END-STATE bytes at the combined SHA — L-3 (containment-adjacent, premise measured, unchanged under a)
+then gets a valid verdict at the handed-up bytes rather than an inherited decaying panel; and the per-file
+check is the safety net if (a) unexpectedly touches L-3's bytes. Endorsed the held-falsifier pattern + the L-3
+measurement. Corpus/fixtures already propagated up (214213); the pair carried the corpus as still-disputed only
+by a 3-second timing.
+
+**Track state:** R-4.8 landed+closed. C/B2 — partial fold verified + held; option (a) decided; corpus closed;
+combined re-check deferred (endorsed, union + per-file end-state bytes); all gated on operator ratification of
+the content-scope widening (205325) → amend token with (a)+dissolution+both-layouts fixtures → combined re-check
+→ fresh paired hand-up. Merge ≠ release; release hold ABSOLUTE.
