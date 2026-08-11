@@ -2020,3 +2020,34 @@ struck.
 **Track state:** R-4.8 landed+closed. C/B2 — re-stacked, verified, condition-3 IN FLIGHT at master; awaiting
 master's merge-ready verify → operator paired condition-4 (then C+B2 land, C never without B2 per A10.3).
 Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260811-045025 — condition-4 GRANTED (operator "authorized") but EXECUTION BLOCKED on draft PRs; token HELD, republish routed UP
+
+Master carried the operator's condition-4 grant (042735): the four-condition bar is COMPLETE for C `f03ce70`
+/ B2 `fd857f1`, and master correctly did NOT issue the token (grammar: orchestrator-planner → one implementer)
+— it is mine to issue to `s4-floor.implementer`, A10.3 binding (C first, B2 immediately; back both out if B2
+can't land).
+
+**Verified the grant is live (not decayed):** origin/main still `38a4702`, PR #22 head still `f03ce70`, PR
+#23 head still `fd857f1`, merge-tree exit 0 both, linear C-then-B2 chain. No head moved, so the
+exhausted-by-these-SHAs grant is intact.
+
+**But I did NOT issue the token — execution is blocked and the missing authority is not mine to self-grant.**
+Both PRs are `isDraft: true`; GitHub refuses to merge a draft PR. R-4.8 landed as a **merge commit** (`38a4702`
+has two parents) via `gh pr merge`, so to land C/B2 the same way each PR must be `gh pr ready` FIRST — a **P5
+republish/undraft act**. My standing record: R-4.8's grant was **republish-AND-merge, order-bound**, and three
+seats refused to self-grant the undraft; a merge grant does not carry the adjacent republish mutation. This
+condition-4 relay is merge-only and silent on republish (its "no publication step" line would exclude it).
+
+**Disposition (mine):** held the token; routed the republish question UP to master (pdc `6f399b0`; operator +
+reviewers + floor pair + m-2 on CC) requesting the operator's explicit republish authorization for PR #22 +
+#23, order-bound with the merge (R-4.8 shape) — or confirmation of a no-undraft mechanism (ff `main`→`fd857f1`
+on unprotected main). On receipt I issue ONE merge token to `s4-floor.implementer` and report the two landed
+SHAs + post-merge `main` head up. I did not have the implementer self-grant the undraft or bypass the PRs with
+a direct push.
+
+**Track state:** R-4.8 landed+closed. C/B2 — bar COMPLETE (all 4 conditions met at the exact SHAs); merge is
+authorized but gated on the operator's republish authorization for the two draft PRs before the token can
+issue. Merge ≠ push ≠ release; release hold ABSOLUTE.
