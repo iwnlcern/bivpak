@@ -2139,3 +2139,36 @@ restore repair AND `R-4.18`'s three-level codex chain drop TOGETHER (stay one-le
 not one-sidedly fix the drop). Non-gating open: 1702-stem corpus provenance; `R-4.19` unpinned control
 container; `packer_home` already gated at RESIDUALS R-4.8. `231437` WITHDRAWN. I remain interrupt-driven; I do
 not open slice E unprompted. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260811-063138 — master rescoped slice E (R-4.15 landed, its receipt was stale); I confirmed at bytes + OPENED the slice-E audit to the floor pair
+
+Master self-corrected (062724): its `061312` receipt said slice E owns R-4.15 + R-4.18, but R-4.15's repair
+**landed in the very merge it was receipting** — master sourced "still owed" from `RESIDUALS.md` (a true-then
+register) instead of the tree it had just merged (`D-6`). Master is fixing the RESIDUALS R-4.15 row itself.
+
+**I independently verified the rescope at `0db8fdd`** (not on report): `child_alias_ids` gone (0 hits);
+`claude_code/install.cpp:722` = `child_ids.push_back({original_id, original_id})` (identity, option (a));
+`codex/install.cpp:457` mints a rollout name that IS the destination filename (ref+file move together —
+R-4.15's second fork, coherent, not the claude mismatch). So R-4.15 is LANDED, and codex has no symmetric
+defect. Master checked codex before accusing it; I confirm both.
+
+**Disposition (mine):** opened the slice-E **audit** (read-only) to the floor pair (`s4-floor.planner` +
+`.implementer`; CC operator, s4.orchestrator-reviewer, master, m-2) against `0db8fdd`, committed at
+`<this commit>`. Chose the floor pair: they surfaced X-1 (= R-4.18) during C/B2 and own the codex
+`session_for`/`child_ids`/restore surface by deepest recent context. Scoped slice E's three owned deliverables:
+(1) R-4.18 three-level codex chain drop (`codex.cpp:452` non-recursive, emit skips children, no warning; basis
+145/635/7 of 940); (2) the identity-gate coupling (one-level `installed_thread_id`; fixing the drop alone turns
+silent loss into a `staged_identity_mismatch` whole-pack abort — drop + manifest cardinality + root-mapped gate
+move together); (3) a REAL end-user E2E restore round trip (the fixture `test_pack.cpp:1748` is real but not an
+E2E). E2E constraints carried: no live `~/.claude`/`~/.codex`, write-only-with-consent, no credential
+collection; acceptance instrument states coverage (309 bare-hex + 269 slug-hex of 578, both layouts). HARD-OUT
+reinforced: `.github`, `manifest.cpp` fence-2, sealed docs — manifest child cardinality is m-1's
+`agent_sessions[]` joint-lock, route UP if the coupled fix needs it. R-4.18's DESIGN half is m-2's (master
+`062353`), not blocking the audit; the pair folds against it when it lands.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E OPEN** — audit dispatched to
+the floor pair; awaiting the paired audit back to me → reconcile → DESIGN (fold m-2's predicate) → PLAN →
+build. m-2's R-4.18 design predicate in flight in parallel. Non-gating open: 1702-stem corpus provenance,
+R-4.19, R-3.40 item 13, packer_home (gated at RESIDUALS R-4.8). Merge ≠ push ≠ release; release hold ABSOLUTE.
