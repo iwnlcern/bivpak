@@ -1666,3 +1666,36 @@ the concurrent C/B2 live-M-4-leak relay (192003) rather than a separate relay.
 **Track state:** R-4.8 FULLY LANDED + closed (conditions 1-4 discharged, condition-3-of-record closed,
 publication accepted). C/B2 — G-fold; a live M-4 leak coupled to R-4.15 just surfaced (192003, disposing next).
 Release hold ABSOLUTE.
+
+---
+
+## 20260810-193156 — C/B2 re-check found a LIVE M-4 leak; pair folding (hold endorsed); X-1 + R-4.15-materialization routed up
+
+The G-fold re-check at 355aad6 found a LIVE M-4 leak (L-1), reproduced twice in the operator's real store: a
+main-transcript-only agentId is never harvested/paired and is written verbatim with origin_id_hits==0; the
+fold's minting is what makes it live (the session was previously refused outright). I verified the gate chain
+at my seat (harvest gate install.cpp:900-903 fires only for subagent_jsonl_artifact||child_attributed;
+subagent_jsonl_artifact:373-381 excludes the main transcript; agentId not a message-uuid field) and ENDORSED
+the pair's hold — no hand-up while a live containment leak stands. Pair folding L-1 + two riders (R-1
+cross-session union; image-controlled alias keys → unbounded substring rewrite).
+
+**Routed UP to master (193027):**
+- X-1 (verified): three-level codex chains SILENTLY DROPPED at collect (session_for:452-471 takes only DIRECT
+  children, no recursion; 7/940 three-level) COUPLED to the fold's one-level identity gates (installed_thread_id
+  = immediate parent) — fixing either alone worsens it (silent loss → whole-pack abort). Changes collect
+  semantics + child cardinality (beyond bounded fold, R-4.15 precedent). Recommended REGISTER owner slice E with
+  the coupling as a HARD constraint: the fold stays ONE-LEVEL-CONSISTENT, no one-sided drop-fix.
+- R-4.15 materialization (merge-decision input): B2 landing flips R-4.15 latent→LIVE — the unblocked nested
+  population (1124/1124) is the origin-id-named-filename one; minting rewrites bytes not filenames. Master +
+  operator weigh B2-lands-R-4.15-live-exit-gated vs R-4.15-fix-precedes-B2.
+- Endorsed what the fold got right (A9 boundary held → no m-2 authority; CSPRNG minting; consent-NO version;
+  shapes 1+2 round-trip) + two convener corrections (D-5.4 corpus reconcile; decode-level near-miss).
+
+**Down-note to the pair (193156):** endorsed the hold + verifications; delivered the two standing facts the pair
+is NOT on master's CC for — (1) publication-timing item CLOSED, no merge holds for publication; (2) D-5.5 STANDS,
+the hand-up MUST carry the measured blast-radius line (informational, never a bare assurance). Kept the fold
+one-level-consistent instruction (X-1).
+
+**Track state:** R-4.8 FULLY LANDED + closed (publication accepted). C/B2 — folding a live M-4 leak (no hand-up
+while it stands); X-1 + R-4.15-materialization with master; on fold+re-check clean → fresh paired hand-up with
+the D-5.5 line. Merge ≠ release; release hold ABSOLUTE.
