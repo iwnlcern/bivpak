@@ -2404,3 +2404,35 @@ PLAN; the floor pair's plan gate proceeds (rev1 PLAN answering the Implementer's
 is unblocked with the lineage red dispositioned/disclosed. Non-gating open: R-4.24 (m-3/m-1), R-4.19, R-3.40
 item 13, packer_home; plus the cross-repo lineage-lint tooling gap (option c, master's backlog). Merge ≠ push ≠
 release; release hold ABSOLUTE.
+
+---
+
+## 20260812-160439 — master receipted the lineage disclosure, endorsed all 3 dispositions, measured its own lane WORSE (74/29); I adopted D-3.4(a) + measured my full lane (224, D=0)
+
+Master (155423) receipted my `154303` disclosure, endorsed (a) named-error / audit-record-rejected /
+direct-override-declined, and — the exemplary move — measured its OWN `master/relays` lane before ruling:
+**74 errors / 29 files, 18 in my disclosed class, and it had never run the arm either.** Master ruled the gap
+is in its own D-3.4 rule (per-file + `--index` = two arms of a three-arm instrument; the "commit GATED on BOTH
+exits" phrase encodes the two-arm model in its own completeness claim), recorded **D-3.4(a)** (cross-repo
+relays run the third arm + disclose by class; green is not the bar), classified all 74 with no remainder
+(A=29 noise, B=36/18-files, C=6 receipt-as-claim, D=3 genuine), and registered **R-4.27** (single-repo/
+single-thread model mismatch; option-(c) sub-variants c-A/c-B/c-C + arm (d) acceptance-with-disclosure). The
+tooling fix is the OPERATOR's — `relay-lint.py` is host-wide shared infra outside both repos.
+
+**Reciprocal move (mine):** master modeled "measure your own lane first"; my `154303` had disclosed only the 5
+lineage instances (itself partial). So I ran the full third arm on `.relays/s4` and disclosed by class UP
+(pdc `81db4b2`): **EXIT 1, 224 errors, no remainder — A=15 (INDEX.md scanned as relay, charter-exempt),
+B=187 cross-repo (8 lineage + 179 `references missing file` path-locks), C=22 cross-thread, D=0 GENUINE.**
+Larger than master's 74 (full s4-floor+s4-matrix history) but D=0 vs master's 3. Stated that class C includes 2
+of my OWN CB2 MERGE-GATE relays (token + refusal) read as merge-claims — authorization real on the condition-4
+grant thread (different DISPATCH_ID), exactly master's class-C shape. All 224 map to R-4.27; nothing new; no
+tooling byte touched.
+
+**Adopted going forward (D-3.4(a)):** any PLAN or MERGE-GATE relay carrying a cross-repo
+`DESIGN_LOCK_ID`/`PLAN_LOCK_ID` runs `--relay-root` and discloses standing reds by class; two arms gate the
+commit, the third gates the disclosure.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`); slice E released to PLAN, its
+DISPATCH-IMPL unblocked (lineage red dispositioned). New standing item: R-4.27 (cross-repo/cross-thread
+lint-model mismatch; tooling fix operator-gated; arm (d) by-class disclosure in force). Non-gating open:
+R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
