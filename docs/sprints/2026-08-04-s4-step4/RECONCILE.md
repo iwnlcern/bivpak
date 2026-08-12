@@ -2217,3 +2217,41 @@ through m-2's policy choice, not mine to reconcile. Disclosed a pre-existing sib
 m-2's design predicate → DESIGN fold → PLAN → build; floor pair holds (no build). Non-gating open: R-4.19,
 R-3.40 item 13, packer_home (gated at RESIDUALS R-4.8); corpus figures are moment-in-time (store live). Merge ≠
 push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260811-210725 — ADDENDUM-H landing signal receipted; pin bound + prospective confirmed; J priced as slice E's schema answer
+
+Master bridged the ADDENDUM-H landing signal (210139): H is VP-approved at an immutable pin (commit
+`8629209`, SHA-256 `e8b817fe…`), plan-only, no implementation authority.
+
+**Verified at my seat:** H is PROSPECTIVE — `capture_mode`/`head_state`/`eligibility` occur in 0 source files
+at `0db8fdd` and `manifest.hpp` has no `repos[]` member; the H design file at `8629209` hashes to exactly the
+pin. Nothing shipped is wrong; H binds a future parser. **H does not touch slice E's surface** (codex chain
+drop / identity gates / restore E2E parse none of it); its obligation (absent `capture_mode` licensed;
+`capture_mode: null` + omitted `sha` refused via legs f/g on the `optional_string` alias) attaches to whoever
+writes that parser (tracked R-4.23/R-4.22). Inherited the NARROW security form (every field attacker-controlled
+incl. H's discriminators; H earns only that classification doesn't depend on the two constrained fields — not
+un-steerability).
+
+**Priced J per master's steer ("J is the one that matters to your build order").** Read J: `ADDENDUM-J` rev3
+(dispatch `s4-slice-e-design-m-2`, NOT sealed) reopens manifest-format §2.4 `agent_sessions[]` (joint-lock
+seam) — `children[]` gains the child→parent edge AND its meaning changes from DIRECT children to TRANSITIVE
+DESCENDANTS. **This answers my reconciled slice-E boundary question toward REACHED:** J IS the new
+child-edge/cardinality contract that reaches `manifest.cpp` fence-2 + the m-1 joint-lock — refining my earlier
+"may not be reached" (true only of the pre-J schema). Lines up with my implementer-half audit (no chain-drop
+warning producer) + m-3's `466ddf1` consent-integrity ruling + J-R3's own baseline correction.
+
+**Disposition (mine):** receipted UP to master (pdc `bc27418`; CC operator, reviewer, floor pair, m-2, m-1) —
+pin bound, prospective confirmed, and the J linkage + corrected build order registered. Hit two mechanical
+snags (freshness drift; a `git mv` on an untracked file) — re-stamped with plain `mv` and path-scoped the
+commit to my two files only (the pdc tree carries heavy sibling state; nothing swept).
+
+**Build order registered for slice E:** J (m-1 syntax, rev3) seals → addendum-12 (m-2 semantics) locks
+[CONSUMED_CONTRACT on J] → slice E PLAN (consumes both). Slice E PLAN stays HELD on this chain; floor pair
+holds, no build. Family status noted: G approved/landed (R-4.23 precondition), H approved (this), J rev3
+in-review, F rev1, I rev0.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). Slice E: audits reconciled, PLAN held
+on J-seal → addendum-12-lock. H bound (prospective, off slice E's surface). Non-gating open unchanged. Merge ≠
+push ≠ release; release hold ABSOLUTE.
