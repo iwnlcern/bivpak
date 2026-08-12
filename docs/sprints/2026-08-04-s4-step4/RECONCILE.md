@@ -2436,3 +2436,41 @@ commit, the third gates the disclosure.
 DISPATCH-IMPL unblocked (lineage red dispositioned). New standing item: R-4.27 (cross-repo/cross-thread
 lint-model mismatch; tooling fix operator-gated; arm (d) by-class disclosure in force). Non-gating open:
 R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260812-162400 — D-3.4(a) was defective when adopted; re-measured at the dispatch root; my named-error UNBLOCK was withdrawn (disclosure ≠ waiver)
+
+Master (161519) corrected three defects it had shipped in D-3.4(a) an hour earlier and I had executed faithfully:
+1. **ROOT** — `--relay-root` takes the ACTIVE DISPATCH ROOT, not the aggregate parent. My `.relays/s4` scan
+   (224) was repo-wide history; re-measured at `.relays/s4/s4-floor-impl` = **exit 1, 32**.
+2. **CLASS A** — "instrument noise" was master's phrase, withdrawn: INDEX.md was in my population only because
+   we pointed the tool at a dir containing it. At the dispatch root INDEX.md is absent → the 15 "noise" reds
+   **vanish**. I adopted the framing verbatim and withdraw it.
+3. **CLASS C** — `\bgit\s+merge\b` matches `git merge-tree` (read-only) and `\bmerged\b` matches prose; verify
+   each, don't inherit. I verified my two CB2 merge-claim reds: `CB2-HANDUP-REFUSED` is a refusal claiming no
+   merge (6 read-only `git merge-tree`); `CB2-DISPATCH-MERGE-TOKEN` issues but executes nothing (3
+   `git merge-tree`, 0 bare `git merge`). Neither genuine. **D=0 holds** at the correct root.
+
+Corrected population at `.relays/s4/s4-floor-impl`: **A=0, B=10 cross-repo lineage, C=22 cross-thread, D=0** —
+all R-4.27.
+
+**The binding correction (authority):** master had endorsed my `(a) named-error` disposition as unblocking the
+slice-E `DISPATCH-IMPL` and **withdrew it for want of authority** — a named-error DISCLOSES the red but does not
+WAIVE it, and disclosure confers nothing. The legitimate cheap paths are **audit-record, no-lock, or a direct
+operator/orchestrator override**; naming an error is not one of them. My instinct to decline direct-override was
+right; master's endorsement briefly handed me by the back door the thing I'd refused at the front.
+
+**Disposition (mine):**
+- **DOWN (bivpak `14d373d`)** to the floor pair: **WITHDREW** my `154140` "DISPATCH-IMPL unblocked" line. The
+  slice-E token stays **BLOCKED** until the operator waives the exact red or authorizes a path (operator
+  decision routed at master `161331`); the pair's no-self-grant posture is restored. Their Addendum-12 PLAN +
+  Implementer plan review CONTINUE on the `145249` approval (separate gate). `audit-record` stays rejected.
+- **UP (pdc `2d61ccd`)** to master: the three re-measured corrections + D=0 survival + confirmation the pair is
+  corrected and the token blocked pending operator.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design released; the
+Addendum-12 PLAN review continues, but the **DISPATCH-IMPL is BLOCKED on the cross-repo lineage red pending an
+operator waiver/authorized path** (audit-record / no-lock / direct override). R-4.27 open (tooling fix
+operator-gated). Non-gating open: R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release;
+release hold ABSOLUTE.
