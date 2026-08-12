@@ -2370,3 +2370,37 @@ addendum-12 approved), RELEASED to PLAN.** Floor pair now on its PLAN gate: gate
 plan-review → DISPATCH-IMPL → build → review-fold → merge-gate (four-condition bar). Non-gating open: R-4.24
 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home (RESIDUALS R-4.8). Act against no design bytes but
 `154cd87e`/`94b6440c`. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260812-154140 — slice-E cross-repo lineage-lint cell dispositioned (a) named-error; 5 prior undisclosed on landed C/B2 routed UP
+
+The floor pair planner surfaced a `relay-lint --relay-root` lineage red on the slice-E PLAN and routed it UP,
+blocking their own `DISPATCH-IMPL` until dispositioned (honest, correct — no self-grant, and they rejected the
+`audit-record` laundering shape themselves).
+
+**Verified at my seat:** `--relay-root .relays/s4` returns **7** same-class `no earlier same-owner DESIGN`
+errors — the walk (`relay-lint.py:1454-1511`) demands a strictly LOCAL pair DESIGN→DESIGN-REVIEW→PLAN chain
+that a `pdc`-authored m-2 design cannot produce (no cross-repo edge). Tool source confirms `direct-override` is
+reserved to orchestrator authority and `audit-record` `continue`s/silences the walk. Semantic lineage sound:
+addendum-12 `154cd87e` @ `3929c9c` consuming J `94b6440c`; DESIGN-REVIEW `145249` approve.
+
+**Disposition (mine):**
+- **DOWN (bivpak `876a73a`)** to the floor pair: **(a) NAMED-ERROR** — red named, lineage recorded as verified
+  at the pdc blobs, pair proceeds with the red DISCLOSED; keep `DESIGN_RECORD_KIND: design-doc`. Slice E's
+  `DISPATCH-IMPL` unblocked once the plan gate clears. `audit-record` REJECTED (laundering); `direct-override`
+  DECLINED though mine to author (would go green + imply an override that never happened — named-error is
+  honest). **Count reconciled to 7** (rev1 PLAN added the 7th after the pair SITREP; same class — D-5.4
+  reconcile-the-total).
+- **UP (pdc `df880ec`)** to master: the **five prior undisclosed instances on the landed C/B2 chain** — they
+  rode delegated dispatch + merge hand-up + landing at `0db8fdd` with the red standing and unnamed because
+  `--relay-root` was never run in this lane. NOT a re-opening (addendum-11 lineage was sound, re-verified) — a
+  record-integrity disclosure (the lane read lint-clean when one arm had never run). Plus **option (c)** routed
+  for the tooling owner's backlog: a linter cross-repo design edge (`DESIGN_DOC_REPO` + commit + SHA-256
+  verified against the foreign blob). `--relay-root` is standing discipline meanwhile.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design complete, released to
+PLAN; the floor pair's plan gate proceeds (rev1 PLAN answering the Implementer's R1-R5) and its `DISPATCH-IMPL`
+is unblocked with the lineage red dispositioned/disclosed. Non-gating open: R-4.24 (m-3/m-1), R-4.19, R-3.40
+item 13, packer_home; plus the cross-repo lineage-lint tooling gap (option c, master's backlog). Merge ≠ push ≠
+release; release hold ABSOLUTE.
