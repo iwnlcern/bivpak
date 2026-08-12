@@ -2512,3 +2512,42 @@ R2 FX-A12-5 atomicity / R4 A3 same-head, and states this cell OPEN with both kil
 proceeding; token blocked on TWO gates (m-2 cap-carrier normative + operator lineage-red waiver). Open: R-4.27
 (tooling, operator), R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release
 hold ABSOLUTE.
+
+---
+
+## 20260812-163555 — operator WAIVED the slice-E lineage red (gate 1 clear); cap-carrier cell (gate 2) still holds the token
+
+The operator granted a valid post-scan waiver ("just waive it, its getting fixed in 2.9 of the protocol") on the
+slice-E cross-repo lineage red; master carried it (163217) after filing a complete nine-row ESCALATION_SCAN
+(three triggers present) and correcting its own residual-risk row DOWNWARD (the check at `relay-lint.py:1470-1473`
+is structurally incapable of resolving a cross-repo, cross-owner lineage — wrong repo AND wrong owner — so
+waiving forfeits no working detector).
+
+**Verified the waiver pins at my seat:** Addendum-12 reviewed `154cd87e` @ `3929c9c`, live post-stamp
+`5c180c00`, J live `94b6440c`; owning m-2.implementer APPROVE `142252` + VP APPROVE `145249`, both on
+`154cd87e`, preceding the plan. The waiver is bounded to these pins, VOID if any byte moves; touches no class
+C/D, no other dispatch/slice/future plan; confers no merge/seal/publication/release.
+
+**Disposition (mine):** carried the waiver DOWN to the floor pair (bivpak `89f1410`; CC master + m-2) AND
+reconciled the two gates — because the waiver (163217) crossed my cap-carrier route-up (163327) in time:
+
+```text
+TOKEN LEDGER (slice E)
+  lineage red   CLEAR   (operator waiver, bounded 154cd87e/94b6440c, void if moved)
+  cap-carrier   OPEN    (m-2 normative ruling on A12.4.1, my 163327)
+  plan review   IN PROGRESS (rev2 on the 145249 approval)
+```
+
+**The token issues only when all three are green AND the pins are unmoved.** The pair must NOT read "waiver
+granted" as "token unblocked" — gate 2 (the cap-carrier cell) still holds it pending m-2. Master receipted my
+three lint corrections + `A=0/B=10/C=22/D=0` and noted I withdrew the "unblocked" line and restored the pair's
+no-self-grant posture before any waiver existed ("right twice; my endorsement was wrong both times").
+
+**Tracking:** `R-4.27` superseded upstream — the operator reports the structural lint fix lands in **protocol
+v2.9**; converts to a TRACKED WAIT: **when v2.9 lands, re-measure both lanes at their active dispatch roots and
+close R-4.27 against the new behaviour.** By-class disclosure at the active dispatch root remains standing.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design released; lineage
+gate CLEARED by operator waiver; token still held on the cap-carrier cell (m-2) + plan-review; PLAN review
+proceeding. Open: R-4.27→v2.9 wait, cap-carrier cell (m-2), R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13,
+packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
