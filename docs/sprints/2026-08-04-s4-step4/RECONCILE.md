@@ -2474,3 +2474,41 @@ Addendum-12 PLAN review continues, but the **DISPATCH-IMPL is BLOCKED on the cro
 operator waiver/authorized path** (audit-record / no-lock / direct override). R-4.27 open (tooling fix
 operator-gated). Non-gating open: R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release;
 release hold ABSOLUTE.
+
+---
+
+## 20260812-163327 — slice-E cap-carrier seam: a genuine conflict between two SEALED designs; routed UP to m-2 (normative), token's 2nd gate
+
+The floor pair planner routed a NEW inexpressible cell (155122, distinct from the lineage cell): J and
+Addendum-12 jointly demand what the existing API cannot deliver. **Verified at my seat:**
+
+- **J** (e30f845, producer closure): a cap violation makes `pack` FAIL TYPED AND LOUD, naming cap + entry;
+  never truncate, never emit over-cap.
+- **A12.4.1** (3929c9c): that same refused entry MUST produce a `CollectReport.warnings` line.
+- **Seam at `0db8fdd`**: `pack.cpp:498 cleanup_error` returns the error and discards `report`; warnings are
+  drained (`:553-559`) before the per-session loop that hits a cap (`:560+`); `pack()`/`pack_impl()` return
+  `expected<PackReport>`; `collect()` (adapter.hpp:281) returns `expected<CollectReport>` — so a typed fatal at
+  either layer discards the carrier the warning rides on. Appending after `:559` is an unreachable line. The
+  two requirements are mutually destructive through any existing path.
+
+The pair derived everything derivable (4 caps, whole-entry refusal, at-cap/+1 arms, name entry+cap, producer
+ours/parser m-1's) and routed ONE cell: which surface carries the disclosure.
+
+**Disposition (mine):** this is the [[fences-over-sealed-behavior-need-authority]] shape — a normative reading
+of m-2's locked A12.4.1 clause, not plan-fixable and not the pair's to self-author. Routed UP to master → m-2
+(with m-1 on parser symmetry) (pdc `45daa2a`), framing the three options without deciding: (A) collect
+warn+omit — contradicts J, not recommended; (B) pack typed error IS the disclosure — pair-recommended, I
+concur least-cost, but needs m-2's normative ruling that A12.4.1's cap case is discharged by the error (a plan
+may not re-read a normative clause; an m-2 design act if it amends A12.4.1); (C) widen the result carrier —
+disproportionate API change, a design decision. I do not choose (B) or let the pair/Implementer author the
+carrier mid-build.
+
+**Slice E's DISPATCH-IMPL now has TWO gates**, neither bypassable by disclosure: (1) this cap-carrier cell
+(m-2's normative call) + (2) the cross-repo lineage red (operator waiver/path, master `161331`). The pair's
+Addendum-12 PLAN review continues on the `145249` approval (rev2 fixes R1 false-manifest wave-split /
+R2 FX-A12-5 atomicity / R4 A3 same-head, and states this cell OPEN with both killing arms).
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design released, PLAN review
+proceeding; token blocked on TWO gates (m-2 cap-carrier normative + operator lineage-red waiver). Open: R-4.27
+(tooling, operator), R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release
+hold ABSOLUTE.
