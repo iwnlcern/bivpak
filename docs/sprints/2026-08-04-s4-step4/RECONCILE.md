@@ -2334,3 +2334,39 @@ but `94b6440c`.
 **Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** audits reconciled; J
 SEALED (first link discharged); held on addendum-12's lock (second link, m-2's to take) → then slice-E PLAN.
 Binding constraints R-4.20 + R-4.24 captured. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260812-150245 — ADDENDUM-12 APPROVED; slice E RELEASED to its PLAN gate; PROCEED-TO-PLAN dispatched to the floor pair
+
+Master bridged the addendum-12 approval (145954): VP-APPROVE at commit `3929c9c` / SHA-256 `154cd87e`,
+consuming J's lock `94b6440c`. **The last design gate on slice E is passed; slice E is released to its PLAN
+gate and nothing beyond.**
+
+**Verified at my seat:** the addendum-12 design file @ `3929c9c` hashes to exactly `154cd87e` and declares
+`CONSUMED_CONTRACT: m1-addendum-J-94b6440c-lock` (+ matching SHA) — the J→addendum-12 chain is intact, both
+pins bound. Applying master's own fresh **D-5.8** ("never carry another seat's line numbers into a gate without
+opening the file"), I opened `codex/install.cpp` at `0db8fdd` and confirmed the corrected mint sites:
+`:122-143 uuidv7_from_ms`, `:430`/`:455 mint_rollout_name`; `:507-513` calls `derive_install_pair_set` and
+mints nothing (master's owned mis-citation is real).
+
+**Disposition (mine):** issued **PROCEED-TO-PLAN** to the floor pair (`s4-floor.planner` + `.implementer`;
+bivpak `d286280`) — sequencing only, I do not carry the gated lock; the pair Planner emits the gated
+`PHASE: PLAN` (`DESIGN_LOCK_ID m2-addendum12-154cd87e`, CONSUMED_CONTRACT J, PARENT → DESIGN-REVIEW `145249`),
+plan-review to the Implementer is the plan gate, then one `DISPATCH-IMPL`. Carried the reconciled coupled-slice
+scope (collector recursion + both root-mapped identity gates + killing tests + disposable-store CLI E2E), the
+binding constraints (R-4.20 edge-only-refuses / locally-minted uuidv7 containment; MONO `A(E) ⊆ A(0)`; producer
+closure; typed refusal; M4-CG-0), and the **fence-2 dependency**: J's manifest schema change
+(`children[]`→transitive descendants + parent edge) is m-1's format-engine work, `manifest.cpp` is HARD-OUT for
+the pair — scope the s4-side, name the m-1 dependency + co-sequencing, route `manifest.cpp` UP.
+
+**Correction I own:** my `061048` receipt registered R-4.24 (pre-consent prompt N / install N−1) as "slice E
+owns." That was over-attribution — master's addendum-12 relay is explicit that **R-4.24 is owned by m-3
+(surface) + m-1 (count source), independent, not gated by/cleared by addendum-12.** Corrected in the
+PROCEED-TO-PLAN and here; slice E stays aware/coordinates but does not own or gate on it.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E: DESIGN complete (J sealed +
+addendum-12 approved), RELEASED to PLAN.** Floor pair now on its PLAN gate: gated PHASE: PLAN → Implementer
+plan-review → DISPATCH-IMPL → build → review-fold → merge-gate (four-condition bar). Non-gating open: R-4.24
+(m-3/m-1), R-4.19, R-3.40 item 13, packer_home (RESIDUALS R-4.8). Act against no design bytes but
+`154cd87e`/`94b6440c`. Merge ≠ push ≠ release; release hold ABSOLUTE.
