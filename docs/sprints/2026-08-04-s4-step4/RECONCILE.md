@@ -2298,3 +2298,39 @@ problem.
 
 **Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). Slice E: audits reconciled, PLAN held on
 the corrected J-fold → seal → addendum-12-lock chain. H bound. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260812-061048 — ADDENDUM-J SEALED (first slice-E link discharged); pin bound; R-4.20 boundary + R-4.24 registered
+
+Master bridged the ADDENDUM-J landing signal (053715): J is VP-approved at pin commit `e30f845` / SHA-256
+`94b6440c` (rev10). **The first link slice E was held on is discharged; addendum-12 (m-2) may now lock.**
+
+**Verified at my seat** (master's J status was stale an hour ago, so I re-derived): J design file @ `e30f845`
+hashes to exactly `94b6440c`; the rev10 VP-approve landing-signal relay (`052536`) exists; **addendum-12 is NOT
+yet locked** (no m-2 lock relay in its domain). So slice E remains held on addendum-12's lock.
+
+**Confirmed by the approved design:** my `210725` build order (first link now clear) and my `145820`
+reconciliation correction (J *reaches* the m-1 joint-lock — `children[]` gains the parent edge + re-means to
+transitive descendants). MONO + identity-gate widening are addendum-12's, not J's.
+
+**Registered as binding slice-E PLAN constraints:**
+- **R-4.20 — J buys WELL-FORMEDNESS, NOT TRUTH.** The six parse rules prove a bounded/acyclic/single-rooted
+  tree over unique nodes but cannot prove parentage true (a hostile image can pass all six with a consistent
+  lie). NORMATIVE: **the declared parent edge may ONLY produce REFUSALS, never GRANTS** — no
+  destination/host-write/consent derives from it; containment rests on locally-minted `uuidv7_from_ms`
+  destinations the edge cannot influence. Plus producer closure, per-entry caps with typed refusal (never
+  silent truncation), and M4-CG-0 duplicate-known-key refusal.
+- **R-4.24 — live in-tree consent-accuracy defect slice E owns.** At `0db8fdd` the pre-consent prompt COUNTS an
+  over-schema entry the install SKIPS (prompt N, install N−1); disclosing artifact created after the decision.
+  Consent-accuracy, NOT a DNA breach (told N, gets fewer — no unconsented write; VP-tested). NOT gated by J;
+  M3-J-4..7 create the fix obligation; slice E folds it into the coupled repair.
+
+**Disposition (mine):** pin bound + verified, constraints registered, receipted UP (pdc `883158a`). **No PLAN
+dispatched** — addendum-12 not yet locked; when it locks I dispatch the slice-E PLAN to the floor pair carrying
+J's normative boundary + R-4.24 + the reconciled coupled-slice scope. Floor pair holds; I act against no bytes
+but `94b6440c`.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** audits reconciled; J
+SEALED (first link discharged); held on addendum-12's lock (second link, m-2's to take) → then slice-E PLAN.
+Binding constraints R-4.20 + R-4.24 captured. Merge ≠ push ≠ release; release hold ABSOLUTE.
