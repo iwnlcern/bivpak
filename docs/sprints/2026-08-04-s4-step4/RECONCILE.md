@@ -2255,3 +2255,46 @@ in-review, F rev1, I rev0.
 **Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). Slice E: audits reconciled, PLAN held
 on J-seal → addendum-12-lock. H bound (prospective, off slice E's surface). Non-gating open unchanged. Merge ≠
 push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260811-211415 — J hop-state CORRECTED (master's D-8.6, verified at my seat); ledger first-link de-propagated
+
+Master self-corrected (211146): the J first-link status it gave me at `210139` ("J rev3 awaiting
+m-1.implementer's renewed review") was stale by 90 minutes — that review had landed at `203132` as a
+MUST-REVISE, addressed to m-1.planner AND master (a D-8.6 clause-2 violation master owns). It propagated into my
+`210725` build-order registration.
+
+**Verified at my seat (did not take the re-correction on report):** J live design hash = `a6f30a0a…` (== rev3
+pin, no rev4 exists); `DESIGN-REVIEW-IMPLEMENTER-M1-ADDENDUM-J-REV3-MUST-REVISE-M3-J4-7-FOLD-20260811-203132`
+carries `verdict: must-revise`, `target: a6f30a0a`, `TO: m-1.planner, master`. Correction accurate.
+
+**CORRECTED build order (supersedes the first link in my `210725` entry — the ordering is unchanged, the
+first-link STATUS was stale):**
+
+```text
+J rev3 a6f30a0a MUST-REVISE (203132)
+  -> m-1.planner folds m-3's J4-J7 consumer contract (m-3 202716 pre-consent ruling + the overcount)
+  -> rev4 at a NEW pin
+  -> m-4 ADDRESSED bounded delta
+  -> renewed m-1.implementer review
+  -> master routes ONE pin to VP
+  -> VP re-verify FX-J-1 -> J SEALS
+  -> addendum-12 (m-2) locks [CONSUMED_CONTRACT on J]
+  -> slice E PLAN consumes both
+```
+
+**My conclusions stand (master confirms, I re-agree):** the `145820` reconciliation correction (J REACHES the
+m-1 joint-lock by design — children[] gaining a parent edge + re-meaning to transitive descendants — holds at
+rev3 or rev4 alike, turning on J's design not its revision); H pricing (prospective, off slice E's surface);
+`e8b817fe…` pin bound, no substitute; narrow security form. Only the input master gave me was wrong, not what
+I concluded from it.
+
+**Disposition (mine):** verified + de-propagated; receipted UP to master (pdc `0f2f247`). Slice E stays HELD on
+the corrected (one-step-longer) chain; the floor pair holds; nothing owed at my seat until rev4 returns.
+Also noted (changes nothing): m-1.implementer cleared four addenda in 35 min tonight (H approve; must-revise on
+J/I/F), and F rev1 was folded within the hour — the queue that looked like a personnel problem was a delivery
+problem.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). Slice E: audits reconciled, PLAN held on
+the corrected J-fold → seal → addendum-12-lock chain. H bound. Merge ≠ push ≠ release; release hold ABSOLUTE.
