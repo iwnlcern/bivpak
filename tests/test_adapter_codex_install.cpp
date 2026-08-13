@@ -2561,3 +2561,73 @@ TEST_CASE(
   CHECK(result->id_map.front().image_session_id == parent_id);
   fs::remove_all(root);
 }
+
+TEST_CASE("FX-A12-6 Codex install validates a grandchild against its own parent",
+          "[slice-e][slice-e-red]") {
+  constexpr std::string_view root_id =
+      "019fa120-0000-7000-8000-000000000601";
+  constexpr std::string_view parent_id =
+      "019fa120-0000-7000-8000-000000000602";
+  constexpr std::string_view child_id =
+      "019fa120-0000-7000-8000-000000000603";
+  const auto root = make_tmp("slice-e-fx-a12-6");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+
+  auto record = codex_entry(std::string{root_id}, std::string{parent_id});
+  record.children.push_back(biv::manifest::SessionChild{
+      .original_id = std::string{child_id},
+      .artifacts = {"agents/codex/" + std::string{child_id} + ".jsonl"}});
+  std::map<std::string, std::vector<std::byte>> members;
+  const auto fixture = fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" /
+                       "slice-e" / "codex" /
+                       "descendant-validated-own-parent";
+  for (const auto id : {root_id, parent_id, child_id}) {
+    const auto artifact = "agents/codex/" + std::string{id} + ".jsonl";
+    members.emplace(artifact, bytes(read_text(fixture / artifact)));
+  }
+  members.emplace("auth.json", bytes("SLICE_E_CREDENTIAL_DECOY"));
+  std::vector<std::string> member_reads;
+  auto target = target_for(workspace, store, members);
+  target.member_read = [&](const std::string_view path)
+      -> biv::expected<std::vector<std::byte>> {
+    member_reads.emplace_back(path);
+    const auto found = members.find(std::string{path});
+    if (found == members.end()) {
+      return std::unexpected(
+          biv::BivError{biv::ErrKind::ImageUnreadable, std::string{path}});
+    }
+    return found->second;
+  };
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::no, std::array{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK(result->sessions.front().reason == std::nullopt);
+  CHECK(result->sessions.front().detail == std::nullopt);
+  CHECK(result->id_map.size() == 1U);
+  if (!result->id_map.empty()) {
+    CHECK(result->id_map.front().children.size() == 2U);
+  }
+  CHECK(std::ranges::none_of(member_reads, [](const std::string& path) {
+    return path == "auth.json";
+  }));
+  CHECK(std::ranges::all_of(member_reads, [](const std::string& path) {
+    return path.starts_with("agents/codex/");
+  }));
+  const auto workspace_relative =
+      fs::weakly_canonical(workspace).lexically_relative(fs::canonical(root));
+  const auto store_relative =
+      fs::weakly_canonical(store).lexically_relative(fs::canonical(root));
+  REQUIRE(!workspace_relative.empty());
+  REQUIRE(!store_relative.empty());
+  CHECK(*workspace_relative.begin() != "..");
+  CHECK(*store_relative.begin() != "..");
+  fs::remove_all(root);
+}

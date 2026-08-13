@@ -1084,3 +1084,192 @@ TEST_CASE("Codex sqlite_home config parsing is top-level TOML aware") {
   CHECK(env->front().locators.at(1).path == env_home);
   fs::remove_all(root);
 }
+
+namespace {
+
+constexpr std::string_view kSliceEDecoy = "SLICE_E_CREDENTIAL_DECOY";
+
+fs::path slice_e_codex_fixture(std::string_view name) {
+  return fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" / "slice-e" /
+         "codex" / name;
+}
+
+class ScopedSliceETree {
+ public:
+  explicit ScopedSliceETree(std::string_view name) : root_(make_tmp(name)) {}
+  ScopedSliceETree(const ScopedSliceETree&) = delete;
+  ScopedSliceETree& operator=(const ScopedSliceETree&) = delete;
+  ~ScopedSliceETree() {
+    std::error_code error;
+    fs::remove_all(root_, error);
+  }
+
+  [[nodiscard]] const fs::path& root() const { return root_; }
+
+ private:
+  fs::path root_;
+};
+
+biv::expected<biv::adapters::CollectReport> collect_slice_e_fixture(
+    std::string_view fixture, ScopedSliceETree& tree) {
+  const auto store = tree.root() / "codex";
+  copy_fixture_tree(slice_e_codex_fixture(fixture), store);
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{
+          .kind = "sessions_root", .path = store / "sessions"}},
+      .tier = biv::adapters::DiscoveryTier::env,
+      .archived = false}};
+  return biv::adapters::codex_adapter().collect("/ws/proj", stores);
+}
+
+std::string streamed_record_text(const biv::adapters::SessionRecord& record) {
+  std::string text;
+  for (const auto& source : record.artifact_sources) {
+    REQUIRE(source.stream(
+        [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+          for (const auto byte : chunk) {
+            text.push_back(static_cast<char>(byte));
+          }
+          return {};
+        }));
+  }
+  return text;
+}
+
+void require_slice_e_provenance_under(
+    const biv::adapters::CollectReport& report, const fs::path& root) {
+  const auto canonical_root = fs::weakly_canonical(root);
+  for (const auto& session : report.sessions) {
+    const auto relative = fs::weakly_canonical(session.provenance.store_root)
+                              .lexically_relative(canonical_root);
+    CAPTURE(session.provenance.store_root);
+    REQUIRE(!relative.empty());
+    REQUIRE(*relative.begin() != "..");
+    CHECK(streamed_record_text(session).find(kSliceEDecoy) ==
+          std::string::npos);
+  }
+}
+
+std::vector<std::string> sorted_artifacts(
+    const biv::adapters::SessionRecord& session) {
+  auto artifacts = session.artifacts;
+  std::ranges::sort(artifacts);
+  return artifacts;
+}
+
+}  // namespace
+
+TEST_CASE("FX-A12-1 Codex carries a three-level descendant chain",
+          "[slice-e][slice-e-red]") {
+  constexpr std::string_view root_id =
+      "019fa120-0000-7000-8000-000000000101";
+  constexpr std::string_view parent_id =
+      "019fa120-0000-7000-8000-000000000102";
+  constexpr std::string_view leaf_id =
+      "019fa120-0000-7000-8000-000000000103";
+  ScopedSliceETree tree{"slice-e-fx-a12-1"};
+
+  const auto report = collect_slice_e_fixture("three-level-chain-carried", tree);
+
+  REQUIRE(report);
+  REQUIRE(report->sessions.size() == 1U);
+  const auto& root = find_session(*report, root_id);
+  CHECK(root.child_ids ==
+        std::vector<std::string>{std::string{parent_id}, std::string{leaf_id}});
+  CHECK(sorted_artifacts(root) ==
+        std::vector<std::string>{
+            "agents/codex/019fa120-0000-7000-8000-000000000101.jsonl",
+            "agents/codex/019fa120-0000-7000-8000-000000000102.jsonl",
+            "agents/codex/019fa120-0000-7000-8000-000000000103.jsonl"});
+  CHECK(streamed_record_text(root).find("SLICE_E_LEAF_1") !=
+        std::string::npos);
+  require_slice_e_provenance_under(*report, tree.root());
+}
+
+TEST_CASE("FX-A12-3 Codex breaks a rootless cycle and carries its component",
+          "[slice-e][slice-e-red]") {
+  constexpr std::string_view off_cycle =
+      "019fa120-0000-7000-8000-000000000301";
+  constexpr std::string_view primary =
+      "019fa120-0000-7000-8000-000000000310";
+  constexpr std::string_view cycle_peer =
+      "019fa120-0000-7000-8000-000000000320";
+  ScopedSliceETree tree{"slice-e-fx-a12-3"};
+
+  const auto report =
+      collect_slice_e_fixture("rootless-cycle-broken-carried", tree);
+
+  REQUIRE(report);
+  REQUIRE(report->sessions.size() == 1U);
+  const auto& carried = find_session(*report, primary);
+  CHECK(carried.child_ids == std::vector<std::string>{
+                                  std::string{off_cycle},
+                                  std::string{cycle_peer}});
+  CHECK(sorted_artifacts(carried) ==
+        std::vector<std::string>{
+            "agents/codex/019fa120-0000-7000-8000-000000000301.jsonl",
+            "agents/codex/019fa120-0000-7000-8000-000000000310.jsonl",
+            "agents/codex/019fa120-0000-7000-8000-000000000320.jsonl"});
+
+  // The selected cycle member is the primary, so its declared A -> B edge is
+  // the one omitted to make every fixture node's chain terminate at A.
+  const auto warning = std::ranges::find_if(
+      report->warnings, [](const std::string& value) {
+        const auto from = value.find("019fa120-0000-7000-8000-000000000310");
+        const auto to = value.find("019fa120-0000-7000-8000-000000000320");
+        return from != std::string::npos && to != std::string::npos && from < to;
+      });
+  REQUIRE(warning != report->warnings.end());
+
+  const std::map<std::string, std::string> retained_parent{
+      {std::string{off_cycle}, std::string{primary}},
+      {std::string{cycle_peer}, std::string{primary}}};
+  for (const auto node : {off_cycle, primary, cycle_peer}) {
+    auto cursor = std::string{node};
+    for (std::size_t hops = 0; cursor != primary && hops < 3U; ++hops) {
+      cursor = retained_parent.at(cursor);
+    }
+    CHECK(cursor == primary);
+  }
+  require_slice_e_provenance_under(*report, tree.root());
+}
+
+TEST_CASE("FX-A12-4 Codex warns when a descendant cannot be carried",
+          "[slice-e][slice-e-red]") {
+  constexpr std::string_view root_id =
+      "019fa120-0000-7000-8000-000000000401";
+  constexpr std::string_view child_id =
+      "019fa120-0000-7000-8000-000000000402";
+  ScopedSliceETree tree{"slice-e-fx-a12-4"};
+  const auto store = tree.root() / "codex";
+  copy_fixture_tree(slice_e_codex_fixture("uncarryable-descendant-warns"),
+                    store);
+  const auto child = store / "sessions" / "2026" / "08" / "12" /
+                     "rollout-2026-08-12T04-02-00-019fa120-0000-7000-8000-000000000402.jsonl";
+  fs::remove(child);
+  fs::create_symlink(store / "auth.json", child);
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{
+          .kind = "sessions_root", .path = store / "sessions"}},
+      .tier = biv::adapters::DiscoveryTier::env,
+      .archived = false}};
+
+  const auto report =
+      biv::adapters::codex_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(report);
+  REQUIRE(report->sessions.size() == 1U);
+  const auto& root = find_session(*report, root_id);
+  CHECK(std::ranges::find(root.child_ids, child_id) == root.child_ids.end());
+  CHECK(std::ranges::none_of(root.artifacts, [](const std::string& artifact) {
+    return artifact.find("019fa120-0000-7000-8000-000000000402") !=
+           std::string::npos;
+  }));
+  CHECK(std::ranges::any_of(report->warnings, [](const std::string& warning) {
+    return warning.find("019fa120-0000-7000-8000-000000000402") !=
+           std::string::npos;
+  }));
+  require_slice_e_provenance_under(*report, tree.root());
+}
