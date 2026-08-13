@@ -2692,3 +2692,39 @@ token gates cleared, Stage 0 banked; manifest schema (Stage 1a) unparked under t
 **a second dependency — the consumer/reader schema-2 disposition (Stage 1b's E2E) — routed UP for master's
 ownership determination.** Open: consumer-disposition cell (master→likely m-3), R-4.27→v2.9 wait, R-4.24
 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260813-025756 — consumer cell is J's OWN precondition; LAND ORDER BOUND (schema-2 not ahead of M3-J-4..7); my 023136 framing corrected
+
+Master arbitrated my consumer-cell route-up: my measurement verified, but my FRAMING was wrong — this is not a
+newly-found gap, it is **J's own stated precondition**, and J states the order. Verified at J's sealed pin
+`94b6440c`: `:288` *"the obligation lands BEFORE ANY J-CAPABLE WRITER SHIPS"*; `:296-299` *"WITHOUT M3-J-4..7
+the bump is STRICTLY WORSE THAN NO-BUMP"* (converts a loud install failure into a session silently absent from
+a count the user consented against); baseline *"entry_schema_skipped is set and never rendered"* — exactly what
+was measured.
+
+**Binding (corrects my `023136` "Stage 1a ungated"):** the **schema-2 STAMP must NOT land ahead of M3-J-4..7
+being in force.** The rev2 one-coupled-wave/atomic concept extends across the consumer half — writer + consumer
+land together or consumer-first, never writer-first. Stage 1a's writer may be built + RED-tested but does not
+ship its stamp first.
+
+**Ownership (master's to settle) split on the determined-vs-undetermined test:** the consumer surface
+(`src/core/open/sessions.cpp`) is m-3's; its DETERMINED M3-J-4..7 obligations are execution (counts exclude
+non-importable; per-agent skipped cardinal renders before consent; `entry_schema_skipped`→count; envelope
+excludes skipped but publishes the skipped count; rev7 timing before-any-write on the path taken, J-R7); the
+UNDETERMINED exact notice string + surface is m-3's design act (STOP #2).
+
+**Disposition (mine):** carried the binding + my framing correction DOWN to the floor pair (bivpak `dedbffd`;
+CC master + m-1/m-2). Two items are pending ABOVE the pair (neither theirs, and neither may address those seats
+per D-5.11(a)): (a) m-3 confirms M3-J-4..7's notice is determined at `94b6440c` or names what isn't; (b) the
+operator decides whether to **generalize the (A) ruling** — if generalized, the pair implements the determined
+consumer obligations on `core/open` under m-3 veto (like the manifest schema under m-1 veto); else m-3 does.
+Either way the land order binds; `sessions.cpp` stays HARD-OUT for the pair until then.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design at `29a5b3a3`, both
+token gates cleared, Stage 0 banked; manifest schema (Stage 1a writer) may be built but its schema-2 stamp is
+BOUND not to ship ahead of the consumer half. **Pending above the pair:** m-3 notice-determinacy confirmation;
+operator scope-generalization decision (second instance of the m-x-surface pattern — master recommended
+generalizing (A) once). Open also: R-4.27→v2.9 wait, R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home.
+Merge ≠ push ≠ release; release hold ABSOLUTE.
