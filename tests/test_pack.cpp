@@ -717,6 +717,61 @@ TEST_CASE("pack writes manifest, checksums, and payload extents") {
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("FX-A12-2 Codex two-level round trip is byte-identical",
+          "[slice-e][slice-e-control]") {
+  constexpr std::string_view session_id =
+      "019fa120-0000-7000-8000-000000000201";
+  constexpr std::string_view child_id =
+      "019fa120-0000-7000-8000-000000000202";
+  constexpr std::string_view decoy = "SLICE_E_CREDENTIAL_DECOY";
+  const auto root = make_tmp("slice-e-fx-a12-2");
+  const auto source = root / "proj";
+  const auto store = root / "codex";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace\n");
+  copy_fixture_tree_with_workspace(
+      std::filesystem::path{BIV_SOURCE_DIR} / "tests" / "fixtures" /
+          "slice-e" / "codex" / "two-level-unchanged",
+      store, source);
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
+
+  const auto report = biv::pack::pack(source);
+
+  REQUIRE(report);
+  require_store_roots_under(*report, root);
+  REQUIRE(report->agent_sessions.size() == 1U);
+  CHECK(report->agent_sessions.front().original_session_ids.primary ==
+        session_id);
+  REQUIRE(report->agent_sessions.front().children.size() == 1U);
+  CHECK(report->agent_sessions.front().children.front().original_id ==
+        child_id);
+  const auto members = read_archive(root / "proj.bvpk");
+  const std::array source_files{
+      std::pair{session_id,
+                store / "sessions" / "2026" / "08" / "12" /
+                    "rollout-2026-08-12T02-01-00-019fa120-0000-7000-8000-000000000201.jsonl"},
+      std::pair{child_id,
+                store / "sessions" / "2026" / "08" / "12" /
+                    "rollout-2026-08-12T02-02-00-019fa120-0000-7000-8000-000000000202.jsonl"}};
+  for (const auto& [id, source_file] : source_files) {
+    const auto artifact = "agents/codex/" + std::string{id} + ".jsonl";
+    const auto member = std::ranges::find(
+        members, std::string_view{artifact}, [](const ArchiveMember& value) {
+          return std::string_view{value.meta.path};
+        });
+    REQUIRE(member != members.end());
+    CHECK(member->data == read_file_bytes(source_file));
+  }
+  CHECK(std::ranges::none_of(members, [](const ArchiveMember& member) {
+    return member.meta.path == "auth.json";
+  }));
+  for (const auto& member : members) {
+    CHECK(byte_string(as_span(member.data)).find(decoy) == std::string::npos);
+  }
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("pack refuses stale partial and reports facts") {
   const auto root = make_tmp("partial");
   const auto source = root / "sample";

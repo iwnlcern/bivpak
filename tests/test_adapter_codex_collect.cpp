@@ -6,12 +6,14 @@
 #include <chrono>
 #include <csignal>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -1089,6 +1091,45 @@ namespace {
 
 constexpr std::string_view kSliceEDecoy = "SLICE_E_CREDENTIAL_DECOY";
 
+class ScopedSliceEEnv {
+ public:
+  ScopedSliceEEnv(std::string name, const fs::path& value)
+      : name_(std::move(name)) {
+    if (const char* current = std::getenv(name_.c_str()); current != nullptr) {
+      previous_ = std::string{current};
+    }
+    REQUIRE(::setenv(name_.c_str(), value.c_str(), 1) == 0);
+  }
+  ~ScopedSliceEEnv() {
+    if (previous_) {
+      (void)::setenv(name_.c_str(), previous_->c_str(), 1);
+    } else {
+      (void)::unsetenv(name_.c_str());
+    }
+  }
+  ScopedSliceEEnv(const ScopedSliceEEnv&) = delete;
+  ScopedSliceEEnv& operator=(const ScopedSliceEEnv&) = delete;
+
+ private:
+  std::string name_;
+  std::optional<std::string> previous_;
+};
+
+class ScopedPackDiscoveryEnv {
+ public:
+  explicit ScopedPackDiscoveryEnv(const fs::path& root)
+      : home_{"HOME", root / "home"},
+        claude_{"CLAUDE_CONFIG_DIR", root / "absent-claude"},
+        codex_{"CODEX_HOME", root / "codex"},
+        sqlite_{"CODEX_SQLITE_HOME", root / "absent-sqlite"} {}
+
+ private:
+  ScopedSliceEEnv home_;
+  ScopedSliceEEnv claude_;
+  ScopedSliceEEnv codex_;
+  ScopedSliceEEnv sqlite_;
+};
+
 fs::path slice_e_codex_fixture(std::string_view name) {
   return fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" / "slice-e" /
          "codex" / name;
@@ -1137,7 +1178,7 @@ std::string streamed_record_text(const biv::adapters::SessionRecord& record) {
   return text;
 }
 
-void require_slice_e_provenance_under(
+void require_store_roots_under(
     const biv::adapters::CollectReport& report, const fs::path& root) {
   const auto canonical_root = fs::weakly_canonical(root);
   for (const auto& session : report.sessions) {
@@ -1169,6 +1210,7 @@ TEST_CASE("FX-A12-1 Codex carries a three-level descendant chain",
   constexpr std::string_view leaf_id =
       "019fa120-0000-7000-8000-000000000103";
   ScopedSliceETree tree{"slice-e-fx-a12-1"};
+  const ScopedPackDiscoveryEnv discovery_env{tree.root()};
 
   const auto report = collect_slice_e_fixture("three-level-chain-carried", tree);
 
@@ -1184,7 +1226,7 @@ TEST_CASE("FX-A12-1 Codex carries a three-level descendant chain",
             "agents/codex/019fa120-0000-7000-8000-000000000103.jsonl"});
   CHECK(streamed_record_text(root).find("SLICE_E_LEAF_1") !=
         std::string::npos);
-  require_slice_e_provenance_under(*report, tree.root());
+  require_store_roots_under(*report, tree.root());
 }
 
 TEST_CASE("FX-A12-3 Codex breaks a rootless cycle and carries its component",
@@ -1196,6 +1238,7 @@ TEST_CASE("FX-A12-3 Codex breaks a rootless cycle and carries its component",
   constexpr std::string_view cycle_peer =
       "019fa120-0000-7000-8000-000000000320";
   ScopedSliceETree tree{"slice-e-fx-a12-3"};
+  const ScopedPackDiscoveryEnv discovery_env{tree.root()};
 
   const auto report =
       collect_slice_e_fixture("rootless-cycle-broken-carried", tree);
@@ -1232,7 +1275,7 @@ TEST_CASE("FX-A12-3 Codex breaks a rootless cycle and carries its component",
     }
     CHECK(cursor == primary);
   }
-  require_slice_e_provenance_under(*report, tree.root());
+  require_store_roots_under(*report, tree.root());
 }
 
 TEST_CASE("FX-A12-4 Codex warns when a descendant cannot be carried",
@@ -1242,6 +1285,7 @@ TEST_CASE("FX-A12-4 Codex warns when a descendant cannot be carried",
   constexpr std::string_view child_id =
       "019fa120-0000-7000-8000-000000000402";
   ScopedSliceETree tree{"slice-e-fx-a12-4"};
+  const ScopedPackDiscoveryEnv discovery_env{tree.root()};
   const auto store = tree.root() / "codex";
   copy_fixture_tree(slice_e_codex_fixture("uncarryable-descendant-warns"),
                     store);
@@ -1271,5 +1315,5 @@ TEST_CASE("FX-A12-4 Codex warns when a descendant cannot be carried",
     return warning.find("019fa120-0000-7000-8000-000000000402") !=
            std::string::npos;
   }));
-  require_slice_e_provenance_under(*report, tree.root());
+  require_store_roots_under(*report, tree.root());
 }

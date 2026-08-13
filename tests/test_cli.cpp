@@ -479,6 +479,150 @@ TEST_CASE("CLI pack/open round-trip emits JSON envelopes") {
   std::filesystem::remove_all(root);
 }
 
+namespace slice_e_controls {
+
+class ScopedPackDiscoveryEnv {
+ public:
+  ScopedPackDiscoveryEnv(const std::filesystem::path& root,
+                         const std::filesystem::path& claude_store)
+      : home_{"HOME", (root / "home").string()},
+        claude_{"CLAUDE_CONFIG_DIR", claude_store.string()},
+        codex_{"CODEX_HOME", (root / "absent-codex").string()},
+        codex_sqlite_{"CODEX_SQLITE_HOME",
+                      (root / "absent-codex-sqlite").string()} {}
+
+ private:
+  ScopedEnv home_;
+  ScopedEnv claude_;
+  ScopedEnv codex_;
+  ScopedEnv codex_sqlite_;
+};
+
+void require_store_roots_under(
+    const std::filesystem::path& root,
+    std::initializer_list<std::filesystem::path> store_roots) {
+  const auto canonical_root = std::filesystem::canonical(root);
+  for (const auto& store_root : store_roots) {
+    const auto relative = std::filesystem::weakly_canonical(store_root)
+                              .lexically_relative(canonical_root);
+    CAPTURE(store_root, canonical_root, relative);
+    REQUIRE_FALSE(relative.empty());
+    REQUIRE_FALSE(relative.is_absolute());
+    REQUIRE(*relative.begin() != "..");
+  }
+}
+
+void copy_fixture_case(const std::filesystem::path& fixture,
+                       const std::filesystem::path& store,
+                       const std::filesystem::path& source,
+                       const std::filesystem::path& child_relative) {
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-00000000a120";
+  const auto project = store / "projects" / "-ws-proj";
+  auto main = read_text(fixture / "projects" / "-ws-proj" /
+                        (std::string{session_id} + ".jsonl"));
+  for (std::size_t position = 0;
+       (position = main.find("/ws/proj", position)) != std::string::npos;) {
+    main.replace(position, 8U, source.generic_string());
+    position += source.generic_string().size();
+  }
+  write_file(project / (std::string{session_id} + ".jsonl"), main);
+  const auto fixture_child = fixture / "projects" / "-ws-proj" /
+                             std::string{session_id} / child_relative;
+  write_file(project / std::string{session_id} / child_relative,
+             read_text(fixture_child));
+  write_file(store / "auth.json", "SLICE_E_CREDENTIAL_DECOY\n");
+}
+
+}  // namespace slice_e_controls
+
+TEST_CASE("Claude reference resolution controls use the shipped CLI",
+          "[slice-e][slice-e-control]") {
+  struct Case {
+    std::string_view name;
+    std::string_view reference;
+    std::string_view subtree;
+    std::string_view marker;
+  };
+  constexpr std::string_view decoy = "SLICE_E_CREDENTIAL_DECOY";
+  const auto fixture = std::filesystem::path{BIV_SOURCE_DIR} / "tests" /
+                       "fixtures" / "slice-e" / "claude" /
+                       "flat-subagents-unchanged";
+  for (const auto& test : std::array{
+           Case{"flat bare-hex", "a00e74f5f82549807",
+                "subagents/agent-a00e74f5f82549807.jsonl",
+                "SLICE_E_FLAT_BARE"},
+           Case{"flat slug-hex", "explore-b00e74f5f82549807",
+                "subagents/agent-explore-b00e74f5f82549807.jsonl",
+                "SLICE_E_FLAT_SLUG"},
+           Case{"nested subagents workflow", "c00e74f5f82549807",
+                "subagents/workflows/wf-a/agent-c00e74f5f82549807.jsonl",
+                "SLICE_E_NESTED_BARE"}}) {
+    DYNAMIC_SECTION(test.name) {
+      const auto root = std::filesystem::canonical(
+          make_tmp("slice-e-claude-" + std::string{test.name}));
+      const auto source = root / "proj";
+      const auto store = root / "claude";
+      const auto destination = root / "restore";
+      std::filesystem::create_directories(source);
+      write_file(source / "work.txt", "workspace\n");
+      slice_e_controls::copy_fixture_case(fixture, store, source,
+                                          test.subtree);
+      const slice_e_controls::ScopedPackDiscoveryEnv discovery_env{root, store};
+      const auto claude_probe = write_executable(
+          root / "bin" / "claude", "printf '2.1.211 (Claude Code)\\n'\n");
+
+      const auto packed =
+          run_cmd("pack '" + source.string() + "' --json", root);
+
+      REQUIRE((packed.code == 0 || packed.code == 2));
+      const auto image = root / "proj.bvpk";
+      REQUIRE(std::filesystem::is_regular_file(image));
+      CHECK(read_text(image).find(decoy) == std::string::npos);
+      const auto opened = run_cmd(
+          "open '" + image.string() + "' --dest '" + destination.string() +
+              "' --consent no --agent-bin 'claude-code=" +
+              claude_probe.string() + "' --json",
+          root);
+      REQUIRE(opened.code == 0);
+      std::optional<std::filesystem::path> restored_main;
+      std::optional<std::filesystem::path> restored_child;
+      for (const auto& entry :
+           std::filesystem::recursive_directory_iterator(destination)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".jsonl") {
+          continue;
+        }
+        const auto content = read_text(entry.path());
+        if (content.find("\"senderTaskId\":\"" +
+                         std::string{test.reference} + "\"") !=
+            std::string::npos) {
+          restored_main = entry.path();
+        }
+        if (entry.path().filename() ==
+                "agent-" + std::string{test.reference} + ".jsonl" &&
+            entry.path().generic_string().ends_with(test.subtree)) {
+          restored_child = entry.path();
+        }
+      }
+      REQUIRE(restored_main.has_value());
+      REQUIRE(restored_child.has_value());
+      CHECK(read_text(*restored_child).find(test.marker) != std::string::npos);
+      CHECK(restored_child->generic_string().find(
+                "/" + restored_main->stem().generic_string() + "/") !=
+            std::string::npos);
+      slice_e_controls::require_store_roots_under(
+          root, {source, store, destination});
+      for (const auto& entry :
+           std::filesystem::recursive_directory_iterator(destination)) {
+        if (entry.is_regular_file()) {
+          CHECK(read_text(entry.path()).find(decoy) == std::string::npos);
+        }
+      }
+      std::filesystem::remove_all(root);
+    }
+  }
+}
+
 TEST_CASE("CLI reports usage and reserved verbs with exit 5") {
   const auto root = make_tmp("usage");
   auto unknown = run_cmd("--bad --json", root);

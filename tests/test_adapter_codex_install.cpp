@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -2562,6 +2563,60 @@ TEST_CASE(
   fs::remove_all(root);
 }
 
+namespace slice_e_install_guards {
+
+class ScopedEnv {
+ public:
+  ScopedEnv(std::string name, const fs::path& value) : name_(std::move(name)) {
+    if (const char* current = std::getenv(name_.c_str()); current != nullptr) {
+      previous_ = std::string{current};
+    }
+    REQUIRE(::setenv(name_.c_str(), value.c_str(), 1) == 0);
+  }
+  ~ScopedEnv() {
+    if (previous_) {
+      (void)::setenv(name_.c_str(), previous_->c_str(), 1);
+    } else {
+      (void)::unsetenv(name_.c_str());
+    }
+  }
+  ScopedEnv(const ScopedEnv&) = delete;
+  ScopedEnv& operator=(const ScopedEnv&) = delete;
+
+ private:
+  std::string name_;
+  std::optional<std::string> previous_;
+};
+
+class ScopedPackDiscoveryEnv {
+ public:
+  explicit ScopedPackDiscoveryEnv(const fs::path& root)
+      : home_{"HOME", root / "home"},
+        claude_{"CLAUDE_CONFIG_DIR", root / "absent-claude"},
+        codex_{"CODEX_HOME", root / "target-codex"},
+        sqlite_{"CODEX_SQLITE_HOME", root / "absent-sqlite"} {}
+
+ private:
+  ScopedEnv home_;
+  ScopedEnv claude_;
+  ScopedEnv codex_;
+  ScopedEnv sqlite_;
+};
+
+void require_store_roots_under(const fs::path& root,
+                               std::initializer_list<fs::path> paths) {
+  const auto canonical_root = fs::canonical(root);
+  for (const auto& path : paths) {
+    const auto relative =
+        fs::weakly_canonical(path).lexically_relative(canonical_root);
+    CAPTURE(path, relative);
+    REQUIRE(!relative.empty());
+    REQUIRE(*relative.begin() != "..");
+  }
+}
+
+}  // namespace slice_e_install_guards
+
 TEST_CASE("FX-A12-6 Codex install validates a grandchild against its own parent",
           "[slice-e][slice-e-red]") {
   constexpr std::string_view root_id =
@@ -2575,6 +2630,7 @@ TEST_CASE("FX-A12-6 Codex install validates a grandchild against its own parent"
   const auto store = root / "target-codex";
   fs::create_directories(workspace);
   fs::create_directories(store);
+  const slice_e_install_guards::ScopedPackDiscoveryEnv discovery_env{root};
 
   auto record = codex_entry(std::string{root_id}, std::string{parent_id});
   record.children.push_back(biv::manifest::SessionChild{
@@ -2621,13 +2677,7 @@ TEST_CASE("FX-A12-6 Codex install validates a grandchild against its own parent"
   CHECK(std::ranges::all_of(member_reads, [](const std::string& path) {
     return path.starts_with("agents/codex/");
   }));
-  const auto workspace_relative =
-      fs::weakly_canonical(workspace).lexically_relative(fs::canonical(root));
-  const auto store_relative =
-      fs::weakly_canonical(store).lexically_relative(fs::canonical(root));
-  REQUIRE(!workspace_relative.empty());
-  REQUIRE(!store_relative.empty());
-  CHECK(*workspace_relative.begin() != "..");
-  CHECK(*store_relative.begin() != "..");
+  slice_e_install_guards::require_store_roots_under(root,
+                                                    {workspace, store});
   fs::remove_all(root);
 }

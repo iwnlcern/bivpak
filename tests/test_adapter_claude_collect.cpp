@@ -1,6 +1,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -555,5 +556,108 @@ TEST_CASE("Claude collect drops a whole-file invalid live subtree segment") {
                                      &biv::adapters::SessionRecord::TornTail::artifact);
   REQUIRE(fact != record.torn_tails.end());
   CHECK(fact->bytes == tail.size());
+  fs::remove_all(root);
+}
+
+namespace slice_e_claude_guards {
+
+class ScopedEnv {
+ public:
+  ScopedEnv(std::string name, const fs::path& value) : name_(std::move(name)) {
+    if (const char* current = std::getenv(name_.c_str()); current != nullptr) {
+      previous_ = std::string{current};
+    }
+    REQUIRE(::setenv(name_.c_str(), value.c_str(), 1) == 0);
+  }
+  ~ScopedEnv() {
+    if (previous_) {
+      (void)::setenv(name_.c_str(), previous_->c_str(), 1);
+    } else {
+      (void)::unsetenv(name_.c_str());
+    }
+  }
+
+ private:
+  std::string name_;
+  std::optional<std::string> previous_;
+};
+
+class ScopedPackDiscoveryEnv {
+ public:
+  explicit ScopedPackDiscoveryEnv(const fs::path& root)
+      : home_{"HOME", root / "home"},
+        claude_{"CLAUDE_CONFIG_DIR", root / "claude"},
+        codex_{"CODEX_HOME", root / "absent-codex"},
+        sqlite_{"CODEX_SQLITE_HOME", root / "absent-sqlite"} {}
+
+ private:
+  ScopedEnv home_;
+  ScopedEnv claude_;
+  ScopedEnv codex_;
+  ScopedEnv sqlite_;
+};
+
+void require_store_roots_under(const biv::adapters::SessionRecord& record,
+                               const fs::path& root) {
+  const auto relative = fs::weakly_canonical(record.provenance.store_root)
+                            .lexically_relative(fs::canonical(root));
+  REQUIRE(!relative.empty());
+  REQUIRE(*relative.begin() != "..");
+}
+
+}  // namespace slice_e_claude_guards
+
+TEST_CASE("FX-A12-7 Claude flat subagents enumeration is unchanged",
+          "[slice-e][slice-e-control]") {
+  constexpr std::string_view session_id =
+      "aaaaaaaa-1111-4000-8000-00000000a120";
+  constexpr std::string_view decoy = "SLICE_E_CREDENTIAL_DECOY";
+  const auto root = make_tmp("slice-e-fx-a12-7");
+  const auto store = root / "claude";
+  const slice_e_claude_guards::ScopedPackDiscoveryEnv discovery_env{root};
+  copy_fixture_tree(fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" /
+                        "slice-e" / "claude" /
+                        "flat-subagents-unchanged",
+                    store);
+  const std::vector<biv::adapters::Store> stores{biv::adapters::Store{
+      .root = store,
+      .locators = {biv::adapters::StoreLocator{
+          .kind = "sessions_root", .path = store / "projects"}},
+      .tier = biv::adapters::DiscoveryTier::env,
+      .archived = false}};
+
+  const auto report =
+      biv::adapters::claude_code_adapter().collect("/ws/proj", stores);
+
+  REQUIRE(report);
+  REQUIRE(report->sessions.size() == 1U);
+  const auto& record = report->sessions.front();
+  CHECK(record.original_session_id == session_id);
+  CHECK(record.child_ids ==
+        std::vector<std::string>{"agent-a00e74f5f82549807",
+                                 "agent-explore-b00e74f5f82549807"});
+  CHECK(record.child_artifact_map.empty());
+  CHECK(contains_artifact(
+      record, "agents/claude-code/aaaaaaaa-1111-4000-8000-00000000a120/"
+              "subagents/agent-a00e74f5f82549807.jsonl"));
+  CHECK(contains_artifact(
+      record, "agents/claude-code/aaaaaaaa-1111-4000-8000-00000000a120/"
+              "subagents/agent-explore-b00e74f5f82549807.jsonl"));
+  CHECK(contains_artifact(
+      record, "agents/claude-code/aaaaaaaa-1111-4000-8000-00000000a120/"
+              "subagents/workflows/wf-a/agent-c00e74f5f82549807.jsonl"));
+  slice_e_claude_guards::require_store_roots_under(record, root);
+  CHECK(joined_record_text(record).find(decoy) == std::string::npos);
+  for (const auto& source : record.artifact_sources) {
+    std::string content;
+    REQUIRE(source.stream(
+        [&](const std::span<const std::byte> chunk) -> biv::expected<void> {
+          for (const auto byte : chunk) {
+            content.push_back(static_cast<char>(byte));
+          }
+          return {};
+        }));
+    CHECK(content.find(decoy) == std::string::npos);
+  }
   fs::remove_all(root);
 }
