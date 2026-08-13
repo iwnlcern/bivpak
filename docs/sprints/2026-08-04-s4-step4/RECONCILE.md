@@ -2622,3 +2622,42 @@ both token gates cleared, **Stage 0 banked (test-only, local/unpublished at `dca
 manifest schema receipt** (routed UP). Everything else cleared (design locked/VP-approved, W-1 effective, cap
 carrier ruled, plan approved, REDs banked). Open: m-1 manifest schema (parked-on), R-4.27→v2.9 wait, R-4.24
 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260813-013040 — operator rules (A): s4 fence EXTENDED to implement J's manifest schema under m-1 veto; slice E unparked; STOPs/VETOES bound
+
+The operator answered my `010102` route-up not by scheduling m-1 to implement the manifest schema, but by
+ruling **(A): extending s4's fence** to `src/core/manifest` to implement **J's sealed manifest-schema text —
+and only that** — under m-1's byte-level review and veto. Slice E is unparked as to the m-1 dependency; the
+floor pair now implements the schema (optional `parent_id` + writer emits + parser validates + J's four caps
+with locked typed whole-entry refusal, never truncation) instead of waiting on m-1.
+
+**The operative boundary (m-1's, adopted over master's):** determined-vs-undetermined. Execution-not-amendment
+holds exactly where J's text *determines* the implementation; where J defers or is silent, execution becomes
+*interpretation*, and interpreting m-1's contract is amendment territory regardless of whose keyboard — "a
+builder can change a contract without intending to, by answering a question the text never answered." The
+mitigation isn't "escalate if unsure" (silence is invisible from outside the authoring seat) — it's the domain
+owner **pre-stating the silences**, which m-1 did unprompted:
+
+- **Three STOPs (halt+route):** (1) multi-cap breach → m-1 (J names "the cap" singular; unstated for two at
+  once); (2) J-R6/J-R7 originate on m-3's surface → m-3, never re-derive from J's reasoning; (3) cap-carrier
+  seam §A12.4.2 → consistent with m-2's ruling, unreachable-line trap (a warning the failure path discards is
+  dead code reading as compliance).
+- **Five VETOES:** post-loop check not short-circuit-at-1025th-before-construct; any truncation; writer emits
+  `parent_id` when the parent is the entry's primary (ADDENDUM-11 defect); cap error not naming both cap AND
+  entry (160603); any silent filling of the STOPs.
+- **Determinacy:** J-R3 schema bump + J-R6 exit fully stated → low judgement-density.
+
+**Disposition (mine):** carried the ruling DOWN to the floor pair (bivpak `4000395`; CC master + m-1), quoting
+the STOPs/VETOES verbatim as binding terms, folding the manifest schema into their slice-E scope: amend the
+successor PLAN under `s4-floor-slice-e-plan-20260812` @ `29a5b3a3` to add `src/core/manifest` (J text only) +
+the STOPs/VETOES boundary + m-1 byte-level veto. **This moves a fence; it does not start work.**
+
+**Still gated:** successor PLAN → local PLAN-REVIEW approve → token-time seven-element tuple re-verify → token
+→ Stage 1 (now including the manifest schema, under m-1 veto). rev3b stays must-revise (171210).
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design at pin `29a5b3a3`,
+both token gates cleared, Stage 0 banked; **m-1 dependency UNPARKED — the pair implements J's manifest schema
+under the extended fence + m-1 veto**, folded into the successor PLAN. Open: R-4.27→v2.9 wait, R-4.24
+(m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
