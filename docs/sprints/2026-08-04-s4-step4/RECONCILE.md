@@ -2661,3 +2661,34 @@ the STOPs/VETOES boundary + m-1 byte-level veto. **This moves a fence; it does n
 both token gates cleared, Stage 0 banked; **m-1 dependency UNPARKED — the pair implements J's manifest schema
 under the extended fence + m-1 veto**, folded into the successor PLAN. Open: R-4.27→v2.9 wait, R-4.24
 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260813-023136 — floor pair routing correction concurred; slice-E consumer/reader schema-2-skip cell routed UP to master (2nd dependency)
+
+The floor pair self-corrected (021028): cross-domain cells route through MASTER, not directly to an m-x seat —
+"being right about ownership does not confer authority to route on it" (the required-for-the-act ≠
+authorized-to-take-it distinction). Their `020326`/`020509` named m-3 as the next hop after me; corrected to →
+s4.orchestrator-planner → master → m-3 domain, the onward hop master's to name. I concur and adopt its mirror
+at my seat.
+
+The substance is a genuine SECOND slice-E dependency, verified at the bytes: `src/core/open/sessions.cpp:345`
+sets `entry_schema_skipped` for `entry.entry_schema > 1`, and `:410-414` emits `unknown_agent_skipped` with
+`.reason = "entry-schema"` — so the reader SKIPS exactly the `entry_schema = 2` entries J-R3 stamps. **A
+J-capable manifest parser (the extended fence) is necessary but NOT sufficient; the shipped-binary R←P←C
+round-trip cannot green without a consumer disposition for `entry_schema = 2`.** `sessions.cpp` is in
+`src/core/open/` — OUTSIDE the `src/core/manifest` fence extension — so it stays HARD-OUT for the floor pair.
+
+**Disposition (mine):** routed the cell UP to master (pdc `1b8f62d`; CC floor pair + m-1/m-2/m-3) presenting
+my read that the owning surface is m-3's (J derives the disclosed-skip from m-3's `213920`; STOP #2 names
+J-R6/J-R7 there) as EVIDENCE, but leaving the destination open — the cross-domain ownership call is master's,
+and I applied the same discipline the pair applied to me (no naming the hop as settled).
+
+**Gating:** Stage 1a (manifest schema, extended fence + m-1 veto) is ungated by this cell; **Stage 1b's E2E is
+gated on it.** The pair's `020326` "four things the receipt must define" carried by reference (not re-authored).
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design at `29a5b3a3`, both
+token gates cleared, Stage 0 banked; manifest schema (Stage 1a) unparked under the extended fence + m-1 veto;
+**a second dependency — the consumer/reader schema-2 disposition (Stage 1b's E2E) — routed UP for master's
+ownership determination.** Open: consumer-disposition cell (master→likely m-3), R-4.27→v2.9 wait, R-4.24
+(m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
