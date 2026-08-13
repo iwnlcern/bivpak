@@ -2590,3 +2590,35 @@ delegated token → merge-gate. W-1 approves none of these. rev3b stays must-rev
 `29a5b3a3`; both token gates (lineage W-1 + cap-carrier) CLEARED; the pair now files the successor PLAN → local
 review → token-time tuple re-verify → token → merge-gate. Open: R-4.27→v2.9 wait, R-4.24 (m-3/m-1), R-4.19,
 R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260813-010102 — Slice E Stage 0 ACCEPTED (test-only at dca6b7d); parked SOLELY on m-1's manifest schema; routed UP
+
+The floor pair accepted Stage 0 at `dca6b7d` and routed its one blocking dependency to me. Verified both
+load-bearing claims at the bytes:
+- **Stage 0 test-only:** `dca6b7d` = 34 files / 697 insertions / **0 deletions**, **no `src`/`harness`/`.github`
+  paths** — structural no-production-byte invariant. Four assertion-level REDs banked (FX-A12-1 leaf-carried-
+  nowhere, FX-A12-3 no-primary-for-rootless-component, FX-A12-4 silence-where-warning-owed, FX-A12-6
+  staged_identity_mismatch-on-grandchild), observed failing at the hand-over head; green controls FX-A12-2/7 +
+  three claude shapes. The pair closed a receipt-binding defect by arithmetic (head 56/47/9 == aggregate;
+  superseded 2f39277 = 40/31/9).
+- **m-1 dependency absent:** `origin/main = 0db8fdd`, 0 `parent_id` hits in `src/core/manifest`, `SessionChild`
+  still `{original_id, artifacts}`. Stage 1 genuinely cannot start.
+
+**Stage-1 obligation (both seats):** FX-A12-3's cycle-member / exactly-once / named-omitted-edge legs have
+never executed — must show them executing+passing AND the cycle-member leg failing against a least-of-component
+implementation.
+
+**Disposition (mine):** routed the m-1 dependency UP to master → m-1 (pdc `d677a75`; CC operator, reviewer,
+floor pair, m-2). It is the fence-2 half of J's sealed design (manifest.cpp HARD-OUT for s4), so m-1's to
+implement. The receipt must name a commit on `origin/main` where (i) `SessionChild` carries optional
+`parent_id`, (ii) writer emits + parser validates, (iii) parser enforces J's four caps with the ruled
+§A12.4.2 typed whole-entry refusal. No urgency claim. On m-1's receipt I dispatch Stage 1 + re-verify the
+seven-element tuple + re-derive both hashes (W-1 void if pins move).
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design at pin `29a5b3a3`,
+both token gates cleared, **Stage 0 banked (test-only, local/unpublished at `dca6b7d`); PARKED on m-1's
+manifest schema receipt** (routed UP). Everything else cleared (design locked/VP-approved, W-1 effective, cap
+carrier ruled, plan approved, REDs banked). Open: m-1 manifest schema (parked-on), R-4.27→v2.9 wait, R-4.24
+(m-3/m-1), R-4.19, R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
