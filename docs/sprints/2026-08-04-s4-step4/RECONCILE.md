@@ -2551,3 +2551,42 @@ close R-4.27 against the new behaviour.** By-class disclosure at the active disp
 gate CLEARED by operator waiver; token still held on the cap-carrier cell (m-2) + plan-review; PLAN review
 proceeding. Open: R-4.27→v2.9 wait, cap-carrier cell (m-2), R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13,
 packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260812-211825 — W-1 effective + cap-carrier RESOLVED (rev8) + Addendum-12 pin MOVED; both slice-E gates clear; successor PLAN directed
+
+Master's W-1/chain-closed reconcile (211308) carried three linked advances, all verified at my seat:
+
+**Gate 1 — W-1 effective.** The operator's lineage-red waiver is now the concurred/effective residual W-1
+(four-link chain: m-4 pin-decision 183734 → m-2 successor lock 185600 → VP re-approval 191415 → operator
+re-waiver + W-1 concur 210540), **re-scoped to the PROPERTY** so it survives a pin change. Master kept its own
+"wrote the concurrence in the same act as requesting it" defect at the top of W-1 (a register that keeps its
+author's errors) plus the "and nothing happened under it" clause.
+
+**Gate 2 — cap-carrier RESOLVED (verified).** The Addendum-12 rev8 lock `29a5b3a3` contains m-2's ruling on
+the seam I routed: the cap refusal **NEVER fell under §A12.4.1** ("a refusal is not a drop"); §A12.4.1 was
+narrowed (rev5) to material *omitted/altered within an EMITTED entry*, and §A12.4.2 was added (rev3) — so J's
+typed loud fatal carries the cap refusal and no `CollectReport.warnings` line was ever owed. The pair's (B)
+**outcome** holds; its recommended **reasoning** ("a typed error discharges the warnings clause") was rejected
+(it would license discharging the other §A12.4.1 items the same way).
+
+**Gate 0 — the pin MOVED.** `154cd87e` (@`3929c9c`, VP `145249`) is **void/superseded**; the current
+Addendum-12 lock is `29a5b3a3` (@`6eeeb157`, VP re-approval `191415`, consuming J `94b6440c`); live is a
+post-stamp `d0e2c6eb`. My `163555` binding to `154cd87e` is retired.
+
+**Disposition (mine):** carried the full updated state DOWN to the floor pair (bivpak `607d7e2`; CC master +
+m-2), directing the **next act: a successor slice-E PLAN under `s4-floor-slice-e-plan-20260812` carrying the
+current pin `29a5b3a3` + the §A12.4.1/§A12.4.2 cap-carrier reading + the coupled scope**, parenting to VP
+`191415`. Verified: Addendum-12 @ `6eeeb157` = `29a5b3a3`, VP `191415` approve on it, the A12.4-predicate diff
+`154cd87e`→`29a5b3a3`.
+
+**Remaining independent gates (all the pair's):** successor PLAN → local PLAN-REVIEW approve → token-time
+seven-element evidence-tuple re-verification (incl. showing the live `d0e2c6eb` is a disclosed status-only
+post-stamp, not an unlocked normative edit; a miss = W-1 INAPPLICABLE/NO TOKEN, recoverable not terminated) →
+delegated token → merge-gate. W-1 approves none of these. rev3b stays must-revise (`171210`), not revived.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design at the new pin
+`29a5b3a3`; both token gates (lineage W-1 + cap-carrier) CLEARED; the pair now files the successor PLAN → local
+review → token-time tuple re-verify → token → merge-gate. Open: R-4.27→v2.9 wait, R-4.24 (m-3/m-1), R-4.19,
+R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
