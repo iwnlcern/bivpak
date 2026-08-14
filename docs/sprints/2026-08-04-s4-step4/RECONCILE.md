@@ -2728,3 +2728,37 @@ BOUND not to ship ahead of the consumer half. **Pending above the pair:** m-3 no
 operator scope-generalization decision (second instance of the m-x-surface pattern — master recommended
 generalizing (A) once). Open also: R-4.27→v2.9 wait, R-4.24 (m-3/m-1), R-4.19, R-3.40 item 13, packer_home.
 Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260814-130122 — m3-addendum-3 LOCKED; slice E design side COMPLETE; floor is s4's (successor PLAN carries three pins)
+
+Master receipted m-3's lock (125228): **m3-addendum-3 is LOCKED (`eeb4dd01` @ `a016f953`, live post-stamp
+`cefd3f79`)** — the J-consumer-notice-and-envelope-key contract — resolving the STOP #2 notice-determinacy cell
+I routed at `025756`. m-4's false-E1 citation on the way was owned and folded as D-5.16 instance 2; the F47
+CLEAR stands on the affirmed ground. **All of slice E's design-side dependencies are now discharged; the floor
+is s4's.**
+
+**Re-verified every pin at my seat:** J `94b6440c` @ `e30f845`; addendum-12 `29a5b3a3` @ `6eeeb157`;
+m3-addendum-3 `eeb4dd01` @ `a016f953` (live `cefd3f79`, 79 M3-J-4..7/notice/consent refs); (A) fence in force +
+m-1 STOPs/VETOES; land order bound; W-1 effective.
+
+**Disposition (mine):** carried the design-complete state DOWN to the floor pair (bivpak `d13e4dd`; CC master +
+m-1/m-2/m-3), adding the third pin. The successor slice-E PLAN under `s4-floor-slice-e-plan-20260812` now
+carries THREE pins (DESIGN_LOCK m2-addendum12-`29a5b3a3`, CONSUMED_CONTRACT m1-addendum-J-`94b6440c`, CONSUMER
+m3-addendum-3-`eeb4dd01`) + the coupled scope (manifest half under (A)+m-1 veto, collector+root-mapped gates,
+killing tests incl. FX-A12-3's never-run legs, consumer M3-J-4..7 against m3-addendum-3's locked notice,
+disposable-store CLI E2E) + the bound land order.
+
+**Remaining = BUILD-SIDE + s4's:** successor PLAN → local PLAN-REVIEW → token-time seven-element tuple
+re-verify (re-derive all three hashes; W-1 void if pins move) → token → Stage 1 (manifest under m-1 veto;
+consumer per the operator's generalization) → Stage 1b E2E → merge-gate. **Open + non-blocking:** the operator's
+scope generalization (`023706` §5) settles who implements the consumer half on `src/core/open/sessions.cpp`
+(pair under m-3 veto if generalized, else m-3); the PLAN proceeds regardless; `sessions.cpp` stays HARD-OUT
+until then.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E: DESIGN SIDE COMPLETE** (three
+pins + (A) fence + land order + W-1 all discharged); floor is s4's — the pair writes the successor PLAN (3
+pins) → local review → token-time tuple → token → build. Open: operator scope generalization (non-blocking),
+R-4.27→v2.9 wait, R-4.24 (now consumer-contract-locked; residual per m-3/m-1), R-4.19, R-3.40 item 13,
+packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
