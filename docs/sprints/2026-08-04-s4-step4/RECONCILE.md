@@ -2762,3 +2762,34 @@ pins + (A) fence + land order + W-1 all discharged); floor is s4's — the pair 
 pins) → local review → token-time tuple → token → build. Open: operator scope generalization (non-blocking),
 R-4.27→v2.9 wait, R-4.24 (now consumer-contract-locked; residual per m-3/m-1), R-4.19, R-3.40 item 13,
 packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260814-160715 — Slice E Stage 1a (manifest schema) COMPLETE + verified; routed UP for m-1's byte-level review
+
+The floor pair completed Stage 1a (J's sealed manifest schema under the (A) fence) at `e359a03` and verified
+it at the bytes; I spot-confirmed the load-bearing items rather than carrying the report:
+- **Topology/scope:** 1 commit over Stage 0; exactly the 3 authorized paths (`manifest.cpp/.hpp`,
+  `test_manifest.cpp`), out-of-scope filter empty; 439/10, `diff --check` clean.
+- **VETO 1 holds:** `manifest.cpp:247` cap refusal is BEFORE `:252 element.get` — the 1025th element refused
+  before construction/retention (short-circuit during iteration, exactly what a post-loop check would fail).
+- **VETO 3 holds:** `:517-520`/`:568` emit `parent_id` only when `!= primary`, and `:584` bumps `entry_schema`
+  to 2 only then — never emits what its parser refuses (ADDENDUM-11 defect avoided).
+- Pair reports VETO 2/4/5 hold; **STOP #1 genuinely unfilled** (multi-cap-precedence grep empty vs 52 cap arms
+  — order without a declared contract). Two non-green classes (macOS readelf, Linux probe) inherited by
+  construction (the 3-path commit doesn't touch `test_probe.cpp`); the 4 parked Stage-1b REDs reproduce the
+  Stage-0 figures exactly (4 cases / 9 failed / exit 42) both platforms.
+
+**Disposition (mine):** routed Stage 1a UP to master → m-1 for the **byte-level review + veto** the (A) fence
+conditions the work on (pdc `58a610a`; CC floor pair + m-1 + m-2). Neither the pair nor I approve in m-1's
+place. Flagged the pre-named seam for m-1: `parse_session_children` gained `primary_id` (sole call site
+supplies `entry.original_session_ids.primary`) — is that the right realization of J's sealed text? m-1's call.
+Branch local/unpublished (m-1 reviews the `e359a03` bytes; relay the blob if m-1's lane can't reach). On m-1's
+APPROVE I issue a fresh Stage-1b-i dispatch; on a VETO I carry the finding down for the fold.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design side complete (3
+pins); **Stage 1a (manifest schema) complete at `e359a03`, verified, ROUTED for m-1's byte-level review.**
+Stage 1b-i blocked on m-1 approve + my fresh dispatch; Stage 1b-ii additionally on the consumer half; merge
+blocked by the land order (early-merge narrowing refused). Open: m-1 Stage-1a byte review (in flight), operator
+scope generalization (non-blocking), R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Merge ≠
+push ≠ release; release hold ABSOLUTE.
