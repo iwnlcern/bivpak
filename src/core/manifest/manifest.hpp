@@ -43,6 +43,7 @@ struct SessionIds {
 struct SessionChild {
   std::string original_id;
   std::vector<std::string> artifacts;
+  std::optional<std::string> parent_id = std::nullopt;
 };
 
 struct AgentSessionEntry {

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <optional>
@@ -58,6 +59,89 @@ std::string manifest_json_with(std::vector<biv::manifest::AgentSessionEntry> ent
   auto manifest = fixed_manifest();
   manifest.agent_sessions = std::move(entries);
   return biv::manifest::serialize(manifest);
+}
+
+std::string manifest_json_with_parent_edge(const int entry_schema) {
+  auto entry = codex_session_entry();
+  entry.children.push_back(
+      {.original_id = "019f-cccc",
+       .artifacts = {"agents/codex/019f-cccc.jsonl"}});
+  auto json = manifest_json_with({entry});
+
+  constexpr std::string_view child_id = "\"original_id\": \"019f-cccc\",";
+  const auto child_id_pos = json.find(child_id);
+  REQUIRE(child_id_pos != std::string::npos);
+  json.insert(child_id_pos + child_id.size(),
+              "\n        \"parent_id\": \"019f-bbbb\",");
+
+  constexpr std::string_view schema_one = "\"entry_schema\": 1";
+  const auto schema_pos = json.find(schema_one);
+  REQUIRE(schema_pos != std::string::npos);
+  json.replace(schema_pos, schema_one.size(),
+               "\"entry_schema\": " + std::to_string(entry_schema));
+  return json;
+}
+
+std::string replace_once(std::string text, const std::string_view needle,
+                         std::string replacement) {
+  const auto pos = text.find(needle);
+  REQUIRE(pos != std::string::npos);
+  text.replace(pos, needle.size(), std::move(replacement));
+  return text;
+}
+
+std::string child_id(const std::size_t index) {
+  return "child-" + std::to_string(index);
+}
+
+std::string child_artifact(const std::size_t child_index,
+                           const std::size_t artifact_index) {
+  return "agents/codex/child-" + std::to_string(child_index) + "-artifact-" +
+         std::to_string(artifact_index) + ".jsonl";
+}
+
+biv::manifest::AgentSessionEntry entry_with_children(const std::size_t count) {
+  auto entry = codex_session_entry();
+  entry.children.clear();
+  for (std::size_t i = 0; i < count; ++i) {
+    entry.children.push_back({.original_id = child_id(i),
+                              .artifacts = {child_artifact(i, 0)}});
+  }
+  return entry;
+}
+
+std::string manifest_json_with_parent_chain(const std::size_t depth) {
+  auto entry = entry_with_children(depth);
+  auto json = manifest_json_with({entry});
+  for (std::size_t i = 1; i < depth; ++i) {
+    const std::string needle = "\"original_id\": \"" + child_id(i) + "\",";
+    const auto pos = json.find(needle);
+    REQUIRE(pos != std::string::npos);
+    json.insert(pos + needle.size(),
+                "\n        \"parent_id\": \"" + child_id(i - 1) + "\",");
+  }
+  return replace_once(std::move(json), "\"entry_schema\": 1",
+                      "\"entry_schema\": 2");
+}
+
+biv::manifest::AgentSessionEntry entry_with_total_artifacts(
+    const std::size_t total) {
+  auto entry = codex_session_entry();
+  entry.children.clear();
+  std::size_t remaining = total - entry.artifacts.size();
+  for (std::size_t child_index = 0; remaining > 0; ++child_index) {
+    const auto child_count = std::min<std::size_t>(remaining, 256U);
+    std::vector<std::string> artifacts;
+    artifacts.reserve(child_count);
+    for (std::size_t artifact_index = 0; artifact_index < child_count;
+         ++artifact_index) {
+      artifacts.push_back(child_artifact(child_index, artifact_index));
+    }
+    entry.children.push_back({.original_id = child_id(child_index),
+                              .artifacts = std::move(artifacts)});
+    remaining -= child_count;
+  }
+  return entry;
 }
 
 std::string carrier_json(const std::string& injected) {
@@ -501,9 +585,11 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
   REQUIRE(parsed_unknown->agent_sessions.size() == 1);
   CHECK(parsed_unknown->agent_sessions.front().agent == "future-tool");
 
-  auto future_schema = codex_session_entry();
-  future_schema.entry_schema = 99;
-  auto parsed_future_schema = biv::manifest::parse(bytes_of(manifest_json_with({future_schema})));
+  const auto future_schema_json = replace_once(
+      manifest_json_with({codex_session_entry()}), "\"entry_schema\": 1",
+      "\"entry_schema\": 99");
+  auto parsed_future_schema =
+      biv::manifest::parse(bytes_of(future_schema_json));
   REQUIRE(parsed_future_schema.has_value());
   REQUIRE(parsed_future_schema->agent_sessions.size() == 1);
   CHECK(parsed_future_schema->agent_sessions.front().entry_schema == 99);
@@ -536,6 +622,197 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
   REQUIRE(parsed_minimal_future.has_value());
   REQUIRE(parsed_minimal_future->agent_sessions.size() == 1);
   CHECK(parsed_minimal_future->agent_sessions.front().entry_schema == 99);
+}
+
+TEST_CASE("Manifest reader accepts schema 2 entries in full and skips newer schemas") {
+  const auto schema_two =
+      biv::manifest::parse(bytes_of(manifest_json_with_parent_edge(2)));
+  REQUIRE(schema_two.has_value());
+  REQUIRE(schema_two->agent_sessions.size() == 1U);
+  CHECK(schema_two->agent_sessions.front().agent_version_at_pack == "0.142.5");
+  CHECK(schema_two->agent_sessions.front().children.size() == 2U);
+  CHECK(schema_two->agent_sessions.front().children.back().parent_id ==
+        std::optional<std::string>{"019f-bbbb"});
+
+  for (const int schema : {3, 99}) {
+    CAPTURE(schema);
+    const auto newer =
+        biv::manifest::parse(bytes_of(manifest_json_with_parent_edge(schema)));
+    REQUIRE(newer.has_value());
+    REQUIRE(newer->agent_sessions.size() == 1U);
+    CHECK(newer->agent_sessions.front().entry_schema == schema);
+    CHECK(newer->agent_sessions.front().agent_version_at_pack.empty());
+    CHECK(newer->agent_sessions.front().children.empty());
+  }
+}
+
+TEST_CASE("Manifest reader enforces the complete parent-edge tree contract") {
+  constexpr std::string_view parent_edge =
+      "\"parent_id\": \"019f-bbbb\",";
+  const auto base = manifest_json_with_parent_edge(2);
+
+  const auto direct = biv::manifest::parse(
+      bytes_of(manifest_json_with({codex_session_entry()})));
+  REQUIRE(direct.has_value());
+  REQUIRE(direct->agent_sessions.front().children.size() == 1U);
+  CHECK_FALSE(
+      direct->agent_sessions.front().children.front().parent_id.has_value());
+
+  const auto require_refused = [](const std::string& json) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+  };
+
+  SECTION("explicit primary parent is not a second encoding of absence") {
+    require_refused(replace_once(
+        base, parent_edge, "\"parent_id\": \"019f-aaaa\","));
+  }
+  SECTION("parent must name another member of the same entry") {
+    require_refused(replace_once(
+        base, parent_edge, "\"parent_id\": \"019f-dddd\","));
+  }
+  SECTION("child ids are unique") {
+    require_refused(replace_once(
+        base, "\"original_id\": \"019f-cccc\"," ,
+        "\"original_id\": \"019f-bbbb\","));
+  }
+  SECTION("child id cannot collide with the primary") {
+    require_refused(replace_once(
+        base, "\"original_id\": \"019f-cccc\"," ,
+        "\"original_id\": \"019f-aaaa\","));
+  }
+  SECTION("self loops are refused") {
+    require_refused(replace_once(
+        base, parent_edge, "\"parent_id\": \"019f-cccc\","));
+  }
+  SECTION("longer cycles are refused by an iterative walk") {
+    auto cycle = replace_once(
+        base, "\"original_id\": \"019f-bbbb\"," ,
+        "\"original_id\": \"019f-bbbb\",\n"
+        "        \"parent_id\": \"019f-cccc\",");
+    require_refused(cycle);
+  }
+  SECTION("declared children carry at least one artifact") {
+    require_refused(replace_once(
+        base, "\"agents/codex/019f-cccc.jsonl\"", ""));
+  }
+  SECTION("present null is refused rather than aliased to absence") {
+    require_refused(
+        replace_once(base, parent_edge, "\"parent_id\": null,"));
+  }
+  SECTION("duplicate parent_id is refused before first-wins access") {
+    require_refused(replace_once(
+        base, parent_edge,
+        "\"parent_id\": \"019f-bbbb\",\n"
+        "        \"parent_id\": \"019f-bbbb\","));
+  }
+  SECTION("duplicate original_id is refused before first-wins access") {
+    require_refused(replace_once(
+        base, "\"original_id\": \"019f-bbbb\"," ,
+        "\"original_id\": \"019f-bbbb\",\n"
+        "        \"original_id\": \"019f-bbbb\","));
+  }
+  SECTION("duplicate artifacts is refused before first-wins access") {
+    auto duplicate_artifacts = base;
+    const auto child_pos =
+        duplicate_artifacts.find("\"original_id\": \"019f-bbbb\"");
+    REQUIRE(child_pos != std::string::npos);
+    const auto artifacts_pos =
+        duplicate_artifacts.find("\"artifacts\":", child_pos);
+    REQUIRE(artifacts_pos != std::string::npos);
+    duplicate_artifacts.insert(artifacts_pos, "\"artifacts\": [],\n        ");
+    require_refused(duplicate_artifacts);
+  }
+}
+
+TEST_CASE("Manifest reader enforces all four per-entry graph caps") {
+  constexpr std::string_view primary_id = "019f-aaaa";
+  const auto require_cap_refused = [primary_id](const std::string& json,
+                                                 const std::string_view cap) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+    CHECK(parsed.error().detail.find(cap) != std::string::npos);
+    CHECK(parsed.error().detail.find(primary_id) != std::string::npos);
+  };
+
+  SECTION("node cap accepts 1024 and short-circuits on the 1025th element") {
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(manifest_json_with({entry_with_children(1024)})));
+    REQUIRE(at_cap.has_value());
+    REQUIRE(at_cap->agent_sessions.front().children.size() == 1024U);
+
+    auto over_cap = manifest_json_with({entry_with_children(1025)});
+    over_cap = replace_once(std::move(over_cap), child_artifact(1024, 0),
+                            "../must-not-be-read");
+    require_cap_refused(over_cap, "children-node-cap");
+  }
+
+  SECTION("parent depth accepts 64 and refuses 65") {
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(manifest_json_with_parent_chain(64)));
+    REQUIRE(at_cap.has_value());
+    require_cap_refused(manifest_json_with_parent_chain(65),
+                        "children-depth-cap");
+  }
+
+  SECTION("artifacts per child accepts 256 and refuses 257") {
+    auto at_cap_entry = entry_with_children(1);
+    at_cap_entry.children.front().artifacts.clear();
+    for (std::size_t i = 0; i < 256U; ++i) {
+      at_cap_entry.children.front().artifacts.push_back(child_artifact(0, i));
+    }
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(manifest_json_with({at_cap_entry})));
+    REQUIRE(at_cap.has_value());
+
+    auto over_cap_entry = at_cap_entry;
+    over_cap_entry.children.front().artifacts.push_back(child_artifact(0, 256));
+    require_cap_refused(manifest_json_with({over_cap_entry}),
+                        "children-artifacts-per-node-cap");
+  }
+
+  SECTION("total artifacts accepts 4096 and refuses 4097") {
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(manifest_json_with({entry_with_total_artifacts(4096)})));
+    REQUIRE(at_cap.has_value());
+    require_cap_refused(
+        manifest_json_with({entry_with_total_artifacts(4097)}),
+        "entry-artifacts-total-cap");
+  }
+}
+
+TEST_CASE("Manifest writer emits only non-primary parent edges and bumps schema conditionally") {
+  auto transitive = codex_session_entry();
+  transitive.children.push_back(
+      {.original_id = "019f-cccc",
+       .artifacts = {"agents/codex/019f-cccc.jsonl"},
+       .parent_id = "019f-bbbb"});
+  transitive.entry_schema = 1;
+
+  const auto transitive_json = manifest_json_with({transitive});
+  CHECK(transitive_json.find("\"parent_id\": \"019f-bbbb\"") !=
+        std::string::npos);
+  CHECK(transitive_json.find("\"entry_schema\": 2") != std::string::npos);
+  const auto transitive_round_trip =
+      biv::manifest::parse(bytes_of(transitive_json));
+  REQUIRE(transitive_round_trip.has_value());
+  REQUIRE(transitive_round_trip->agent_sessions.front().children.size() == 2U);
+  CHECK(transitive_round_trip->agent_sessions.front().children.back().parent_id ==
+        std::optional<std::string>{"019f-bbbb"});
+
+  auto direct = codex_session_entry();
+  direct.children.front().parent_id = direct.original_session_ids.primary;
+  direct.entry_schema = 2;
+  const auto direct_json = manifest_json_with({direct});
+  CHECK(direct_json.find("\"parent_id\"") == std::string::npos);
+  CHECK(direct_json.find("\"entry_schema\": 1") != std::string::npos);
+  const auto direct_round_trip = biv::manifest::parse(bytes_of(direct_json));
+  REQUIRE(direct_round_trip.has_value());
+  REQUIRE(direct_round_trip->agent_sessions.front().children.size() == 1U);
+  CHECK_FALSE(
+      direct_round_trip->agent_sessions.front().children.front().parent_id.has_value());
 }
 
 TEST_CASE("Manifest parser accepts null parents and rejects empty parent artifacts") {
