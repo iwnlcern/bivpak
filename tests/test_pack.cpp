@@ -429,6 +429,121 @@ std::string combined_file_text(const std::filesystem::path& root) {
   return combined;
 }
 
+std::string slice_e_session_id(const std::size_t value) {
+  const auto suffix = std::to_string(value);
+  REQUIRE(suffix.size() <= 12U);
+  return "019fa120-0000-7000-8000-" +
+         std::string(12U - suffix.size(), '0') + suffix;
+}
+
+void write_slice_e_codex_rollout(const std::filesystem::path& store,
+                                 const std::filesystem::path& workspace,
+                                 const std::string& id,
+                                 const std::optional<std::string>& parent) {
+  std::string payload =
+      "{\"timestamp\":\"2026-08-12T00:00:00Z\",\"type\":\"session_meta\",";
+  payload += "\"payload\":{\"id\":\"" + id + "\",\"session_id\":\"" +
+             (parent.has_value() ? *parent : id) + "\"";
+  if (parent.has_value()) {
+    payload += ",\"parent_thread_id\":\"" + *parent + "\"";
+  }
+  payload += ",\"cwd\":\"" + workspace.generic_string() +
+             "\",\"cli_version\":\"0.142.5\"}}\n";
+  write_file(store / "sessions" / "2026" / "08" / "12" /
+                 ("rollout-2026-08-12T00-00-00-" + id + ".jsonl"),
+             payload);
+}
+
+struct SliceECodexPackTree {
+  std::filesystem::path root;
+  std::filesystem::path source;
+  std::string primary;
+};
+
+SliceECodexPackTree make_slice_e_codex_pack_tree(
+    const std::string_view name, const std::size_t descendants,
+    const bool chain) {
+  auto root = make_tmp(name);
+  const auto source = root / "source";
+  const auto store = root / "codex";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace\n");
+  const auto primary = slice_e_session_id(1U);
+  write_slice_e_codex_rollout(store, source, primary, std::nullopt);
+  auto parent = primary;
+  for (std::size_t index = 0; index < descendants; ++index) {
+    const auto id = slice_e_session_id(index + 2U);
+    write_slice_e_codex_rollout(store, source, id,
+                               chain ? std::optional<std::string>{parent}
+                                     : std::optional<std::string>{primary});
+    if (chain) {
+      parent = id;
+    }
+  }
+  return {.root = std::move(root),
+          .source = std::move(source),
+          .primary = primary};
+}
+
+struct SliceEClaudePackTree {
+  std::filesystem::path root;
+  std::filesystem::path source;
+  std::filesystem::path store;
+  std::string primary;
+  std::string child;
+};
+
+SliceEClaudePackTree make_slice_e_claude_pack_tree(
+    const std::string_view name, const std::size_t child_artifacts,
+    const std::size_t extra_parent_artifacts) {
+  REQUIRE(child_artifacts >= 1U);
+  auto root = make_tmp(name);
+  const auto source = root / "source";
+  const auto store = root / "claude";
+  const auto primary = slice_e_session_id(8001U);
+  const auto child = slice_e_session_id(8002U);
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace\n");
+  const auto project = store / "projects" / "project";
+  write_file(project / (primary + ".jsonl"),
+             "{\"type\":\"user\",\"cwd\":\"" +
+                 source.generic_string() + "\",\"sessionId\":\"" + primary +
+                 "\",\"version\":\"2.1.211\"}\n");
+  const auto subtree = project / primary;
+  write_file(subtree / "subagents" / (child + ".jsonl"),
+             "{\"type\":\"user\",\"sessionId\":\"" + child +
+                 "\",\"version\":\"2.1.211\"}\n");
+  for (std::size_t index = 1; index < child_artifacts; ++index) {
+    write_file(subtree / "subagents" /
+                   (child + ".artifact-" + std::to_string(index) + ".txt"),
+               "child artifact\n");
+  }
+  for (std::size_t index = 0; index < extra_parent_artifacts; ++index) {
+    write_file(subtree / "tool-results" /
+                   ("parent-artifact-" + std::to_string(index) + ".txt"),
+               "parent artifact\n");
+  }
+  return {.root = std::move(root),
+          .source = std::move(source),
+          .store = std::move(store),
+          .primary = primary,
+          .child = child};
+}
+
+void require_slice_e_atomic_pack_refusal(
+    const biv::expected<biv::pack::PackReport>& result,
+    const std::filesystem::path& source, const std::string_view cap,
+    const std::string_view entry) {
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::ArchiveWriteFailed);
+  CHECK(result.error().detail.find(cap) != std::string::npos);
+  CHECK(result.error().detail.find(entry) != std::string::npos);
+  const auto image = source.parent_path() / (source.filename().string() + ".bvpk");
+  CHECK_FALSE(std::filesystem::exists(image));
+  CHECK_FALSE(std::filesystem::exists(image.string() + ".partial"));
+  CHECK_FALSE(std::filesystem::exists(image.string() + ".spool"));
+}
+
 void write_agent_session(const std::filesystem::path& store,
                          const std::filesystem::path& source,
                          const std::string_view agent,
@@ -746,6 +861,9 @@ TEST_CASE("FX-A12-2 Codex two-level round trip is byte-identical",
   REQUIRE(report->agent_sessions.front().children.size() == 1U);
   CHECK(report->agent_sessions.front().children.front().original_id ==
         child_id);
+  CHECK(report->agent_sessions.front().children.front().parent_id ==
+        std::nullopt);
+  CHECK(report->agent_sessions.front().entry_schema == 1);
   const auto members = read_archive(root / "proj.bvpk");
   const std::array source_files{
       std::pair{session_id,
@@ -770,6 +888,160 @@ TEST_CASE("FX-A12-2 Codex two-level round trip is byte-identical",
     CHECK(byte_string(as_span(member.data)).find(decoy) == std::string::npos);
   }
   std::filesystem::remove_all(root);
+}
+
+TEST_CASE("FX-A12-1b pack emits a transitive Codex parent edge",
+          "[slice-e][slice-e-red]") {
+  constexpr std::string_view root_id =
+      "019fa120-0000-7000-8000-000000000101";
+  constexpr std::string_view parent_id =
+      "019fa120-0000-7000-8000-000000000102";
+  constexpr std::string_view leaf_id =
+      "019fa120-0000-7000-8000-000000000103";
+  const auto root = make_tmp("slice-e-fx-a12-1b");
+  const auto source = root / "proj";
+  const auto store = root / "codex";
+  std::filesystem::create_directories(source);
+  write_file(source / "work.txt", "workspace\n");
+  copy_fixture_tree_with_workspace(
+      std::filesystem::path{BIV_SOURCE_DIR} / "tests" / "fixtures" /
+          "slice-e" / "codex" / "three-level-chain-carried",
+      store, source);
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
+
+  const auto result = biv::pack::pack(source);
+
+  REQUIRE(result);
+  REQUIRE(result->agent_sessions.size() == 1U);
+  const auto& entry = result->agent_sessions.front();
+  CHECK(entry.original_session_ids.primary == root_id);
+  REQUIRE(entry.children.size() == 2U);
+  const auto direct = std::ranges::find(entry.children, parent_id,
+                                        &biv::manifest::SessionChild::original_id);
+  const auto leaf = std::ranges::find(entry.children, leaf_id,
+                                      &biv::manifest::SessionChild::original_id);
+  REQUIRE(direct != entry.children.end());
+  REQUIRE(leaf != entry.children.end());
+  CHECK(direct->parent_id == std::nullopt);
+  CHECK(leaf->parent_id == std::optional<std::string>{parent_id});
+  CHECK(entry.entry_schema == 2);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("FX-A12 producer node cap refuses atomically at cap plus one",
+          "[slice-e][slice-e-red]") {
+  for (const auto descendants : {1024U, 1025U}) {
+    DYNAMIC_SECTION("descendants=" << descendants) {
+      auto tree = make_slice_e_codex_pack_tree(
+          "slice-e-node-cap-" + std::to_string(descendants), descendants,
+          false);
+      auto env = isolated_pack_discovery_env(tree.root);
+      env.codex_home = (tree.root / "codex").string();
+      const ScopedPackDiscoveryEnv discovery_env{env};
+
+      const auto result = biv::pack::pack(tree.source);
+
+      if (descendants == 1024U) {
+        REQUIRE(result);
+        REQUIRE(result->agent_sessions.size() == 1U);
+        CHECK(result->agent_sessions.front().children.size() == 1024U);
+      } else {
+        require_slice_e_atomic_pack_refusal(
+            result, tree.source, "children-node-cap", tree.primary);
+      }
+      std::filesystem::remove_all(tree.root);
+    }
+  }
+}
+
+TEST_CASE("FX-A12 producer depth cap refuses atomically at cap plus one",
+          "[slice-e][slice-e-red]") {
+  for (const auto descendants : {64U, 65U}) {
+    DYNAMIC_SECTION("depth=" << descendants) {
+      auto tree = make_slice_e_codex_pack_tree(
+          "slice-e-depth-cap-" + std::to_string(descendants), descendants,
+          true);
+      auto env = isolated_pack_discovery_env(tree.root);
+      env.codex_home = (tree.root / "codex").string();
+      const ScopedPackDiscoveryEnv discovery_env{env};
+
+      const auto result = biv::pack::pack(tree.source);
+
+      if (descendants == 64U) {
+        REQUIRE(result);
+        REQUIRE(result->agent_sessions.size() == 1U);
+        CHECK(result->agent_sessions.front().children.size() == 64U);
+      } else {
+        require_slice_e_atomic_pack_refusal(
+            result, tree.source, "children-depth-cap", tree.primary);
+      }
+      std::filesystem::remove_all(tree.root);
+    }
+  }
+}
+
+TEST_CASE(
+    "FX-A12 producer child-artifact cap refuses atomically at cap plus one",
+    "[slice-e][slice-e-red]") {
+  for (const auto child_artifacts : {256U, 257U}) {
+    DYNAMIC_SECTION("child artifacts=" << child_artifacts) {
+      auto tree = make_slice_e_claude_pack_tree(
+          "slice-e-child-artifact-cap-" + std::to_string(child_artifacts),
+          child_artifacts, 0U);
+      auto env = isolated_pack_discovery_env(tree.root);
+      env.claude_config_dir = tree.store.string();
+      const ScopedPackDiscoveryEnv discovery_env{env};
+
+      const auto result = biv::pack::pack(tree.source);
+
+      if (child_artifacts == 256U) {
+        REQUIRE(result);
+        REQUIRE(result->agent_sessions.size() == 1U);
+        REQUIRE(result->agent_sessions.front().children.size() == 1U);
+        CHECK(result->agent_sessions.front().children.front().artifacts.size() ==
+              256U);
+      } else {
+        require_slice_e_atomic_pack_refusal(
+            result, tree.source, "children-artifacts-per-node-cap",
+            tree.primary);
+      }
+      std::filesystem::remove_all(tree.root);
+    }
+  }
+}
+
+TEST_CASE("FX-A12 producer total-artifact cap refuses atomically at cap plus one",
+          "[slice-e][slice-e-red]") {
+  for (const auto total_artifacts : {4096U, 4097U}) {
+    DYNAMIC_SECTION("total artifacts=" << total_artifacts) {
+      constexpr std::size_t child_artifacts = 256U;
+      const auto extra_parent_artifacts =
+          total_artifacts - child_artifacts - 1U;
+      auto tree = make_slice_e_claude_pack_tree(
+          "slice-e-total-artifact-cap-" + std::to_string(total_artifacts),
+          child_artifacts, extra_parent_artifacts);
+      auto env = isolated_pack_discovery_env(tree.root);
+      env.claude_config_dir = tree.store.string();
+      const ScopedPackDiscoveryEnv discovery_env{env};
+
+      const auto result = biv::pack::pack(tree.source);
+
+      if (total_artifacts == 4096U) {
+        REQUIRE(result);
+        REQUIRE(result->agent_sessions.size() == 1U);
+        const auto& entry = result->agent_sessions.front();
+        REQUIRE(entry.children.size() == 1U);
+        CHECK(entry.artifacts.size() + entry.children.front().artifacts.size() ==
+              4096U);
+        CHECK(entry.artifacts.size() > 256U);
+      } else {
+        require_slice_e_atomic_pack_refusal(
+            result, tree.source, "entry-artifacts-total-cap", tree.primary);
+      }
+      std::filesystem::remove_all(tree.root);
+    }
+  }
 }
 
 TEST_CASE("pack refuses stale partial and reports facts") {

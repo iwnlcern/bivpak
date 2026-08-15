@@ -51,6 +51,7 @@ struct WritePlan {
   std::string artifact;
   fs::path path;
   std::string installed_id;
+  std::optional<std::string> expected_parent_id;
 };
 
 struct PreparedSession {
@@ -58,6 +59,7 @@ struct PreparedSession {
   std::string installed_id;
   std::vector<std::pair<std::string, std::string>> child_ids;
   std::vector<std::pair<std::string, std::string>> rewrite_ids;
+  std::map<std::string, std::string> installed_by_original;
   std::vector<std::string> origin_ids;
   std::vector<WritePlan> writes;
   std::optional<std::string> installed_parent_id;
@@ -433,6 +435,9 @@ expected<InstallResult> codex_install(const InstallTarget& target,
                              .child_ids = {},
                              .rewrite_ids = {{record.original_session_ids.primary,
                                               rollouts.at(primary_identity).id}},
+                             .installed_by_original = {
+                                 {record.original_session_ids.primary,
+                                  rollouts.at(primary_identity).id}},
                              .origin_ids = {record.original_session_ids.primary},
                              .writes = {},
                              .installed_parent_id = std::nullopt,
@@ -455,6 +460,8 @@ expected<InstallResult> codex_install(const InstallTarget& target,
       rollouts.emplace(child_identity, mint_rollout_name());
       const auto& installed_child = rollouts.at(child_identity).id;
       prepared.child_ids.push_back({child.original_id, installed_child});
+      prepared.installed_by_original.insert_or_assign(child.original_id,
+                                                       installed_child);
       prepared.rewrite_ids.push_back({child.original_id, installed_child});
       prepared.origin_ids.push_back(child.original_id);
       if (child_identity != child.original_id) {
@@ -485,8 +492,28 @@ expected<InstallResult> codex_install(const InstallTarget& target,
           install_root / "sessions" / rollout.year / rollout.month /
           rollout.day /
           ("rollout-" + rollout.file_stamp + "-" + rollout.id + ".jsonl");
+      std::optional<std::string> expected_parent_id;
+      const auto owning_child = std::ranges::find_if(
+          record.children, [&](const auto& child) {
+            return std::ranges::find(child.artifacts, artifact) !=
+                   child.artifacts.end();
+          });
+      if (owning_child != record.children.end() &&
+          owning_child->parent_id.has_value()) {
+        const auto installed_parent = prepared.installed_by_original.find(
+            *owning_child->parent_id);
+        if (installed_parent == prepared.installed_by_original.end()) {
+          prepared.refusal_reason = "containment_refused";
+          prepared.refusal_detail = "staged_identity_mismatch";
+        } else {
+          expected_parent_id = installed_parent->second;
+        }
+      }
       prepared.writes.push_back(WritePlan{
-          .artifact = artifact, .path = path, .installed_id = rollout.id});
+          .artifact = artifact,
+          .path = path,
+          .installed_id = rollout.id,
+          .expected_parent_id = std::move(expected_parent_id)});
     }
     prepared_sessions.push_back(std::move(prepared));
   }
@@ -543,6 +570,12 @@ expected<InstallResult> codex_install(const InstallTarget& target,
           prepared.record,
           target.workspace_root.generic_string(),
           path_flavor_for(target.workspace_root));
+      std::set<std::string> mapped_node_ids;
+      for (const auto& [original, installed] :
+           prepared.installed_by_original) {
+        (void)original;
+        mapped_node_ids.insert(installed);
+      }
       for (const auto& write : prepared.writes) {
         auto data = target.member_read(write.artifact);
         if (!data) {
@@ -562,29 +595,38 @@ expected<InstallResult> codex_install(const InstallTarget& target,
         const bool primary_write =
             std::ranges::find(prepared.record.artifacts, write.artifact) !=
             prepared.record.artifacts.end();
-        const std::string_view installed_thread_id =
-            primary_write && prepared.installed_parent_id.has_value()
-                ? std::string_view{*prepared.installed_parent_id}
-                : std::string_view{prepared.installed_id};
+        const auto identity_is_member = [&](const std::string& id) {
+          return mapped_node_ids.contains(id) ||
+                 (primary_write && prepared.installed_parent_id.has_value() &&
+                  id == *prepared.installed_parent_id);
+        };
         const bool recoverable_separate_parent =
             !primary_write || !prepared.installed_parent_id.has_value() ||
             (identities.session_id.has_value() &&
-             *identities.session_id == installed_thread_id) ||
+             *identities.session_id == *prepared.installed_parent_id) ||
             std::ranges::any_of(
                 identities.parent_thread_ids,
                 [&](const auto& parent_thread_id) {
-                  return parent_thread_id == installed_thread_id;
+                  return parent_thread_id == *prepared.installed_parent_id;
+                });
+        const bool edge_disagrees =
+            write.expected_parent_id.has_value() &&
+            std::ranges::any_of(
+                identities.parent_thread_ids,
+                [&](const auto& parent_thread_id) {
+                  return parent_thread_id != *write.expected_parent_id;
                 });
         if ((identities.id.has_value() &&
              *identities.id != write.installed_id) ||
             (identities.session_id.has_value() &&
              *identities.session_id != write.installed_id &&
-             *identities.session_id != installed_thread_id) ||
+             !identity_is_member(*identities.session_id)) ||
             std::ranges::any_of(
                 identities.parent_thread_ids,
                 [&](const auto& parent_thread_id) {
-                  return parent_thread_id != installed_thread_id;
+                  return !identity_is_member(parent_thread_id);
                 }) ||
+            edge_disagrees ||
             !recoverable_separate_parent) {
           prepared.refusal_reason = "containment_refused";
           prepared.refusal_detail = "staged_identity_mismatch";

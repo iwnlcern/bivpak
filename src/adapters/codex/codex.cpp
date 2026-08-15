@@ -374,10 +374,16 @@ std::vector<fs::path> rollout_paths(const fs::path& sessions_dir,
        end;
        !ec && it != end; it.increment(ec)) {
     const auto& entry = *it;
+    const auto filename = entry.path().filename().generic_string();
     if (entry.is_symlink(ec) || !entry.is_regular_file(ec)) {
+      if (filename.starts_with("rollout-") &&
+          (filename.ends_with(".jsonl") ||
+           filename.ends_with(".jsonl.zst"))) {
+        warnings.push_back("SessionDescendantUncarryable:" +
+                           entry.path().generic_string());
+      }
       continue;
     }
-    const auto filename = entry.path().filename().generic_string();
     if (!filename.starts_with("rollout-")) {
       continue;
     }
@@ -449,26 +455,33 @@ std::string artifact_for(std::string_view id) {
   return "agents/codex/" + std::string{id} + ".jsonl";
 }
 
-SessionRecord session_for(const Candidate& candidate, const std::vector<Candidate>& children) {
+SessionRecord session_for(const Candidate& candidate,
+                          const std::vector<Candidate>& descendants,
+                          const bool omit_primary_parent = false) {
   std::vector<std::string> child_ids;
+  std::vector<std::pair<std::string, std::string>> child_parent_map;
   std::vector<std::string> artifacts{artifact_for(candidate.id)};
   std::vector<SessionRecord::ArtifactSource> artifact_sources{candidate.source};
-  for (const auto& child : children) {
+  for (const auto& child : descendants) {
     child_ids.push_back(child.id);
+    if (child.parent_id.has_value()) {
+      child_parent_map.emplace_back(child.id, *child.parent_id);
+    }
     artifacts.push_back(artifact_for(child.id));
     artifact_sources.push_back(child.source);
   }
   std::ranges::sort(child_ids);
   const bool live_at_pack =
       candidate.live_at_pack ||
-      std::ranges::any_of(children, &Candidate::live_at_pack);
+      std::ranges::any_of(descendants, &Candidate::live_at_pack);
   std::vector<SessionRecord::TornTail> torn_tails;
   normalize_torn_jsonl_artifacts(artifacts, artifact_sources, live_at_pack, torn_tails);
   return SessionRecord{
       .agent = "codex",
       .original_session_id = candidate.id,
-      .parent_id = candidate.parent_id,
+      .parent_id = omit_primary_parent ? std::nullopt : candidate.parent_id,
       .child_ids = std::move(child_ids),
+      .child_parent_map = std::move(child_parent_map),
       .child_artifact_map = {},
       .original_path = candidate.cwd,
       .normalized_path_key = candidate.normalized_path_key,
@@ -707,6 +720,13 @@ expected<void> append_staged_session(CollectReport& report,
   const auto root = source_root / ".biv/agents/codex";
   for (const auto& row : staged->rows) {
     if (row.agent != "codex") continue;
+    std::set<std::string> mapped_node_ids{row.minted};
+    std::map<std::string, std::string> original_by_minted{
+        {row.minted, row.original}};
+    for (const auto& [child_original, child_minted] : row.children) {
+      mapped_node_ids.insert(child_minted);
+      original_by_minted.insert_or_assign(child_minted, child_original);
+    }
     const std::string& original_path = row.original_path.has_value()
                                            ? *row.original_path
                                            : inferred_original_path;
@@ -731,18 +751,20 @@ expected<void> append_staged_session(CollectReport& report,
                        candidate.minted == *referenced_parent;
               });
     const bool parent_is_staged = staged_parent != staged->rows.end();
-    const bool parent_ids_match = std::ranges::all_of(
+    const auto main_identity_is_member = [&](const std::string& id) {
+      return mapped_node_ids.contains(id) ||
+             (parent_is_staged && id == staged_parent->minted);
+    };
+    const bool main_parent_ids_consistent = std::ranges::all_of(
         facts.parent_ids, [&](const auto& parent_id) {
-          return parent_is_staged && parent_id == staged_parent->minted;
+          return parent_is_staged ? parent_id == staged_parent->minted
+                                  : mapped_node_ids.contains(parent_id);
         });
-    const std::string_view installed_parent_id =
-        parent_is_staged ? std::string_view{staged_parent->minted}
-                         : std::string_view{row.minted};
     if ((facts.id.has_value() && *facts.id != row.minted) ||
-        (!facts.parent_ids.empty() && !parent_ids_match) ||
+        !main_parent_ids_consistent ||
         (facts.session_id.has_value() &&
          *facts.session_id != row.minted &&
-         *facts.session_id != installed_parent_id)) {
+         !main_identity_is_member(*facts.session_id))) {
       report.warnings.push_back("StagedSessionIdentityMismatch:" +
                                 main_path->generic_string());
       continue;
@@ -757,6 +779,7 @@ expected<void> append_staged_session(CollectReport& report,
     std::vector<SessionRecord::ArtifactSource> sources{
         std::move(*main_source)};
     std::vector<std::string> child_ids;
+    std::vector<std::pair<std::string, std::string>> child_parent_map;
     std::vector<std::pair<std::string, std::string>> child_artifact_map;
     bool child_live = false;
     bool child_identity_mismatch = false;
@@ -772,10 +795,12 @@ expected<void> append_staged_session(CollectReport& report,
       if ((child_facts.id.has_value() && *child_facts.id != child_minted) ||
           (child_facts.session_id.has_value() &&
            *child_facts.session_id != child_minted &&
-           *child_facts.session_id != row.minted) ||
+           !mapped_node_ids.contains(*child_facts.session_id)) ||
           std::ranges::any_of(
               child_facts.parent_ids,
-              [&](const auto& parent_id) { return parent_id != row.minted; })) {
+              [&](const auto& parent_id) {
+                return !mapped_node_ids.contains(parent_id);
+              })) {
         report.warnings.push_back("StagedSessionIdentityMismatch:" +
                                   child_path->generic_string());
         child_identity_mismatch = true;
@@ -783,6 +808,18 @@ expected<void> append_staged_session(CollectReport& report,
       }
       child_live = child_live || !has_terminal_tail_record(*child_text);
       child_ids.push_back(child_original);
+      std::set<std::string> artifact_parents{child_facts.parent_ids.begin(),
+                                             child_facts.parent_ids.end()};
+      if (artifact_parents.empty() && child_facts.session_id.has_value() &&
+          *child_facts.session_id != child_minted) {
+        artifact_parents.insert(*child_facts.session_id);
+      }
+      if (artifact_parents.size() == 1U) {
+        const auto parent = original_by_minted.find(*artifact_parents.begin());
+        if (parent != original_by_minted.end()) {
+          child_parent_map.emplace_back(child_original, parent->second);
+        }
+      }
       const auto artifact = artifact_for(child_minted);
       child_artifact_map.emplace_back(child_original, artifact);
       artifacts.push_back(artifact);
@@ -802,6 +839,7 @@ expected<void> append_staged_session(CollectReport& report,
                          ? std::optional<std::string>{staged_parent->original}
                          : std::nullopt,
         .child_ids = std::move(child_ids),
+        .child_parent_map = std::move(child_parent_map),
         .child_artifact_map = std::move(child_artifact_map),
         .original_path = original_path,
         .normalized_path_key = rewrite::normalized_path_key(original_path),
@@ -1291,22 +1329,67 @@ class CodexAdapter final : public AgentAdapter {
         winners.emplace(id, std::move(best));
       }
 
-      std::set<std::string> child_ids;
       std::map<std::string, std::vector<Candidate>> children_by_parent;
       for (const auto& [id, candidate] : winners) {
         if (candidate.parent_id.has_value() && winners.contains(*candidate.parent_id)) {
           children_by_parent[*candidate.parent_id].push_back(candidate);
-          child_ids.insert(id);
         }
       }
       for (auto& [parent, children] : children_by_parent) {
         std::ranges::sort(children, {}, &Candidate::id);
       }
+      std::set<std::string> emitted;
+      const auto descendants_for = [&](const std::string& primary) {
+        std::vector<Candidate> descendants;
+        std::vector<std::string> pending{primary};
+        std::set<std::string> visited{primary};
+        while (!pending.empty()) {
+          const auto parent = std::move(pending.back());
+          pending.pop_back();
+          for (const auto& child : children_by_parent[parent]) {
+            if (!visited.insert(child.id).second) continue;
+            descendants.push_back(child);
+            pending.push_back(child.id);
+          }
+        }
+        std::ranges::sort(descendants, {}, &Candidate::id);
+        return descendants;
+      };
       for (const auto& [id, candidate] : winners) {
-        if (child_ids.contains(id)) {
+        if (candidate.parent_id.has_value() &&
+            winners.contains(*candidate.parent_id)) {
           continue;
         }
-        report.sessions.push_back(session_for(candidate, children_by_parent[id]));
+        auto descendants = descendants_for(id);
+        emitted.insert(id);
+        for (const auto& descendant : descendants) emitted.insert(descendant.id);
+        report.sessions.push_back(session_for(candidate, descendants));
+      }
+      while (emitted.size() < winners.size()) {
+        const auto seed = std::ranges::find_if(
+            winners, [&](const auto& row) { return !emitted.contains(row.first); });
+        if (seed == winners.end()) break;
+        std::map<std::string, std::size_t> seen_at;
+        std::vector<std::string> chain;
+        std::string cursor = seed->first;
+        while (!seen_at.contains(cursor)) {
+          seen_at.emplace(cursor, chain.size());
+          chain.push_back(cursor);
+          cursor = *winners.at(cursor).parent_id;
+        }
+        const auto cycle_begin = seen_at.at(cursor);
+        const auto primary_it = std::min_element(chain.begin() +
+                                                     static_cast<std::ptrdiff_t>(cycle_begin),
+                                                 chain.end());
+        const std::string primary = *primary_it;
+        const std::string omitted_parent = *winners.at(primary).parent_id;
+        auto descendants = descendants_for(primary);
+        emitted.insert(primary);
+        for (const auto& descendant : descendants) emitted.insert(descendant.id);
+        report.warnings.push_back("SessionRootlessCycleEdgeOmitted:" + primary +
+                                  ":" + omitted_parent);
+        report.sessions.push_back(
+            session_for(winners.at(primary), descendants, true));
       }
       for (const auto& [store_root, warning] : db_warnings) {
         if (std::ranges::any_of(

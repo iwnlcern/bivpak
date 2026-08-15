@@ -2681,3 +2681,141 @@ TEST_CASE("FX-A12-6 Codex install validates a grandchild against its own parent"
                                                     {workspace, store});
   fs::remove_all(root);
 }
+
+TEST_CASE("FX-A12-4a a present inconsistent parent edge refuses",
+          "[slice-e][slice-e-red]") {
+  constexpr std::string_view root_id =
+      "019fa120-0000-7000-8000-000000000411";
+  constexpr std::string_view declared_parent =
+      "019fa120-0000-7000-8000-000000000412";
+  constexpr std::string_view child_id =
+      "019fa120-0000-7000-8000-000000000413";
+  constexpr std::string_view actual_parent =
+      "019fa120-0000-7000-8000-000000000499";
+  const auto root = make_tmp("slice-e-fx-a12-4a");
+  const auto workspace = root / "workspace";
+  const auto store = root / "target-codex";
+  fs::create_directories(workspace);
+  fs::create_directories(store);
+  const slice_e_install_guards::ScopedPackDiscoveryEnv discovery_env{root};
+
+  auto record = codex_entry(std::string{root_id},
+                            std::string{declared_parent});
+  record.children.push_back(biv::manifest::SessionChild{
+      .original_id = std::string{child_id},
+      .artifacts = {"agents/codex/" + std::string{child_id} + ".jsonl"},
+      .parent_id = std::string{declared_parent}});
+  record.children.push_back(biv::manifest::SessionChild{
+      .original_id = std::string{actual_parent},
+      .artifacts = {"agents/codex/" + std::string{actual_parent} + ".jsonl"}});
+  std::map<std::string, std::vector<std::byte>> members;
+  const auto simple_artifact = [&](const std::string_view id) {
+    return bytes(std::string{"{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+                 std::string{id} + "\",\"session_id\":\"" +
+                 std::string{id} +
+                 "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n");
+  };
+  members.emplace(record.artifacts.front(), simple_artifact(root_id));
+  members.emplace(record.children.at(0).artifacts.front(),
+                  simple_artifact(declared_parent));
+  const auto fixture = fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" /
+                       "slice-e" / "data-only" /
+                       "4a-edge-inconsistency-refuses" / "artifact.jsonl";
+  members.emplace(record.children.at(1).artifacts.front(),
+                  bytes(read_text(fixture)));
+  members.emplace(record.children.at(2).artifacts.front(),
+                  simple_artifact(actual_parent));
+  auto absent_record = record;
+  absent_record.children.at(1).parent_id = std::nullopt;
+  fs::create_directories(root / "absent-workspace");
+  fs::create_directories(root / "absent-store");
+  auto absent_target =
+      target_for(root / "absent-workspace", root / "absent-store", members);
+
+  const auto absent_result = biv::adapters::codex_adapter().install(
+      absent_target, biv::adapters::Consent::no, std::array{absent_record});
+
+  REQUIRE(absent_result);
+  REQUIRE(absent_result->sessions.size() == 1U);
+  CHECK(absent_result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::staged);
+  CHECK(absent_result->sessions.front().reason == std::nullopt);
+  CHECK(absent_result->sessions.front().detail == std::nullopt);
+  REQUIRE(absent_result->id_map.size() == 1U);
+
+  auto target = target_for(workspace, store, members);
+
+  const auto result = biv::adapters::codex_adapter().install(
+      target, biv::adapters::Consent::no, std::array{record});
+
+  REQUIRE(result);
+  REQUIRE(result->sessions.size() == 1U);
+  CHECK(result->sessions.front().outcome ==
+        biv::adapters::InstallSessionOutcome::Outcome::failed);
+  CHECK(result->sessions.front().reason ==
+        std::optional<std::string>{"containment_refused"});
+  CHECK(result->sessions.front().detail ==
+        std::optional<std::string>{"staged_identity_mismatch"});
+  CHECK(result->id_map.empty());
+  fs::remove_all(root);
+}
+
+TEST_CASE("FX-A12-5 adding a consistent edge never grants acceptance",
+          "[slice-e][slice-e-red]") {
+  constexpr std::string_view root_id =
+      "019fa120-0000-7000-8000-000000000511";
+  constexpr std::string_view parent_id =
+      "019fa120-0000-7000-8000-000000000512";
+  constexpr std::string_view child_id =
+      "019fa120-0000-7000-8000-000000000513";
+  for (const auto edge_present : {false, true}) {
+    DYNAMIC_SECTION("edge present=" << edge_present) {
+      const auto root = make_tmp(edge_present ? "slice-e-fx-a12-5-edge"
+                                              : "slice-e-fx-a12-5-absent");
+      const auto workspace = root / "workspace";
+      const auto store = root / "target-codex";
+      fs::create_directories(workspace);
+      fs::create_directories(store);
+      const slice_e_install_guards::ScopedPackDiscoveryEnv discovery_env{root};
+
+      auto record = codex_entry(std::string{root_id}, std::string{parent_id});
+      record.children.push_back(biv::manifest::SessionChild{
+          .original_id = std::string{child_id},
+          .artifacts = {"agents/codex/" + std::string{child_id} + ".jsonl"},
+          .parent_id = edge_present
+                           ? std::optional<std::string>{parent_id}
+                           : std::nullopt});
+      std::map<std::string, std::vector<std::byte>> members;
+      const auto simple_artifact = [&](const std::string_view id) {
+        return bytes(std::string{
+                         "{\"type\":\"session_meta\",\"payload\":{\"id\":\""} +
+                     std::string{id} + "\",\"session_id\":\"" +
+                     std::string{id} +
+                     "\",\"cwd\":\"/ws/proj\",\"cli_version\":\"0.142.5\"}}\n");
+      };
+      members.emplace(record.artifacts.front(), simple_artifact(root_id));
+      members.emplace(record.children.front().artifacts.front(),
+                      simple_artifact(parent_id));
+      const auto fixture = fs::path{BIV_SOURCE_DIR} / "tests" / "fixtures" /
+                           "slice-e" / "data-only" /
+                           "5-mono-adding-edge-never-grants" /
+                           "artifact.jsonl";
+      members.emplace(record.children.back().artifacts.front(),
+                      bytes(read_text(fixture)));
+      auto target = target_for(workspace, store, members);
+
+      const auto result = biv::adapters::codex_adapter().install(
+          target, biv::adapters::Consent::no, std::array{record});
+
+      REQUIRE(result);
+      REQUIRE(result->sessions.size() == 1U);
+      CHECK(result->sessions.front().outcome ==
+            biv::adapters::InstallSessionOutcome::Outcome::staged);
+      CHECK(result->sessions.front().reason == std::nullopt);
+      CHECK(result->sessions.front().detail == std::nullopt);
+      REQUIRE(result->id_map.size() == 1U);
+      CHECK(result->id_map.front().children.size() == 2U);
+      fs::remove_all(root);
+    }
+  }
+}

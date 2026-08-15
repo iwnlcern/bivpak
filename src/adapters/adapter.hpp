@@ -73,6 +73,9 @@ struct SessionRecord {
   std::string original_session_id;
   std::optional<std::string> parent_id;
   std::vector<std::string> child_ids;
+  // For transitive descendants, retain each child's image-side parent. Direct
+  // children may name the primary here; pack omits that redundant wire edge.
+  std::vector<std::pair<std::string, std::string>> child_parent_map{};
   // Staged artifacts are minted while the manifest child identity remains the
   // image-side original.  This explicit association avoids name heuristics.
   std::vector<std::pair<std::string, std::string>> child_artifact_map;
