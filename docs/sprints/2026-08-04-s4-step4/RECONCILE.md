@@ -2892,3 +2892,47 @@ pins); Stage 1a COMPLETE + CLEARED at `c74c20b` (fence first full cycle closed);
 review; merge BLOCKED by the land order (token-time 7-element tuple stands, W-1 void if pins move). Open: Stage
 1b-i (floor pair, in flight), operator scope generalization (non-blocking), R-4.27→v2.9 wait, R-4.24, R-4.19,
 R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260815-020337 — Stage 1b-i verified at 469d6d3; land order bites & holds; §5 now the single binding item
+
+The floor pair's Stage 1b-i hand-up (`015041`) verified at my seat at `469d6d3`, re-derived not read:
+
+```text
+topology  c74c20b..469d6d3 -> 1 commit ("feat: carry transitive codex session graphs")   CONFIRMED
+scope     7 paths (e3.py, adapter.hpp, codex/codex.cpp, codex/install.cpp, pack/pack.cpp,
+          test_adapter_codex_install.cpp, test_pack.cpp); out-of-scope filter -> nothing   CONFIRMED
+size      649/37; diff --check clean                                                       CONFIRMED
+FENCE     src/core/manifest ABSENT -> nothing returns to m-1; vetoed 5th cap foreclosed
+          structurally. src/core/open (sessions.cpp) ABSENT -> HARD-OUT surface respected  CONFIRMED
+A3        e3.py anchor 1/1 (2fd24c84->08480a19); codex.cpp re-hash == new pin 08480a19;
+          claude pin cd1f8bc8 == actual claude_code/claude_code.cpp FROZEN                 CONFIRMED
+```
+
+**Phantom cleared before propagation:** my first naive check-4 grep hit 3 on the session-location literal
+classes; all three resolve to `report.sessions.push_back(...)` — the in-memory result-vector FIELD, no quoted
+location literal. The floor Planner's precise check-4 (0 literal changes) is RIGHT; my grep over-matched the
+word `sessions`. The R-4.18 result: *which* sessions are carried changed, not *where* they live.
+
+**Land order bites in earnest and HOLDS, byte-confirmed:** `pack.cpp` now stamps
+`entry_schema = has_parent_edge ? 2 : 1` (was hard `1`), the codex delta builds the transitive child→parent
+map producing those edges, and the writer stamp (`manifest.cpp:580`) is in force — so `469d6d3` genuinely
+emits schema-2 images, while the reader at `origin/main=0db8fdd` still SKIPS `entry_schema > 1`. Merging this
+head ahead of `M3-J-4..7` is strictly worse than no bump. Early-merge narrowing stays REFUSED.
+
+**Disposition (mine):** routed UP to master (`433142d`; TO master.orchestrator-planner; CC operator + s4-reviewer
++ floor pair + m-1/m-2/m-3) — Stage 1b-i accepted, fence surface clean (no m-1 return), land order confirmed
+biting. **§5 (who implements the consumer half `M3-J-4..7` vs `m3-addendum-3` `eeb4dd01` — floor pair under
+m-3 byte veto if generalized, else m-3) is now the SINGLE BINDING item:** non-blocking while 1a/1b-i ran, now
+the only thing gating Stage 1b-ii; asked master to carry the call to the operator. `sessions.cpp` stays
+HARD-OUT for the floor pair until §5 settles; the floor pair is on standby (no fresh dispatch owed yet).
+Third-arm reds at commit are the pre-existing class-B cross-repo R-4.27 false-reds on sibling R-4.8 carrier
+relays — disclosed, not mine, non-gating.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design side complete (3
+pins); Stage 1a COMPLETE + CLEARED (`c74c20b`); Stage 1b-i COMPLETE + VERIFIED (`469d6d3`, schema-2-capable).
+Stage 1b-ii BLOCKED on §5 (operator, now binding) + my fresh dispatch. Merge BLOCKED by the land order
+(token-time 7-element tuple stands, W-1 void if pins move). Open: §5 consumer-half owner (now critical path),
+R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠
+release; release hold ABSOLUTE.
