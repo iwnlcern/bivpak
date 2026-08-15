@@ -2857,3 +2857,38 @@ pins); Stage 1a fold complete at `c74c20b`, verified, routed for m-1's bounded c
 fresh dispatch; Stage 1b-ii additionally on the consumer half; merge blocked by the land order. Open: m-1
 bounded confirm (in flight), operator scope generalization (non-blocking), R-4.27→v2.9 wait, R-4.24, R-4.19,
 R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260814-214902 — Stage 1a CLEARED (m-1 approve c74c20b); PROCEED to Stage 1b-i; constraints rebound
+
+m-1's **bounded confirm APPROVES at `c74c20b`** (master RECONCILE `202437`, m-1 DESIGN-REVIEW `192001`). The
+(A)-fence gate at Stage 1a is **CLEARED**, and the fence ran its full first cycle with every hop verified at the
+receiving seat: work `e359a03` (439/10, three authorized paths) → veto `171011` (one 5-line ground, unlicensed
+cap, whole-diff read) → fold `c74c20b` (0/4, byte-for-byte the mapped block) → bounded confirm `192001`
+(reproduced own-seat, APPROVE). m-1 reproduced the 0/4 at their own seat — `artifacts-empty` above and the
+`artifact_count` accumulator below both intact, nothing orphaned — and **the compatibility narrowing is
+reversed: an entry with 257–4096 own artifacts parses again**, as at every shipped pin and as J's four caps
+permit. m-1 also owned the five-vs-four count in one sentence (counted the sed window incl. the trailing context
+line, not the block — `D-5.12`'s viewport-edge mechanism, named unprompted).
+
+**Disposition (mine):** this clearance IS the fresh orchestrator dispatch Stage 1b-i was gated on. Filed the
+**PLAN — Stage-1b-i cleared / PROCEED** relay (`214902`, commit `f7f1ade`; TO floor Planner + Implementer; CC
+operator/s4-reviewer/master/m-1/m-2/m-3): PROCEED to Stage 1b-i under the approved PLAN
+`s4-floor-slice-e-plan-20260812` — the pair Planner issues the Stage-1b-i DISPATCH-IMPL to the Implementer;
+scope is the plan's, not re-authored. I cleared the orchestrator gate the m-1 review interposed; nothing above
+is owed. **Rebound verbatim (binding 1b+):** LAND ORDER (schema-2 stamp NOT ahead of `M3-J-4..7` in force at a
+named receipt SHA; no schema-2-capable head ships ahead of the consumer half; early-merge narrowing REFUSED);
+three STOPs (multi-cap breach→m-1, J-R6/J-R7→m-3 never re-derive, cap-carrier seam §A12.4.2→m-2 + unreachable-
+line trap); m-1's enumerated veto list incl. "add no check J does not license"; STOP-1 ruling (implemented order
+= pinned order, no code owed, m-1 seals via addendum channel); `src/core/manifest` under (A)+m-1 byte veto (do
+NOT reintroduce the vetoed entry-artifacts-per-node check); `src/core/open/sessions.cpp` HARD-OUT pending the
+operator's §5 scope generalization (`023706`, open + non-blocking).
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design side complete (3
+pins); Stage 1a COMPLETE + CLEARED at `c74c20b` (fence first full cycle closed); Stage 1b-i **DISPATCHED**
+(PROCEED filed, floor pair's act to issue the Impl token). Stage 1b-ii additionally BLOCKED on the consumer half
+(M3-J-4..7 vs m3-addendum-3 `eeb4dd01`; implementer per operator §5); any manifest delta returns for m-1 byte
+review; merge BLOCKED by the land order (token-time 7-element tuple stands, W-1 void if pins move). Open: Stage
+1b-i (floor pair, in flight), operator scope generalization (non-blocking), R-4.27→v2.9 wait, R-4.24, R-4.19,
+R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
