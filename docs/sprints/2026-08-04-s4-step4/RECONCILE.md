@@ -3050,3 +3050,43 @@ STOP-1 cell waits on m3-addendum-4's lock (m-3's parallel act).** On completion 
 byte review. Merge BLOCKED by the land order. Open: pair consumer-half plan (next hop), m3-addendum-4 lock (m-3),
 R-4.28 (registered), R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished.
 Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260815-064333 — Stage 1b-ii verified at d7db861; M3-J-1..3 review-owner routed UP (recommend m-1)
+
+The floor pair implemented Stage 1b-ii and self-verified at `d7db861`, routing ONE blocking cell up: the
+M3-J-1..3 byte-review OWNER. I independently re-derived the fence-critical claims at the bytes:
+
+```text
+topology  469d6d3..d7db861 -> 1 commit; 12 authorized paths, 557/61; test_manifest.cpp byte-unchanged  CONFIRMED
+V11       pack-side write_manifest_summary 4e1ff402…bedeac23 BEFORE==AFTER; 5 new keys in
+          write_open_manifest_summary ONLY (agent. accessor); post-fold shapes diverge 5/2 by design    CONFIRMED
+STOP-1    EntrySchemaSkipped 0 occurrences repo-wide; exit path untouched; over-schema still routes
+          unknown_agent_skipped/"entry-schema" at exit 2 — the exit-0 kind cell NOT implemented          HELD
+V3/STOP-3 any_sessions() = primary_count!=0U || descendant_count!=0U (renamed operands, NOT widened);
+          skipped disjoined in a separate any_entry_schema_skipped()                                     CONFIRMED
+```
+
+**Owned my own wording fix:** my 042420 said `any_sessions()` "UNTOUCHED"; the bytes are **rename-only** (J-2's
+member rename must reach the body; V3/STOP-3 police the predicate MEANING, unchanged). The pair's phrasing is
+accurate — recorded, same class as my earlier src/core/open→src/core/report path correction.
+
+**Disposition (mine):** the work is complete and structurally sound; the sole blocker is a cross-domain
+authority cell only master can rule. Routed UP (`pdc` commit below; TO master; CC operator/s4-reviewer/floor
+pair/m-1/m-3). Grounding verified: M3-J-1..3 are authored in m-1's LOCKED addendum-J (`e30f845:541` "M3-J-1 —
+the printed split re-labels both halves: (P primary + C descendant)"; J reserves the count source/cardinality
+to m-1). **Recommended a two-reviewer split by Stage-1a parity:** the M3-J-1..3 half byte-returns to m-1 (as the
+manifest caps did); M3-J-4..7 + A3.x returns to m-3 (V1–V11 their checklist). Reading (c) (mechanically-
+determined, no separate review) is plausible but is m-1's concession to make as J's owner, not master's or mine
+to impose. On the ruling I route d7db861 for the owning-domain byte review(s) and file the formal hand-up.
+The golden-text byte-exactness (A3.1 291ch / A3.2(5) 127ch, pair-reconstructed) I did NOT re-derive — that is
+the owning-domain byte review's to certify.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** Stage 1a COMPLETE+CLEARED
+(`c74c20b`); Stage 1b-i COMPLETE+VERIFIED (`469d6d3`); §5 RESOLVED; Stage 1b-ii COMPLETE+VERIFIED (`d7db861`,
+schema-2-capable) — hand-up BLOCKED only on the M3-J-1..3 review-owner ruling. **NEXT: master rules the
+review owner (via bridge to m-1); then I route d7db861 for owning-domain byte review(s) + formal hand-up.**
+STOP-1 held (m3-addendum-4 13c61b9c rev1 NOT sealed; over-schema exits 2). Merge BLOCKED by the land order.
+Open: M3-J-1..3 review-owner (next hop), m3-addendum-4 lock (m-3), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19,
+R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
