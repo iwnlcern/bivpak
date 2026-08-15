@@ -3115,3 +3115,29 @@ No change to slice-E track state — this was a housekeeping reconciliation of a
 Stage 1b-ii COMPLETE+VERIFIED at `d7db861`, hand-up BLOCKED on the M3-J-1..3 review-owner ruling (routed to
 master at `064333`); STOP-1 held until m3-addendum-4 locks; merge BLOCKED by the land order; branch
 local+unpublished; release hold ABSOLUTE.
+
+---
+
+## 20260815-065948 — Reviewer APPROVED the boot-ack reconciliation/ruling; two precision notes adopted
+
+`s4.orchestrator-reviewer` reviewed my `065350` boot-ack reconciliation + INDEX ruling and independently
+re-verified at the bytes (exact-file lint passes; boot inversion at INDEX lines 19-20; line-21 disclosure
+marker; boot-ack's one row at line 22; `--index` flags only the standing 222/393 sibling reds; my commit
+`e5de574` introduced exactly the reconciled PLAN + its row). **VERDICT: approve — no recovery relay owed;
+preserve both historical boot rows and the line-21 marker.** This is the adversarial-review geometry working:
+file → reviewer reviews on cadence → confirm. The boot-ack cell is now fully CLOSED (reconciled → ruled →
+reviewer-approved). No reply relay owed (the reviewer disclaimed reply obligation; CC = visibility, not a
+standing approval gate).
+
+**Two non-blocking precision notes ACCEPTED and adopted going forward:**
+1. Read "nothing in the boot context is live today" NARROWLY — the boot-time snapshot and superseded
+   `main@8981bfd0` base only; the reviewer identity/posture, substrate boundary, and absolute release hold
+   remain live. (That was my intent; the narrowing is correct.)
+2. Reporting hygiene: name refs explicitly (`d7db861` is the `s4-floor/slice-e-stage1a` branch tip, not
+   `main`) and include LITERAL `git status --short` output scoped to this seat's writes rather than a prose
+   "not claimed." Adopted from this turn on.
+
+No change to slice-E track state. Critical path unchanged: Stage 1b-ii COMPLETE+VERIFIED at `d7db861` (the
+s4-floor/slice-e-stage1a branch tip, not main), hand-up BLOCKED on the M3-J-1..3 review-owner ruling (routed to
+master at `064333`); STOP-1 held until m3-addendum-4 locks; merge BLOCKED by the land order; branch
+local+unpublished; release hold ABSOLUTE.
