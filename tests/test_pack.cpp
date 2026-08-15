@@ -266,10 +266,10 @@ StagedPackImage stage_then_pack(
   biv::core_sessions::SessionPreview preview;
   preview.agents.push_back(biv::core_sessions::AgentPreview{
       .agent = records.front().agent,
-      .parent_count = records.size(),
-      .child_count = child_count,
+      .primary_count = records.size(),
+      .descendant_count = child_count,
       .known_adapter = true,
-      .entry_schema_skipped = false,
+      .entry_schema_skipped_count = 0U,
       .caps = round_trip_capabilities(records.front().agent),
       .store = biv::adapters::Store{
           .root = staging_store,
@@ -2644,7 +2644,7 @@ TEST_CASE(
   biv::core_sessions::SessionPreview preview;
   preview.agents.push_back(biv::core_sessions::AgentPreview{
       .agent = "codex",
-      .parent_count = 2U,
+      .primary_count = 2U,
       .known_adapter = true,
       .caps = round_trip_capabilities("codex"),
       .store = biv::adapters::Store{.root = staging_store,

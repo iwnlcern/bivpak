@@ -16,10 +16,10 @@ namespace biv::core_sessions {
 
 struct AgentPreview {
   std::string agent;
-  size_t parent_count{0};
-  size_t child_count{0};
+  size_t primary_count{0};
+  size_t descendant_count{0};
   bool known_adapter{false};
-  bool entry_schema_skipped{false};
+  size_t entry_schema_skipped_count{0};
   std::optional<adapters::Capabilities> caps;
   std::optional<adapters::Store> store;
   const adapters::AgentAdapter* adapter{nullptr};
@@ -28,6 +28,7 @@ struct AgentPreview {
 struct SessionPreview {
   std::vector<AgentPreview> agents;
   bool any_sessions() const;
+  bool any_entry_schema_skipped() const;
 };
 
 enum class ConsentSource { flag, prompt, deny_default };

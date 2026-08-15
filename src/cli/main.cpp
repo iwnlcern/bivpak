@@ -266,8 +266,9 @@ int main(int argc, char** argv) {
         }
         auto reader = plan->make_reader();
         auto manifest = plan->manifest();
+        const bool any_skipped = preview->any_entry_schema_skipped();
         const auto disclosure =
-            preview->any_sessions()
+            (preview->any_sessions() || any_skipped)
                 ? std::optional<std::string>{biv::open_render::render_probe_disclosure(*preview)}
                 : std::nullopt;
         const auto collision_prompt = render_collision_prompt(parsed->open_options, parsed->json);
@@ -367,19 +368,19 @@ int main(int argc, char** argv) {
                                                          .outcome = *sessions};
         std::optional<std::string> final_success_output;
         if (parsed->json) {
-          if (preview->any_sessions()) {
+          if (preview->any_sessions() || any_skipped) {
             final_success_output = biv::report::envelope(
                 "open", std::nullopt, *report, std::nullopt, exit_code, sessions_report);
           } else {
             final_success_output =
                 biv::report::envelope("open", std::nullopt, *report, std::nullopt, exit_code);
           }
-        } else if (preview->any_sessions()) {
+        } else if (preview->any_sessions() || any_skipped) {
           const bool all_denied = std::ranges::all_of(consent.per_agent, [](const auto& decision) {
             return !decision.second;
           });
           final_success_output = biv::open_render::render_summary(
-              *sessions, all_denied, std::filesystem::path{report->output_dir});
+              *preview, *sessions, all_denied, std::filesystem::path{report->output_dir});
         }
         if (!sigpipe_guard.drain_if_ours_and_restore_for_success()) {
           return emit_error("open",

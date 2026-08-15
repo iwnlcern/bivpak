@@ -10,8 +10,8 @@ TEST_CASE("prompt B renders counts provenance and trust warning") {
   biv::core_sessions::SessionPreview preview;
   biv::core_sessions::AgentPreview validated;
   validated.agent = "future-one";
-  validated.parent_count = 2;
-  validated.child_count = 1;
+  validated.primary_count = 2;
+  validated.descendant_count = 1;
   validated.store = biv::adapters::Store{.root = "/tmp/store-one",
                                           .locators = {},
                                           .tier = biv::adapters::DiscoveryTier::defaults,
@@ -21,7 +21,7 @@ TEST_CASE("prompt B renders counts provenance and trust warning") {
       std::optional<std::string>{"1.2.3"}, false);
   biv::core_sessions::AgentPreview unverified;
   unverified.agent = "future-two";
-  unverified.parent_count = 1;
+  unverified.primary_count = 1;
   unverified.store = biv::adapters::Store{.root = "/tmp/store-two",
                                            .locators = {},
                                            .tier = biv::adapters::DiscoveryTier::defaults,
@@ -30,7 +30,7 @@ TEST_CASE("prompt B renders counts provenance and trust warning") {
       biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false);
   biv::core_sessions::AgentPreview absent;
   absent.agent = "future-three";
-  absent.parent_count = 1;
+  absent.primary_count = 1;
   absent.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::absent, std::nullopt, false);
   preview.agents = {validated, unverified, absent};
@@ -41,10 +41,10 @@ TEST_CASE("prompt B renders counts provenance and trust warning") {
 
   const std::string expected =
       "This image contains agent sessions that can be imported into your host stores:\n\n"
-      "  future-one: 3 session(s) (2 parent + 1 child) -> /tmp/store-one\n"
-      "  future-two: 1 session(s) (1 parent + 0 child) -> /tmp/store-two\n"
+      "  future-one: 3 session(s) (2 primary + 1 descendant) -> /tmp/store-one\n"
+      "  future-two: 1 session(s) (1 primary + 0 descendant) -> /tmp/store-two\n"
       "  future-two: host version unreadable \u2014 make future-two --version return one readable version and retry; sessions will not be installed or staged\n"
-      "  future-three: 1 session(s) (1 parent + 0 child) -> <not found>\n"
+      "  future-three: 1 session(s) (1 primary + 0 descendant) -> <not found>\n"
       "  future-three: not validated on this host (agent store absent) \u2014 sessions will not be installed or staged\n\n"
       "Image provenance: packed from /tmp/source by biv 0.1.0 at 2026-07-11T00:00:00Z.\n\n" +
       std::string{biv::open_render::kTrustWarning} +
@@ -57,7 +57,7 @@ TEST_CASE("malformed activation falls back to report without inventing a command
   outcome.activation = {{.agent = "future-one", .command = ""},
                         {.agent = "future-two", .command = "resume\nunsafe"}};
   const auto text =
-      biv::open_render::render_summary(outcome, false, "/tmp/restored");
+      biv::open_render::render_summary({}, outcome, false, "/tmp/restored");
   CHECK(text.find("future-one: resume command unavailable; see JSON report") != std::string::npos);
   CHECK(text.find("future-two: resume command unavailable; see JSON report") != std::string::npos);
   CHECK(text.find("resume\nunsafe") == std::string::npos);
@@ -79,7 +79,7 @@ TEST_CASE("session summary renders outcomes activation and caveats from data") {
   outcome.caveats.push_back({.agent = "future-tool", .kind = "picker_gap", .note = "not listed in picker"});
 
   const auto text =
-      biv::open_render::render_summary(outcome, false, "/tmp/restored");
+      biv::open_render::render_summary({}, outcome, false, "/tmp/restored");
   CHECK(text.find("future-tool") != std::string::npos);
   CHECK(text.find("new-id") != std::string::npos);
   CHECK(text.find("future resume new-id") != std::string::npos);
@@ -90,7 +90,7 @@ TEST_CASE("session summary renders outcomes activation and caveats from data") {
 TEST_CASE("Task 5 prompt discloses probe evidence before consent") {
   biv::core_sessions::AgentPreview codex;
   codex.agent = "codex";
-  codex.parent_count = 1;
+  codex.primary_count = 1;
   codex.store = biv::adapters::Store{
       .root = "/tmp/codex",
       .locators = {},
@@ -111,7 +111,7 @@ TEST_CASE("Task 5 prompt discloses probe evidence before consent") {
           .parsed = "0.144.4"});
   biv::core_sessions::AgentPreview claude;
   claude.agent = "claude-code";
-  claude.parent_count = 1;
+  claude.primary_count = 1;
   claude.store = biv::adapters::Store{
       .root = "/tmp/claude",
       .locators = {},
@@ -167,7 +167,7 @@ TEST_CASE("Task 5 prompt discloses probe evidence before consent") {
 
   biv::core_sessions::AgentPreview unwired_agent;
   unwired_agent.agent = "codex";
-  unwired_agent.parent_count = 1;
+  unwired_agent.primary_count = 1;
   unwired_agent.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false,
       true);
@@ -187,11 +187,153 @@ TEST_CASE("Task 5 prompt discloses probe evidence before consent") {
         std::string::npos);
 }
 
+TEST_CASE("entry-schema skips render exact disclosure and summary cardinality") {
+  const auto row = [](std::string image_session_id,
+                      biv::core_sessions::SessionRowReport::Row disposition,
+                      std::optional<std::string> reason = std::nullopt,
+                      std::optional<std::string> installed_session_id = std::nullopt) {
+    biv::core_sessions::SessionRowReport report;
+    report.agent = "claude-code";
+    report.image_session_id = std::move(image_session_id);
+    report.row = disposition;
+    report.reason = std::move(reason);
+    report.installed_session_id = std::move(installed_session_id);
+    return report;
+  };
+
+  biv::core_sessions::AgentPreview agent;
+  agent.agent = "claude-code";
+  agent.primary_count = 3;
+  agent.descendant_count = 1;
+  agent.entry_schema_skipped_count = 1;
+  agent.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false);
+  biv::core_sessions::SessionPreview preview;
+  preview.agents = {agent};
+
+  CHECK(biv::open_render::render_probe_disclosure(preview) ==
+        "  claude-code: 4 session(s) can be imported; 1 session(s) will be "
+        "skipped \u2014 the skipped session(s) are recorded in a format this "
+        "version of biv cannot read and are not counted among the 4. Nothing "
+        "has been written yet; a newer version of biv may be able to import "
+        "them.\n");
+  agent.entry_schema_skipped_count = 2;
+  preview.agents = {agent};
+  CHECK(biv::open_render::render_probe_disclosure(preview).find(
+            "2 session(s) will be skipped") != std::string::npos);
+  agent.entry_schema_skipped_count = 1;
+  preview.agents = {agent};
+
+  biv::core_sessions::SessionsOutcome outcome;
+  outcome.rows = {
+      row("primary-one", biv::core_sessions::SessionRowReport::Row::installed,
+          std::nullopt, "installed-one"),
+      row("future-one",
+          biv::core_sessions::SessionRowReport::Row::unknown_agent_skipped,
+          "entry-schema")};
+  outcome.id_map = {{.agent = "claude-code",
+                     .image_session_id = "primary-one",
+                     .installed_session_id = "installed-one",
+                     .children = {{"child-one", "installed-child"}}}};
+  const auto summary = biv::open_render::render_summary(
+      preview, outcome, false, "/tmp/restored");
+  CHECK(summary.find(
+            "  claude-code: 2 session(s) imported; 1 session(s) skipped \u2014 "
+            "recorded in a format this version of biv cannot read.\n") !=
+        std::string::npos);
+
+  biv::core_sessions::SessionsOutcome four_imported;
+  four_imported.rows = {
+      row("primary-one", biv::core_sessions::SessionRowReport::Row::installed),
+      row("primary-two", biv::core_sessions::SessionRowReport::Row::installed),
+      row("primary-three", biv::core_sessions::SessionRowReport::Row::installed),
+      row("future-one",
+          biv::core_sessions::SessionRowReport::Row::unknown_agent_skipped,
+          "entry-schema")};
+  four_imported.id_map = {
+      {.agent = "claude-code", .image_session_id = "primary-one",
+       .installed_session_id = "installed-one",
+       .children = {{"child-one", "installed-child"}}},
+      {.agent = "claude-code", .image_session_id = "primary-two",
+       .installed_session_id = "installed-two", .children = {}},
+      {.agent = "claude-code", .image_session_id = "primary-three",
+       .installed_session_id = "installed-three", .children = {}}};
+  CHECK(biv::open_render::render_summary(
+            preview, four_imported, false, "/tmp/restored")
+            .find("  claude-code: 4 session(s) imported; 1 session(s) "
+                  "skipped \u2014") != std::string::npos);
+
+  biv::core_sessions::SessionsOutcome installed_staged_failed;
+  installed_staged_failed.rows = {
+      row("installed-one", biv::core_sessions::SessionRowReport::Row::installed),
+      row("installed-two", biv::core_sessions::SessionRowReport::Row::installed),
+      row("staged-one", biv::core_sessions::SessionRowReport::Row::sessions_staged),
+      row("failed-one",
+          biv::core_sessions::SessionRowReport::Row::session_install_failed),
+      row("future-one",
+          biv::core_sessions::SessionRowReport::Row::unknown_agent_skipped,
+          "entry-schema")};
+  installed_staged_failed.id_map = {
+      {.agent = "claude-code", .image_session_id = "installed-one",
+       .installed_session_id = "new-one", .children = {}},
+      {.agent = "claude-code", .image_session_id = "installed-two",
+       .installed_session_id = "new-two", .children = {}},
+      {.agent = "claude-code", .image_session_id = "staged-one",
+       .installed_session_id = "staged-new",
+       .children = {{"staged-child", "staged-child-new"}}},
+      {.agent = "claude-code", .image_session_id = "failed-one",
+       .installed_session_id = "failed-new", .children = {}}};
+  CHECK(biv::open_render::render_summary(
+            preview, installed_staged_failed, false, "/tmp/restored")
+            .find("  claude-code: 2 session(s) imported; 1 session(s) "
+                  "skipped \u2014") != std::string::npos);
+
+  biv::core_sessions::SessionsOutcome shared_image_id;
+  shared_image_id.rows = {
+      row("shared", biv::core_sessions::SessionRowReport::Row::installed)};
+  shared_image_id.id_map = {
+      {.agent = "codex", .image_session_id = "shared",
+       .installed_session_id = "codex-new",
+       .children = {{"codex-child-one", "codex-child-new-one"},
+                    {"codex-child-two", "codex-child-new-two"}}},
+      {.agent = "claude-code", .image_session_id = "shared",
+       .installed_session_id = "claude-new",
+       .children = {{"claude-child", "claude-child-new"}}}};
+  CHECK(biv::open_render::render_summary(
+            preview, shared_image_id, false, "/tmp/restored")
+            .find("  claude-code: 2 session(s) imported; 1 session(s) "
+                  "skipped \u2014") != std::string::npos);
+
+  agent.entry_schema_skipped_count = 0;
+  agent.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false,
+      false, {.collect = true, .install = true, .rewrite = true},
+      biv::support::ProbeEvidence{.agent = "claude-code",
+                                  .requested = std::nullopt,
+                                  .executed = "/usr/bin/claude",
+                                  .pinned = false,
+                                  .outcome = biv::support::ProbeOutcome::timeout,
+                                  .exit_code = -1,
+                                  .raw = "",
+                                  .parsed = std::nullopt});
+  auto newer = agent;
+  newer.agent = "codex";
+  newer.caps = biv::adapters::Capabilities::from_probe(
+      biv::adapters::Capabilities::Verdict::readable,
+      std::optional<std::string>{"0.300.0"}, true);
+  preview.agents = {agent, newer};
+  const auto no_skip_disclosure =
+      biv::open_render::render_probe_disclosure(preview);
+  CHECK(no_skip_disclosure.find("version probe failed") != std::string::npos);
+  CHECK(no_skip_disclosure.find("newer than surveyed") != std::string::npos);
+  CHECK(no_skip_disclosure.find("will be skipped") == std::string::npos);
+}
+
 TEST_CASE(
     "store-absent capability is never disclosed as readable before consent") {
   biv::core_sessions::AgentPreview codex;
   codex.agent = "codex";
-  codex.parent_count = 1;
+  codex.primary_count = 1;
   codex.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::absent, std::nullopt, false, true,
       {.collect = false, .install = false, .rewrite = false},
@@ -228,7 +370,7 @@ TEST_CASE("probe failure disclosure distinguishes typed execution failures") {
   const auto render_failure = [](const biv::support::ProbeOutcome outcome) {
     biv::core_sessions::AgentPreview agent;
     agent.agent = "codex";
-    agent.parent_count = 1;
+    agent.primary_count = 1;
     agent.caps = biv::adapters::Capabilities::from_probe(
         biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false,
         true, {}, biv::support::ProbeEvidence{
@@ -276,7 +418,7 @@ TEST_CASE("Task 6 prompt discloses readable versions above the survey watermark"
                           std::string raw, std::string parsed) {
     biv::core_sessions::AgentPreview preview;
     preview.agent = std::move(agent);
-    preview.parent_count = 1;
+    preview.primary_count = 1;
     preview.store = biv::adapters::Store{
         .root = "/tmp/store",
         .locators = {},
@@ -347,7 +489,7 @@ TEST_CASE("Task 6 survey boundary is quiet while one line above is loud") {
         .parsed = version};
     biv::core_sessions::AgentPreview agent_preview;
     agent_preview.agent = std::move(agent);
-    agent_preview.parent_count = 1;
+    agent_preview.primary_count = 1;
     agent_preview.store = biv::adapters::Store{
         .root = "/tmp/store",
         .locators = {},
@@ -382,7 +524,7 @@ TEST_CASE("Task 6 survey boundary is quiet while one line above is loud") {
 TEST_CASE("Task 6 newer disclosure is driven by capability state without probe evidence") {
   biv::core_sessions::AgentPreview agent;
   agent.agent = "codex";
-  agent.parent_count = 1;
+  agent.primary_count = 1;
   agent.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::readable,
       std::optional<std::string>{"0.300.0"}, true);
@@ -453,7 +595,7 @@ TEST_CASE(
   const std::filesystem::path output{output_text};
 
   const auto text =
-      biv::open_render::render_summary(outcome, false, output);
+      biv::open_render::render_summary({}, outcome, false, output);
 
   CHECK(text.find(
             "resume from /tmp/final\\x20dir(1)/\\t\\x01name: claude --resume "
@@ -473,7 +615,7 @@ TEST_CASE("probe display escapes controls by scalar and preserves non-controls")
   const auto render_raw = [](std::string raw) {
     biv::core_sessions::AgentPreview agent;
     agent.agent = "codex";
-    agent.parent_count = 1;
+    agent.primary_count = 1;
     agent.store = biv::adapters::Store{
         .root = "/tmp/codex",
         .locators = {},
@@ -523,7 +665,7 @@ TEST_CASE("probe display escapes controls by scalar and preserves non-controls")
 TEST_CASE("probe display truncation reports the complete UTF-8 prefix") {
   biv::core_sessions::AgentPreview agent;
   agent.agent = "codex";
-  agent.parent_count = 1;
+  agent.primary_count = 1;
   agent.store = biv::adapters::Store{
       .root = "/tmp/codex",
       .locators = {},
@@ -598,7 +740,7 @@ TEST_CASE("no-detail session rows render byte-identically to the pre-carrier bas
       .detail = std::nullopt});
 
   const auto text =
-      biv::open_render::render_summary(outcome, true, "/tmp/restored");
+      biv::open_render::render_summary({}, outcome, true, "/tmp/restored");
 
   // ORACLE RULE: captured at BASE cd61ac6, before SessionRowReport gained a
   // detail field. NEVER regenerate this literal from the renderer.
@@ -622,7 +764,7 @@ TEST_CASE("an adapter-authored detail reaches the rendered summary verbatim") {
       .detail = "capability_refused"});
 
   const auto text =
-      biv::open_render::render_summary(outcome, true, "/tmp/restored");
+      biv::open_render::render_summary({}, outcome, true, "/tmp/restored");
 
   CHECK(text.find("[capability_refused]") != std::string::npos);
   CHECK(text.find("capability-refused") == std::string::npos);

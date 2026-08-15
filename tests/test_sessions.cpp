@@ -345,7 +345,7 @@ void append_readable_agent(biv::core_sessions::SessionPreview& preview,
                            CountingAdapter& adapter) {
   biv::core_sessions::AgentPreview agent;
   agent.agent = std::move(agent_name);
-  agent.parent_count = 1;
+  agent.primary_count = 1;
   agent.known_adapter = true;
   agent.store = biv::adapters::Store{.root = store, .locators = {}};
   agent.caps = biv::adapters::Capabilities::from_probe(
@@ -456,7 +456,7 @@ biv::core_sessions::SessionPreview real_adapter_preview(
   biv::core_sessions::SessionPreview preview;
   biv::core_sessions::AgentPreview codex;
   codex.agent = "codex";
-  codex.parent_count = 1;
+  codex.primary_count = 1;
   codex.known_adapter = true;
   codex.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::readable,
@@ -468,7 +468,7 @@ biv::core_sessions::SessionPreview real_adapter_preview(
 
   biv::core_sessions::AgentPreview claude;
   claude.agent = "claude-code";
-  claude.parent_count = 1;
+  claude.primary_count = 1;
   claude.known_adapter = true;
   claude.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::readable,
@@ -530,7 +530,7 @@ TEST_CASE("FX-VF-O5 unreadable hosts produce CANON-3 rows before consent") {
       CountingAdapter adapter;
       biv::core_sessions::AgentPreview preview_agent;
       preview_agent.agent = agent;
-      preview_agent.parent_count = 2;
+      preview_agent.primary_count = 2;
       preview_agent.known_adapter = true;
       preview_agent.store = biv::adapters::Store{
           .root = "/tmp/fixture-store", .locators = {}};
@@ -587,7 +587,7 @@ TEST_CASE("absent stores produce refusal rows before consent or adapter calls") 
       CountingAdapter adapter;
       biv::core_sessions::AgentPreview preview_agent;
       preview_agent.agent = agent;
-      preview_agent.parent_count = 1;
+      preview_agent.primary_count = 1;
       preview_agent.known_adapter = true;
       preview_agent.caps = biv::adapters::Capabilities::from_probe(
           biv::adapters::Capabilities::Verdict::absent, std::nullopt, false);
@@ -630,7 +630,7 @@ TEST_CASE("a readable agent missing its store refuses before consent or adapter 
   CountingAdapter adapter;
   biv::core_sessions::AgentPreview preview_agent;
   preview_agent.agent = "fixture-agent";
-  preview_agent.parent_count = 1;
+  preview_agent.primary_count = 1;
   preview_agent.known_adapter = true;
   preview_agent.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::readable,
@@ -695,7 +695,7 @@ TEST_CASE("version refusal details map to closed reasons without changing siblin
   };
   biv::core_sessions::AgentPreview agent;
   agent.agent = "fixture-agent";
-  agent.parent_count = 3;
+  agent.primary_count = 3;
   agent.known_adapter = true;
   agent.store =
       biv::adapters::Store{.root = workspace, .locators = {}};
@@ -746,7 +746,7 @@ TEST_CASE("run_session_leg transports packer_home to every adapter leg") {
   for (const std::string agent_name : {"fixture-agent-a", "fixture-agent-b"}) {
     biv::core_sessions::AgentPreview agent;
     agent.agent = agent_name;
-    agent.parent_count = 1;
+    agent.primary_count = 1;
     agent.known_adapter = true;
     agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
     agent.caps = biv::adapters::Capabilities::from_probe(
@@ -782,7 +782,7 @@ TEST_CASE("run_session_leg passes absent packer_home through unchanged") {
   for (const std::string agent_name : {"fixture-agent-a", "fixture-agent-b"}) {
     biv::core_sessions::AgentPreview agent;
     agent.agent = agent_name;
-    agent.parent_count = 1;
+    agent.primary_count = 1;
     agent.known_adapter = true;
     agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
     agent.caps = biv::adapters::Capabilities::from_probe(
@@ -833,7 +833,7 @@ TEST_CASE("consent-no carries a staged adapter outcome successfully") {
        workspace.generic_string()}};
   biv::core_sessions::AgentPreview agent;
   agent.agent = "fixture-agent";
-  agent.parent_count = 1;
+  agent.primary_count = 1;
   agent.known_adapter = true;
   agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
   agent.caps = biv::adapters::Capabilities::from_probe(
@@ -1427,7 +1427,7 @@ TEST_CASE(
        workspace.generic_string()}};
   biv::core_sessions::AgentPreview agent;
   agent.agent = "fixture-agent";
-  agent.parent_count = 1;
+  agent.primary_count = 1;
   agent.known_adapter = true;
   agent.store = biv::adapters::Store{.root = store, .locators = {}};
   agent.caps = biv::adapters::Capabilities::from_probe(
@@ -1516,7 +1516,7 @@ TEST_CASE(
            {"agent-b", second_store, &second}}) {
     biv::core_sessions::AgentPreview agent;
     agent.agent = agent_name;
-    agent.parent_count = 1;
+    agent.primary_count = 1;
     agent.known_adapter = true;
     agent.store = biv::adapters::Store{.root = store, .locators = {}};
     agent.caps = biv::adapters::Capabilities::from_probe(
@@ -1568,7 +1568,7 @@ TEST_CASE("an adapter row missing from the manifest is reported live at pack") {
   };
   biv::core_sessions::AgentPreview agent;
   agent.agent = "fixture-agent";
-  agent.parent_count = 1;
+  agent.primary_count = 1;
   agent.known_adapter = true;
   agent.store = biv::adapters::Store{.root = workspace, .locators = {}};
   agent.caps = biv::adapters::Capabilities::from_probe(
@@ -1625,9 +1625,23 @@ TEST_CASE("session preview groups manifest agents and flags unsupported rows") {
   REQUIRE(preview->agents.size() == 2U);
   CHECK_FALSE(preview->agents.at(0).known_adapter);
   CHECK(preview->agents.at(1).known_adapter);
-  CHECK(preview->agents.at(1).entry_schema_skipped);
+  CHECK(preview->agents.at(1).entry_schema_skipped_count == 1U);
+  CHECK(preview->agents.at(1).primary_count == 0U);
+  CHECK(preview->agents.at(1).descendant_count == 0U);
   CHECK(preview->any_sessions());
   std::filesystem::remove_all(home);
+
+  const auto skipped_home = make_tmp("preview-all-entry-schema-skipped");
+  auto skipped_manifest = model({entry("codex", 99), entry("codex", 100)});
+  auto skipped_preview = biv::core_sessions::build_preview(skipped_manifest, env(skipped_home));
+  REQUIRE(skipped_preview);
+  REQUIRE(skipped_preview->agents.size() == 1U);
+  CHECK(skipped_preview->agents.front().primary_count == 0U);
+  CHECK(skipped_preview->agents.front().descendant_count == 0U);
+  CHECK(skipped_preview->agents.front().entry_schema_skipped_count == 2U);
+  CHECK_FALSE(skipped_preview->any_sessions());
+  CHECK(skipped_preview->any_entry_schema_skipped());
+  std::filesystem::remove_all(skipped_home);
 
   const auto unwired_home = make_tmp("probe-unwired");
   auto unwired_manifest = model({entry("claude-code"), entry("codex")});

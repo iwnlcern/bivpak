@@ -323,7 +323,7 @@ TEST_CASE("envelope serializes each derived capability state exactly once") {
   const auto add = [&](std::string agent, Capabilities capabilities) {
     biv::core_sessions::AgentPreview preview;
     preview.agent = std::move(agent);
-    preview.parent_count = 1;
+    preview.primary_count = 1;
     preview.caps = std::move(capabilities);
     sessions.preview.agents.push_back(std::move(preview));
   };
@@ -367,7 +367,9 @@ TEST_CASE("open envelope includes typed sessions report") {
   sessions.consent.per_agent = {{"future-tool", true}};
   biv::core_sessions::AgentPreview preview;
   preview.agent = "future-tool";
-  preview.parent_count = 1;
+  preview.primary_count = 1;
+  preview.descendant_count = 2;
+  preview.entry_schema_skipped_count = 1;
   preview.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::readable,
       std::optional<std::string>{"0.144.4"}, false, true,
@@ -384,7 +386,7 @@ TEST_CASE("open envelope includes typed sessions report") {
   sessions.preview.agents.push_back(std::move(preview));
   biv::core_sessions::AgentPreview failed_preview;
   failed_preview.agent = "missing-tool";
-  failed_preview.parent_count = 1;
+  failed_preview.primary_count = 1;
   failed_preview.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false,
       false, {.collect = true, .install = true, .rewrite = true},
@@ -426,7 +428,10 @@ TEST_CASE("open envelope includes typed sessions report") {
   CHECK(json.find("\"sessions\"") != std::string::npos);
   CHECK(json.find("\"warning_shown\": true") != std::string::npos);
   CHECK(json.find("\"installed_session_id\": \"new\"") != std::string::npos);
-  CHECK(json.find("\"session_count\": 1") != std::string::npos);
+  CHECK(json.find("\"session_count\": 3") != std::string::npos);
+  CHECK(json.find("\"primary_count\": 1") != std::string::npos);
+  CHECK(json.find("\"descendant_count\": 2") != std::string::npos);
+  CHECK(json.find("\"entry_schema_skipped_count\": 1") != std::string::npos);
   CHECK(json.find("\"probe\"") != std::string::npos);
   CHECK(json.find("\"outcome\": \"not_executable\"") !=
         std::string::npos);
@@ -461,7 +466,7 @@ TEST_CASE("open envelope includes typed sessions report") {
   biv::report::OpenSessionsReport unwired_sessions;
   biv::core_sessions::AgentPreview unwired_preview;
   unwired_preview.agent = "codex";
-  unwired_preview.parent_count = 1;
+  unwired_preview.primary_count = 1;
   unwired_preview.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false,
       true);
@@ -492,7 +497,7 @@ TEST_CASE("probe fields replace invalid UTF-8 before envelope serialization") {
   biv::report::OpenSessionsReport sessions;
   biv::core_sessions::AgentPreview preview;
   preview.agent = "codex";
-  preview.parent_count = 1;
+  preview.primary_count = 1;
   std::string full_raw(300, 'r');
   full_raw += invalid("-");
   preview.caps = biv::adapters::Capabilities::from_probe(
@@ -512,6 +517,10 @@ TEST_CASE("probe fields replace invalid UTF-8 before envelope serialization") {
 
   const auto json = biv::report::envelope(
       "open", std::nullopt, opened, std::nullopt, 0, sessions);
+  CHECK(json.find("\"session_count\": 1") != std::string::npos);
+  CHECK(json.find("\"primary_count\": 1") != std::string::npos);
+  CHECK(json.find("\"descendant_count\": 0") != std::string::npos);
+  CHECK(json.find("\"entry_schema_skipped_count\"") == std::string::npos);
   simdjson::dom::parser parser;
   simdjson::dom::element document;
   CHECK(parser.parse(json).get(document) == simdjson::SUCCESS);
@@ -586,7 +595,9 @@ TEST_CASE("no-detail session rows serialize byte-identically to the pre-carrier 
       "agent_sessions": [
         {
           "agent": "future-tool",
-          "session_count": 0
+          "session_count": 0,
+          "primary_count": 0,
+          "descendant_count": 0
         }
       ]
     },

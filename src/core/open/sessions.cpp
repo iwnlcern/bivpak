@@ -314,7 +314,13 @@ std::vector<adapters::Activation> filter_activation(
 
 bool SessionPreview::any_sessions() const {
   return std::ranges::any_of(agents, [](const AgentPreview& agent) {
-    return agent.parent_count != 0U || agent.child_count != 0U;
+    return agent.primary_count != 0U || agent.descendant_count != 0U;
+  });
+}
+
+bool SessionPreview::any_entry_schema_skipped() const {
+  return std::ranges::any_of(agents, [](const AgentPreview& agent) {
+    return agent.entry_schema_skipped_count != 0U;
   });
 }
 
@@ -340,9 +346,12 @@ expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const
       preview.agents.push_back(std::move(next));
       found = std::prev(preview.agents.end());
     }
-    ++found->parent_count;
-    found->child_count += entry.children.size();
-    found->entry_schema_skipped = found->entry_schema_skipped || entry.entry_schema > 1;
+    if (entry.entry_schema > 1) {
+      ++found->entry_schema_skipped_count;
+    } else {
+      ++found->primary_count;
+      found->descendant_count += entry.children.size();
+    }
   }
   return preview;
 }

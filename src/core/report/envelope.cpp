@@ -122,7 +122,15 @@ void write_open_manifest_summary(json::Writer& writer,
     writer.key("agent");
     writer.value_string(agent.agent);
     writer.key("session_count");
-    writer.value_int(static_cast<int64_t>(agent.parent_count + agent.child_count));
+    writer.value_int(static_cast<int64_t>(agent.primary_count + agent.descendant_count));
+    writer.key("primary_count");
+    writer.value_int(static_cast<int64_t>(agent.primary_count));
+    writer.key("descendant_count");
+    writer.value_int(static_cast<int64_t>(agent.descendant_count));
+    if (agent.entry_schema_skipped_count != 0U) {
+      writer.key("entry_schema_skipped_count");
+      writer.value_int(static_cast<int64_t>(agent.entry_schema_skipped_count));
+    }
     writer.end_object();
   }
   writer.end_array();

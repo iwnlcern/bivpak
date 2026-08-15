@@ -20,6 +20,7 @@ std::string render_probe_disclosure(
 std::string render_prompt_b(const core_sessions::SessionPreview& preview,
                             const manifest::Manifest& manifest);
 std::string render_summary(
+    const core_sessions::SessionPreview& preview,
     const core_sessions::SessionsOutcome& outcome,
     bool consent_no_all,
     const std::filesystem::path& output_dir);
