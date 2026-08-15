@@ -424,10 +424,6 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   if (artifacts->empty()) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "artifacts-empty"});
   }
-  if (artifacts->size() > kSessionArtifactsPerNodeCap) {
-    return std::unexpected(entry_cap_error(
-        entry.original_session_ids.primary, "entry-artifacts-per-node-cap"));
-  }
   std::size_t artifact_count = artifacts->size();
   for (const auto& child : *children) {
     artifact_count += child.artifacts.size();
