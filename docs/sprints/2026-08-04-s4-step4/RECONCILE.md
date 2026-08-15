@@ -3011,3 +3011,42 @@ waits on m3-addendum-4's lock (m-3's parallel act).** On completion I quick-chec
 Merge BLOCKED by the land order (469d6d3 schema-2-capable; token-time 7-element tuple stands, W-1 void if pins
 move). Open: pair consumer-half plan (next hop), m3-addendum-4 lock (m-3), R-4.27→v2.9 wait, R-4.24, R-4.19,
 R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260815-044250 — Stage 1b-ii fence-terms refresh: bar → V1–V11, keys open-side-only (determined), R-4.28
+
+Master's RECONCILE (`043431`) receipted a determined characterization and grew the veto bar. Reconstructed the
+full sequence after my `042420` dispatch (which carried V1–V8): m-3 RE-TOOK the census for the widened
+M3-J-1..7 scope (`042218`), master receipted V9/V10 + supplied the two-envelope-site observation (`042651`),
+m-3 characterized open-side-only + appended V11 (`042908`), master reconciled + registered R-4.28 (`043431`).
+
+Verified at my seat (0db8fdd, `src/core/report/envelope.cpp`):
+
+```text
+write_manifest_summary        opens :80,  loop :92-97   (pack-side; agent + session_count)  — V11 surface
+write_open_manifest_summary   opens :108, ends :130     (open-side; session_count :124-125)
+J's M3-J-3 cite :118-130       -> INSIDE write_open_manifest_summary  => keys land OPEN-SIDE ONLY   CONFIRMED
+render.cpp:244-245             the single "(N parent + M child)" relabel print site               CONFIRMED
+```
+
+**Disposition (mine):** master says my dispatch stands — it does — but the floor pair works off my authoritative
+fence terms, which were the V1–V8 snapshot, and they are still in the plan-lock phase (042420 sequenced
+plan-first). So I filed a fence-terms REFRESH (`044250`, commit below; TO floor pair; CC operator/s4-reviewer/
+master/m-3) that SUPPLEMENTS 042420 without replacing its sequencing: the current bar is **V1–V11** (V9 both
+relabel halves together; V10 session_count immutable + new keys additive-only; V11 no skip/count keys pack-side);
+the disclosure keys + entry_schema_skipped_count + M3-J-4 exclusion land in `write_open_manifest_summary` ONLY
+(pack-side is a V11 veto surface — post-fold shapes diverge 5/2, correct+load-bearing); open-side session_count
+EXCLUDES skipped (determined from M3-J-7); the M3-J-1 relabel is one site (render.cpp:244-245). Corrected my own
+042420 path wording — the open-side envelope emission is in `src/core/report/envelope.cpp`, so `src/core/report`
+is IN scope, not excluded by my earlier "in src/core/open". R-4.28 flagged informational (not the pair's to
+change). No token issued. STOP-1 still held until m3-addendum-4 locks; all other 042420 terms unchanged.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** Stage 1a COMPLETE+CLEARED
+(`c74c20b`); Stage 1b-i COMPLETE+VERIFIED (`469d6d3`, schema-2-capable); §5 RESOLVED (charter); Stage 1b-ii GATE
+CLEARED + FENCE TERMS REFRESHED (scope M3-J-1..7; bar V1–V11; keys open-side-only). **NEXT: the pair Planner
+locks the consumer-half plan against V1–V11 (Implementer plan-review) then issues the Stage-1b-ii DISPATCH-IMPL;
+STOP-1 cell waits on m3-addendum-4's lock (m-3's parallel act).** On completion I quick-check + route for m-3
+byte review. Merge BLOCKED by the land order. Open: pair consumer-half plan (next hop), m3-addendum-4 lock (m-3),
+R-4.28 (registered), R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished.
+Merge ≠ push ≠ release; release hold ABSOLUTE.
