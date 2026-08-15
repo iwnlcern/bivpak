@@ -2830,3 +2830,30 @@ m-1's re-approval at the successor pin + my fresh dispatch; Stage 1b-ii addition
 merge blocked by the land order. Open: Stage-1a fold + m-1 re-review (in flight), operator scope generalization
 (non-blocking), R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge
 ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260814-190920 — Stage 1a veto fold (c74c20b, pure deletion) verified; routed UP for m-1's bounded confirm
+
+The floor pair folded the veto and it is the strongest form the remedy could take. Verified at my seat:
+`c74c20b` is 1 commit over `e359a03`, **0 insertions / 4 deletions**, one file (`manifest.cpp`), removing
+EXACTLY the vetoed `entry-artifacts-per-node-cap` guard and nothing else. A zero-insertion diff cannot have
+tidied/renamed/improved anything adjacent. Consequential checks: token gone (0 hits across `src`/`tests`); both
+licensed caps intact; `kSessionArtifactsPerNodeCap` still 2 uses (live on the child-side check, not orphaned);
+the entry's own artifacts stay bounded by the 4096 total. **No test change** — correctly, since zero tests
+asserted the removed rule and the implementer declined to manufacture one (the token's ABSENCE from
+`test_manifest.cpp` remains the contract evidence, not the pair re-declaring a contract m-1 owns). Stage-0 RED
+invariant unchanged (4 cases / 9 failed / exit 42 both platforms).
+
+**Disposition (mine):** routed `c74c20b` UP to master → m-1 for the **pre-priced bounded confirm** (pdc
+`6b78eb8`; CC floor pair + m-1 + m-2); the 0/4 delta of exactly the mapped block is well inside m-1's map.
+Neither the pair nor I give m-1's confirm. On m-1's APPROVE at `c74c20b` I issue a fresh Stage-1b-i dispatch;
+on any residual finding I carry it down. Branch local/unpublished (m-1 confirms the bytes; relay the blob if the
+lane can't reach).
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design side complete (3
+pins); Stage 1a fold complete at `c74c20b`, verified, routed for m-1's bounded confirm; STOP #1 ruled
+(implemented order = pinned order; m-1 seals the one-line clarification). Stage 1b-i gated on m-1's confirm + my
+fresh dispatch; Stage 1b-ii additionally on the consumer half; merge blocked by the land order. Open: m-1
+bounded confirm (in flight), operator scope generalization (non-blocking), R-4.27→v2.9 wait, R-4.24, R-4.19,
+R-3.40 item 13, packer_home. Merge ≠ push ≠ release; release hold ABSOLUTE.
