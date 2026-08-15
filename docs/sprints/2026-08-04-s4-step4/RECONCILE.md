@@ -3090,3 +3090,28 @@ review owner (via bridge to m-1); then I route d7db861 for owning-domain byte re
 STOP-1 held (m3-addendum-4 13c61b9c rev1 NOT sealed; over-schema exits 2). Merge BLOCKED by the land order.
 Open: M3-J-1..3 review-owner (next hop), m3-addendum-4 lock (m-3), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19,
 R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260815-065350 — Reviewer boot-ack reconciled (stale); routed INDEX inversion ruled disclosed-by-marker
+
+A late-surfaced boot-ack from `s4.orchestrator-reviewer` (`20260804-232323`, work-base `main@8981bfd0`).
+Reconciled per SITREP discipline (E0 until checked): the seat is accepted online and has in fact been
+continuously CC-active across the sprint; the boot work-base is long superseded (branch `d7db861`, origin/main
+`0db8fdd`), so the boot context is a historical artifact, nothing live.
+
+**Routed cell ruled:** the reviewer flagged a local-INDEX time inversion and left recovery/ruling to me.
+Verified at the bytes: the boot-era rows `20260804-232033` (matrix-implementer, line 19) and `20260804-231954`
+(matrix-planner, line 20) are out of clock order — parallel seats booting concurrently into one append-only
+INDEX with no per-seat isolation. The reviewer appended at EOF and rewrote no sibling row (correct). It is
+already DISCLOSED by the `<!-- relay-lint: monotonic-from 20260804-232323 -->` marker at line 21, and current
+`--index` no longer flags it (only the later standing sibling reds at line 222 and line 393 remain). **RULING:
+disclosed, no recovery owed** — rewriting concurrent boot rows to fake monotonicity would violate the
+append-only/no-sibling-rewrite discipline the marker exists to disclose honestly. Filed the reconciliation +
+ruling relay (`065350`, commit below; TO reviewer; CC operator). Reviewer stays on its standing posture
+(independent adversarial review of my SET relays, CC = visibility not an approval gate).
+
+No change to slice-E track state — this was a housekeeping reconciliation of a boot artifact. Slice E remains:
+Stage 1b-ii COMPLETE+VERIFIED at `d7db861`, hand-up BLOCKED on the M3-J-1..3 review-owner ruling (routed to
+master at `064333`); STOP-1 held until m3-addendum-4 locks; merge BLOCKED by the land order; branch
+local+unpublished; release hold ABSOLUTE.
