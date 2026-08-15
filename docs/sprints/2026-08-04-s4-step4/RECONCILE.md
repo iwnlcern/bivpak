@@ -2973,3 +2973,41 @@ pre-statement (or decline)** — theirs, via master; on receipt I issue the Stag
 BLOCKED on that; merge BLOCKED by the land order (token-time 7-element tuple stands, W-1 void if pins move).
 Open: m-3 pre-statement (next hop), R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
 local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260815-042420 — Stage 1b-ii gate cleared: scope M3-J-1..7, m-3 STOPs carried, STOP-1 held; pair plans-then-dispatches
+
+Master's ruling (`041645`) cleared me to move Stage 1b-ii forward. Three gates verified down at my seat:
+
+```text
+AUTHORITY  generalized fence rule chartered — pdc CLAUDE.md ddb0f33 line 101 (operator "ok ratified A")
+SCOPE      RULED M3-J-1..7 (master). git grep primary_count/descendant_count/entry_schema_skipped_count
+           over src/core at 0db8fdd = 0 hits -> placement beside absent keys makes M3-J-1..3 PREREQUISITES,
+           ridden inside the fence (locked J determines their bytes). Not a new operator gate
+FENCE PIN  m3-addendum-3 eeb4dd01…4013c7aa @ a016f953 (re-hashed, ==)
+KIND PIN   m3-addendum-4 13c61b9c…67822b @ live m-3 file (re-hashed, ==) — RECEIPTED, not yet LOCKED
+STOPs      m-3 pre-stated 4 STOPs + 8-item anchored veto bar (040921), read in full at my seat
+```
+
+**Disposition (mine):** filed the Stage-1b-ii gate-clearance / PROCEED relay (`042420`, commit below; TO floor
+Planner + Implementer; CC operator/s4-reviewer/master/m-3). Key structural call: **R7D left the consumer half
+NAMED-IF-GRANTED** (`sessions.cpp` hard-out until the operator assigned it), so 1b-ii's M3-J-1..7 scope was
+never locked in an approved plan. I did NOT issue an implementation token; I cleared the orchestrator gate and
+directed the **pair Planner to lock the M3-J-1..7 scope + acceptance + boundary (m-3's veto bar) through the
+Implementer plan-review FIRST**, then issue the Stage-1b-ii DISPATCH-IMPL (PARENT = the approving plan-review)
+under that plan. **STOP-1 carved out and HELD:** the exit-0 envelope KIND is an unpinned machine identifier;
+the pair implements everything EXCEPT the kind emission until `m3-addendum-4` LOCKS and arrives as m-3's scoped
+successor — no inventing the identifier at the keyboard. Carried m-3's STOPs 1-4, veto bar V1-V8, and the bound
+constraint (re-keyed warning PRE-WRITE; emission point `main.cpp:334-335` before `run_session_leg` must not
+move) verbatim + by pointer; default = any unlisted silence is a STOP. Observed and applied D-5.10 instance 4
+(the m-3 timestamp fabrication): READ THE CLOCK THEN WRITE — clock read at 042420 immediately before writing.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design side complete;
+Stage 1a COMPLETE+CLEARED (`c74c20b`); Stage 1b-i COMPLETE+VERIFIED (`469d6d3`, schema-2-capable); §5 RESOLVED
+(charter); Stage 1b-ii GATE CLEARED, scope M3-J-1..7, PROCEED filed. **NEXT: the pair Planner locks the
+consumer-half plan (Implementer plan-review) then issues the Stage-1b-ii DISPATCH-IMPL; the STOP-1 kind cell
+waits on m3-addendum-4's lock (m-3's parallel act).** On completion I quick-check and route for m-3 byte review.
+Merge BLOCKED by the land order (469d6d3 schema-2-capable; token-time 7-element tuple stands, W-1 void if pins
+move). Open: pair consumer-half plan (next hop), m3-addendum-4 lock (m-3), R-4.27→v2.9 wait, R-4.24, R-4.19,
+R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
