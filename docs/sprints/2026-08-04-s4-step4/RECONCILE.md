@@ -2936,3 +2936,40 @@ Stage 1b-ii BLOCKED on §5 (operator, now binding) + my fresh dispatch. Merge BL
 (token-time 7-element tuple stands, W-1 void if pins move). Open: §5 consumer-half owner (now critical path),
 R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠
 release; release hold ABSOLUTE.
+
+---
+
+## 20260815-040215 — §5 resolved: generalized fence chartered; floor pair owns the consumer half; HOLD for m-3 pre-state
+
+The operator RATIFIED the (A) rule as a standing generalized fence rule on 2026-08-15 ("ok ratified A"), broking
+the §5 deadlock I routed up at `020337`. Verified at my seat in the pdc repo:
+
+```text
+charter   CLAUDE.md ddb0f33 line 101 — GENERALIZED FENCE RULE, operator-ratified 2026-08-15
+rule      a build team MAY implement SEALED VP-approved design text in ANY m-x domain, fenced to that
+          text (no add/remove/reinterpret), under the owning domain's BYTE-LEVEL REVIEW AND VETO;
+          determined = execution, deferred/silent = STOP routed UP (owner owns the answer, not addressee).
+          Ends the per-surface decision queue — no future m-x surface returns to the operator for an
+          implementer ruling; each still gets the owner's review, veto, and STOPs.
+§5 answer the consumer half M3-J-4..7 in src/core/open is the FLOOR PAIR'S, fenced to m3-addendum-3
+pin       m3-addendum-3 content re-hashed at a016f953 = eeb4dd01…4013c7aa == the locked pin  CONFIRMED
+```
+
+**Disposition (mine):** my Stage 1b-ii dispatch is explicitly gated on m-3's STOP pre-statement (or decline) —
+master: "your dispatch follows m-3's pre-statement, NOT this relay." So I did NOT dispatch. Instead I corrected
+the floor pair's now-stale state (they were CC'd on a relay headlining "the floor pair MAY implement M3-J-4..7"
+while their last-known state was sessions.cpp flat HARD-OUT / owner unknown): filed the scope-update + HOLD relay
+(`040215`, commit below; TO floor Planner + Implementer; CC operator/s4-reviewer/master/m-3). It records §5
+resolved, sets sessions.cpp as CONDITIONALLY LIFTABLE-not-lifted, holds them until my token, and STAGES the
+constraints that travel with the work: the fence terms; m-3's bound build constraint (re-keyed warning PRE-WRITE,
+emission point main.cpp:334-335 before run_session_leg must NOT move); the land order (469d6d3 already
+schema-2-capable, this half is what it waits on); Stage 1b-ii returns for m-3 byte review. No work authority
+granted — no DISPATCH-IMPL issued.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design side complete (3
+pins); Stage 1a COMPLETE+CLEARED (`c74c20b`); Stage 1b-i COMPLETE+VERIFIED (`469d6d3`, schema-2-capable); §5
+RESOLVED (generalized fence chartered, floor pair owns consumer half under m-3 veto). **NEXT HOP: m-3's STOP
+pre-statement (or decline)** — theirs, via master; on receipt I issue the Stage 1b-ii dispatch. Stage 1b-ii
+BLOCKED on that; merge BLOCKED by the land order (token-time 7-element tuple stands, W-1 void if pins move).
+Open: m-3 pre-statement (next hop), R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
+local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
