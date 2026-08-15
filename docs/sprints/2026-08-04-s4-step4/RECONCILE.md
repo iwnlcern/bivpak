@@ -2793,3 +2793,40 @@ Stage 1b-i blocked on m-1 approve + my fresh dispatch; Stage 1b-ii additionally 
 blocked by the land order (early-merge narrowing refused). Open: m-1 Stage-1a byte review (in flight), operator
 scope generalization (non-blocking), R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Merge ≠
 push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260814-172825 — (A) fence FIRED: m-1 vetoes Stage 1a on the unlicensed fifth cap; remedy = delete 5 lines; STOP #1 ruled
+
+m-1's byte-level review VETOED Stage 1a (must-revise) on ONE five-line ground — the fence firing on exactly the
+class it was built for. Verified at my seat: `manifest.cpp:427-430` at `e359a03` applies the 256 per-node cap
+to the **entry's own** `artifacts[]`; J's locked 4-cap table (`:193-196`) binds "artifacts per declared node"
+to a `children[]` member, so the entry's own `artifacts[]` is in NO cap row (sealed §2.4, bounded only by
+non-empty + 16 MiB + the 4096 total). The check refuses previously-valid images. It is NOT the licensed
+`children-artifacts-per-node-cap` (`:277`) nor the `entry-artifacts-total-cap` (`:437`); it's an unlicensed
+fifth check. `grep -c` in tests = 0.
+
+The fingerprint m-1 named: the pair's suite covers exactly J's four caps, zero for the fifth — a protective
+belt-and-suspenders instinct, precisely the "obviously reasonable local decision" the fence exists to catch.
+The gate did its job before the instinct became the contract; no fault assigned.
+
+**Disposition (mine):** carried the veto + minimal remedy DOWN to the floor pair (bivpak `1783e69`; CC master,
+m-1, m-4, m-2) as a PLAN carry-down (not a fold I perform): **delete the five lines; keep the two licensed
+neighbours; removal unbounds nothing (4096 total holds); no test changes.** If the root genuinely needs its own
+bound, that's an addendum ask routed UP (m-4's cap lane), not a keyboard decision. Flagged the affirmations —
+m-1's full-depth review re-verified all five vetoes, four arrived-suspicious questions dissolved against the
+sealed text (incl. a stamp-follows-emitted-wire finding stronger than J, and J-R5 clean of R-4.23 by
+construction) — everything except the five lines is sound.
+
+**STOP #1 ruled** (m-1, sealed via addendum channel): first-breached-in-declared-order; the pair's implemented
+order IS the pinned order — no code change owed; m-1 seals a one-line clarification.
+
+**Flow:** pair Planner issues a fresh fold DISPATCH-IMPL for the 5-line deletion → successor commit over
+`e359a03` → UP to me for m-1's bounded-confirm re-review → on m-1's APPROVE I issue a fresh Stage-1b-i dispatch.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** design side complete (3
+pins); Stage 1a VETOED on one ground (delete 5 lines), fold routed DOWN; STOP #1 ruled. Stage 1b-i gated on
+m-1's re-approval at the successor pin + my fresh dispatch; Stage 1b-ii additionally on the consumer half;
+merge blocked by the land order. Open: Stage-1a fold + m-1 re-review (in flight), operator scope generalization
+(non-blocking), R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge
+≠ push ≠ release; release hold ABSOLUTE.
