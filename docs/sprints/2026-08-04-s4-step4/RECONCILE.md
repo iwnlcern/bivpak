@@ -3428,3 +3428,39 @@ A4+A5+K impl → m-1 (manifest) + m-3 (consumer) byte reviews → up to me for h
 order. Open: W-2 binding-list revision + VP concurrence (next hops), R-4.29, R-4.28, R-4.27→v2.9 wait (W-2 voids
 the day v2.9 lands), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠
 release; release hold ABSOLUTE.
+
+---
+
+## 20260816-143405 — W-2 floor half COMPLETE: rev1 {K} verified; VP concurrence routed to master
+
+The floor completed the plan-side half of the W-2 sequence: rev1 (`PLAN-…-SUCCESSOR-REV1-W2-BINDING-LIST-K-ONLY-20260816-141427`, `73d4b22`) Implementer-approved (`141549`), carrying the literal `{K}` binding list, now
+the latest local-approved revision. Verified at my seat:
+
+```text
+rev1 §2 list   m1-addendum-K-20260816 -> m1-addendum-K-5da667fa-lock-20260816   (one item)
+red            rev1 fires EXACTLY ONE lineage red at the root, on K's DESIGN_LOCK_ID
+discriminator  m3-addendum-3-eeb4dd01 fires the SAME red TWICE as DESIGN_LOCK_ID (superseded 044233/044942),
+               silent as CONSUMED_CONTRACT — must-be-YES run; the instrument SEPARATES the field positions
+structural     relay-lint.py:1432/:1440 read DESIGN_LOCK_ID only; SECOND_DESIGN_LOCK/CONSUMED_CONTRACT/
+               CONSUMER_DESIGN_LOCK_ID nowhere in the instrument — the check CANNOT SEE A4/A5/J/A3
+```
+
+`{K}` is measured, not assumed — three independent measurements + a validated discriminator + a structural
+invisibility proof. The floor accepted a clean self-correction (over-listing harm = inherited-by-copying, not
+automatic carry-forward). No error of mine this turn.
+
+**Disposition (mine):** routed the hand-up forward UP to master (`pdc` commit `eb...`; TO master; CC operator/
+VP/s4-reviewer/floor pair/m-1/m-3) — the floor half is complete and verified; the VP-concurrence step is
+master's (return the corrected W-2 to the VP for concurrence against the registry bytes AND rev1). Carried the
+open selector-intent point (A4/A5 covered despite no red? a deliberate widening for the concurrence act to
+record — not inferable by the floor or me; A4/A5 re-derived EQUAL at token time regardless) and the token-time
+join reminder (per listed identity = K alone, at the registry/locked bytes, never a summary, D-5.17 inst 2).
+
+**Track state:** Slice E successor: cells 1-3 closed, three locks verified, PLAN authored+approved, rev1 adds the
+`{K}` binding list (approved). **W-2 (arm b) operator-granted, INEFFECTIVE pending VP concurrence.** Token
+REFUSED. `d7db861` untouched. **NEXT: master returns W-2 to the VP for concurrence (vs registry bytes + rev1) →
+on concurrence W-2 EFFECTIVE + token-time join per listed identity (K) → floor files the DISPATCH-IMPL → coupled
+A4+A5+K impl → m-1 (manifest) + m-3 (consumer) byte reviews → up to me for hand-up.** Merge BLOCKED by the land
+order. Open: VP concurrence (next hop), the selector-intent point, R-4.29, R-4.28, R-4.27→v2.9 wait (W-2 voids
+when v2.9 lands), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release;
+release hold ABSOLUTE.
