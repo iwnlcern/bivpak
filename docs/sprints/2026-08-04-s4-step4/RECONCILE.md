@@ -3353,3 +3353,40 @@ against all three lock sets (Implementer plan-review) → issues the DISPATCH-IM
 land order (W-1 tuple re-derived at current identities at token time). Open: successor floor plan+impl (next
 hop), R-4.29 (deferred flip gate), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home.
 Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-132922 — Token REFUSED correctly: W-1 TERMINATED for the K-plan; my seven-element-tuple framing withdrawn
+
+The floor pair authored the successor PLAN (`055840`/`00be8e0`), the Implementer approved it (`060530`), and at
+token issuance the floor Planner REFUSED — reading W-1 in `RESIDUALS.md` (the registry) instead of the relays
+paraphrasing it. They were right, and it was MY framing that was wrong. Re-read W-1 at `:1733-1834` at my seat:
+
+```text
+coverage (:1764-1773)  FIVE elements — REPO/RELAY_ROOT/PLAN_LOCK_ID/DESIGN_DOC_ID/ERROR_CLASS + a JOIN
+DESIGN_DOC_ID (:1770)  m2-addendum-12-…  — the plan carries m1-addendum-K-20260816  => MISMATCH
+failure modes (:1804)  DESIGN_DOC_ID mismatch = TERMINATED/OUT-OF-SCOPE (not recoverable), NOT INAPPLICABLE
+line 1833              "it does not extend to them; they need their own waiver or the v2.9 tooling path"
+```
+
+**My `055058` (and prior) "re-derive the seven-element tuple … INAPPLICABLE on mismatch" is WITHDRAWN** — wrong
+three ways (no seven-element tuple; DESIGN_DOC_ID mismatch is TERMINATED not INAPPLICABLE; W-1 is A12-bound
+throughout incl. its ARCHITECTURE.md gate). Seed was master's `054734`. **Third paraphrase-carry error this
+thread** (cells 1 and 3 were the first two); the floor pair caught each by reading the source. Memory
+`carry-locked-bytes-not-an-upstream-paraphrase` updated to the third instance.
+
+**Disposition (mine):** routed the DISPOSITION request UP (`pdc` commit `eb13a08`; TO master; CC operator/
+s4-reviewer/floor pair/m-1/m-3) — W-1 is TERMINATED for the K-plan and needs its own disposition, the operator's
+call via master. Options: (a) fresh operator waiver bound to m1-addendum-K (+ m3-addendum-4/5 if the red fires);
+(b) RECOMMENDED a superseding W-2 for multi-lock cross-repo consumption (this plan consumes THREE foreign-owner
+designs; W-1's single-DESIGN_DOC_ID shape can't express that); (c) v2.9 (R-4.27) if closer. Affirmed the floor's
+refusal and the reassuring measurement (no DISPATCH-IMPL token ever carried this red; nothing to unwind). Token
+stays REFUSED until a disposition lands; I did not self-grant or infer.
+
+**Track state:** Slice E successor: cells 1-3 closed, all three locks verified, PLAN authored + Implementer-
+approved (`055840`/`00be8e0`) — but **the token is REFUSED on the cross-repo lineage red, which has no
+disposition for the K-plan**. `d7db861` untouched. **NEXT: the operator's disposition (fresh waiver / W-2 /
+v2.9) via master → then the pair issues the DISPATCH-IMPL → coupled A4+A5+K impl → m-1 (manifest) + m-3
+(consumer) byte reviews → up to me for hand-up.** Merge BLOCKED by the land order. Open: W-1 disposition (next
+hop, blocking), R-4.29, R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
+local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
