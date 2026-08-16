@@ -3254,3 +3254,38 @@ parse-ceiling export). `d7db861` stands as the must-revised predecessor. **NEXT:
 A4+A5 impl → m-3 byte re-review → up to me for hand-up.** Merge BLOCKED by the land order (W-1 void until
 re-derived at current identities). Open: m-1 export determination (next hop), R-4.28, R-4.27→v2.9 wait, R-4.24,
 R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-041937 — Cell 3 routed: does the successor deliver a schema-2-capable reader? (my "both=2" headline owned)
+
+The floor pair (`040948`) shaped the two-constant spine and surfaced a third cell — and caught a SECOND framing
+error of mine. My `040222` headline "after the A4 fold both ceilings numerically equal 2" is wrong; verified at
+the locked A4 (`40bd88a6`): A4.1 says supported=1 at d7db861 and "When the schema-2-capable reader lands…"
+(future conditional); A4.6(1) "Nothing else." A4 binds the cause to the boundary and never moves it — the fold
+unifies the supported constant at value 1; "both=2" is leg (p)'s world (a schema-2-capable reader), not the
+fold's. The seed was master's `035059` value-coincidence sentence; the two-constant CORE survives (merged ⇒ leg
+(l)'s band empty in every world), the premise does not. Second paraphrase-carry error this thread — memory
+`carry-locked-bytes-not-an-upstream-paraphrase` updated with the recurrence.
+
+**Cell 3 (product, not test):** A5 legs (l) and (p) pin the same schema-2 entry to opposite outcomes — (l)
+transitional/skipped (supported<parse), (p) imported at parity (supported=parse=2). {l,n,o} need supported=1,
+{m} either, {p} needs supported=2. The crux: does the successor deliver a schema-2-capable READER (supported
+1→2)? That makes images our packer already emits (`pack.cpp:504`) importable for the first time — a
+product-visible reader change authorized in no A4/A5/addendum-3 text (the land order's "schema-2-capable"
+governs the WRITER). **Disposition (mine):** routed UP (`pdc` commit `2bcbd93`; TO master; CC operator/
+s4-reviewer/floor pair/m-1/m-3) — operator owns the product answer, m-3 owns the leg set. My read attached (not
+imposed): **supported STAYS 1** (structure-only; disclose skipped schema-2 entries, don't import them),
+consistent with A4.1's future conditional + land-order sequencing toward leg (p)'s world. Carried the pair's
+injectable-supported-ceiling seam as a witness-both-configs mechanism — flagged not adopted (honest only with
+the production forwarding edge bound+proven; changes how m-3's locked legs are witnessed → m-3's to accept/veto;
+cell-3 product answer first). Noted the pair's own correction (manifest.hpp exports two constants; cell 2
+conclusion stands).
+
+**Track state:** Slice E successor HELD: cell 1 CLOSED, **cell 2 OPEN at m-1** (parse-ceiling export), **cell 3
+OPEN** (operator: schema-2-capable reader? + m-3: leg set). SCOPE_DIFF blocked on cell 2; acceptance matrix now
+also on cell 3. `d7db861` must-revised predecessor. **NEXT: master routes cell 3 to operator+m-3; m-1's cell-2
+export determination in parallel; on both returning I carry a corrected+unblocked release down and the pair
+authors the successor floor PLAN.** Merge BLOCKED by the land order (W-1 void until re-derived). Open: cells
+2+3 (next hops), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished.
+Merge ≠ push ≠ release; release hold ABSOLUTE.
