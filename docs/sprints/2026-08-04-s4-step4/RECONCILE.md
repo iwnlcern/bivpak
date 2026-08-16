@@ -3318,3 +3318,38 @@ successor floor PLAN against both lock sets + K (cells 1-3 closed), Implementer 
 impl → m-3 byte re-review → up to me for hand-up.** Merge BLOCKED by the land order (W-1 void until re-derived).
 Open: cell 2 / addendum-K (next hop), R-4.29 (deferred future gate), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19,
 R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-055058 — Successor UNBLOCKED: cell 2 cleared (addendum-K locked), all three locks verified, released to the floor pair
+
+Master released the successor (`054734`): the last hold (cell 2) is cleared by m-1's addendum-K lock. All three
+locks re-derived EQUAL at my seat before I carried the release down:
+
+```text
+A4  m3-addendum-4-9049de44-lock-20260816   doc @ 40bd88a6 -> 9049de44…   still current
+A5  m3-addendum-5-b8686c75-lock-20260816   doc @ c57067fe -> b8686c75…   still current
+K   m1-addendum-K-5da667fa-lock-20260816   doc @ 0e455ef5 -> 5da667fa…   post-stamp b7150609… == live
+    (K doc: .../m-1-format-engine/design/2026-08-16-ADDENDUM-K-parse-ceiling-export.md, rev4)
+cells 1-3   ALL CLOSED
+```
+
+The K doc confirms the mechanism at the bytes: `kEntrySchemaParseCeiling` replaces the `> 2` literal at
+`manifest.cpp:350` AND is A5.4's stub discriminator (preview includes the header, never a copy); the `< 1`
+validity floor at `manifest.cpp:347` preserved by name — matching the VP's SCOPE_DIFF comparison-class baseline.
+
+**Disposition (mine):** filed the release-down (`commit below`; TO floor pair; CC operator/s4-reviewer/master/
+m-1(planner+impl)/m-3(planner+impl)) — carefully bound each fold to its OWN lock identity per the cross-identity
+fence (A4 kind+exit+supported-unified-at-value-1; A5 count-source+goldens+unparsed-count+legs {l,m,n,o} witnessed
+/(p) gated; K the exported constant), and applied the lesson from my two prior paraphrase errors: bound to the
+locked bytes, added no interpretive clause, stated supported = 1 explicitly (not 2). Restated the opening
+evidence (SCOPE_DIFF comparison-class baseline, verified at my seat) and the three gates (floor plan-review →
+m-1 manifest byte review+veto → m-3 consumer byte re-review) + W-1-void-until-token-time-reverify.
+
+**Track state:** Slice E successor RELEASED — **cells 1-3 all CLOSED, all three locks verified (A4+A5+K).**
+`d7db861` the must-revised predecessor, superseded. **NEXT: the pair Planner authors the successor floor PLAN
+against all three lock sets (Implementer plan-review) → issues the DISPATCH-IMPL → coupled A4+A5+K impl commit
+→ returns for m-1 (manifest) AND m-3 (consumer) byte reviews → up to me for the hand-up.** Merge BLOCKED by the
+land order (W-1 tuple re-derived at current identities at token time). Open: successor floor plan+impl (next
+hop), R-4.29 (deferred flip gate), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home.
+Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
