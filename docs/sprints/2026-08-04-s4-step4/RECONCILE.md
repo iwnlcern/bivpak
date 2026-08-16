@@ -3141,3 +3141,45 @@ No change to slice-E track state. Critical path unchanged: Stage 1b-ii COMPLETE+
 s4-floor/slice-e-stage1a branch tip, not main), hand-up BLOCKED on the M3-J-1..3 review-owner ruling (routed to
 master at `064333`); STOP-1 held until m3-addendum-4 locks; merge BLOCKED by the land order; branch
 local+unpublished; release hold ABSOLUTE.
+
+---
+
+## 20260816-030805 — Release package: STOP-1 discharged (A4); Stage 1b-ii must-revise released to a successor floor plan (A5)
+
+Master's release package (`025459`) landed as the authority-bearing release to s4, subsuming my `064333`
+review-owner route-up: the byte review happened, Stage 1b-ii MUST-REVISED, and its terms are now captured in a
+new A5 lock. Two owner locks, both verified at my seat in pdc before I carried the release down:
+
+```text
+A4  m3-addendum-4-9049de44-lock-20260816   doc @ 40bd88a6 -> 9049de44…  ==   post-stamp f75f2e4d…  ==
+A5  m3-addendum-5-b8686c75-lock-20260816   doc @ c57067fe -> b8686c75…  ==   post-stamp 3e471ecf…  ==
+    (A5 doc: master/domains/m-3-restore-cli/design/2026-08-15-addendum-5-skipped-unit-and-floor-boundary.md;
+     disambiguated from the near-named m-2 ADDENDUM-5 codex-tiered-verdict 3559eb84)
+VP  020010 (A4) · 020011 (A5); both cited commits exist
+```
+
+**Disposition (mine):** filed the release-down relay (`030805`, commit `9a09444`; TO floor pair; CC operator/
+s4-reviewer/master/m-3(planner+impl)/m-1). Carried, with pins re-based:
+- **STOP-1 DISCHARGED (A4)** — the envelope-kind cell held since `042420` is now OPEN, for the EXACT kind
+  contract only: `ErrKind::EntrySchemaSkipped` / wire `EntrySchemaSkipped` / exit 0 EARNED by the pre-write
+  M3-J-5 notice (notice removed ⇒ leg reddens); cause BOUNDARY-RELATIVE (above the reader's SUPPORTED ceiling —
+  the `> 1` at d7db861 was only the observation); UnknownAgentSkipped distinct at exit 2; sessions.cpp:349/:419
+  move together to the shared ceiling in ONE commit.
+- **Stage 1b-ii must-revise RELEASED (A5)** to a successor floor PLAN: A5.2 count-source under m-1's
+  ONE-SHARED-CONSTANT (the SAME constant the A4 thresholds move to — VP load-bearing); both at-least goldens
+  (A5.3); entry_schema_unparsed_count (A5.4); legs (l)–(p). **d7db861 is the must-revised predecessor,
+  SUPERSEDED.**
+- **CROSS-IDENTITY FENCE (VP-verbatim):** A5 lock ≠ authority for A4's kind/threshold; A4 lock ≠ authority for
+  A5's key/at-least text — coupled code, separate identities; cite both locks, attribute each fold.
+- **W-1 VOID until token-time re-verify** — the pins MOVED (A4 13c61b9c→9049de44 dead; A5 new b8686c75), so the
+  seven-element tuple must be re-derived at the current lock identities; INAPPLICABLE/NO-TOKEN on mismatch.
+- Dead pins recorded: A4 13c61b9c; A5 bb681e36/6f16bc62/374e8e7b/e7191e7e/8ab2a9c1. No token issued.
+
+**Track state:** R-4.8 + C/B2 landed+closed (`origin/main = 0db8fdd`). **Slice E:** Stage 1a COMPLETE+CLEARED;
+Stage 1b-i COMPLETE+VERIFIED (`469d6d3`); §5 RESOLVED; Stage 1b-ii d7db861 MUST-REVISED → superseded; **STOP-1
+DISCHARGED (A4 9049de44); Stage 1b-ii discharge RELEASED (A5 b8686c75) to a successor floor plan — coupled
+A4+A5 work now the floor pair's.** **NEXT: the pair Planner authors the successor floor PLAN citing both locks
+(local plan-review) → DISPATCH-IMPL → coupled A4+A5 impl commit → returns for m-3 byte re-review → up to me for
+hand-up.** Merge BLOCKED by the land order (W-1 re-verify at new identities at token time). Open: successor
+floor plan (next hop), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
+local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
