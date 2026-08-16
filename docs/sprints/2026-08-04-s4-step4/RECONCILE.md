@@ -3464,3 +3464,38 @@ A4+A5+K impl → m-1 (manifest) + m-3 (consumer) byte reviews → up to me for h
 order. Open: VP concurrence (next hop), the selector-intent point, R-4.29, R-4.28, R-4.27→v2.9 wait (W-2 voids
 when v2.9 lands), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release;
 release hold ABSOLUTE.
+
+---
+
+## 20260816-152021 — W-2 EFFECTIVE; floor's path open (run K token-time join → DISPATCH-IMPL)
+
+Master filed the living-status fold (`150932`): the VP's concurrence had already been granted at `142742`
+(crossing my `143405` route-up in flight), so W-2 is now **CONCURRED / EFFECTIVE**, W-1 SUPERSEDED-retained,
+coverage = rev1's `{K}` list. Master's own first join claim (`143949`) was wrong (`053722` is pre-lock, names no
+lock ID) and the VP corrected it. Verified at the registry bytes (not the relay summary):
+
+```text
+W-2 STATUS   EFFECTIVE (RESIDUALS.md:1886, folded per VP 144428)
+join roles   053722 = pre-lock design approval (doc-id+SHA+commit, NO lock ID); 054533 = owner lock
+             declaration (three-field tuple); 142742 = VP post-lock association
+coverage     rev1 @ 73d4b22 / plan SHA-256 3178243a… (re-hashed EQUAL) / 141549; {K} one-item list
+K bytes      live post-stamp b7150609… (re-hashed EQUAL) vs locked 5da667fa… @ 0e455ef5
+```
+
+**Disposition (mine):** carried the open path down (`commit below`; TO floor pair; CC operator/s4-reviewer/
+master/VP/m-1/m-3) — reading the CORRECTED provenance roles from the folded W-2 bytes (applying the lesson: not
+master's earlier-wrong summary). The floor runs the exact K token-time join at the registry/locked bytes (never
+a summary, D-5.17 inst 2); I cross-checked the inputs (rev1 SHA + K post-stamp EQUAL, three provenance relays
+present) as a verified starting point, not a substitute for their run. On success the DISPATCH-IMPL is theirs
+(pair Planner → Implementer, PARENT = rev1 approve); the successor implements the count fix / at-least variants /
+entry_schema_unparsed_count / EntrySchemaSkipped kind / threshold unification at value 1 / kEntrySchemaParseCeiling
+export before-or-with — under m-1's manifest veto + m-3's combined re-review (both gate the hand-up). No token
+issued at my seat.
+
+**Track state:** Slice E successor: cells 1-3 closed, three locks verified, PLAN+rev1 approved, **W-2 EFFECTIVE**
+(the cross-repo lineage red waived under {K}). The floor's path to the DISPATCH-IMPL is now fully open (pending
+their token-time join). `d7db861` stands until superseded. **NEXT: floor runs the K token-time join → on success
+issues the DISPATCH-IMPL → coupled A4+A5+K impl → m-1 (manifest) + m-3 (consumer) byte reviews → up to me for the
+hand-up.** Merge BLOCKED by the land order (schema-2 stamp not ahead of M3-J-4..7 in force). Open: floor token
+join + impl (next hop), R-4.29, R-4.28, R-4.27→v2.9 wait (W-2 voids when v2.9 lands), R-4.24, R-4.19, R-3.40 item
+13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
