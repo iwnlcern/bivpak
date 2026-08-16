@@ -3183,3 +3183,44 @@ A4+A5 work now the floor pair's.** **NEXT: the pair Planner authors the successo
 hand-up.** Merge BLOCKED by the land order (W-1 re-verify at new identities at token time). Open: successor
 floor plan (next hop), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
 local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-034124 — Successor HELD: the floor pair caught my §3 two-ceiling collapse; two cells routed UP
+
+The floor pair (`031903`) correctly REFUSED to author the successor plan on my `030805` §3, which I now own as a
+defect. My §3 said "ONE parse-ceiling constant … BOTH the parser gate AND the preview discriminator … the SAME
+constant the A4 thresholds move to." Verified against the locked A5 at `c57067fe` this pass — it says the
+opposite:
+
+```text
+A5.2 :37/:100  membership defined by the TWO OWNER BOUNDARIES; "at d7db861 supported=1, parse=2"
+A5.6(2)/:55    the parse ceiling is m-1's manifest surface, NOT in scope
+A4.6(1) :110   "One identifier, its exit, its cause boundary, and its coupling. Nothing else."
+```
+
+TWO constants, two owners: SUPPORTED (ours, value 1, "is it skipped?", sessions.cpp:349/:419 = A4's coupling +
+my §2) and PARSE (m-1's, value 2, "was it stubbed?", manifest.cpp:350 = A5.4's discriminator). A5's own
+"one-shared-constant" is narrower than I read it — it binds the A5.4 STUB discriminator to the PARSE gate's
+constant, never merges supported into parse. My "SAME constant the A4 thresholds move to" clause invented the
+collapse and amplified past master's own `025459` §1 conflation. Collapse ⇒ parsed-but-held band EMPTY ⇒ leg (l)
+impossible-population, the identical defect A5 rev3 fixed in leg (p).
+
+**Disposition (mine):** owned the error and routed both spine cells UP to master (`pdc` commit `bf00d3f`; TO
+master; CC operator/s4-reviewer/floor pair/m-1/m-3). **Cell 1:** confirm the two-boundary reading (determined by
+locked text; corrects master's `025459` §1 + my §3; a genuine one-constant intent = a locked-text conflict m-3
+rules). **Cell 2:** A5.4's shared discriminator needs a parse-ceiling constant exported from `manifest.hpp`, but
+at `d7db861` the gate is a bare `entry_schema > 2` literal (`manifest.cpp:350`) and `manifest.hpp` exports
+`kFormatVersion` + byte cap only — the export site is `src/core/manifest/**`, m-1's HARD-OUT surface. Three
+routes (a bounded grant returning for m-1 byte review / b m-1 prerequisite export, sequencing change / c m-3
+alternative); master's + m-1's to rule. I hold the corrected down-dispatch until both return. **Closed:** my
+`064333` review-owner cell was answered — m-1 took the M3-J-1..3 half at `065233` (the two-reviewer split I
+recommended, ruled + executed).
+
+**Track state:** Slice E: Stage 1a/1b-i complete; §5 resolved; STOP-1 discharged (A4 9049de44); Stage 1b-ii
+must-revise released (A5 b8686c75); **successor plan HELD on cells 1+2 (both on the spine).** `d7db861` stands
+as the must-revised predecessor. **NEXT: master confirms cell 1 (two boundaries) + rules cell 2 (manifest-export
+route); then I carry a corrected+unblocked release down, the pair authors the successor floor PLAN.** Merge
+BLOCKED by the land order (W-1 void until re-verified at current identities). Open: cells 1+2 (next hop), R-4.28,
+R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release;
+release hold ABSOLUTE.
