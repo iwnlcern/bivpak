@@ -3289,3 +3289,32 @@ export determination in parallel; on both returning I carry a corrected+unblocke
 authors the successor floor PLAN.** Merge BLOCKED by the land order (W-1 void until re-derived). Open: cells
 2+3 (next hops), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished.
 Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-045620 — Cell 3 CLOSED (operator "A": supported stays 1; R-4.29); leg (p) defers; seam vetoed; hold = cell 2 only
+
+Master ruled cell 3 terminally (`045339`): **operator "A"** — supported ceiling stays 1 this successor; the
+schema-2-capable reader is confirmed SEPARATE v1-required work, registered durable as **R-4.29** (verified at
+`RESIDUALS.md:1850` — the flip supported 1→2 completes R-4.18's fix and "MUST NOT silently decay"; m-2
+adapter-readiness a prerequisite; A4 already covers it; land order composes; due as its own gate after this
+successor lands). My read and the pair's both held. m-3's `043206` ruled the leg set for both arms in advance:
+the leg whose world doesn't exist at the head DEFERS (implemented-and-carried, witnessed at the flip gate) — so
+{l,m,n,o} witness now at supported=1, leg (p) is implemented-and-deferred; m-3 states this satisfies A5's lock
+fence, no STOP. The pair's **injectable seam is VETOED** by m-3 (consent-gate override / new security surface /
+second author of the one-shared constant; future such proposals route m-4 IN TO) — their flag-not-adopt was
+right, the deferral is the sanctioned hold.
+
+**Disposition (mine):** carried the cell-3 closure down (`commit below`; TO floor pair; CC operator/s4-reviewer/
+master/m-1/m-3): supported=1 confirmed, leg (p) deferral rule, seam veto (do-not-pursue), R-4.29 pointer. The
+acceptance matrix is now determined at supported=1 — the pair may finalize its structure. **The successor now
+holds on exactly ONE item: cell 2 — m-1's addendum-K lock** (the parse-ceiling export determination, rev2, in
+intra-pair revision at m-1 after their implementer's lower-bound must-revise `040857`). Only SCOPE_DIFF's export
+line and the plan filing wait on K.
+
+**Track state:** Slice E successor: **cell 1 CLOSED, cell 3 CLOSED, cell 2 OPEN at m-1 (addendum-K rev2).**
+`d7db861` the must-revised predecessor. **NEXT: m-1's addendum-K lock → I carry it down → the pair files the
+successor floor PLAN against both lock sets + K (cells 1-3 closed), Implementer plan-review → coupled A4+A5
+impl → m-3 byte re-review → up to me for hand-up.** Merge BLOCKED by the land order (W-1 void until re-derived).
+Open: cell 2 / addendum-K (next hop), R-4.29 (deferred future gate), R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19,
+R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
