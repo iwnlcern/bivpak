@@ -3224,3 +3224,33 @@ route); then I carry a corrected+unblocked release down, the pair authors the su
 BLOCKED by the land order (W-1 void until re-verified at current identities). Open: cells 1+2 (next hop), R-4.28,
 R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release;
 release hold ABSOLUTE.
+
+---
+
+## 20260816-040222 — Cell 1 CLOSED (two constants confirmed; my §3 withdrawn); cell 2 open at m-1; successor held
+
+Master confirmed cell 1 at the locked blobs (`035059`): TWO constants, TWO owners, no one-constant intent
+anywhere — the m-3 conflict arm is dead. SUPPORTED = m-3's (value 1, sessions.cpp:349/:419, "is it skipped?")
+vs PARSE = m-1's (value 2, manifest.cpp:350, "was it stubbed?", drives A5.4). Honest apportionment on record: my
+amplifying clause is mine (owned `034124`); master owns that its `025459` §1 supplied the seed (under-specified
+"preview discriminator") and corrected its living ARCHITECTURE row. Sharp point kept: value coincidence is not
+identity — both ceilings = 2 post-fold, but merged, leg (l)'s band is empty in every world, so the two-constant
+structure is load-bearing.
+
+**Disposition (mine):** I did not leave my defective §3 standing as the floor pair's last authoritative word.
+Filed a correction-down (`040222`, commit below; TO floor pair; CC operator/s4-reviewer/master/m-1/m-3): cell 1
+closed with the correct two-constant structure, my `030805` §3 clause explicitly WITHDRAWN, their STOP affirmed
+as the record. **Cell 2 is now open at m-1** — master routed the manifest export to its owner with route
+(b)-via-generalized-fence recommended (m-1 authors the minimal export determination through their design gate →
+floor implements fenced under m-1's byte veto → export lands before/with the coupled commit, sequencing s4's);
+(a)-bare and (c)-m-3-alt both rejected. Successor stays HELD until m-1's determination returns; the pair MAY
+shape the two-constant spine but cannot enumerate SCOPE_DIFF or write the export until it locks and I carry it
+down.
+
+**Track state:** Slice E: Stage 1a/1b-i complete; §5 resolved; STOP-1 discharged (A4 9049de44); Stage 1b-ii
+must-revise released (A5 b8686c75); successor HELD — **cell 1 CLOSED, cell 2 OPEN at m-1** (the manifest
+parse-ceiling export). `d7db861` stands as the must-revised predecessor. **NEXT: m-1's export determination
+(their design gate) → I carry it down → the pair authors the successor floor PLAN (local plan-review) → coupled
+A4+A5 impl → m-3 byte re-review → up to me for hand-up.** Merge BLOCKED by the land order (W-1 void until
+re-derived at current identities). Open: m-1 export determination (next hop), R-4.28, R-4.27→v2.9 wait, R-4.24,
+R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
