@@ -187,7 +187,7 @@ TEST_CASE("Task 5 prompt discloses probe evidence before consent") {
         std::string::npos);
 }
 
-TEST_CASE("entry-schema skips render exact disclosure and summary cardinality") {
+TEST_CASE("entry-schema skips render exact and at-least disclosure and summary cardinality") {
   const auto row = [](std::string image_session_id,
                       biv::core_sessions::SessionRowReport::Row disposition,
                       std::optional<std::string> reason = std::nullopt,
@@ -206,13 +206,20 @@ TEST_CASE("entry-schema skips render exact disclosure and summary cardinality") 
   agent.primary_count = 3;
   agent.descendant_count = 1;
   agent.entry_schema_skipped_count = 1;
+  biv::core_sessions::SessionPreview exact_preview;
+  exact_preview.agents = {agent};
+  CHECK(biv::open_render::render_probe_disclosure(exact_preview).find(
+            "; 1 session(s) will be skipped") != std::string::npos);
+  CHECK(biv::open_render::render_probe_disclosure(exact_preview).find(
+            "; at least 1 session(s) will be skipped") == std::string::npos);
+  agent.entry_schema_unparsed_count = 1;
   agent.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::unreadable, std::nullopt, false);
   biv::core_sessions::SessionPreview preview;
   preview.agents = {agent};
 
   CHECK(biv::open_render::render_probe_disclosure(preview) ==
-        "  claude-code: 4 session(s) can be imported; 1 session(s) will be "
+        "  claude-code: 4 session(s) can be imported; at least 1 session(s) will be "
         "skipped \u2014 the skipped session(s) are recorded in a format this "
         "version of biv cannot read and are not counted among the 4. Nothing "
         "has been written yet; a newer version of biv may be able to import "
@@ -238,7 +245,7 @@ TEST_CASE("entry-schema skips render exact disclosure and summary cardinality") 
   const auto summary = biv::open_render::render_summary(
       preview, outcome, false, "/tmp/restored");
   CHECK(summary.find(
-            "  claude-code: 2 session(s) imported; 1 session(s) skipped \u2014 "
+            "  claude-code: 2 session(s) imported; at least 1 session(s) skipped \u2014 "
             "recorded in a format this version of biv cannot read.\n") !=
         std::string::npos);
 
@@ -260,7 +267,7 @@ TEST_CASE("entry-schema skips render exact disclosure and summary cardinality") 
        .installed_session_id = "installed-three", .children = {}}};
   CHECK(biv::open_render::render_summary(
             preview, four_imported, false, "/tmp/restored")
-            .find("  claude-code: 4 session(s) imported; 1 session(s) "
+          .find("  claude-code: 4 session(s) imported; at least 1 session(s) "
                   "skipped \u2014") != std::string::npos);
 
   biv::core_sessions::SessionsOutcome installed_staged_failed;
@@ -285,7 +292,7 @@ TEST_CASE("entry-schema skips render exact disclosure and summary cardinality") 
        .installed_session_id = "failed-new", .children = {}}};
   CHECK(biv::open_render::render_summary(
             preview, installed_staged_failed, false, "/tmp/restored")
-            .find("  claude-code: 2 session(s) imported; 1 session(s) "
+          .find("  claude-code: 2 session(s) imported; at least 1 session(s) "
                   "skipped \u2014") != std::string::npos);
 
   biv::core_sessions::SessionsOutcome shared_image_id;
@@ -301,7 +308,7 @@ TEST_CASE("entry-schema skips render exact disclosure and summary cardinality") 
        .children = {{"claude-child", "claude-child-new"}}}};
   CHECK(biv::open_render::render_summary(
             preview, shared_image_id, false, "/tmp/restored")
-            .find("  claude-code: 2 session(s) imported; 1 session(s) "
+          .find("  claude-code: 2 session(s) imported; at least 1 session(s) "
                   "skipped \u2014") != std::string::npos);
 
   agent.entry_schema_skipped_count = 0;

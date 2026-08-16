@@ -12,6 +12,7 @@ namespace biv::manifest {
 
 inline constexpr int kFormatVersion = 1;
 inline constexpr size_t kManifestByteCap = 16U << 20;
+inline constexpr int kEntrySchemaParseCeiling = 2;
 
 enum class PathFlavor { posix, windows, wsl };
 

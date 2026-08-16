@@ -65,6 +65,9 @@ TEST_CASE("exit map classifies refusal, mid-fail, and usage") {
   CHECK(biv::report::exit_for_error(biv::ErrKind::UsageError) == 5);
   CHECK(biv::report::exit_for_warnings(false) == 0);
   CHECK(biv::report::exit_for_warnings(true) == 2);
+  CHECK(std::string_view{biv::to_string(biv::ErrKind::EntrySchemaSkipped)} ==
+        "EntrySchemaSkipped");
+  CHECK(biv::report::exit_for_error(biv::ErrKind::EntrySchemaSkipped) == 0);
 }
 
 TEST_CASE("pack success envelope includes advisories") {
@@ -270,6 +273,13 @@ TEST_CASE("session exit composition uses typed skip reasons") {
                           .detail = std::nullopt});
   CHECK(biv::report::exit_for_sessions(consent) == 0);
 
+  auto entry_schema = consent;
+  entry_schema.rows.front().reason = "entry-schema";
+  CHECK(biv::core_sessions::kind_for_row(
+            entry_schema.rows.front().row, *entry_schema.rows.front().reason) ==
+        biv::ErrKind::EntrySchemaSkipped);
+  CHECK(biv::report::exit_for_sessions(entry_schema) == 0);
+
   auto unknown = consent;
   unknown.rows.front().reason = "unknown-agent";
   CHECK(biv::report::exit_for_sessions(unknown) == 2);
@@ -281,7 +291,55 @@ TEST_CASE("session exit composition uses typed skip reasons") {
   failed.rows.front().row = biv::core_sessions::SessionRowReport::Row::failed;
   failed.rows.front().reason = "store-absent";
   CHECK(biv::report::exit_for_sessions(failed) == 2);
+
+  auto mixed = failed;
+  mixed.rows.push_back(entry_schema.rows.front());
+  CHECK(biv::report::exit_for_sessions(mixed) == 2);
   CHECK(biv::report::exit_for_sessions({}) == 0);
+}
+
+TEST_CASE("entry-schema advisory cannot mask a failed session in the envelope") {
+  biv::open::OpenReport opened{.image_path = "/tmp/image.bvpk",
+                               .output_dir = "/tmp/restored",
+                               .collision_action = "none",
+                               .restored_member_count = 1,
+                               .checksums_verified = true,
+                               .manifest_format_version = 1};
+  biv::report::OpenSessionsReport sessions;
+  biv::core_sessions::AgentPreview preview;
+  preview.agent = "codex";
+  preview.entry_schema_skipped_count = 1;
+  preview.entry_schema_unparsed_count = 1;
+  sessions.preview.agents.push_back(preview);
+  sessions.outcome.rows = {
+      {.agent = "codex",
+       .image_session_id = "future",
+       .row = biv::core_sessions::SessionRowReport::Row::unknown_agent_skipped,
+       .reason = "entry-schema",
+       .installed_session_id = std::nullopt,
+       .host_version_unverified = false,
+       .activation_suppressed = false,
+       .live_at_pack = false,
+       .detail = std::nullopt},
+      {.agent = "codex",
+       .image_session_id = "failed",
+       .row = biv::core_sessions::SessionRowReport::Row::session_install_failed,
+       .reason = "error",
+       .installed_session_id = std::nullopt,
+       .host_version_unverified = false,
+       .activation_suppressed = false,
+       .live_at_pack = false,
+       .detail = std::nullopt},
+  };
+  const int exit_code = biv::report::exit_for_sessions(sessions.outcome);
+  REQUIRE(exit_code == 2);
+  const auto json = biv::report::envelope(
+      "open", std::nullopt, opened, std::nullopt, exit_code, sessions);
+  CHECK(json.find("\"kind\": \"EntrySchemaSkipped\"") !=
+        std::string::npos);
+  CHECK(json.find("\"kind\": \"SessionInstallFailed\"") !=
+        std::string::npos);
+  CHECK(json.find("\"exit_code\": 2") != std::string::npos);
 }
 
 TEST_CASE("capability factory enforces four deterministic wire states") {
@@ -370,6 +428,7 @@ TEST_CASE("open envelope includes typed sessions report") {
   preview.primary_count = 1;
   preview.descendant_count = 2;
   preview.entry_schema_skipped_count = 1;
+  preview.entry_schema_unparsed_count = 1;
   preview.caps = biv::adapters::Capabilities::from_probe(
       biv::adapters::Capabilities::Verdict::readable,
       std::optional<std::string>{"0.144.4"}, false, true,
@@ -432,6 +491,7 @@ TEST_CASE("open envelope includes typed sessions report") {
   CHECK(json.find("\"primary_count\": 1") != std::string::npos);
   CHECK(json.find("\"descendant_count\": 2") != std::string::npos);
   CHECK(json.find("\"entry_schema_skipped_count\": 1") != std::string::npos);
+  CHECK(json.find("\"entry_schema_unparsed_count\": 1") != std::string::npos);
   CHECK(json.find("\"probe\"") != std::string::npos);
   CHECK(json.find("\"outcome\": \"not_executable\"") !=
         std::string::npos);

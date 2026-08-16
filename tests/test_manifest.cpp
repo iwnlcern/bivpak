@@ -576,6 +576,7 @@ TEST_CASE("Manifest parser accepts agent_sessions entries per seam lock") {
 }
 
 TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
+  const int far_future_schema = biv::manifest::kEntrySchemaParseCeiling + 97;
   auto unknown_agent = codex_session_entry();
   unknown_agent.agent = "future-tool";
   unknown_agent.artifacts = {"agents/future-tool/x.jsonl"};
@@ -587,12 +588,13 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
 
   const auto future_schema_json = replace_once(
       manifest_json_with({codex_session_entry()}), "\"entry_schema\": 1",
-      "\"entry_schema\": 99");
+      "\"entry_schema\": " + std::to_string(far_future_schema));
   auto parsed_future_schema =
       biv::manifest::parse(bytes_of(future_schema_json));
   REQUIRE(parsed_future_schema.has_value());
   REQUIRE(parsed_future_schema->agent_sessions.size() == 1);
-  CHECK(parsed_future_schema->agent_sessions.front().entry_schema == 99);
+  CHECK(parsed_future_schema->agent_sessions.front().entry_schema ==
+        far_future_schema);
 
   std::string entry_unknown_field = manifest_json_with({codex_session_entry()});
   entry_unknown_field.replace(entry_unknown_field.find("\"entry_schema\": 1"), 17,
@@ -616,17 +618,21 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
   const auto entry_end = minimal_future.find("\n  ]", entry_begin);
   REQUIRE(entry_begin != std::string::npos);
   REQUIRE(entry_end != std::string::npos);
-  minimal_future.replace(entry_begin, entry_end - entry_begin,
-                         "{\"agent\":\"future-tool\",\"entry_schema\":99}");
+  minimal_future.replace(
+      entry_begin, entry_end - entry_begin,
+      "{\"agent\":\"future-tool\",\"entry_schema\":" +
+          std::to_string(far_future_schema) + "}");
   auto parsed_minimal_future = biv::manifest::parse(bytes_of(minimal_future));
   REQUIRE(parsed_minimal_future.has_value());
   REQUIRE(parsed_minimal_future->agent_sessions.size() == 1);
-  CHECK(parsed_minimal_future->agent_sessions.front().entry_schema == 99);
+  CHECK(parsed_minimal_future->agent_sessions.front().entry_schema ==
+        far_future_schema);
 }
 
 TEST_CASE("Manifest reader accepts schema 2 entries in full and skips newer schemas") {
   const auto schema_two =
-      biv::manifest::parse(bytes_of(manifest_json_with_parent_edge(2)));
+      biv::manifest::parse(bytes_of(manifest_json_with_parent_edge(
+          biv::manifest::kEntrySchemaParseCeiling)));
   REQUIRE(schema_two.has_value());
   REQUIRE(schema_two->agent_sessions.size() == 1U);
   CHECK(schema_two->agent_sessions.front().agent_version_at_pack == "0.142.5");
@@ -634,15 +640,18 @@ TEST_CASE("Manifest reader accepts schema 2 entries in full and skips newer sche
   CHECK(schema_two->agent_sessions.front().children.back().parent_id ==
         std::optional<std::string>{"019f-bbbb"});
 
-  for (const int schema : {3, 99}) {
+  for (const int schema : {biv::manifest::kEntrySchemaParseCeiling + 1,
+                           biv::manifest::kEntrySchemaParseCeiling + 97}) {
     CAPTURE(schema);
     const auto newer =
         biv::manifest::parse(bytes_of(manifest_json_with_parent_edge(schema)));
     REQUIRE(newer.has_value());
     REQUIRE(newer->agent_sessions.size() == 1U);
+    CHECK(newer->agent_sessions.front().agent == "codex");
     CHECK(newer->agent_sessions.front().entry_schema == schema);
     CHECK(newer->agent_sessions.front().agent_version_at_pack.empty());
     CHECK(newer->agent_sessions.front().children.empty());
+    CHECK(newer->agent_sessions.front().artifacts.empty());
   }
 }
 

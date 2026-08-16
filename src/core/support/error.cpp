@@ -42,6 +42,8 @@ const char* to_string(const ErrKind kind) noexcept {
       return "SessionInstallFailed";
     case ErrKind::UnknownAgentSkipped:
       return "UnknownAgentSkipped";
+    case ErrKind::EntrySchemaSkipped:
+      return "EntrySchemaSkipped";
     case ErrKind::SessionsConsentSkipped:
       return "SessionsConsentSkipped";
     case ErrKind::SessionsStaged:

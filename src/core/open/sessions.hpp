@@ -14,12 +14,15 @@
 
 namespace biv::core_sessions {
 
+inline constexpr int kEntrySchemaSupportedCeiling = 1;
+
 struct AgentPreview {
   std::string agent;
   size_t primary_count{0};
   size_t descendant_count{0};
   bool known_adapter{false};
   size_t entry_schema_skipped_count{0};
+  size_t entry_schema_unparsed_count{0};
   std::optional<adapters::Capabilities> caps;
   std::optional<adapters::Store> store;
   const adapters::AgentAdapter* adapter{nullptr};

@@ -265,7 +265,7 @@ std::optional<ErrKind> kind_for_row(const SessionRowReport::Row row, const std::
     case SessionRowReport::Row::session_install_failed:
       return ErrKind::SessionInstallFailed;
     case SessionRowReport::Row::unknown_agent_skipped:
-      return ErrKind::UnknownAgentSkipped;
+      return reason == "entry-schema" ? ErrKind::EntrySchemaSkipped : ErrKind::UnknownAgentSkipped;
     case SessionRowReport::Row::sessions_consent_skipped:
       return ErrKind::SessionsConsentSkipped;
     case SessionRowReport::Row::sessions_staged:
@@ -273,7 +273,10 @@ std::optional<ErrKind> kind_for_row(const SessionRowReport::Row row, const std::
     case SessionRowReport::Row::agent_not_validated_failed:
       return ErrKind::AgentNotValidatedFailed;
     case SessionRowReport::Row::skipped:
-      return reason == "consent-denied" ? ErrKind::SessionsConsentSkipped : ErrKind::UnknownAgentSkipped;
+      if (reason == "consent-denied") {
+        return ErrKind::SessionsConsentSkipped;
+      }
+      return reason == "entry-schema" ? ErrKind::EntrySchemaSkipped : ErrKind::UnknownAgentSkipped;
     case SessionRowReport::Row::failed:
       break;
   }
@@ -346,8 +349,11 @@ expected<SessionPreview> build_preview(const manifest::Manifest& manifest, const
       preview.agents.push_back(std::move(next));
       found = std::prev(preview.agents.end());
     }
-    if (entry.entry_schema > 1) {
-      ++found->entry_schema_skipped_count;
+    if (entry.entry_schema > kEntrySchemaSupportedCeiling) {
+      found->entry_schema_skipped_count += 1U + entry.children.size();
+      if (entry.entry_schema > manifest::kEntrySchemaParseCeiling) {
+        ++found->entry_schema_unparsed_count;
+      }
     } else {
       ++found->primary_count;
       found->descendant_count += entry.children.size();
@@ -416,7 +422,7 @@ expected<SessionsOutcome> run_session_leg(const SessionPreview& preview,
                                                 .activation_suppressed = false,
                                                 .live_at_pack = entry.live_at_pack,
                                                 .detail = std::nullopt});
-      } else if (entry.entry_schema > 1) {
+      } else if (entry.entry_schema > kEntrySchemaSupportedCeiling) {
         outcome.rows.push_back(SessionRowReport{.agent = entry.agent,
                                                 .image_session_id = entry.original_session_ids.primary,
                                                 .row = SessionRowReport::Row::unknown_agent_skipped,

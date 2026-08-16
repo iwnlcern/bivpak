@@ -131,6 +131,10 @@ void write_open_manifest_summary(json::Writer& writer,
       writer.key("entry_schema_skipped_count");
       writer.value_int(static_cast<int64_t>(agent.entry_schema_skipped_count));
     }
+    if (agent.entry_schema_unparsed_count != 0U) {
+      writer.key("entry_schema_unparsed_count");
+      writer.value_int(static_cast<int64_t>(agent.entry_schema_unparsed_count));
+    }
     writer.end_object();
   }
   writer.end_array();
@@ -404,6 +408,7 @@ int exit_for_error(const ErrKind kind) noexcept {
       return 2;
     case ErrKind::SessionsConsentSkipped:
     case ErrKind::SessionsStaged:
+    case ErrKind::EntrySchemaSkipped:
       return 0;
     case ErrKind::SourceUnreadableRoot:
     case ErrKind::RepoDiscoveredUnsupported:

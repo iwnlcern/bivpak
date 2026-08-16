@@ -81,7 +81,9 @@ std::string payload_extent_digest(const biv::container::MemberMeta& meta,
 }
 
 std::filesystem::path make_slice_e_consumer_image(
-    const std::filesystem::path& root, std::span<const int> entry_schemas) {
+    const std::filesystem::path& root, std::span<const int> entry_schemas,
+    std::span<const size_t> child_counts = {}) {
+  REQUIRE((child_counts.empty() || child_counts.size() == entry_schemas.size()));
   biv::manifest::Manifest manifest{
       .format_version = 1,
       .required_capabilities = {},
@@ -98,7 +100,7 @@ std::filesystem::path make_slice_e_consumer_image(
   };
   std::vector<Member> payload;
   const auto fixture = std::filesystem::path{BIV_SOURCE_DIR} / "tests" / "fixtures" /
-                       "slice-e" / "data-only" / "stage1b-ii-consumer" / "session.jsonl";
+                       "slice-e" / "data-only" / "successor-cardinality" / "session.jsonl";
   const auto fixture_bytes = bytes(read_text(fixture));
   biv::manifest::Checksums checksums;
   for (size_t index = 0; index < entry_schemas.size(); ++index) {
@@ -118,16 +120,41 @@ std::filesystem::path make_slice_e_consumer_image(
         .parent = std::nullopt,
         .parent_in_image = std::nullopt};
     entry.artifacts = {artifact};
+    const size_t child_count = child_counts.empty() ? 0U : child_counts[index];
+    for (size_t child = 0; child < child_count; ++child) {
+      entry.children.push_back({
+          .original_id = "10000000-0000-4000-8000-" +
+                         std::to_string(200000000000ULL + index * 100U + child),
+          .artifacts = {"agents/codex/stage1b-ii-" + std::to_string(index) +
+                        "-child-" + std::to_string(child) + ".jsonl"},
+      });
+    }
     entry.imported_at = "2026-08-15T00:00:00Z";
     entry.entry_schema = entry_schemas[index];
-    manifest.agent_sessions.push_back(std::move(entry));
-    biv::container::MemberMeta meta{.path = artifact, .kind = biv::scan::NodeKind::file,
-                                    .mode = 0600, .mtime_s = 1, .mtime_ns = 0,
-                                    .size = fixture_bytes.size(), .symlink_target = {}};
-    if (entry_schemas[index] == 1) {
-      checksums.entries[artifact] = payload_extent_digest(meta, fixture_bytes);
+    const auto add_payload = [&](const std::string& path) {
+      biv::container::MemberMeta meta{.path = path, .kind = biv::scan::NodeKind::file,
+                                      .mode = 0600, .mtime_s = 1, .mtime_ns = 0,
+                                      .size = fixture_bytes.size(), .symlink_target = {}};
+      checksums.entries[path] = payload_extent_digest(meta, fixture_bytes);
       payload.push_back(Member{.meta = std::move(meta), .data = fixture_bytes});
+    };
+    if (entry_schemas[index] <= biv::manifest::kEntrySchemaParseCeiling) {
+      add_payload(artifact);
+      for (const auto& child : entry.children) {
+        for (const auto& child_artifact : child.artifacts) {
+          biv::container::MemberMeta meta{.path = child_artifact,
+                                          .kind = biv::scan::NodeKind::file,
+                                          .mode = 0600,
+                                          .mtime_s = 1,
+                                          .mtime_ns = 0,
+                                          .size = fixture_bytes.size(),
+                                          .symlink_target = {}};
+          checksums.entries[child_artifact] = payload_extent_digest(meta, fixture_bytes);
+          payload.push_back(Member{.meta = std::move(meta), .data = fixture_bytes});
+        }
+      }
     }
+    manifest.agent_sessions.push_back(std::move(entry));
   }
 
   const auto image = root / "slice-e-stage1b-ii.bvpk";
@@ -632,18 +659,18 @@ TEST_CASE("Stage 1b-ii all-skipped surfaces split eligible from skipped",
   const ScopedEnv home{"HOME", root.string()};
 
   constexpr std::string_view all_skipped_notice =
-      "  codex: 0 session(s) can be imported; 1 session(s) will be skipped "
+      "  codex: 0 session(s) can be imported; at least 1 session(s) will be skipped "
       "\u2014 the skipped session(s) are recorded in a format this version of "
       "biv cannot read and are not counted among the 0. Nothing has been "
       "written yet; a newer version of biv may be able to import them.";
   constexpr std::string_view all_skipped_summary =
-      "  codex: 0 session(s) imported; 1 session(s) skipped \u2014 recorded in "
+      "  codex: 0 session(s) imported; at least 1 session(s) skipped \u2014 recorded in "
       "a format this version of biv cannot read.";
 
   const auto json = run_cmd("open '" + all_skipped.string() + "' --dest '" +
                                 (root / "json-dest").string() + "' --json",
                             root);
-  REQUIRE(json.code == 2);
+  REQUIRE(json.code == 0);
   CHECK(json.err.find(all_skipped_notice) != std::string::npos);
   simdjson::dom::parser parser;
   simdjson::dom::element document;
@@ -654,19 +681,26 @@ TEST_CASE("Stage 1b-ii all-skipped surfaces split eligible from skipped",
   std::int64_t primary_count = -1;
   std::int64_t descendant_count = -1;
   std::int64_t skipped_count = -1;
+  std::int64_t unparsed_count = -1;
   REQUIRE(document["result"]["sessions"]["prompt_shown"].get(prompt_shown) == simdjson::SUCCESS);
   REQUIRE(document["result"]["sessions"]["warning_shown"].get(warning_shown) == simdjson::SUCCESS);
   const auto agent_summary = document["result"]["manifest"]["agent_sessions"].at(0);
+  std::string_view outcome_kind;
+  REQUIRE(document["result"]["sessions"]["agents"].at(0)["sessions"].at(0)["kind"].get(
+              outcome_kind) == simdjson::SUCCESS);
   REQUIRE(agent_summary["session_count"].get(session_count) == simdjson::SUCCESS);
   REQUIRE(agent_summary["primary_count"].get(primary_count) == simdjson::SUCCESS);
   REQUIRE(agent_summary["descendant_count"].get(descendant_count) == simdjson::SUCCESS);
   REQUIRE(agent_summary["entry_schema_skipped_count"].get(skipped_count) == simdjson::SUCCESS);
+  REQUIRE(agent_summary["entry_schema_unparsed_count"].get(unparsed_count) == simdjson::SUCCESS);
   CHECK_FALSE(prompt_shown);
   CHECK_FALSE(warning_shown);
+  CHECK(outcome_kind == "EntrySchemaSkipped");
   CHECK(session_count == 0);
   CHECK(primary_count == 0);
   CHECK(descendant_count == 0);
   CHECK(skipped_count == 1);
+  CHECK(unparsed_count == 1);
 
   const auto prewrite_dest = root / "closed-stderr-dest";
   const auto closed_stderr = run_cmd_closed_stderr(
@@ -678,7 +712,7 @@ TEST_CASE("Stage 1b-ii all-skipped surfaces split eligible from skipped",
   const auto non_tty = run_cmd("open '" + all_skipped.string() + "' --dest '" +
                                    (root / "non-tty-dest").string() + "'",
                                root);
-  REQUIRE(non_tty.code == 2);
+  REQUIRE(non_tty.code == 0);
   CHECK(non_tty.err.find(all_skipped_notice) != std::string::npos);
   CHECK(non_tty.err.find(biv::open_render::kTrustWarning) == std::string::npos);
   CHECK(non_tty.out.find(all_skipped_summary) != std::string::npos);
@@ -687,7 +721,7 @@ TEST_CASE("Stage 1b-ii all-skipped surfaces split eligible from skipped",
       "open '" + all_skipped.string() + "' --dest '" +
           (root / "tty-no-flag-dest").string() + "'",
       root, "n\n");
-  REQUIRE(tty_no_flag.code == 2);
+  REQUIRE(tty_no_flag.code == 0);
   CHECK(tty_no_flag.out.find(all_skipped_notice) != std::string::npos);
   CHECK(tty_no_flag.out.find("Import these sessions") == std::string::npos);
   CHECK(tty_no_flag.out.find(biv::open_render::kTrustWarning) == std::string::npos);
@@ -697,14 +731,14 @@ TEST_CASE("Stage 1b-ii all-skipped surfaces split eligible from skipped",
       "open '" + all_skipped.string() + "' --dest '" +
           (root / "tty-consent-yes-dest").string() + "' --consent yes",
       root, "n\n");
-  REQUIRE(tty_consent_yes.code == 2);
+  REQUIRE(tty_consent_yes.code == 0);
   CHECK(tty_consent_yes.out.find(all_skipped_notice) != std::string::npos);
   CHECK(tty_consent_yes.out.find("Import these sessions") == std::string::npos);
   CHECK(tty_consent_yes.out.find(biv::open_render::kTrustWarning) == std::string::npos);
   CHECK(tty_consent_yes.out.find(all_skipped_summary) != std::string::npos);
 
   constexpr std::string_view mixed_notice =
-      "  codex: 1 session(s) can be imported; 1 session(s) will be skipped "
+      "  codex: 1 session(s) can be imported; at least 1 session(s) will be skipped "
       "\u2014 the skipped session(s) are recorded in a format this version of "
       "biv cannot read and are not counted among the 1. Nothing has been "
       "written yet; a newer version of biv may be able to import them.";
@@ -713,7 +747,7 @@ TEST_CASE("Stage 1b-ii all-skipped surfaces split eligible from skipped",
                                root);
   REQUIRE(flag_no.code == 2);
   CHECK(flag_no.err.find(mixed_notice) != std::string::npos);
-  CHECK(flag_no.out.find("  codex: 0 session(s) imported; 1 session(s) skipped") !=
+  CHECK(flag_no.out.find("  codex: 0 session(s) imported; at least 1 session(s) skipped") !=
         std::string::npos);
 
   const auto prompt_no = run_cmd_pty(
@@ -722,9 +756,89 @@ TEST_CASE("Stage 1b-ii all-skipped surfaces split eligible from skipped",
   REQUIRE(prompt_no.code == 2);
   CHECK(prompt_no.out.find(mixed_notice) != std::string::npos);
   CHECK(prompt_no.out.find("Import these sessions") != std::string::npos);
-  CHECK(prompt_no.out.find("  codex: 0 session(s) imported; 1 session(s) skipped") !=
+  CHECK(prompt_no.out.find("  codex: 0 session(s) imported; at least 1 session(s) skipped") !=
         std::string::npos);
 
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("Slice E successor distinguishes exact and floor skipped cardinality",
+          "[slice-e][successor]") {
+  struct Case {
+    std::string_view name;
+    std::vector<int> schemas;
+    std::vector<size_t> child_counts;
+    size_t skipped;
+    size_t unparsed;
+    bool at_least;
+  };
+  const std::array cases{
+      Case{"parsed-childed", {2}, {2}, 3U, 0U, false},
+      Case{"stubbed-childed-wire", {3}, {2}, 1U, 1U, true},
+      Case{"mixed-shapes", {2, 3}, {2, 2}, 4U, 1U, true},
+  };
+
+  const auto root = make_tmp("slice-e-successor-cardinality");
+  const ScopedEnv codex_home{"CODEX_HOME", (root / "absent-codex-home").string()};
+  const ScopedEnv claude_home{"CLAUDE_CONFIG_DIR", (root / "absent-claude-home").string()};
+  const ScopedEnv home{"HOME", root.string()};
+  for (const auto& test_case : cases) {
+    DYNAMIC_SECTION(test_case.name) {
+      const auto case_root = root / test_case.name;
+      std::filesystem::create_directories(case_root);
+      const auto image = make_slice_e_consumer_image(
+          case_root, test_case.schemas, test_case.child_counts);
+      const auto prefix = test_case.at_least ? "at least " : "";
+      const auto notice = "  codex: 0 session(s) can be imported; " +
+                          std::string{prefix} + std::to_string(test_case.skipped) +
+                          " session(s) will be skipped";
+      const auto summary = "  codex: 0 session(s) imported; " +
+                           std::string{prefix} + std::to_string(test_case.skipped) +
+                           " session(s) skipped";
+
+      const auto json = run_cmd(
+          "open '" + image.string() + "' --dest '" +
+              (case_root / "json-dest").string() + "' --json",
+          root);
+      REQUIRE(json.code == 0);
+      CHECK(json.err.find(notice) != std::string::npos);
+      simdjson::dom::parser parser;
+      simdjson::dom::element document;
+      REQUIRE(parser.parse(json.out).get(document) == simdjson::SUCCESS);
+      const auto agent = document["result"]["manifest"]["agent_sessions"].at(0);
+      std::int64_t session_count = -1;
+      std::int64_t primary_count = -1;
+      std::int64_t descendant_count = -1;
+      std::int64_t skipped_count = -1;
+      REQUIRE(agent["session_count"].get(session_count) == simdjson::SUCCESS);
+      REQUIRE(agent["primary_count"].get(primary_count) == simdjson::SUCCESS);
+      REQUIRE(agent["descendant_count"].get(descendant_count) == simdjson::SUCCESS);
+      REQUIRE(agent["entry_schema_skipped_count"].get(skipped_count) == simdjson::SUCCESS);
+      CHECK(session_count == 0);
+      CHECK(primary_count == 0);
+      CHECK(descendant_count == 0);
+      CHECK(skipped_count == static_cast<std::int64_t>(test_case.skipped));
+      if (test_case.unparsed == 0U) {
+        simdjson::dom::element absent;
+        CHECK(agent["entry_schema_unparsed_count"].get(absent) ==
+              simdjson::NO_SUCH_FIELD);
+      } else {
+        std::int64_t unparsed_count = -1;
+        REQUIRE(agent["entry_schema_unparsed_count"].get(unparsed_count) ==
+                simdjson::SUCCESS);
+        CHECK(unparsed_count == static_cast<std::int64_t>(test_case.unparsed));
+      }
+
+      const auto text = run_cmd(
+          "open '" + image.string() + "' --dest '" +
+              (case_root / "text-dest").string() + "'",
+          root);
+      REQUIRE(text.code == 0);
+      CHECK(text.err.find(notice) != std::string::npos);
+      CHECK(text.out.find(summary) != std::string::npos);
+      CHECK(text.out.find("EntrySchemaSkipped") == std::string::npos);
+    }
+  }
   std::filesystem::remove_all(root);
 }
 

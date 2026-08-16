@@ -1618,14 +1618,20 @@ TEST_CASE("the cross-family control catches an illegal constructed reason/detail
 
 TEST_CASE("session preview groups manifest agents and flags unsupported rows") {
   const auto home = make_tmp("preview");
-  auto manifest = model({entry("future-tool"), entry("codex", 99)});
+  auto parsed_but_held = entry("codex", 2);
+  parsed_but_held.children = {
+      {.original_id = "codex-child-one", .artifacts = {"agents/codex/child-one.jsonl"}},
+      {.original_id = "codex-child-two", .artifacts = {"agents/codex/child-two.jsonl"}},
+  };
+  auto manifest = model({entry("future-tool"), std::move(parsed_but_held)});
 
   auto preview = biv::core_sessions::build_preview(manifest, env(home));
   REQUIRE(preview);
   REQUIRE(preview->agents.size() == 2U);
   CHECK_FALSE(preview->agents.at(0).known_adapter);
   CHECK(preview->agents.at(1).known_adapter);
-  CHECK(preview->agents.at(1).entry_schema_skipped_count == 1U);
+  CHECK(preview->agents.at(1).entry_schema_skipped_count == 3U);
+  CHECK(preview->agents.at(1).entry_schema_unparsed_count == 0U);
   CHECK(preview->agents.at(1).primary_count == 0U);
   CHECK(preview->agents.at(1).descendant_count == 0U);
   CHECK(preview->any_sessions());
@@ -1639,9 +1645,26 @@ TEST_CASE("session preview groups manifest agents and flags unsupported rows") {
   CHECK(skipped_preview->agents.front().primary_count == 0U);
   CHECK(skipped_preview->agents.front().descendant_count == 0U);
   CHECK(skipped_preview->agents.front().entry_schema_skipped_count == 2U);
+  CHECK(skipped_preview->agents.front().entry_schema_unparsed_count == 2U);
   CHECK_FALSE(skipped_preview->any_sessions());
   CHECK(skipped_preview->any_entry_schema_skipped());
   std::filesystem::remove_all(skipped_home);
+
+  const auto mixed_home = make_tmp("preview-mixed-entry-schema-shapes");
+  auto mixed_parsed = entry("codex", 2);
+  mixed_parsed.children = {
+      {.original_id = "mixed-child-one", .artifacts = {"agents/codex/mixed-child-one.jsonl"}},
+      {.original_id = "mixed-child-two", .artifacts = {"agents/codex/mixed-child-two.jsonl"}},
+  };
+  auto mixed_preview = biv::core_sessions::build_preview(
+      model({std::move(mixed_parsed), entry("codex", 3)}), env(mixed_home));
+  REQUIRE(mixed_preview);
+  REQUIRE(mixed_preview->agents.size() == 1U);
+  CHECK(mixed_preview->agents.front().entry_schema_skipped_count == 4U);
+  CHECK(mixed_preview->agents.front().entry_schema_unparsed_count == 1U);
+  CHECK(mixed_preview->agents.front().primary_count == 0U);
+  CHECK(mixed_preview->agents.front().descendant_count == 0U);
+  std::filesystem::remove_all(mixed_home);
 
   const auto unwired_home = make_tmp("probe-unwired");
   auto unwired_manifest = model({entry("claude-code"), entry("codex")});
@@ -1713,8 +1736,50 @@ TEST_CASE("session leg skips denied and unknown rows without reading members") {
   CHECK(outcome->rows.front().reason == "unknown-agent");
   CHECK(biv::core_sessions::kind_for_row(outcome->rows.front().row, *outcome->rows.front().reason) ==
         biv::ErrKind::UnknownAgentSkipped);
+  CHECK(biv::report::exit_for_sessions(*outcome) == 2);
   CHECK_FALSE(read_called);
   CHECK(outcome->activation.empty());
+  std::filesystem::remove_all(home);
+}
+
+TEST_CASE("threshold-parity per-agent distribution self-activates at R-4.29",
+          "[slice-e][pending-R-4.29]") {
+  if (biv::core_sessions::kEntrySchemaSupportedCeiling <
+      biv::manifest::kEntrySchemaParseCeiling) {
+    SKIP("configured-deferred until R-4.29 makes the supported and parse ceilings equal");
+  }
+
+  auto make_named = [](std::string agent, std::string id, const int schema) {
+    auto value = entry(std::move(agent), schema);
+    value.original_session_ids.primary = std::move(id);
+    return value;
+  };
+  const int stub_schema = biv::manifest::kEntrySchemaParseCeiling + 1;
+  auto manifest = model({
+      make_named("codex", "a-supported", biv::manifest::kEntrySchemaParseCeiling),
+      make_named("codex", "a-stub-one", stub_schema),
+      make_named("codex", "a-stub-two", stub_schema),
+      make_named("claude-code", "b-supported", biv::manifest::kEntrySchemaParseCeiling),
+      make_named("claude-code", "b-stub", stub_schema),
+  });
+  const auto home = make_tmp("threshold-parity-distribution");
+  const auto preview = biv::core_sessions::build_preview(manifest, env(home));
+  REQUIRE(preview);
+  REQUIRE(preview->agents.size() == 2U);
+  const auto agent_a = std::ranges::find(preview->agents, "codex",
+                                          &biv::core_sessions::AgentPreview::agent);
+  const auto agent_b = std::ranges::find(preview->agents, "claude-code",
+                                          &biv::core_sessions::AgentPreview::agent);
+  REQUIRE(agent_a != preview->agents.end());
+  REQUIRE(agent_b != preview->agents.end());
+  CHECK(agent_a->primary_count == 1U);
+  CHECK(agent_a->descendant_count == 0U);
+  CHECK(agent_a->entry_schema_skipped_count == 2U);
+  CHECK(agent_a->entry_schema_unparsed_count == 2U);
+  CHECK(agent_b->primary_count == 1U);
+  CHECK(agent_b->descendant_count == 0U);
+  CHECK(agent_b->entry_schema_skipped_count == 1U);
+  CHECK(agent_b->entry_schema_unparsed_count == 1U);
   std::filesystem::remove_all(home);
 }
 

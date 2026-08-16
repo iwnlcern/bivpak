@@ -235,7 +235,9 @@ std::string render_probe_disclosure(
     if (agent.entry_schema_skipped_count != 0U) {
       const auto eligible = agent.primary_count + agent.descendant_count;
       out << "  " << display(agent.agent) << ": " << eligible
-          << " session(s) can be imported; " << agent.entry_schema_skipped_count
+          << " session(s) can be imported; "
+          << (agent.entry_schema_unparsed_count != 0U ? "at least " : "")
+          << agent.entry_schema_skipped_count
           << " session(s) will be skipped \u2014 the skipped session(s) are recorded in a format this version of biv cannot read and are not counted among the "
           << eligible
           << ". Nothing has been written yet; a newer version of biv may be able to import them.\n";
@@ -324,6 +326,7 @@ std::string render_summary(
       }
     }
     out << "  " << display(agent.agent) << ": " << imported << " session(s) imported; "
+        << (agent.entry_schema_unparsed_count != 0U ? "at least " : "")
         << agent.entry_schema_skipped_count
         << " session(s) skipped \u2014 recorded in a format this version of biv cannot read.\n";
   }

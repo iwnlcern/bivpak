@@ -347,7 +347,7 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   if (entry.entry_schema < 1) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "entry_schema"});
   }
-  if (entry.entry_schema > 2) {
+  if (entry.entry_schema > kEntrySchemaParseCeiling) {
     return entry;
   }
 
