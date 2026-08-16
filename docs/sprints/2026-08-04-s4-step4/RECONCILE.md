@@ -3390,3 +3390,41 @@ v2.9) via master → then the pair issues the DISPATCH-IMPL → coupled A4+A5+K 
 (consumer) byte reviews → up to me for hand-up.** Merge BLOCKED by the land order. Open: W-1 disposition (next
 hop, blocking), R-4.29, R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
 local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-140516 — W-2 granted (arm b) + selector-corrected; plan-revision routed down; measured red fires on K only
+
+Master reported the operator granted the arm-(b) W-2 (multi-lock successor to W-1, "waive it", INEFFECTIVE
+pending VP concurrence); the VP corrected the selector (withdrawing an erroneous A12 fold-in the pen made) to the
+"literal binding list of the current approved plan revision" form; and routed the plan-side half to s4 → the
+floor. Applying the lesson from my three prior paraphrase errors, I read the corrected W-2 at the **registry
+bytes** (`RESIDUALS.md:1885-1954`), not master's relay paraphrase: coverage = the plan's literal
+`DESIGN_DOC_ID -> DESIGN_LOCK_ID` binding list of exactly the identities whose foreign-lock lineage red fires;
+only the literal list creates coverage (SECOND_DESIGN_LOCK unless restated; CONSUMED_CONTRACT never); A12 not
+covered; ambiguous → NO-TOKEN never the larger set.
+
+**Measured (not assumed) at my seat** on the current plan blob `055840`/`00be8e0`: **exactly one** lineage red
+fires, on K's `DESIGN_LOCK_ID`. The lint lineage check (`relay-lint.py:1433`/`:1473`) keys **only** on
+`DESIGN_LOCK_ID`, so A4/A5 (`SECOND_DESIGN_LOCK`) and J/A3 (`CONSUMED_CONTRACT`) do **not** fire. So the measured
+binding list is **`{K}` alone** — master's expected `{K,A4,A5}` assumed A4/A5 fire (they don't; the registry
+itself labels that list "informative only, not coverage"). Listing A4/A5 would be silent over-inclusion,
+forbidden in both directions.
+
+**Disposition (mine):** routed the plan-revision down (`commit below`; TO floor pair; CC operator/s4-reviewer/
+master/m-1/m-3): the floor confirms the measurement at its own seat, revises the plan to carry the literal
+binding list of exactly the fired reds (expected `{K}`; their definitive measurement governs), does not
+over/under-list, restates each as an explicit pair, takes local plan-review. Flagged to master (CC) that the
+measured coverage is `{K}` not `{K,A4,A5}` — a selector-intent point for the VP concurrence step if the
+multi-lock grant intends A4/A5 coverage despite no red (A4/A5 are separately re-derived EQUAL at token time
+regardless).
+
+**Track state:** Slice E successor: cells 1-3 closed, all three locks verified, PLAN authored + Implementer-
+approved, **token REFUSED** on the cross-repo lineage red. W-2 (arm b) operator-granted, **INEFFECTIVE pending
+VP concurrence**; the plan needs a literal binding-list revision (measured `{K}`). `d7db861` untouched.
+**NEXT: floor revises the plan (binding list `{K}`) + local plan-review → master returns W-2 to the VP for
+concurrence → on concurrence W-2 EFFECTIVE + token-time join per listed identity → DISPATCH-IMPL → coupled
+A4+A5+K impl → m-1 (manifest) + m-3 (consumer) byte reviews → up to me for hand-up.** Merge BLOCKED by the land
+order. Open: W-2 binding-list revision + VP concurrence (next hops), R-4.29, R-4.28, R-4.27→v2.9 wait (W-2 voids
+the day v2.9 lands), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠
+release; release hold ABSOLUTE.
