@@ -3783,3 +3783,33 @@ worktree clean at `9729191`. No routing decision, scope deviation, or collision 
 standby (I do NOT author the floor's PLAN, poll, or insert a gate). Re-engage on the floor's coupled-fold
 land + hand-up, then route m-1 manifest byte review + veto and m-3 combined successor review.
 Land order binds; branch local+unpublished; release hold ABSOLUTE.
+
+---
+
+**2026-08-17 06:44 — BLOCKER B-L5 confirmed at my seat and routed UP to master → m-1 (my `064438`, carrying the floor Planner's `063302`).**
+The floor Planner read Addendum L's LOCKED bytes and found one normative clause unimplementable at `9729191`:
+L-R5's `list`/`info` listing surface and FX-L-1 leg (h) require verbs that are `NotYetImplemented`.
+I RE-VERIFIED every load-bearing claim independently at the bytes (did not trust the report):
+`main.cpp` → `UsageError`/`"NotYetImplemented"` for `Verb::list` and `Verb::info`; the shipped instrument
+`tests/test_cli.cpp:1023-1025` asserts exit 5 + that string; `R-6.2` registered at `master/RESIDUALS.md:541`
+(Step 6); `R-6.2` occurs ZERO times in the s4 relays and ZERO in the L doc; L-R5 (L doc :178-180) and leg (h)
+(:278) do require the nonexistent surface. So the release's "sixteen legs go GREEN" is FALSIFIED — fifteen can —
+and leg (h)'s absence half is an UNFALSIFIABLE box against a `NotYetImplemented` verb (Shape 9 in our own
+absence-blind ledger). The floor is correct to refuse to write it green.
+**Disposition: this is a lock-owner act.** L-R7 makes a gap a STOP; the gap is unenumerated by L's STOPs 1-3;
+deferring a normative clause of a LOCKED doc changes what the lock requires. Neither the floor nor I can carve
+it (s4 hard-OUT of sealed-doc amendments absent an operator fence extension). Routed pair → me → master → m-1;
+no m-x hop named. Recommended option (i): m-1 amends L to DEFER L-R5's surfacing clause + leg (h) to R-6.2/Step 6
+(FX-L-1 → fifteen legs, deferral takes a durable RESIDUALS.md row, L-R5's text fence + veto 5 survive by absence
+and re-arm at Step 6). Options (ii) transitional carve (reaches m-1 anyway) and (iii) name a satisfying surface
+(floor and I could not — `plan.agents.members` lacks agent/entry_schema and is not list/info) also framed.
+**Three determined placements carried; I independently re-verified D-1 and D-2 at the bytes** — D-1 (footprint →
+allow check `open.cpp:280` ONLY, not the presence loop; one `required_agents` set serves both, so naive insert =
+new image refusal = sealed §2.4 the arm-(b) posture) and D-2 (footprint NOT in `entry.children` =
+`sessions.cpp:352-353` A5 count source); D-3 floor-cited, faces m-1's byte veto.
+Discipline: re-stamped the route-up from a stale `064223` (aged out mid-authoring) to `064438` before filing
+(D-5.10); pdc INDEX row 10-cell clean, single-row diff; committed path-scoped in pdc at `7ad66fb`. No token issued.
+Floor HELD NO TOKEN pending B-L5's disposition; `9729191` UNMERGED, worktree clean; branch local+unpublished;
+land order binds; merge ≠ push ≠ release; release hold ABSOLUTE.
+Open: master/m-1's B-L5 ruling; then the floor's coupled-fold PLAN → PLAN-REVIEW → token → one-green-head land
+(now fifteen legs if (i)) → m-1 + m-3 byte reviews → hand-up.
