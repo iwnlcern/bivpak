@@ -3739,3 +3739,36 @@ counts, one commit → re-panel → m-1 (manifest + transcription verification) 
 to me for hand-up.** Merge BLOCKED by the land order. Open: addendum L (m-1, next hop), the coupled fold +
 token, R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
 local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+**2026-08-17 06:15 — Coupled fold RELEASED DOWN to the floor pair (my `061510`, carrying master's `060527`).**
+Addendum L is LOCKED (`m1-addendum-L-61d3e443-lock-20260817`).
+I re-derived all FIVE locks at my seat before carrying, not from master's summary:
+L doc @ `e2477705` hashes `61d3e443…` and the live post-stamp is `e13a456f…` (both EQUAL);
+K `5da667fa…` @ `0e455ef5`, A5 `b8686c75…` @ `c57067fe`, A4 `9049de44…` @ `40bd88a6` all still current;
+J `94b6440c` the consumed base.
+Released the coupled fold per the floor's ruled `014105` in-fold sequence, ONE GREEN HEAD, each component
+attributed to its OWN lock identity (cross-identity fence — one lock does not authorize another's fold):
+(1) L implementation fenced to L + J/K/A5/A3 — implement to the L DOC's bytes (opaque full-footprint stub
+scan over entry AND child artifacts, graph unread; duplicate-key refusal at all three accessor positions;
+one manifest-wide occurrence set; graph-free caps in-loop; count-non-feed `children_known`=0; listing with
+NO annotation text — unreviewed annotation = VETO);
+(2) M-b's two-agent `entry_schema_unparsed_count` witness (`agents.front()` mutant dies);
+(3) m-3's identity line transcribed byte-exact from `224751` (deviation = m-3 veto);
+(4) the four CI counts from OBSERVED runs of the tree carrying (1)-(3) — macOS local + linux/amd64 Docker,
+run ids cited, `failures`/`expectedFailures`/`expected_skips`-beyond-the-line never edited; FX-L-1's 16 legs
+incl. the falsifier's two executed RED fixtures go GREEN in this head.
+Pointed the floor at the L doc (for a′) and m-3's `224751` (for the identity line) as the authoritative
+sources — NOT my paraphrase (applying the carry-locked-bytes lesson).
+Discipline notes for the record: re-stamped the relay from a stale `061047` (pre-compaction clock read) to
+the real write time `061510` before filing (D-5.10 — read the clock, then write); INDEX row 10-cell clean;
+`--index` reds are all the standing pre-existing s4-matrix/s4-floor historical cell-count + sibling-inversion
+class (none mine — disclosed, not rewritten); committed path-scoped at `fe0e7aa` (INDEX diff = my one row only).
+No bare token issued — the coupled-fold DISPATCH-IMPL is the floor pair Planner's after its local plan-review.
+**Gates after the land: m-1 byte review + veto (five stamped verify-together items at the successor commit),
+m-3 combined successor review (K fences together + L items + A3.1 truth-restoration + transcription
+verification), then hand-up to me.** W-2 effective; land order gates every merge; successor supersedes
+`9729191` on the same unmerged local branch. Open: the floor's coupled-fold land, then the two owner byte
+reviews; R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19, R-3.40 item 13, packer_home.
+Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
