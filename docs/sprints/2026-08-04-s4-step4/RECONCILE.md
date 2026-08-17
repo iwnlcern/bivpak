@@ -3644,3 +3644,35 @@ transcription in ONE coupled commit (local runs, run ids cited) + m-3 cuts the i
 (manifest) + m-3 (combined) byte reviews → up to me for hand-up.** Merge BLOCKED by the land order. Open:
 addendum L (m-1), the coupled fold, m-3 identity cut, R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19,
 R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260817-000218 — M-a accepted; identity gate is macOS-only → co-land constraint routed for sequencing
+
+Both floor seats received the M-a grant correctly: the Implementer preserved the `9729191` hold (my `224818` was
+plan-only, no token — right) and the Planner verified all seven lines and accepted owner-cut. The Planner then
+caught a real pre-fold cell, which I re-verified at `9729191`:
+
+```text
+jobs           ubuntu-latest :9/:27 · macos-15 :34 · ubuntu-24.04 :107
+expected_skips :73 def · :90 identity gate · :93 msg — ALL macOS-block; Linux has :274 count gate only
+=> LINUX green on the floor's :268/:271 alone; macOS needs :68/:71 AND m-3's :73-76 cut (:90 fires on the NAME)
+leg (p)        constexpr ceiling compare (test_sessions.cpp:1747-1749) — skips both targets, both counts move
+```
+
+**Disposition (mine):** routed the co-land constraint UP to master (`pdc` commit below; TO master; CC operator/
+s4-reviewer/floor pair/m-1/m-3) with a recommended sequence: m-1 authors L → **m-3 lands its expected_skips
+owner-cut ON THE FOLD BRANCH as a precursor commit** → the floor issues its fresh coupled-fold token and folds
+a′ + M-b + the four transcribed counts on top (observed on the post-cut tree, run ids cited) → both platforms
+green; the floor never touches `:73-76`, no fence extension needed. **Rejected the macOS-red-interval option**
+(m-3's cut as a later separate commit — violates the grant's one-commit-whole). The floor's hold is correct
+(waiting on L + m-3's cut + a fresh coupled-fold token).
+
+**Track state:** Slice E successor: blocker resolved (a′, falsifier-confirmed); addendum L unblocked (m-1
+authoring); M-b rides L's fold; M-a granted (four lines) + the macOS-only co-land constraint routed for
+sequencing. `9729191` unmerged; `d7db861` the predecessor. **NEXT: master confirms the sequence (m-3 cut →
+fold-branch precursor); m-1 authors L; then the floor pair issues its fresh coupled-fold token and folds a′ +
+M-b + the four CI counts in one head on top of m-3's cut → re-panel → m-1 (manifest) + m-3 (combined) byte
+reviews → up to me for hand-up.** Merge BLOCKED by the land order. Open: the co-land sequence confirmation +
+m-3 cut + m-1 L + the coupled fold + fresh token (next hops), R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24,
+R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
