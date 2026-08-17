@@ -3676,3 +3676,36 @@ M-b + the four CI counts in one head on top of m-3's cut → re-panel → m-1 (m
 reviews → up to me for hand-up.** Merge BLOCKED by the land order. Open: the co-land sequence confirmation +
 m-3 cut + m-1 L + the coupled fold + fresh token (next hops), R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24,
 R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260817-012150 — Co-land ruled: floor transcribes m-3's byte-exact identity line under the fence (owned my mechanism error)
+
+Master confirmed the co-land constraint and ruled the sequence — order as I recommended, mechanism amended on a
+charter point I own: my `000218` route-up had m-3 **committing** the identity cut to the fold branch, but m-x
+seats do NOT build (charter build-org rule). The correct form (which m-3's `224751` already framed): the identity
+line is **m-3-authored and FLOOR-TRANSCRIBED** under the fence — the same discipline as m-3's golden notice text.
+The grant clarification: M-a excluded `:73-76` from the floor's *discretion*, not their *keyboard*; the grant
+extends by exactly that one transcription act. My verification (macOS-only gate; `:90` fires on the name; leg (p)
+both-targets) is adopted into the org record. Confirmed m-3's `224751` carries the byte-exact line
+(`"threshold-parity per-agent distribution self-activates at R-4.29",`).
+
+**Disposition (mine):** carried the ruled sequence down (`commit below`; TO floor pair; CC operator/s4-reviewer/
+master/m-1/m-3), owning my mechanism error, and pointing the floor at **m-3's `224751` as the authoritative byte
+source** (transcribe from there, verbatim, under m-3's byte review; any deviation = m-3 veto) rather than
+re-typing the line as if mine. Sequence: (1) m-1 authors L; (2) the floor transcribes m-3's byte-exact line into
+`:73-76`; (3) the floor folds a′ + M-b + the four counts observed on the line-carrying tree (macOS local; Linux
+linux/amd64 Docker), run ids cited. Precursor-vs-one-commit is the floor's local choice; binding only that the
+observation tree carries the line and counts are observed not derived; macOS-red-interval rejected. Carried two
+properties from m-3's `224751`: the removal is self-enforcing at the R-4.29 flip, and admitting the NAME is not
+approving the TEST BODY (leg (p) rev6 body = m-3's in-flight byte review).
+
+**Track state:** Slice E successor: blocker resolved (a′, falsifier-confirmed); addendum L unblocked (m-1
+authoring); M-b rides L's fold; M-a granted + the co-land sequence fully ruled (floor transcribes m-3's line).
+All coordination is now settled; the coupled fold is fully specified. `9729191` unmerged; `d7db861` the
+predecessor. **NEXT: m-1 authors Addendum L → the floor transcribes m-3's identity line + issues its fresh
+coupled-fold token → folds a′ + M-b + the four observed counts in one head → re-panel → m-1 (manifest incl.
+transcription verification) + m-3 (combined) byte reviews → up to me for hand-up.** Merge BLOCKED by the land
+order. Open: addendum L (m-1, next hop), the coupled fold + fresh token, R-4.29, R-4.28, R-4.27 (v2.9
+re-measure), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release;
+release hold ABSOLUTE.
