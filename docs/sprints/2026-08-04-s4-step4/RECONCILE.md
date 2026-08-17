@@ -3609,3 +3609,38 @@ predecessor. **NEXT: m-1 authors addendum L (its own design gate) → the floor 
 re-panels → m-1/m-3 byte reviews → up to me for hand-up.** Merge BLOCKED by the land order. Open: addendum L
 (next hop, m-1), the floor a′+M-b fold, M-a scope, R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19,
 R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-224818 — M-a RULED + granted down: four gate lines, local-observed, riding L's coupled fold
+
+Master ruled M-a (`220324`) on the org's R-3.48 precedent: the `.github` count gates are m-3's surface, and an
+arm that ADDS tests repairs its own count regression under a bounded grant ("the gate never moved; the arm added
+cases"). Verified the exact gate lines at my seat before carrying the grant down:
+
+```text
+AMENDABLE  s2-harness.yml :68 (macOS successes 221) · :71 (macOS skips 2) · :268 (Linux successes 223) ·
+           :271 (Linux skips 0)  — transcribed from observed LOCAL runs, run id cited, no arithmetic
+NEVER EDIT :69/:269 failures · :70/:270 expectedFailures (nonzero = FINDING route UP) · :73-76 expected_skips
+           (identity set — m-3's)
+LOCAL      macOS local biv_tests -r xml; Linux ubuntu-24.04 --platform linux/amd64 Docker (CI-parity charter);
+           no remote Actions push (unfunded/signal-free, operator 2026-08-10)
+```
+
+**Disposition (mine):** carried the four-line grant down to the floor (`commit below`; TO floor pair; CC operator/
+s4-reviewer/master/m-1/m-3), bound to the verified lines + the binding condition (transcribe from observed local
+runs; cite the run id). The **skips COUNT** (`:71`/`:271`) is the floor's; the **skip NAME** (`:73-76`
+expected_skips) is m-3's to cut (master addressed m-3 directly — a cardinality-preserving membership change is
+invisible to the count gate, so it's owner-cut, never floor-improvised). This extends the floor's `.github`
+HARD-OUT by exactly four lines under the binding condition; everything else in `.github` stays HARD-OUT. The
+grant rides addendum-L's coupled fold — one commit folds the a′ remedy + M-b + the four transcribed CI values,
+read from observed local runs of that fold's tree.
+
+**Track state:** Slice E successor: panel blocker resolved (arm a′, falsifier-confirmed); **addendum L unblocked
+(m-1 authoring)**; **M-b rides L's fold**; **M-a RULED + granted (four lines, local-observed)**; the
+expected_skips identity name is m-3's. All three panel findings now have a disposition. `9729191` unmerged;
+`d7db861` the predecessor. **NEXT: m-1 authors addendum L → the floor folds a′ + M-b + the four CI-line
+transcription in ONE coupled commit (local runs, run ids cited) + m-3 cuts the identity name → re-panel → m-1
+(manifest) + m-3 (combined) byte reviews → up to me for hand-up.** Merge BLOCKED by the land order. Open:
+addendum L (m-1), the coupled fold, m-3 identity cut, R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19,
+R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
