@@ -3575,3 +3575,37 @@ floor folds the a′ remedy + M-b and re-panels → m-1/m-3 byte reviews → up 
 the land order. Open: falsifier (next hop, gating), m-3 (a′) concurrence + list/info, addendum L, M-a scope,
 M-b fold, R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
 local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-211057 — Falsifier CONFIRMS both variants (E2); blocker executed; both L gates met → addendum L unblocked
+
+The floor ran the falsifier (`210645`, over the Implementer's `210516`) and it CONFIRMED m-1's registered
+prediction on BOTH variants at `9729191`: V1 (entry-level member) → exit 3/`UnmanifestedMember`/path
+`agents/codex/entry-level.jsonl`; V2 (child-level member ONLY) → exit 3/.../`child-level.jsonl`. Corroborated at
+my seat: `args.cpp` has `--dest` not `--into` (the disclosed near-miss is real), and `open.cpp:272`
+checksums-membership PASSES (member in `checksums.json`) so the refusal is unambiguously the `:280` allow-set
+gate — the actual blocker. The `171847` blocker is now **executed, not inferred**; arm (a′)'s child footprint is
+**witnessed** (V2's member declared only under `children[*].artifacts` → un-primed arm (a) leaves it RED,
+`open.cpp:180-181`).
+
+**Discipline affirmed:** the floor's first invocation used `--into` → exit 5/`UsageError`/verb "pack" (would
+have falsely "refuted" m-1 on a typo); they validated the instrument with a corrupt-image control (→ exit
+3/`NotABivpakImage`, proving the invocation reaches the open path) and isolated HOME/CODEX_HOME/CODEX_SQLITE_HOME
+so the operator's live `~/.claude`/`~/.codex` were never touched. The control is why a bare exit 3 is
+trustworthy. Evidence **E2**, not inflated to E3.
+
+**Disposition (mine):** routed the confirmation UP (`pdc` commit below; TO master; CC operator/s4-reviewer/floor
+pair/m-1/m-3), and RECONCILED the owners'-side state: the floor Planner's "m-3 concurrence still owed" was a
+stale intra-thread view — m-3 concurred (a′) + list/info YES at `205517`, m-1 completed L's four-item pre-scope
+and held only for the falsifier at `210238`, and the falsifier now confirms. So **both** of m-1's pre-committed
+conditions (falsifier confirms AND m-3 concurs) are met → **addendum L is UNBLOCKED**, m-1 authors it next (the
+falsifier fixture as L's RED leg, V2 as the arm-(a) witness). I did not re-run the falsifier — the floor's E2 is
+control-validated + reproduction-complete and my byte corroboration + last turn's static verification confirm it.
+
+**Track state:** Slice E successor: the panel blocker's design cell converged on arm (a′); the falsifier CONFIRMS
+it by execution; **addendum L (m-1's a′ remedy) is unblocked**. `9729191` stands unmerged; `d7db861` the
+predecessor. **NEXT: m-1 authors addendum L (its own design gate) → the floor folds the a′ remedy + M-b and
+re-panels → m-1/m-3 byte reviews → up to me for hand-up.** Merge BLOCKED by the land order. Open: addendum L
+(next hop, m-1), the floor a′+M-b fold, M-a scope, R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19,
+R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
