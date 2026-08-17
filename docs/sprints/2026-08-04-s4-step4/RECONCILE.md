@@ -3499,3 +3499,45 @@ issues the DISPATCH-IMPL → coupled A4+A5+K impl → m-1 (manifest) + m-3 (cons
 hand-up.** Merge BLOCKED by the land order (schema-2 stamp not ahead of M3-J-4..7 in force). Open: floor token
 join + impl (next hop), R-4.29, R-4.28, R-4.27→v2.9 wait (W-2 voids when v2.9 lands), R-4.24, R-4.19, R-3.40 item
 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-201708 — Panel BLOCKER confirmed at bytes: locked A5/K contract UNREACHABLE; design cell to m-1/m-3
+
+The floor pair implemented the successor (`9729191`), ran a six-lens panel (delivery-failed then recovered from
+disk), and it surfaced a blocker two lenses converged on. I VERIFIED EVERY LINK at the bytes at `9729191` before
+propagating a severity-upgrading, slice-halting claim:
+
+```text
+open.cpp:176-185   required_agent_members: allow-set from entry.artifacts/child.artifacts ONLY
+manifest.cpp:351   stub returns on entry_schema > kEntrySchemaParseCeiling ...
+manifest.cpp:436   ... entry.artifacts assigned AFTER the return -> stub artifacts EMPTY
+open.cpp:280-282   unlisted agents/ member -> UnmanifestedMember -> exit 3 (archive integrity, BEFORE preview)
+test_cli.cpp:141   payload emitted only if entry_schema <= ceiling -> over-ceiling fixtures carry ZERO members
+```
+
+**Confirmed:** a `.bvpk` whose schema-3 entry carries real `agents/…` members hard-fails the whole open at exit
+3 before skip/disclose/exit-0. The locked A5/K stub→skip→disclose→exit-0 contract is reachable only for a
+zero-member over-ceiling entry — which no packer emits (pack.cpp:504 maxes at schema 2). The suite can't see it
+(encodes the unreal zero-member population). Conformance core is sound (both correctness lenses reconstructed the
+A3 goldens byte-TRUE); what's unreachable is the contract they conform to. Impossible-population family, one layer
+out from the legs A5 already corrected twice.
+
+**Disposition (mine):** routed the design cell UP to master (`pdc` commit below; TO master; CC operator/
+s4-reviewer/floor pair/m-1/m-3) — it asks whether the locked contract reaches production, which is m-1's (parser
+surface) and m-3's (contract/notice surface). Candidate remedies: (a) parse artifacts before the stub return
+[m-1]; (b) lock over-ceiling-with-members = exit-3 + correct the A3.1 notice [m-3]; (c) owners' alternative.
+Flagged the live E2E falsifier as owed+unrun (hand-crafted schema-3 archive → biv open --json → predicted exit
+3) — my static chain is deterministic+confirmed so it's confirmation-before-remedy, not deciding evidence.
+Carried two must-fix: M-a (SCOPE — .github CI count/skip-identity gates unamended, out of the floor's fence);
+M-b (FOLDABLE — per-agent unparsed-count witness). Noted the floor's two owned errors (panel-reported-failed =
+absence-blind; briefing mis-stated find_if provenance) — clean self-corrections.
+
+**Track state:** Slice E successor: cells 1-3 closed, three locks verified, W-2 EFFECTIVE, K join run, impl at
+`9729191` — but the panel surfaced a **REVIEW-FOLD-REQUIRED BLOCKER: the locked A5/K contract is unreachable in
+production**, now a design cell for m-1/m-3. Nothing folded; `9729191` stands. `d7db861` still the predecessor
+(not yet superseded — the successor is blocked). **NEXT: m-1/m-3 rule the reachability remedy (via master) +
+the M-a scope grant; the live falsifier owed; then the floor folds the remedy + M-b and re-panels.** Merge
+BLOCKED by the land order. Open: A5/K reachability design cell + live falsifier + M-a scope + M-b fold (next
+hops), R-4.29, R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished.
+Merge ≠ push ≠ release; release hold ABSOLUTE.
