@@ -3541,3 +3541,37 @@ the M-a scope grant; the live falsifier owed; then the floor folds the remedy + 
 BLOCKED by the land order. Open: A5/K reachability design cell + live falsifier + M-a scope + M-b fold (next
 hops), R-4.29, R-4.28, R-4.27→v2.9 wait, R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished.
 Merge ≠ push ≠ release; release hold ABSOLUTE.
+
+---
+
+## 20260816-205607 — Cell converged on arm (a′); falsifier routed to the floor (gates addendum L); W-2 effective; v2.9 landed
+
+Master reported the design cell I routed has CONVERGED (`205223`): both owners independently rejected arm (b),
+both independently found the deeper `child.artifacts` allow-set gap (open.cpp:180-181, re-confirmed at my seat),
+and m-1's **arm (a′)** — the stub carries its full opaque member footprint (entry `artifacts[]` +
+`children[*].artifacts`, graph unread) — matches m-3's totality observable exactly (children_known=0 + at-least
+floor stand). Also: **W-2 re-issue CONCURRED/EFFECTIVE** (VP ruled the window acts stand by chronology — join
+`152534`/token `152630`/impl `9729191` at 16:37:43 all precede the v2.9 engine landing `754d777` at 16:44:48;
+waiver thread closed) and **v2.9 has LANDED**.
+
+**Disposition (mine):** routed the falsifier down to the floor (`commit below`; TO floor pair; CC operator/
+s4-reviewer/master/m-1/m-3) — it gates everything and runs at the floor's seat as evidence work under the
+standing dispatch. Spec: hand-craft (no packer emits schema-3) at `9729191` — VARIANT 1 (entry-level members) →
+`biv open --json` → m-1's registered prediction exit 3/UnmanifestedMember; VARIANT 2 (child-level members only) →
+exit 3 too, the leg that under un-primed arm (a) stays red (witnesses (a)'s incompleteness / (a′)'s child
+footprint load-bearing). On confirmation UP to me → unblocks addendum L (m-1 authors only after falsifier
+confirms AND m-3 concurs). M-b (two-agent unparsed witness) rides the a′ fold, not separate. m-3 owes master its
+(a′) concurrence + list/info answer. M-a held at master.
+
+**v2.9 linter note (R-4.27):** with v2.9 landed, the `--index` arm now flags a new **cell-count** class on 8
+historical rows (`s4-matrix.planner`/`s4-floor.planner`, embedded-pipe descriptions) plus the standing 222/393
+time inversions — none mine (my appended row is 10-cell clean); disclosed, not rewritten (shared-INDEX
+discipline). Will re-measure the third arm against v2.9 behaviour at the next dispatch-root run.
+
+**Track state:** Slice E successor: impl at `9729191` (unmerged), the panel blocker's design cell CONVERGED on
+arm (a′). `d7db861` still the predecessor. **NEXT: the floor runs the falsifier (both variants) → confirms m-1's
+registered prediction → UP to me; m-3 concurs (a′) + answers list/info to master → m-1 authors addendum L → the
+floor folds the a′ remedy + M-b and re-panels → m-1/m-3 byte reviews → up to me for hand-up.** Merge BLOCKED by
+the land order. Open: falsifier (next hop, gating), m-3 (a′) concurrence + list/info, addendum L, M-a scope,
+M-b fold, R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
+local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
