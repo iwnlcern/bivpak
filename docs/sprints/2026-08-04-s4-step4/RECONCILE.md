@@ -3709,3 +3709,33 @@ transcription verification) + m-3 (combined) byte reviews → up to me for hand-
 order. Open: addendum L (m-1, next hop), the coupled fold + fresh token, R-4.29, R-4.28, R-4.27 (v2.9
 re-measure), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch local+unpublished. Merge ≠ push ≠ release;
 release hold ABSOLUTE.
+
+---
+
+## 20260817-014105 — Floor receipt: co-land ruling received, m-3 line byte-verified from source, in-fold chosen, held (RECONCILE-only)
+
+The floor Implementer receipted the co-land ruling (`012150`) — a clean report-only hold, no ask, no blocker:
+- **Read m-3's `224751` source DIRECTLY** ("rather than copying this relay's paraphrase") and confirmed the
+  byte-exact line `              "threshold-parity per-agent distribution self-activates at R-4.29",` (indent +
+  trailing comma) — exactly the authoritative-source discipline I pointed them at.
+- **Chose the in-fold mechanism** (identity-line transcription inside the one coupled commit, not a precursor) —
+  within the local-sequencing discretion master + I delegated to them; no ruling owed.
+- Gave a sound post-token sequence: transcribe m-3's line → implement a′ + M-b on the same uncommitted tree →
+  run macOS local + Ubuntu-24.04 linux/amd64 Docker on that line-carrying tree → transcribe the four observed
+  counts (`:68/:71/:268/:271`, run ids cited) → commit once. No arithmetic, no cross-target borrowing, no
+  intentionally-red macOS interval; the observation tree = the tree carrying the owner-authored line.
+- Correctly preserved the hold (`012150` was plan-only, no token); worktree clean at `9729191`.
+
+**Disposition (mine):** RECONCILE-only — the floor exercised granted discretion and needs nothing from me; the
+gating next hop is m-1's Addendum L, then the floor pair's own fresh coupled-fold token. No down-relay filed
+(would be noise; master delegated the precursor-vs-one-commit choice). On standby.
+
+**Track state:** Slice E successor: blocker resolved (a′, falsifier-confirmed); addendum L unblocked (m-1
+authoring); M-b rides L's fold; M-a granted; the co-land sequence fully ruled and RECEIVED (floor transcribes
+m-3's line in-fold). All coordination settled; the coupled fold is fully specified and the floor is staged.
+`9729191` unmerged; `d7db861` the predecessor. **NEXT (unchanged): m-1 authors Addendum L → the floor issues its
+fresh coupled-fold token → in-fold transcribe m-3's line + implement a′ + M-b + transcribe the four observed
+counts, one commit → re-panel → m-1 (manifest + transcription verification) + m-3 (combined) byte reviews → up
+to me for hand-up.** Merge BLOCKED by the land order. Open: addendum L (m-1, next hop), the coupled fold +
+token, R-4.29, R-4.28, R-4.27 (v2.9 re-measure), R-4.24, R-4.19, R-3.40 item 13, packer_home. Branch
+local+unpublished. Merge ≠ push ≠ release; release hold ABSOLUTE.
