@@ -56,9 +56,13 @@ fs::path write_executable(const fs::path& path, const std::string_view body) {
 
 fs::path write_invalid_executable(const fs::path& path) {
   fs::create_directories(path.parent_path());
-  std::ofstream out{path};
+  constexpr std::array<unsigned char, 16> kInvalidElf{
+      0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::ofstream out{path, std::ios::binary};
   REQUIRE(out);
-  out << "not an executable image\n";
+  out.write(reinterpret_cast<const char*>(kInvalidElf.data()),
+            static_cast<std::streamsize>(kInvalidElf.size()));
   out.close();
   REQUIRE(::chmod(path.c_str(), 0700) == 0);
   return path;
@@ -270,7 +274,11 @@ TEST_CASE(
       std::chrono::milliseconds{500});
 
   REQUIRE(result.has_value());
+#if defined(__APPLE__)
   CHECK(result->outcome == biv::support::ProbeOutcome::spawn_error);
+#else
+  CHECK(result->outcome == biv::support::ProbeOutcome::nonzero_exit);
+#endif
   CHECK(result->pinned);
   CHECK(result->requested == fs::absolute(pinned).lexically_normal());
   CHECK(result->executed == fs::absolute(pinned).lexically_normal());
