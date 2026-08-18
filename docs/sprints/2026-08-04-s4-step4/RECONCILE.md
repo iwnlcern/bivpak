@@ -3813,3 +3813,16 @@ Floor HELD NO TOKEN pending B-L5's disposition; `9729191` UNMERGED, worktree cle
 land order binds; merge ≠ push ≠ release; release hold ABSOLUTE.
 Open: master/m-1's B-L5 ruling; then the floor's coupled-fold PLAN → PLAN-REVIEW → token → one-green-head land
 (now fifteen legs if (i)) → m-1 + m-3 byte reviews → hand-up.
+
+---
+
+**2026-08-17 19:02 — B-L5 RULED (option (i)); coupled fold RESUMED down to the floor, fenced to L's new lock (my `190217`, carrying master's `185402`).**
+Master ruled B-L5 exactly as our two routing seats recommended. I re-verified the whole disposition at the LOCKED bytes before carrying — did not trust the resume relay:
+- **New lock EQUAL at my seat:** Addendum L re-locked `m1-addendum-L-10c8e8e6-lock-20260817` (locked blob @ `8c7f9281` → `10c8e8e6…`, live post-stamp → `b3599511…`, both EQUAL; live delta = one Status-block seal hunk, no normative byte moved), superseding rev5's `61d3e443` (lineage retained). K/A5/A4/J still current.
+- **My recommendation (i) adopted verbatim** (locked bytes :43): L-R5's surfacing clause + leg (h) DEFERRED to R-6.2 / Step 6; the deferral moves the WHEN not the WHAT; the durable registration rides the CTO's pen into RESIDUALS.md R-6.2 (charter rule 5), not a relay only.
+- **My/the floor's D-1 promoted to named leg (q)** (locked bytes :342, "the D-1 population leg"): footprint → `open.cpp:280` allow check, NEVER `:311-315` presence; the one-set insert is leg (q)'s named mutant dying on `missing-agent-member`. rev7 corrected rev6's locus mislabel to match what we both measured. So D-1 is now a **doc leg, m-1-owned** — no longer a floor-added control.
+- **FX-L-1 = sixteen LIVE legs** ((a)–(g)+(i)–(q)), leg (h) deferred, letters stable. rev7 elevated the general principle (:53): a clause naming a product surface verifies its status at the target head or defers explicitly — the chartered form of our Shape-9 lesson.
+**This resume SUPERSEDES my `061510`** (which was fenced to the dead `61d3e443` and carried the "sixteen legs GREEN" claim the floor correctly refused): corrected to sixteen LIVE go GREEN with leg (h) NOT ASSERTED (deferred), fenced to the new lock, rev6/rev7 folded in. The floor's `063302` hold is over; it now issues its fresh coupled-fold token through local gates and lands one green head (L impl to the locked bytes + leg (q) placement + M-b + m-3's transcribed line + the four observed counts), listing surface out of scope with the no-annotation fence unconditional. Gates after land unchanged: m-1 byte veto (five verify-together items + two rev7 additions) + m-3 combined successor review → hand-up.
+Discipline: clock read at 190217 immediately before writing (no drift this pass); bare-token guard 0; INDEX row 10-cell clean, single-row diff, monotonic; `--index` reds all standing pre-existing (none mine); committed path-scoped at `9f93119`. No token issued.
+W-2 effective (the new L lock id is now in the binding list — re-verify the join input if the successor plan cites it); land order binds; successor supersedes `9729191` on the same unmerged local branch; branch local+unpublished; release hold ABSOLUTE.
+Open: the floor's coupled-fold PLAN → PLAN-REVIEW → token → one-green-head land → m-1 + m-3 byte reviews → hand-up.
