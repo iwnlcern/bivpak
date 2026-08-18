@@ -265,6 +265,9 @@ jobs:
               key: int(cases.get(key, 0))
               for key in ("successes", "failures", "expectedFailures", "skips")
           }
+          # The `want` counts in this job were observed with the `nofile` soft limit equal
+          # to the hard limit. The chartered local substitute raises the soft limit to the
+          # inherited hard limit inside its `runuser` drop before invoking the suite.
           want = {
               "successes": 412,
               "failures": 0,
