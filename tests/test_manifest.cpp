@@ -90,6 +90,36 @@ std::string replace_once(std::string text, const std::string_view needle,
   return text;
 }
 
+std::string replace_last_once(std::string text, const std::string_view needle,
+                              std::string replacement) {
+  const auto pos = text.rfind(needle);
+  REQUIRE(pos != std::string::npos);
+  text.replace(pos, needle.size(), std::move(replacement));
+  return text;
+}
+
+std::string as_stub(std::string text) {
+  return replace_once(
+      std::move(text), "\"entry_schema\": 1",
+      "\"entry_schema\": " +
+          std::to_string(biv::manifest::kEntrySchemaParseCeiling + 1));
+}
+
+std::string all_as_stubs(std::string text) {
+  const std::string replacement =
+      "\"entry_schema\": " +
+      std::to_string(biv::manifest::kEntrySchemaParseCeiling + 1);
+  std::size_t cursor = 0U;
+  while (true) {
+    const auto pos = text.find("\"entry_schema\": 1", cursor);
+    if (pos == std::string::npos) {
+      return text;
+    }
+    text.replace(pos, sizeof("\"entry_schema\": 1") - 1U, replacement);
+    cursor = pos + replacement.size();
+  }
+}
+
 std::string child_id(const std::size_t index) {
   return "child-" + std::to_string(index);
 }
@@ -595,6 +625,9 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
   REQUIRE(parsed_future_schema->agent_sessions.size() == 1);
   CHECK(parsed_future_schema->agent_sessions.front().entry_schema ==
         far_future_schema);
+  CHECK(parsed_future_schema->agent_sessions.front().stub_member_footprint ==
+        std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                 "agents/codex/019f-bbbb.jsonl"});
 
   std::string entry_unknown_field = manifest_json_with({codex_session_entry()});
   entry_unknown_field.replace(entry_unknown_field.find("\"entry_schema\": 1"), 17,
@@ -627,6 +660,7 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
   REQUIRE(parsed_minimal_future->agent_sessions.size() == 1);
   CHECK(parsed_minimal_future->agent_sessions.front().entry_schema ==
         far_future_schema);
+  CHECK(parsed_minimal_future->agent_sessions.front().stub_member_footprint.empty());
 }
 
 TEST_CASE("Manifest reader accepts schema 2 entries in full and skips newer schemas") {
@@ -652,6 +686,192 @@ TEST_CASE("Manifest reader accepts schema 2 entries in full and skips newer sche
     CHECK(newer->agent_sessions.front().agent_version_at_pack.empty());
     CHECK(newer->agent_sessions.front().children.empty());
     CHECK(newer->agent_sessions.front().artifacts.empty());
+    CHECK(newer->agent_sessions.front().stub_member_footprint ==
+          std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                   "agents/codex/019f-bbbb.jsonl",
+                                   "agents/codex/019f-cccc.jsonl"});
+  }
+}
+
+TEST_CASE("Manifest stub footprint validates paths and one manifest-wide occurrence set",
+          "[slice-e][stub-footprint]") {
+  const auto require_error = [](const std::string& json,
+                                const std::string_view detail) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+    CHECK(parsed.error().detail == detail);
+  };
+
+  SECTION("footprint paths use the parsed-entry artifact grammar") {
+    auto entry = codex_session_entry();
+    entry.children.clear();
+    entry.artifacts = {"../must-not-be-admitted"};
+    require_error(as_stub(manifest_json_with({entry})), "artifact-prefix");
+  }
+
+  SECTION("a stub cannot alias a parsed entry member") {
+    auto parsed_entry = codex_session_entry();
+    parsed_entry.children.clear();
+    auto stub_entry = codex_session_entry();
+    stub_entry.original_session_ids.primary = "019f-cccc";
+    stub_entry.children.clear();
+    stub_entry.artifacts = parsed_entry.artifacts;
+    auto json = manifest_json_with({parsed_entry, stub_entry});
+    json = replace_last_once(
+        std::move(json), "\"entry_schema\": 1",
+        "\"entry_schema\": " +
+            std::to_string(biv::manifest::kEntrySchemaParseCeiling + 1));
+    require_error(json, "artifact-uniqueness");
+  }
+
+  SECTION("entry and child occurrences within one stub cannot alias") {
+    auto entry = codex_session_entry();
+    entry.children.front().artifacts = entry.artifacts;
+    require_error(as_stub(manifest_json_with({entry})),
+                  "artifact-uniqueness");
+  }
+
+  SECTION("two stubs cannot claim the same member") {
+    auto first = codex_session_entry();
+    first.children.clear();
+    auto second = first;
+    second.original_session_ids.primary = "019f-cccc";
+    require_error(all_as_stubs(manifest_json_with({first, second})),
+                  "artifact-uniqueness");
+  }
+}
+
+TEST_CASE("Manifest stub footprint refuses bearing-key duplicates without reading graph values",
+          "[slice-e][stub-footprint]") {
+  const auto base = as_stub(manifest_json_with({codex_session_entry()}));
+  const auto require_error = [](const std::string& json,
+                                const std::string_view detail) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+    CHECK(parsed.error().detail == detail);
+  };
+
+  SECTION("duplicate entry artifacts names their own class") {
+    require_error(
+        replace_once(base, "\"agent\": \"codex\",",
+                     "\"agent\": \"codex\",\n"
+                     "      \"artifacts\": [\"agents/codex/extra.jsonl\"],"),
+        "stub-footprint-entry-artifacts-duplicate-key");
+  }
+
+  SECTION("duplicate entry children names their own class") {
+    require_error(
+        replace_once(base, "\"agent\": \"codex\",",
+                     "\"agent\": \"codex\",\n"
+                     "      \"children\": [],"),
+        "stub-footprint-entry-children-duplicate-key");
+  }
+
+  SECTION("duplicate child artifacts names their own class") {
+    require_error(
+        replace_once(base, "\"original_id\": \"019f-bbbb\",",
+                     "\"original_id\": \"019f-bbbb\",\n"
+                     "        \"artifacts\": [\"agents/codex/extra.jsonl\"],"),
+        "stub-footprint-child-artifacts-duplicate-key");
+  }
+
+  SECTION("duplicate hostile original_id values remain unread") {
+    const auto parsed = biv::manifest::parse(bytes_of(replace_once(
+        base, "\"original_id\": \"019f-bbbb\",",
+        "\"original_id\": 7,\n        \"original_id\": false,")));
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->agent_sessions.front().children.empty());
+    CHECK(parsed->agent_sessions.front().stub_member_footprint ==
+          std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                   "agents/codex/019f-bbbb.jsonl"});
+  }
+
+  SECTION("duplicate hostile parent_id values remain unread") {
+    const auto parsed = biv::manifest::parse(bytes_of(replace_once(
+        base, "\"original_id\": \"019f-bbbb\",",
+        "\"original_id\": \"019f-bbbb\",\n"
+        "        \"parent_id\": null,\n        \"parent_id\": false,")));
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->agent_sessions.front().children.empty());
+    CHECK(parsed->agent_sessions.front().stub_member_footprint ==
+          std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                   "agents/codex/019f-bbbb.jsonl"});
+  }
+
+  SECTION("duplicate hostile original_path values remain unread") {
+    const auto parsed = biv::manifest::parse(bytes_of(replace_once(
+        base, "\"original_path\": \"/mnt/c/Users/x/proj\",",
+        "\"original_path\": null,\n      \"original_path\": false,")));
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->agent_sessions.front().original_path.empty());
+    CHECK(parsed->agent_sessions.front().stub_member_footprint ==
+          std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                   "agents/codex/019f-bbbb.jsonl"});
+  }
+}
+
+TEST_CASE("Manifest stub footprint enforces graph-free caps before reading excess nodes",
+          "[slice-e][stub-footprint]") {
+  const auto require_cap = [](const std::string& json,
+                              const std::string_view detail) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+    CHECK(parsed.error().detail == detail);
+    CHECK(parsed.error().detail.find("entry=") == std::string::npos);
+  };
+
+  SECTION("the 1025th child is refused before its invalid path is read") {
+    const auto at_cap = biv::manifest::parse(bytes_of(as_stub(
+        manifest_json_with({entry_with_children(1024)}))));
+    REQUIRE(at_cap.has_value());
+    CHECK(at_cap->agent_sessions.front().stub_member_footprint.size() ==
+          1025U);
+
+    auto json = as_stub(manifest_json_with({entry_with_children(1025)}));
+    json = replace_once(std::move(json), child_artifact(1024, 0),
+                        "../must-not-be-read");
+    require_cap(json, "children-node-cap");
+  }
+
+  SECTION("entry artifacts retain the per-node cap") {
+    auto entry = codex_session_entry();
+    entry.children.clear();
+    entry.artifacts.clear();
+    for (std::size_t i = 0; i < 257U; ++i) {
+      entry.artifacts.push_back("agents/codex/entry-artifact-" +
+                                std::to_string(i) + ".jsonl");
+    }
+    require_cap(as_stub(manifest_json_with({entry})),
+                "entry-artifacts-per-node-cap");
+  }
+
+  SECTION("child artifacts retain the per-node cap") {
+    auto entry = entry_with_children(1);
+    entry.children.front().artifacts.clear();
+    for (std::size_t i = 0; i < 256U; ++i) {
+      entry.children.front().artifacts.push_back(child_artifact(0, i));
+    }
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(as_stub(manifest_json_with({entry}))));
+    REQUIRE(at_cap.has_value());
+    CHECK(at_cap->agent_sessions.front().stub_member_footprint.size() ==
+          257U);
+    entry.children.front().artifacts.push_back(child_artifact(0, 256));
+    require_cap(as_stub(manifest_json_with({entry})),
+                "children-artifacts-per-node-cap");
+  }
+
+  SECTION("the entry total cap includes entry and child artifacts") {
+    const auto at_cap = biv::manifest::parse(bytes_of(as_stub(
+        manifest_json_with({entry_with_total_artifacts(4096)}))));
+    REQUIRE(at_cap.has_value());
+    CHECK(at_cap->agent_sessions.front().stub_member_footprint.size() ==
+          4096U);
+    require_cap(as_stub(manifest_json_with({entry_with_total_artifacts(4097)})),
+                "entry-artifacts-total-cap");
   }
 }
 

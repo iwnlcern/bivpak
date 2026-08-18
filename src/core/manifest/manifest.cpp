@@ -92,6 +92,28 @@ expected<std::vector<std::string>> required_string_array(simdjson::dom::object o
   return out;
 }
 
+expected<std::vector<std::string>> optional_string_array(
+    simdjson::dom::object object, const std::string_view key) {
+  simdjson::dom::array array;
+  if (const auto error = object.at_key(key).get(array);
+      error == simdjson::NO_SUCH_FIELD) {
+    return std::vector<std::string>{};
+  } else if (error) {
+    return std::unexpected(
+        BivError{ErrKind::ParseError, {}, std::string{key}});
+  }
+  std::vector<std::string> out;
+  for (auto element : array) {
+    std::string_view value;
+    if (const auto error = element.get(value); error) {
+      return std::unexpected(
+          BivError{ErrKind::ParseError, {}, std::string{key}});
+    }
+    out.emplace_back(value);
+  }
+  return out;
+}
+
 expected<void> require_empty_array(simdjson::dom::object object, std::string_view key) {
   simdjson::dom::element element;
   if (const auto error = object.at_key(key).get(element); error == simdjson::NO_SUCH_FIELD) {
@@ -195,6 +217,119 @@ expected<void> validate_artifacts(std::string_view agent, const std::vector<std:
     }
   }
   return {};
+}
+
+expected<void> validate_stub_entry_footprint_keys(
+    simdjson::dom::object object) {
+  bool artifacts_seen = false;
+  bool children_seen = false;
+  for (const auto field : object) {
+    if (field.key == "artifacts") {
+      if (artifacts_seen) {
+        return std::unexpected(BivError{
+            ErrKind::ParseError, {},
+            "stub-footprint-entry-artifacts-duplicate-key"});
+      }
+      artifacts_seen = true;
+    } else if (field.key == "children") {
+      if (children_seen) {
+        return std::unexpected(BivError{
+            ErrKind::ParseError, {},
+            "stub-footprint-entry-children-duplicate-key"});
+      }
+      children_seen = true;
+    }
+  }
+  return {};
+}
+
+expected<void> validate_stub_child_footprint_keys(
+    simdjson::dom::object child) {
+  bool artifacts_seen = false;
+  for (const auto field : child) {
+    if (field.key != "artifacts") {
+      continue;
+    }
+    if (artifacts_seen) {
+      return std::unexpected(BivError{
+          ErrKind::ParseError, {},
+          "stub-footprint-child-artifacts-duplicate-key"});
+    }
+    artifacts_seen = true;
+  }
+  return {};
+}
+
+BivError stub_cap_error(const std::string_view cap) {
+  return BivError{ErrKind::ParseError, {}, std::string{cap}};
+}
+
+expected<std::vector<std::string>> parse_stub_member_footprint(
+    simdjson::dom::object object, const std::string_view agent) {
+  if (auto unique_keys = validate_stub_entry_footprint_keys(object);
+      !unique_keys) {
+    return std::unexpected(unique_keys.error());
+  }
+
+  auto entry_artifacts = optional_string_array(object, "artifacts");
+  if (!entry_artifacts) {
+    return std::unexpected(entry_artifacts.error());
+  }
+  if (entry_artifacts->size() > kSessionArtifactsPerNodeCap) {
+    return std::unexpected(
+        stub_cap_error("entry-artifacts-per-node-cap"));
+  }
+  if (auto valid = validate_artifacts(agent, *entry_artifacts); !valid) {
+    return std::unexpected(valid.error());
+  }
+
+  std::vector<std::string> footprint = std::move(*entry_artifacts);
+  simdjson::dom::array children;
+  if (const auto error = object.at_key("children").get(children);
+      error == simdjson::NO_SUCH_FIELD) {
+    return footprint;
+  } else if (error) {
+    return std::unexpected(
+        BivError{ErrKind::ParseError, {}, "children"});
+  }
+
+  std::size_t child_count = 0U;
+  for (auto element : children) {
+    if (child_count == kSessionChildrenCap) {
+      return std::unexpected(stub_cap_error("children-node-cap"));
+    }
+    ++child_count;
+
+    simdjson::dom::object child;
+    if (const auto error = element.get(child); error) {
+      return std::unexpected(
+          BivError{ErrKind::ParseError, {}, "children"});
+    }
+    if (auto unique_keys = validate_stub_child_footprint_keys(child);
+        !unique_keys) {
+      return std::unexpected(unique_keys.error());
+    }
+    auto child_artifacts = optional_string_array(child, "artifacts");
+    if (!child_artifacts) {
+      return std::unexpected(child_artifacts.error());
+    }
+    if (child_artifacts->size() > kSessionArtifactsPerNodeCap) {
+      return std::unexpected(
+          stub_cap_error("children-artifacts-per-node-cap"));
+    }
+    if (auto valid = validate_artifacts(agent, *child_artifacts); !valid) {
+      return std::unexpected(valid.error());
+    }
+    if (child_artifacts->size() >
+        kSessionArtifactsTotalCap - footprint.size()) {
+      return std::unexpected(
+          stub_cap_error("entry-artifacts-total-cap"));
+    }
+    footprint.insert(footprint.end(),
+                     std::make_move_iterator(child_artifacts->begin()),
+                     std::make_move_iterator(child_artifacts->end()));
+  }
+  return footprint;
 }
 
 expected<PathFlavor> parse_entry_path_flavor(std::string_view value) {
@@ -348,6 +483,11 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "entry_schema"});
   }
   if (entry.entry_schema > kEntrySchemaParseCeiling) {
+    auto footprint = parse_stub_member_footprint(object, entry.agent);
+    if (!footprint) {
+      return std::unexpected(footprint.error());
+    }
+    entry.stub_member_footprint = std::move(*footprint);
     return entry;
   }
 
@@ -480,6 +620,12 @@ expected<std::vector<AgentSessionEntry>> parse_agent_sessions(simdjson::dom::obj
           return std::unexpected(BivError{ErrKind::ParseError, {},
                                           "artifact-uniqueness"});
         }
+      }
+    }
+    for (const auto& artifact : entry->stub_member_footprint) {
+      if (!seen_artifacts.insert(artifact).second) {
+        return std::unexpected(BivError{ErrKind::ParseError, {},
+                                        "artifact-uniqueness"});
       }
     }
     out.push_back(std::move(*entry));

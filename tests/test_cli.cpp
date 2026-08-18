@@ -82,8 +82,11 @@ std::string payload_extent_digest(const biv::container::MemberMeta& meta,
 
 std::filesystem::path make_slice_e_consumer_image(
     const std::filesystem::path& root, std::span<const int> entry_schemas,
-    std::span<const size_t> child_counts = {}) {
+    std::span<const size_t> child_counts = {},
+    const bool include_stub_payload = false,
+    const bool stub_children_only = false) {
   REQUIRE((child_counts.empty() || child_counts.size() == entry_schemas.size()));
+  std::filesystem::create_directories(root);
   biv::manifest::Manifest manifest{
       .format_version = 1,
       .required_capabilities = {},
@@ -131,6 +134,10 @@ std::filesystem::path make_slice_e_consumer_image(
     }
     entry.imported_at = "2026-08-15T00:00:00Z";
     entry.entry_schema = entry_schemas[index];
+    if (stub_children_only &&
+        entry.entry_schema > biv::manifest::kEntrySchemaParseCeiling) {
+      entry.artifacts.clear();
+    }
     const auto add_payload = [&](const std::string& path) {
       biv::container::MemberMeta meta{.path = path, .kind = biv::scan::NodeKind::file,
                                       .mode = 0600, .mtime_s = 1, .mtime_ns = 0,
@@ -138,8 +145,11 @@ std::filesystem::path make_slice_e_consumer_image(
       checksums.entries[path] = payload_extent_digest(meta, fixture_bytes);
       payload.push_back(Member{.meta = std::move(meta), .data = fixture_bytes});
     };
-    if (entry_schemas[index] <= biv::manifest::kEntrySchemaParseCeiling) {
-      add_payload(artifact);
+    if (entry_schemas[index] <= biv::manifest::kEntrySchemaParseCeiling ||
+        include_stub_payload) {
+      for (const auto& entry_artifact : entry.artifacts) {
+        add_payload(entry_artifact);
+      }
       for (const auto& child : entry.children) {
         for (const auto& child_artifact : child.artifacts) {
           biv::container::MemberMeta meta{.path = child_artifact,
@@ -839,6 +849,42 @@ TEST_CASE("Slice E successor distinguishes exact and floor skipped cardinality",
       CHECK(text.out.find("EntrySchemaSkipped") == std::string::npos);
     }
   }
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("Slice E stub footprints admit present entry and child members without requiring absence",
+          "[slice-e][stub-footprint]") {
+  const auto root = make_tmp("slice-e-stub-footprint-members");
+  const ScopedEnv codex_home{"CODEX_HOME", (root / "absent-codex-home").string()};
+  const ScopedEnv claude_home{"CLAUDE_CONFIG_DIR", (root / "absent-claude-home").string()};
+  const ScopedEnv home{"HOME", root.string()};
+  const std::array<int, 1> stub_schema{
+      biv::manifest::kEntrySchemaParseCeiling + 1};
+  const std::array<size_t, 1> one_child{1U};
+
+  const auto entry_member = make_slice_e_consumer_image(
+      root / "entry-member", stub_schema, {}, true);
+  const auto child_member = make_slice_e_consumer_image(
+      root / "child-member", stub_schema, one_child, true, true);
+  const auto declared_absent = make_slice_e_consumer_image(
+      root / "declared-absent", stub_schema);
+
+  const auto run_open = [&](const std::filesystem::path& image,
+                            const std::string_view name) {
+    const auto dest = root / (std::string{name} + "-dest");
+    const auto result = run_cmd("open '" + image.string() + "' --dest '" +
+                                    dest.string() + "' --json",
+                                root);
+    CAPTURE(name, result.code, result.out, result.err);
+    CHECK(result.code == 0);
+    CHECK(result.err.find("at least 1 session(s) will be skipped") !=
+          std::string::npos);
+    CHECK(result.out.find("EntrySchemaSkipped") != std::string::npos);
+  };
+
+  run_open(entry_member, "entry-member");
+  run_open(child_member, "child-member");
+  run_open(declared_absent, "declared-absent");
   std::filesystem::remove_all(root);
 }
 

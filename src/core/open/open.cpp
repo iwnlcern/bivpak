@@ -184,6 +184,16 @@ std::set<std::string> required_agent_members(const manifest::Manifest& model) {
   return required;
 }
 
+std::set<std::string> allowed_stub_agent_members(
+    const manifest::Manifest& model) {
+  std::set<std::string> allowed;
+  for (const auto& entry : model.agent_sessions) {
+    allowed.insert(entry.stub_member_footprint.begin(),
+                   entry.stub_member_footprint.end());
+  }
+  return allowed;
+}
+
 expected<void> drain_member(container::TarReader& reader) {
   std::array<std::byte, 8192> buffer {};
   while (true) {
@@ -259,6 +269,8 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
                      .payload = {},
                      .agents = {}};
     const auto required_agents = required_agent_members(plan.manifest);
+    const auto allowed_stub_agents =
+        allowed_stub_agent_members(plan.manifest);
     std::set<std::string> seen;
     while (true) {
       auto next = reader.next();
@@ -277,7 +289,8 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
       if (!payload && !agent) {
         return std::unexpected(BivError{ErrKind::UnmanifestedMember, member.meta.path});
       }
-      if (agent && !required_agents.contains(member.meta.path)) {
+      if (agent && !required_agents.contains(member.meta.path) &&
+          !allowed_stub_agents.contains(member.meta.path)) {
         return std::unexpected(BivError{ErrKind::UnmanifestedMember, member.meta.path});
       }
       if (agent && member.meta.kind != scan::NodeKind::file) {

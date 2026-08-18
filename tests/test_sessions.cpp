@@ -1783,6 +1783,35 @@ TEST_CASE("threshold-parity per-agent distribution self-activates at R-4.29",
   std::filesystem::remove_all(home);
 }
 
+TEST_CASE("stub unparsed counts remain independent for two agents",
+          "[slice-e][stub-footprint]") {
+  const int stub_schema = biv::manifest::kEntrySchemaParseCeiling + 1;
+  auto codex = entry("codex", stub_schema);
+  codex.original_session_ids.primary = "codex-stub";
+  auto claude_one = entry("claude-code", stub_schema);
+  claude_one.original_session_ids.primary = "claude-stub-one";
+  auto claude_two = entry("claude-code", stub_schema);
+  claude_two.original_session_ids.primary = "claude-stub-two";
+
+  const auto home = make_tmp("stub-unparsed-two-agent");
+  const auto preview = biv::core_sessions::build_preview(
+      model({std::move(codex), std::move(claude_one), std::move(claude_two)}),
+      env(home));
+  REQUIRE(preview);
+  REQUIRE(preview->agents.size() == 2U);
+  const auto codex_row = std::ranges::find(
+      preview->agents, "codex", &biv::core_sessions::AgentPreview::agent);
+  const auto claude_row = std::ranges::find(
+      preview->agents, "claude-code", &biv::core_sessions::AgentPreview::agent);
+  REQUIRE(codex_row != preview->agents.end());
+  REQUIRE(claude_row != preview->agents.end());
+  CHECK(codex_row->entry_schema_skipped_count == 1U);
+  CHECK(codex_row->entry_schema_unparsed_count == 1U);
+  CHECK(claude_row->entry_schema_skipped_count == 2U);
+  CHECK(claude_row->entry_schema_unparsed_count == 2U);
+  std::filesystem::remove_all(home);
+}
+
 TEST_CASE("typed session kinds cover every advisory and divergence class") {
   using Row = biv::core_sessions::SessionRowReport;
   CHECK(biv::core_sessions::kind_for_row(Row::Row::sessions_consent_skipped, "") ==

@@ -59,6 +59,7 @@ struct AgentSessionEntry {
   SessionIds original_session_ids;
   std::vector<SessionChild> children;
   std::vector<std::string> artifacts;
+  std::vector<std::string> stub_member_footprint{};
   bool live_at_pack{false};
   std::string imported_at;
   int entry_schema{1};
