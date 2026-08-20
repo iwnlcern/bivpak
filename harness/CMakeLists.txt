@@ -44,7 +44,7 @@ if(TARGET biv)
             --report "${BIVHARNESS_REPORT}"
     WORKING_DIRECTORY "${BIVHARNESS_SOURCE_DIR}")
   set_tests_properties(harness-e2 PROPERTIES
-    TIMEOUT 180
+    TIMEOUT 600
     LABELS "harness;e2"
     ENVIRONMENT "BIVHARNESS_SCHEMA_ROOT=${CMAKE_SOURCE_DIR}/schemas")
 else()

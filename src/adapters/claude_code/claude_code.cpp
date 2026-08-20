@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <fstream>
 #include <map>
+#include <numeric>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -121,6 +123,50 @@ expected<std::string> source_text(const SessionRecord::ArtifactSource& source) {
   return text;
 }
 
+SessionRecord::ArtifactSource text_source(const fs::path& path, std::string bytes) {
+  return SessionRecord::ArtifactSource{
+      .path = path,
+      .size = static_cast<std::uint64_t>(bytes.size()),
+      .stream = [bytes = std::move(bytes)](const secure_io::ByteSink& sink) {
+        return sink(std::as_bytes(std::span<const char>{bytes.data(), bytes.size()}));
+      }};
+}
+
+bool valid_json(const std::string_view text) {
+  simdjson::padded_string padded{text};
+  simdjson::dom::parser parser;
+  simdjson::dom::element value;
+  return !parser.parse(padded).get(value);
+}
+
+void apply_torn_tail_rule(std::vector<std::string>& artifacts,
+                          std::vector<SessionRecord::ArtifactSource>& sources,
+                          const bool live,
+                          std::vector<SessionRecord::TornTail>& torn_tails) {
+  for (std::size_t i = 0; i < sources.size(); ++i) {
+    if (!artifacts.at(i).ends_with(".jsonl")) continue;
+    auto bytes = source_text(sources.at(i));
+    if (!bytes) continue;
+    const auto split = bytes->rfind('\n');
+    const auto tail_start = split == std::string::npos ? 0U : split + 1U;
+    const auto tail = std::string_view{*bytes}.substr(tail_start);
+    if (tail.empty()) continue;
+    if (valid_json(tail)) {
+      bytes->push_back('\n');
+      sources.at(i) = text_source(sources.at(i).path, std::move(*bytes));
+    } else if (live) {
+      torn_tails.push_back(SessionRecord::TornTail{.artifact = artifacts.at(i),
+                                                    .bytes = tail.size()});
+      bytes->resize(tail_start);
+      sources.at(i) = text_source(sources.at(i).path, std::move(*bytes));
+    } else {
+      torn_tails.push_back(SessionRecord::TornTail{.artifact = artifacts.at(i),
+                                                    .bytes = tail.size(),
+                                                    .retained = true});
+    }
+  }
+}
+
 TranscriptFacts inspect_transcript(const std::string_view transcript) {
   TranscriptFacts facts;
   std::istringstream input{std::string{transcript}};
@@ -208,6 +254,10 @@ bool never_collect_path(const fs::path& relative) {
   return false;
 }
 
+bool supported_subtree_artifact(const fs::path& relative) {
+  return rewrite::claude_staged_subtree_artifact(relative.generic_string());
+}
+
 expected<std::vector<ArtifactRef>> collect_subtree_artifacts(
     const fs::path& session_dir, const std::string_view session_id) {
   std::vector<ArtifactRef> artifacts;
@@ -230,6 +280,11 @@ expected<std::vector<ArtifactRef>> collect_subtree_artifacts(
     if (!lexically_inside(entry.path(), session_dir) ||
         never_collect_path(relative)) {
       continue;
+    }
+    if (!supported_subtree_artifact(relative)) {
+      return std::unexpected(BivError{ErrKind::ArchiveWriteFailed,
+                                      entry.path().generic_string(),
+                                      "unsupported_subtree_artifact"});
     }
     auto source = open_artifact_source(entry.path());
     if (!source) {
@@ -290,6 +345,224 @@ const Inventory& claude_inventory() {
   return inventory;
 }
 
+expected<std::pair<fs::path, std::string>> locate_claude_staged_artifact(
+    const fs::path& root, const rewrite::StagedMapRow& row,
+    const rewrite::StagedSidecar& staged) {
+  std::vector<fs::path> matches;
+  std::error_code error;
+  if (!fs::exists(root, error)) {
+    return std::unexpected(BivError{ErrKind::ParseError, root.string(),
+                                    "missing_staged_artifact"});
+  }
+  for (fs::recursive_directory_iterator it{root, fs::directory_options::none,
+                                            error},
+       end;
+       !error && it != end; it.increment(error)) {
+    if (it->path().filename() != row.minted + ".jsonl") continue;
+    if (it->is_symlink(error) || !it->is_regular_file(error)) {
+      return std::unexpected(BivError{ErrKind::ContainmentRefused,
+                                      it->path().string(),
+                                      "containment_refused"});
+    }
+    matches.push_back(it->path().lexically_normal());
+  }
+  if (error) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    root.string(), error.message()});
+  }
+  if (matches.size() != 1U) {
+    return std::unexpected(BivError{ErrKind::ParseError, root.string(),
+                                    "missing_staged_artifact"});
+  }
+
+  if (row.original_path.has_value()) {
+    return std::pair{matches.front(), *row.original_path};
+  }
+
+  std::optional<std::string> original_path;
+  for (const auto& pair : staged.path_pairs) {
+    const auto expected =
+        (root / "projects" / project_key_for_path(fs::path{pair.first}) /
+         (row.minted + ".jsonl"))
+            .lexically_normal();
+    if (expected == matches.front()) {
+      if (original_path) {
+        return std::unexpected(BivError{ErrKind::ParseError, root.string(),
+                                        "missing_staged_artifact"});
+      }
+      original_path = pair.first;
+    }
+  }
+  if (!original_path) {
+    return std::unexpected(BivError{ErrKind::ParseError, root.string(),
+                                    "missing_staged_artifact"});
+  }
+  return std::pair{matches.front(), std::move(*original_path)};
+}
+
+expected<void> append_staged_session(CollectReport& report,
+                                     const fs::path& source_root) {
+  const auto sidecar = source_root / ".biv/agents/manifest.json";
+  std::error_code exists_error;
+  const auto status = fs::symlink_status(sidecar, exists_error);
+  if (status.type() == fs::file_type::not_found) {
+    if (exists_error &&
+        exists_error != std::errc::no_such_file_or_directory) {
+      return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                      sidecar.string(),
+                                      exists_error.message()});
+    }
+    return {};
+  }
+  auto input = open_artifact_source(sidecar);
+  if (!input) return std::unexpected(input.error());
+  auto json = source_text(*input);
+  if (!json) return std::unexpected(json.error());
+  auto staged = rewrite::parse_staged_sidecar(sidecar, *json, source_root);
+  if (!staged) return std::unexpected(staged.error());
+
+  const auto root = source_root / ".biv/agents/claude-code";
+  for (const auto& row : staged->rows) {
+    if (row.agent != "claude-code") continue;
+    auto located = locate_claude_staged_artifact(root, row, *staged);
+    if (!located) return std::unexpected(located.error());
+    const auto& [main_path, original_path] = *located;
+    auto main_source = open_artifact_source(main_path);
+    if (!main_source) return std::unexpected(main_source.error());
+    auto main_text = source_text(*main_source);
+    if (!main_text) return std::unexpected(main_text.error());
+    const auto facts = inspect_transcript(*main_text);
+    if (facts.session_id.has_value() && *facts.session_id != row.minted) {
+      return std::unexpected(BivError{ErrKind::ParseError, main_path.string(),
+                                      "staged_identity_mismatch"});
+    }
+    if (!facts.version.has_value()) {
+      report.warnings.push_back("StagedSessionVersionMissing:" +
+                                main_path.generic_string());
+      continue;
+    }
+
+    std::vector<std::string> artifacts{
+        "agents/claude-code/" + row.minted + ".jsonl"};
+    std::vector<SessionRecord::ArtifactSource> sources{
+        std::move(*main_source)};
+    std::vector<std::string> child_ids;
+    std::vector<std::pair<std::string, std::string>> child_artifact_map;
+    for (const auto& [child_original, child_minted] : row.children) {
+      static_cast<void>(child_minted);
+      child_ids.push_back(child_original);
+    }
+    const auto subtree = main_path.parent_path() / row.minted;
+    std::error_code subtree_error;
+    if (fs::exists(subtree, subtree_error)) {
+      for (fs::recursive_directory_iterator
+               it{subtree, fs::directory_options::none, subtree_error},
+           end;
+           !subtree_error && it != end; it.increment(subtree_error)) {
+        if (it->is_symlink(subtree_error)) {
+          return std::unexpected(BivError{ErrKind::ContainmentRefused,
+                                          it->path().string(),
+                                          "staged_subtree_class"});
+        }
+        if (it->is_directory(subtree_error)) continue;
+        if (!it->is_regular_file(subtree_error)) {
+          return std::unexpected(BivError{ErrKind::ContainmentRefused,
+                                          it->path().string(),
+                                          "staged_subtree_class"});
+        }
+        const auto relative_path = it->path().lexically_relative(subtree);
+        const auto relative = relative_path.generic_string();
+        if (never_collect_path(relative_path) ||
+            !rewrite::claude_staged_subtree_artifact(relative)) {
+          report.warnings.push_back(
+              "StagedSessionArtifactSkipped:" + it->path().generic_string());
+          continue;
+        }
+        const auto extension = it->path().extension().string();
+        const bool subagent_jsonl =
+            relative.starts_with("subagents/") && extension == ".jsonl";
+        const bool subagent_meta = relative.starts_with("subagents/") &&
+                                   relative.ends_with(".meta.json");
+        auto artifact_source = open_artifact_source(it->path());
+        if (!artifact_source) {
+          return std::unexpected(artifact_source.error());
+        }
+        if (subagent_jsonl) {
+          auto artifact_text = source_text(*artifact_source);
+          if (!artifact_text) return std::unexpected(artifact_text.error());
+          const auto artifact_facts = inspect_transcript(*artifact_text);
+          if (artifact_facts.session_id.has_value() &&
+              *artifact_facts.session_id != row.minted) {
+            return std::unexpected(BivError{ErrKind::ParseError,
+                                            it->path().string(),
+                                            "staged_identity_mismatch"});
+          }
+        }
+        auto artifact =
+            "agents/claude-code/" + row.minted + "/" + relative;
+        if (subagent_jsonl || subagent_meta) {
+          const auto owner = std::ranges::find_if(
+              row.children, [&](const auto& child) {
+                return relative == "subagents/" + child.first + ".jsonl" ||
+                       relative ==
+                           "subagents/" + child.first + ".meta.json";
+              });
+          if (owner != row.children.end()) {
+            child_artifact_map.emplace_back(owner->first, artifact);
+          }
+        }
+        artifacts.push_back(std::move(artifact));
+        sources.push_back(std::move(*artifact_source));
+      }
+      if (subtree_error) {
+        return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                        subtree.string(),
+                                        subtree_error.message()});
+      }
+    } else if (subtree_error) {
+      return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                      subtree.string(),
+                                      subtree_error.message()});
+    }
+
+    std::vector<std::size_t> order(artifacts.size());
+    std::iota(order.begin(), order.end(), 0U);
+    std::ranges::sort(order, {}, [&](const std::size_t index) {
+      return artifacts.at(index);
+    });
+    std::vector<std::string> sorted_artifacts;
+    std::vector<SessionRecord::ArtifactSource> sorted_sources;
+    for (const auto index : order) {
+      sorted_artifacts.push_back(std::move(artifacts.at(index)));
+      sorted_sources.push_back(std::move(sources.at(index)));
+    }
+    artifacts = std::move(sorted_artifacts);
+    sources = std::move(sorted_sources);
+    std::vector<SessionRecord::TornTail> tails;
+    apply_torn_tail_rule(artifacts, sources, false, tails);
+    report.sessions.push_back(SessionRecord{
+        .agent = "claude-code",
+        .original_session_id = row.original,
+        .parent_id = std::nullopt,
+        .child_ids = std::move(child_ids),
+        .child_artifact_map = std::move(child_artifact_map),
+        .original_path = original_path,
+        .normalized_path_key = rewrite::normalized_path_key(original_path),
+        .normalization_scheme = "claude-cwd/v1",
+        .path_flavor = rewrite::path_flavor_for(original_path),
+        .provenance = {.store_root = source_root.generic_string(),
+                       .locator = "staging",
+                       .discovery_tier = "staged",
+                       .archived = false},
+        .artifacts = std::move(artifacts),
+        .artifact_sources = std::move(sources),
+        .torn_tails = std::move(tails),
+        .agent_version_at_pack = *facts.version,
+        .live_at_pack = false});
+  }
+  return {};
+}
+
 class ClaudeCodeAdapter final : public AgentAdapter {
  public:
   std::string_view id() const override { return "claude-code"; }
@@ -327,6 +600,9 @@ class ClaudeCodeAdapter final : public AgentAdapter {
                                   std::span<const Store> stores) const override {
     try {
       CollectReport report;
+      if (auto staged = append_staged_session(report, source_root); !staged) {
+        return std::unexpected(staged.error());
+      }
       for (const auto& store : stores) {
         if (auto valid = secure_io::validate_directory_no_follow(store.root);
             !valid) {
@@ -409,12 +685,15 @@ class ClaudeCodeAdapter final : public AgentAdapter {
               artifact_sources.push_back(std::move(artifact.source));
               artifacts.push_back(std::move(artifact.image_path));
             }
+            std::vector<SessionRecord::TornTail> torn_tails;
+            apply_torn_tail_rule(artifacts, artifact_sources, live.live, torn_tails);
 
             report.sessions.push_back(SessionRecord{
                 .agent = "claude-code",
                 .original_session_id = session_id,
                 .parent_id = std::nullopt,
                 .child_ids = child_ids_for(session_dir),
+                .child_artifact_map = {},
                 .original_path = *facts.cwd,
                 .normalized_path_key = rewrite::normalized_path_key(*facts.cwd),
                 .normalization_scheme = "claude-cwd/v1",
@@ -426,6 +705,7 @@ class ClaudeCodeAdapter final : public AgentAdapter {
                                .archived = store.archived},
                 .artifacts = std::move(artifacts),
                 .artifact_sources = std::move(artifact_sources),
+                .torn_tails = std::move(torn_tails),
                 .agent_version_at_pack = facts.version.value_or(live.version.value_or("unknown")),
                 .live_at_pack = live.live});
           }

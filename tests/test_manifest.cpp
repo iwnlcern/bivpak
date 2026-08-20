@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -5,6 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "adapters/rewrite_common.hpp"
 #include "core/manifest/manifest.hpp"
 
 namespace {
@@ -58,7 +61,412 @@ std::string manifest_json_with(std::vector<biv::manifest::AgentSessionEntry> ent
   return biv::manifest::serialize(manifest);
 }
 
+std::string manifest_json_with_parent_edge(const int entry_schema) {
+  auto entry = codex_session_entry();
+  entry.children.push_back(
+      {.original_id = "019f-cccc",
+       .artifacts = {"agents/codex/019f-cccc.jsonl"}});
+  auto json = manifest_json_with({entry});
+
+  constexpr std::string_view child_id = "\"original_id\": \"019f-cccc\",";
+  const auto child_id_pos = json.find(child_id);
+  REQUIRE(child_id_pos != std::string::npos);
+  json.insert(child_id_pos + child_id.size(),
+              "\n        \"parent_id\": \"019f-bbbb\",");
+
+  constexpr std::string_view schema_one = "\"entry_schema\": 1";
+  const auto schema_pos = json.find(schema_one);
+  REQUIRE(schema_pos != std::string::npos);
+  json.replace(schema_pos, schema_one.size(),
+               "\"entry_schema\": " + std::to_string(entry_schema));
+  return json;
+}
+
+std::string replace_once(std::string text, const std::string_view needle,
+                         std::string replacement) {
+  const auto pos = text.find(needle);
+  REQUIRE(pos != std::string::npos);
+  text.replace(pos, needle.size(), std::move(replacement));
+  return text;
+}
+
+std::string replace_last_once(std::string text, const std::string_view needle,
+                              std::string replacement) {
+  const auto pos = text.rfind(needle);
+  REQUIRE(pos != std::string::npos);
+  text.replace(pos, needle.size(), std::move(replacement));
+  return text;
+}
+
+std::string as_stub(std::string text) {
+  return replace_once(
+      std::move(text), "\"entry_schema\": 1",
+      "\"entry_schema\": " +
+          std::to_string(biv::manifest::kEntrySchemaParseCeiling + 1));
+}
+
+std::string all_as_stubs(std::string text) {
+  const std::string replacement =
+      "\"entry_schema\": " +
+      std::to_string(biv::manifest::kEntrySchemaParseCeiling + 1);
+  std::size_t cursor = 0U;
+  while (true) {
+    const auto pos = text.find("\"entry_schema\": 1", cursor);
+    if (pos == std::string::npos) {
+      return text;
+    }
+    text.replace(pos, sizeof("\"entry_schema\": 1") - 1U, replacement);
+    cursor = pos + replacement.size();
+  }
+}
+
+std::string child_id(const std::size_t index) {
+  return "child-" + std::to_string(index);
+}
+
+std::string child_artifact(const std::size_t child_index,
+                           const std::size_t artifact_index) {
+  return "agents/codex/child-" + std::to_string(child_index) + "-artifact-" +
+         std::to_string(artifact_index) + ".jsonl";
+}
+
+biv::manifest::AgentSessionEntry entry_with_children(const std::size_t count) {
+  auto entry = codex_session_entry();
+  entry.children.clear();
+  for (std::size_t i = 0; i < count; ++i) {
+    entry.children.push_back({.original_id = child_id(i),
+                              .artifacts = {child_artifact(i, 0)}});
+  }
+  return entry;
+}
+
+std::string manifest_json_with_parent_chain(const std::size_t depth) {
+  auto entry = entry_with_children(depth);
+  auto json = manifest_json_with({entry});
+  for (std::size_t i = 1; i < depth; ++i) {
+    const std::string needle = "\"original_id\": \"" + child_id(i) + "\",";
+    const auto pos = json.find(needle);
+    REQUIRE(pos != std::string::npos);
+    json.insert(pos + needle.size(),
+                "\n        \"parent_id\": \"" + child_id(i - 1) + "\",");
+  }
+  return replace_once(std::move(json), "\"entry_schema\": 1",
+                      "\"entry_schema\": 2");
+}
+
+biv::manifest::AgentSessionEntry entry_with_total_artifacts(
+    const std::size_t total) {
+  auto entry = codex_session_entry();
+  entry.children.clear();
+  std::size_t remaining = total - entry.artifacts.size();
+  for (std::size_t child_index = 0; remaining > 0; ++child_index) {
+    const auto child_count = std::min<std::size_t>(remaining, 256U);
+    std::vector<std::string> artifacts;
+    artifacts.reserve(child_count);
+    for (std::size_t artifact_index = 0; artifact_index < child_count;
+         ++artifact_index) {
+      artifacts.push_back(child_artifact(child_index, artifact_index));
+    }
+    entry.children.push_back({.original_id = child_id(child_index),
+                              .artifacts = std::move(artifacts)});
+    remaining -= child_count;
+  }
+  return entry;
+}
+
+std::string carrier_json(const std::string& injected) {
+  return "{"
+         "\"format_version\":1,"
+         "\"required_capabilities\":[],"
+         "\"image_id\":\"id\","
+         "\"app_version\":\"0.1.0\","
+         "\"created_at\":\"2026-07-05T00:00:00Z\","
+         "\"source_path\":\"/tmp/plain\","
+         "\"source_path_flavor\":\"posix\"," +
+         injected +
+         "\"bivignore\":{\"source\":\"file\",\"builtin_id\":null,\"sha256\":\"def\"},"
+         "\"repos\":[],\"agent_sessions\":[]"
+         "}";
+}
+
 }  // namespace
+
+TEST_CASE("packer_home serializes after source_path_flavor and round-trips") {
+  auto manifest = fixed_manifest();
+  manifest.packer_home = biv::manifest::PackerHome{
+      .path = "/Users/jack", .flavor = biv::manifest::PathFlavor::posix};
+
+  const auto json = biv::manifest::serialize(manifest);
+  REQUIRE(json.find("\"packer_home\": \"/Users/jack\"") != std::string::npos);
+  REQUIRE(json.find("\"packer_home_flavor\": \"posix\"") != std::string::npos);
+  REQUIRE(json.find("\"source_path_flavor\"") < json.find("\"packer_home\""));
+
+  const auto parsed = biv::manifest::parse(bytes_of(json));
+  REQUIRE(parsed.has_value());
+  REQUIRE(parsed->packer_home == manifest.packer_home);
+  // ORACLE RULE: captured at BASE 2341667 for the engaged carrier.
+  // NEVER regenerate this literal from the serializer.
+  REQUIRE(json ==
+          "{\n"
+          "  \"format_version\": 1,\n"
+          "  \"required_capabilities\": [],\n"
+          "  \"image_id\": \"00000000-0000-4000-8000-000000000000\",\n"
+          "  \"app_version\": \"0.1.0\",\n"
+          "  \"created_at\": \"2026-07-05T00:00:00Z\",\n"
+          "  \"source_path\": \"/mnt/c/tmp/plain\",\n"
+          "  \"source_path_flavor\": \"wsl\",\n"
+          "  \"packer_home\": \"/Users/jack\",\n"
+          "  \"packer_home_flavor\": \"posix\",\n"
+          "  \"bivignore\": {\n"
+          "    \"source\": \"builtin\",\n"
+          "    \"builtin_id\": \"builtin-v1\",\n"
+          "    \"sha256\": \"abc123\"\n"
+          "  },\n"
+          "  \"repos\": [],\n"
+          "  \"agent_sessions\": []\n"
+          "}\n");
+}
+
+TEST_CASE("packer_home round-trips every flavor spelling") {
+  struct Row {
+    std::string path;
+    biv::manifest::PathFlavor flavor;
+  };
+  for (const auto& row : std::array{
+           Row{"/home/user", biv::manifest::PathFlavor::posix},
+           Row{"/mnt/c/Users/x", biv::manifest::PathFlavor::wsl},
+           Row{"C:/Users/x", biv::manifest::PathFlavor::windows},
+           Row{"C:\\Users\\x", biv::manifest::PathFlavor::windows},
+           Row{"\\\\?\\C:\\Users\\x", biv::manifest::PathFlavor::windows},
+       }) {
+    CAPTURE(row.path);
+    auto manifest = fixed_manifest();
+    manifest.packer_home = biv::manifest::PackerHome{row.path, row.flavor};
+    const auto parsed =
+        biv::manifest::parse(bytes_of(biv::manifest::serialize(manifest)));
+    REQUIRE(parsed.has_value());
+    REQUIRE(parsed->packer_home == manifest.packer_home);
+  }
+
+  struct FactoryRow {
+    std::string_view path;
+    std::optional<biv::manifest::PathFlavor> flavor;
+  };
+  for (const auto& row : std::array{
+           FactoryRow{"/x", biv::manifest::PathFlavor::posix},
+           FactoryRow{"/Users/x", biv::manifest::PathFlavor::posix},
+           FactoryRow{"/mnt/c/x", biv::manifest::PathFlavor::wsl},
+           FactoryRow{"/mnt/c/Users/x", biv::manifest::PathFlavor::wsl},
+           FactoryRow{"C:/x", biv::manifest::PathFlavor::windows},
+           FactoryRow{"C:/Users/x", biv::manifest::PathFlavor::windows},
+           FactoryRow{R"(\\?\C:\Users\x)",
+                      biv::manifest::PathFlavor::windows},
+           FactoryRow{"", std::nullopt},
+           FactoryRow{"relative/home", std::nullopt},
+           FactoryRow{"/", std::nullopt},
+           FactoryRow{"/mnt/c/", std::nullopt},
+           FactoryRow{"C:/", std::nullopt},
+           FactoryRow{"C:\\", std::nullopt},
+           FactoryRow{"//?/", std::nullopt},
+           FactoryRow{R"(\\?\)", std::nullopt},
+           FactoryRow{R"(\\?\C:\)", std::nullopt},
+           FactoryRow{"//?/C:/", std::nullopt},
+           FactoryRow{R"(\\?\C:)", std::nullopt},
+           FactoryRow{R"(\\?\C:\x)", biv::manifest::PathFlavor::windows},
+           FactoryRow{"//?/C:/x", biv::manifest::PathFlavor::windows},
+       }) {
+    CAPTURE(row.path);
+    const auto actual = biv::manifest::make_packer_home(row.path);
+    REQUIRE(actual.has_value() == row.flavor.has_value());
+    if (actual) {
+      CHECK(actual->path == row.path);
+      CHECK(actual->flavor == *row.flavor);
+      CHECK(biv::manifest::packer_home_valid(*actual));
+    }
+  }
+}
+
+TEST_CASE("packer_home absent round-trips and pre-carrier fixtures stay clean") {
+  auto manifest = fixed_manifest();
+  manifest.packer_home = std::nullopt;
+  const auto json = biv::manifest::serialize(manifest);
+  REQUIRE(json.find("packer_home") == std::string::npos);
+  const auto parsed = biv::manifest::parse(bytes_of(json));
+  REQUIRE(parsed.has_value());
+  REQUIRE(parsed->packer_home == std::nullopt);
+
+  const auto pre_carrier = biv::manifest::parse(bytes_of(carrier_json("")));
+  REQUIRE(pre_carrier.has_value());
+  REQUIRE(pre_carrier->packer_home == std::nullopt);
+}
+
+TEST_CASE("packer_home invalid engaged values collapse to absent on serialize") {
+  for (const auto& bad : std::array{
+           biv::manifest::PackerHome{"", biv::manifest::PathFlavor::posix},
+           biv::manifest::PackerHome{"relative/home",
+                                     biv::manifest::PathFlavor::posix},
+           biv::manifest::PackerHome{"/home/user",
+                                     biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{"/", biv::manifest::PathFlavor::posix},
+           biv::manifest::PackerHome{"/mnt/c/", biv::manifest::PathFlavor::wsl},
+           biv::manifest::PackerHome{"C:/", biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{"C:\\", biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{"//?/", biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{R"(\\?\)", biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{R"(\\?\C:\)",
+                                     biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{"//?/C:/",
+                                     biv::manifest::PathFlavor::windows},
+           biv::manifest::PackerHome{R"(\\?\C:)",
+                                     biv::manifest::PathFlavor::windows},
+       }) {
+    CAPTURE(bad.path);
+    auto manifest = fixed_manifest();
+    manifest.packer_home = bad;
+    REQUIRE(biv::manifest::serialize(manifest).find("packer_home") ==
+            std::string::npos);
+  }
+}
+
+TEST_CASE("packer_home JSON null is missing for both keys") {
+  const auto lone_null =
+      biv::manifest::parse(bytes_of(carrier_json("\"packer_home\":null,")));
+  REQUIRE(lone_null.has_value());
+  REQUIRE(lone_null->packer_home == std::nullopt);
+
+  const auto null_with_flavor = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":null,\"packer_home_flavor\":\"posix\",")));
+  REQUIRE_FALSE(null_with_flavor.has_value());
+  REQUIRE(null_with_flavor.error().detail == "packer_home_flavor");
+
+  const auto home_with_null_flavor = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":\"/x\",\"packer_home_flavor\":null,")));
+  REQUIRE_FALSE(home_with_null_flavor.has_value());
+  REQUIRE(home_with_null_flavor.error().detail == "packer_home_flavor");
+
+  const auto both_null = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":null,\"packer_home_flavor\":null,")));
+  REQUIRE(both_null.has_value());
+  REQUIRE(both_null->packer_home == std::nullopt);
+
+  const auto lone_null_flavor = biv::manifest::parse(
+      bytes_of(carrier_json("\"packer_home_flavor\":null,")));
+  REQUIRE(lone_null_flavor.has_value());
+  REQUIRE(lone_null_flavor->packer_home == std::nullopt);
+}
+
+TEST_CASE("packer_home lone keys fail closed naming the flavor key") {
+  const auto lone_home =
+      biv::manifest::parse(bytes_of(carrier_json("\"packer_home\":\"/x\",")));
+  REQUIRE_FALSE(lone_home.has_value());
+  REQUIRE(lone_home.error().detail == "packer_home_flavor");
+
+  const auto lone_flavor = biv::manifest::parse(
+      bytes_of(carrier_json("\"packer_home_flavor\":\"posix\",")));
+  REQUIRE_FALSE(lone_flavor.has_value());
+  REQUIRE(lone_flavor.error().detail == "packer_home_flavor");
+}
+
+TEST_CASE("packer_home malformed values fail closed naming the home key") {
+  for (const auto& injected : std::array<std::string, 16>{
+           "\"packer_home\":42,\"packer_home_flavor\":\"posix\",",
+           "\"packer_home\":\"\",\"packer_home_flavor\":\"posix\",",
+           "\"packer_home\":\"relative/home\",\"packer_home_flavor\":\"posix\",",
+           "\"packer_home\":\"relative/home\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"relative/home\",\"packer_home_flavor\":\"wsl\",",
+           "\"packer_home\":\"/home/user\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"/mnt/c/Users/x\",\"packer_home_flavor\":\"posix\",",
+           "\"packer_home\":\"/\",\"packer_home_flavor\":\"posix\",",
+           "\"packer_home\":\"/mnt/c/\",\"packer_home_flavor\":\"wsl\",",
+           "\"packer_home\":\"C:/\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"C:\\\\\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"//?/\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"\\\\\\\\?\\\\\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"\\\\\\\\?\\\\C:\\\\\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"//?/C:/\",\"packer_home_flavor\":\"windows\",",
+           "\"packer_home\":\"\\\\\\\\?\\\\C:\",\"packer_home_flavor\":\"windows\",",
+       }) {
+    CAPTURE(injected);
+    const auto parsed = biv::manifest::parse(bytes_of(carrier_json(injected)));
+    REQUIRE_FALSE(parsed.has_value());
+    REQUIRE(parsed.error().detail == "packer_home");
+  }
+
+  const auto extended_control = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":\"\\\\\\\\?\\\\C:\\\\Users\\\\x\","
+      "\"packer_home_flavor\":\"windows\",")));
+  REQUIRE(extended_control.has_value());
+  REQUIRE(extended_control->packer_home == biv::manifest::PackerHome{
+                                                R"(\\?\C:\Users\x)",
+                                                biv::manifest::PathFlavor::windows});
+
+  struct ExtendedBoundaryControl {
+    std::string injected;
+    std::string expected;
+  };
+  for (const auto& control : std::array{
+           ExtendedBoundaryControl{
+               "\"packer_home\":\"\\\\\\\\?\\\\C:\\\\x\","
+               "\"packer_home_flavor\":\"windows\",",
+               R"(\\?\C:\x)"},
+           ExtendedBoundaryControl{
+               "\"packer_home\":\"//?/C:/x\","
+               "\"packer_home_flavor\":\"windows\",",
+               "//?/C:/x"},
+       }) {
+    CAPTURE(control.expected);
+    const auto parsed =
+        biv::manifest::parse(bytes_of(carrier_json(control.injected)));
+    REQUIRE(parsed.has_value());
+    REQUIRE(parsed->packer_home == biv::manifest::PackerHome{
+                                       control.expected,
+                                       biv::manifest::PathFlavor::windows});
+  }
+}
+
+TEST_CASE("packer_home flavor errors name the flavor key not source_path_flavor") {
+  const auto unknown = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":\"/x\",\"packer_home_flavor\":\"vms\",")));
+  REQUIRE_FALSE(unknown.has_value());
+  REQUIRE(unknown.error().detail == "packer_home_flavor");
+
+  const auto wrong_type = biv::manifest::parse(bytes_of(carrier_json(
+      "\"packer_home\":\"/x\",\"packer_home_flavor\":42,")));
+  REQUIRE_FALSE(wrong_type.has_value());
+  REQUIRE(wrong_type.error().detail == "packer_home_flavor");
+}
+
+TEST_CASE("classify_absolute covers every grammar branch") {
+  using biv::manifest::PathFlavor;
+  const auto classify = biv::manifest::classify_absolute;
+  REQUIRE(classify("/home/user") == PathFlavor::posix);
+  REQUIRE(classify("/mnt/c/Users/x") == PathFlavor::wsl);
+  REQUIRE(classify("/mnt/C/Users/x") == PathFlavor::wsl);
+  REQUIRE(classify("/mnt/cc/x") == PathFlavor::posix);
+  REQUIRE(classify("C:/Users/x") == PathFlavor::windows);
+  REQUIRE(classify("C:\\Users\\x") == PathFlavor::windows);
+  REQUIRE(classify("\\\\?\\C:\\Users\\x") == PathFlavor::windows);
+  REQUIRE(classify("//?/C:/Users/x") == PathFlavor::windows);
+  REQUIRE(classify("") == std::nullopt);
+  REQUIRE(classify("relative/home") == std::nullopt);
+  REQUIRE(classify("mnt/c/x") == std::nullopt);
+  REQUIRE(classify("C:") == std::nullopt);
+  REQUIRE(classify("C:x") == std::nullopt);
+  REQUIRE(classify("/mnt/c") == PathFlavor::posix);
+  REQUIRE(classify("/mnt/1/x") == PathFlavor::posix);
+  REQUIRE(classify("1:/x") == std::nullopt);
+}
+
+TEST_CASE("classify_absolute agrees with the adapter spelling classifier") {
+  for (const auto spelling : std::array{
+           "/home/user", "/mnt/c/Users/x", "/mnt/C/Users/x", "/mnt/cc/x",
+           "C:/Users/x", "C:\\Users\\x", "\\\\?\\C:\\Users\\x", "//?/C:/Users/x",
+       }) {
+    CAPTURE(spelling);
+    REQUIRE(biv::manifest::classify_absolute(spelling) ==
+            biv::adapters::rewrite::path_flavor_for(spelling));
+  }
+}
 
 TEST_CASE("Manifest serializes in the locked field order") {
   const auto json = biv::manifest::serialize(fixed_manifest());
@@ -198,6 +606,7 @@ TEST_CASE("Manifest parser accepts agent_sessions entries per seam lock") {
 }
 
 TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
+  const int far_future_schema = biv::manifest::kEntrySchemaParseCeiling + 97;
   auto unknown_agent = codex_session_entry();
   unknown_agent.agent = "future-tool";
   unknown_agent.artifacts = {"agents/future-tool/x.jsonl"};
@@ -207,12 +616,18 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
   REQUIRE(parsed_unknown->agent_sessions.size() == 1);
   CHECK(parsed_unknown->agent_sessions.front().agent == "future-tool");
 
-  auto future_schema = codex_session_entry();
-  future_schema.entry_schema = 99;
-  auto parsed_future_schema = biv::manifest::parse(bytes_of(manifest_json_with({future_schema})));
+  const auto future_schema_json = replace_once(
+      manifest_json_with({codex_session_entry()}), "\"entry_schema\": 1",
+      "\"entry_schema\": " + std::to_string(far_future_schema));
+  auto parsed_future_schema =
+      biv::manifest::parse(bytes_of(future_schema_json));
   REQUIRE(parsed_future_schema.has_value());
   REQUIRE(parsed_future_schema->agent_sessions.size() == 1);
-  CHECK(parsed_future_schema->agent_sessions.front().entry_schema == 99);
+  CHECK(parsed_future_schema->agent_sessions.front().entry_schema ==
+        far_future_schema);
+  CHECK(parsed_future_schema->agent_sessions.front().stub_member_footprint ==
+        std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                 "agents/codex/019f-bbbb.jsonl"});
 
   std::string entry_unknown_field = manifest_json_with({codex_session_entry()});
   entry_unknown_field.replace(entry_unknown_field.find("\"entry_schema\": 1"), 17,
@@ -236,12 +651,397 @@ TEST_CASE("Manifest parser accepts forward-compatible agent_sessions shapes") {
   const auto entry_end = minimal_future.find("\n  ]", entry_begin);
   REQUIRE(entry_begin != std::string::npos);
   REQUIRE(entry_end != std::string::npos);
-  minimal_future.replace(entry_begin, entry_end - entry_begin,
-                         "{\"agent\":\"future-tool\",\"entry_schema\":99}");
+  minimal_future.replace(
+      entry_begin, entry_end - entry_begin,
+      "{\"agent\":\"future-tool\",\"entry_schema\":" +
+          std::to_string(far_future_schema) + "}");
   auto parsed_minimal_future = biv::manifest::parse(bytes_of(minimal_future));
   REQUIRE(parsed_minimal_future.has_value());
   REQUIRE(parsed_minimal_future->agent_sessions.size() == 1);
-  CHECK(parsed_minimal_future->agent_sessions.front().entry_schema == 99);
+  CHECK(parsed_minimal_future->agent_sessions.front().entry_schema ==
+        far_future_schema);
+  CHECK(parsed_minimal_future->agent_sessions.front().stub_member_footprint.empty());
+}
+
+TEST_CASE("Manifest reader accepts schema 2 entries in full and skips newer schemas") {
+  const auto schema_two =
+      biv::manifest::parse(bytes_of(manifest_json_with_parent_edge(
+          biv::manifest::kEntrySchemaParseCeiling)));
+  REQUIRE(schema_two.has_value());
+  REQUIRE(schema_two->agent_sessions.size() == 1U);
+  CHECK(schema_two->agent_sessions.front().agent_version_at_pack == "0.142.5");
+  CHECK(schema_two->agent_sessions.front().children.size() == 2U);
+  CHECK(schema_two->agent_sessions.front().children.back().parent_id ==
+        std::optional<std::string>{"019f-bbbb"});
+
+  for (const int schema : {biv::manifest::kEntrySchemaParseCeiling + 1,
+                           biv::manifest::kEntrySchemaParseCeiling + 97}) {
+    CAPTURE(schema);
+    const auto newer =
+        biv::manifest::parse(bytes_of(manifest_json_with_parent_edge(schema)));
+    REQUIRE(newer.has_value());
+    REQUIRE(newer->agent_sessions.size() == 1U);
+    CHECK(newer->agent_sessions.front().agent == "codex");
+    CHECK(newer->agent_sessions.front().entry_schema == schema);
+    CHECK(newer->agent_sessions.front().agent_version_at_pack.empty());
+    CHECK(newer->agent_sessions.front().children.empty());
+    CHECK(newer->agent_sessions.front().artifacts.empty());
+    CHECK(newer->agent_sessions.front().stub_member_footprint ==
+          std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                   "agents/codex/019f-bbbb.jsonl",
+                                   "agents/codex/019f-cccc.jsonl"});
+  }
+}
+
+TEST_CASE("Manifest stub footprint validates paths and one manifest-wide occurrence set",
+          "[slice-e][stub-footprint]") {
+  const auto require_error = [](const std::string& json,
+                                const std::string_view detail) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+    CHECK(parsed.error().detail == detail);
+  };
+
+  SECTION("footprint paths use the parsed-entry artifact grammar") {
+    auto entry = codex_session_entry();
+    entry.children.clear();
+    entry.artifacts = {"../must-not-be-admitted"};
+    require_error(as_stub(manifest_json_with({entry})), "artifact-prefix");
+  }
+
+  SECTION("a stub cannot alias a parsed entry member") {
+    auto parsed_entry = codex_session_entry();
+    parsed_entry.children.clear();
+    auto stub_entry = codex_session_entry();
+    stub_entry.original_session_ids.primary = "019f-cccc";
+    stub_entry.children.clear();
+    stub_entry.artifacts = parsed_entry.artifacts;
+    auto json = manifest_json_with({parsed_entry, stub_entry});
+    json = replace_last_once(
+        std::move(json), "\"entry_schema\": 1",
+        "\"entry_schema\": " +
+            std::to_string(biv::manifest::kEntrySchemaParseCeiling + 1));
+    require_error(json, "artifact-uniqueness");
+  }
+
+  SECTION("entry and child occurrences within one stub cannot alias") {
+    auto entry = codex_session_entry();
+    entry.children.front().artifacts = entry.artifacts;
+    require_error(as_stub(manifest_json_with({entry})),
+                  "artifact-uniqueness");
+  }
+
+  SECTION("two stubs cannot claim the same member") {
+    auto first = codex_session_entry();
+    first.children.clear();
+    auto second = first;
+    second.original_session_ids.primary = "019f-cccc";
+    require_error(all_as_stubs(manifest_json_with({first, second})),
+                  "artifact-uniqueness");
+  }
+}
+
+TEST_CASE("Manifest stub footprint refuses bearing-key duplicates without reading graph values",
+          "[slice-e][stub-footprint]") {
+  const auto base = as_stub(manifest_json_with({codex_session_entry()}));
+  const auto require_error = [](const std::string& json,
+                                const std::string_view detail) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+    CHECK(parsed.error().detail == detail);
+  };
+
+  SECTION("duplicate entry artifacts names their own class") {
+    require_error(
+        replace_once(base, "\"agent\": \"codex\",",
+                     "\"agent\": \"codex\",\n"
+                     "      \"artifacts\": [\"agents/codex/extra.jsonl\"],"),
+        "stub-footprint-entry-artifacts-duplicate-key");
+  }
+
+  SECTION("duplicate entry children names their own class") {
+    require_error(
+        replace_once(base, "\"agent\": \"codex\",",
+                     "\"agent\": \"codex\",\n"
+                     "      \"children\": [],"),
+        "stub-footprint-entry-children-duplicate-key");
+  }
+
+  SECTION("duplicate child artifacts names their own class") {
+    require_error(
+        replace_once(base, "\"original_id\": \"019f-bbbb\",",
+                     "\"original_id\": \"019f-bbbb\",\n"
+                     "        \"artifacts\": [\"agents/codex/extra.jsonl\"],"),
+        "stub-footprint-child-artifacts-duplicate-key");
+  }
+
+  SECTION("duplicate hostile original_id values remain unread") {
+    const auto parsed = biv::manifest::parse(bytes_of(replace_once(
+        base, "\"original_id\": \"019f-bbbb\",",
+        "\"original_id\": 7,\n        \"original_id\": false,")));
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->agent_sessions.front().children.empty());
+    CHECK(parsed->agent_sessions.front().stub_member_footprint ==
+          std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                   "agents/codex/019f-bbbb.jsonl"});
+  }
+
+  SECTION("duplicate hostile parent_id values remain unread") {
+    const auto parsed = biv::manifest::parse(bytes_of(replace_once(
+        base, "\"original_id\": \"019f-bbbb\",",
+        "\"original_id\": \"019f-bbbb\",\n"
+        "        \"parent_id\": null,\n        \"parent_id\": false,")));
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->agent_sessions.front().children.empty());
+    CHECK(parsed->agent_sessions.front().stub_member_footprint ==
+          std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                   "agents/codex/019f-bbbb.jsonl"});
+  }
+
+  SECTION("duplicate hostile original_path values remain unread") {
+    const auto parsed = biv::manifest::parse(bytes_of(replace_once(
+        base, "\"original_path\": \"/mnt/c/Users/x/proj\",",
+        "\"original_path\": null,\n      \"original_path\": false,")));
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->agent_sessions.front().original_path.empty());
+    CHECK(parsed->agent_sessions.front().stub_member_footprint ==
+          std::vector<std::string>{"agents/codex/019f-aaaa.jsonl",
+                                   "agents/codex/019f-bbbb.jsonl"});
+  }
+}
+
+TEST_CASE("Manifest stub footprint enforces graph-free caps before reading excess nodes",
+          "[slice-e][stub-footprint]") {
+  const auto require_cap = [](const std::string& json,
+                              const std::string_view detail) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+    CHECK(parsed.error().detail == detail);
+    CHECK(parsed.error().detail.find("entry=") == std::string::npos);
+  };
+
+  SECTION("the 1025th child is refused before its invalid path is read") {
+    const auto at_cap = biv::manifest::parse(bytes_of(as_stub(
+        manifest_json_with({entry_with_children(1024)}))));
+    REQUIRE(at_cap.has_value());
+    CHECK(at_cap->agent_sessions.front().stub_member_footprint.size() ==
+          1025U);
+
+    auto json = as_stub(manifest_json_with({entry_with_children(1025)}));
+    json = replace_once(std::move(json), child_artifact(1024, 0),
+                        "../must-not-be-read");
+    require_cap(json, "children-node-cap");
+  }
+
+  SECTION("entry artifacts retain the per-node cap") {
+    auto entry = codex_session_entry();
+    entry.children.clear();
+    entry.artifacts.clear();
+    for (std::size_t i = 0; i < 257U; ++i) {
+      entry.artifacts.push_back("agents/codex/entry-artifact-" +
+                                std::to_string(i) + ".jsonl");
+    }
+    require_cap(as_stub(manifest_json_with({entry})),
+                "entry-artifacts-per-node-cap");
+  }
+
+  SECTION("child artifacts retain the per-node cap") {
+    auto entry = entry_with_children(1);
+    entry.children.front().artifacts.clear();
+    for (std::size_t i = 0; i < 256U; ++i) {
+      entry.children.front().artifacts.push_back(child_artifact(0, i));
+    }
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(as_stub(manifest_json_with({entry}))));
+    REQUIRE(at_cap.has_value());
+    CHECK(at_cap->agent_sessions.front().stub_member_footprint.size() ==
+          257U);
+    entry.children.front().artifacts.push_back(child_artifact(0, 256));
+    require_cap(as_stub(manifest_json_with({entry})),
+                "children-artifacts-per-node-cap");
+  }
+
+  SECTION("the entry total cap includes entry and child artifacts") {
+    const auto at_cap = biv::manifest::parse(bytes_of(as_stub(
+        manifest_json_with({entry_with_total_artifacts(4096)}))));
+    REQUIRE(at_cap.has_value());
+    CHECK(at_cap->agent_sessions.front().stub_member_footprint.size() ==
+          4096U);
+    require_cap(as_stub(manifest_json_with({entry_with_total_artifacts(4097)})),
+                "entry-artifacts-total-cap");
+  }
+}
+
+TEST_CASE("Manifest reader enforces the complete parent-edge tree contract") {
+  constexpr std::string_view parent_edge =
+      "\"parent_id\": \"019f-bbbb\",";
+  const auto base = manifest_json_with_parent_edge(2);
+
+  const auto direct = biv::manifest::parse(
+      bytes_of(manifest_json_with({codex_session_entry()})));
+  REQUIRE(direct.has_value());
+  REQUIRE(direct->agent_sessions.front().children.size() == 1U);
+  CHECK_FALSE(
+      direct->agent_sessions.front().children.front().parent_id.has_value());
+
+  const auto require_refused = [](const std::string& json) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+  };
+
+  SECTION("explicit primary parent is not a second encoding of absence") {
+    require_refused(replace_once(
+        base, parent_edge, "\"parent_id\": \"019f-aaaa\","));
+  }
+  SECTION("parent must name another member of the same entry") {
+    require_refused(replace_once(
+        base, parent_edge, "\"parent_id\": \"019f-dddd\","));
+  }
+  SECTION("child ids are unique") {
+    require_refused(replace_once(
+        base, "\"original_id\": \"019f-cccc\"," ,
+        "\"original_id\": \"019f-bbbb\","));
+  }
+  SECTION("child id cannot collide with the primary") {
+    require_refused(replace_once(
+        base, "\"original_id\": \"019f-cccc\"," ,
+        "\"original_id\": \"019f-aaaa\","));
+  }
+  SECTION("self loops are refused") {
+    require_refused(replace_once(
+        base, parent_edge, "\"parent_id\": \"019f-cccc\","));
+  }
+  SECTION("longer cycles are refused by an iterative walk") {
+    auto cycle = replace_once(
+        base, "\"original_id\": \"019f-bbbb\"," ,
+        "\"original_id\": \"019f-bbbb\",\n"
+        "        \"parent_id\": \"019f-cccc\",");
+    require_refused(cycle);
+  }
+  SECTION("declared children carry at least one artifact") {
+    require_refused(replace_once(
+        base, "\"agents/codex/019f-cccc.jsonl\"", ""));
+  }
+  SECTION("present null is refused rather than aliased to absence") {
+    require_refused(
+        replace_once(base, parent_edge, "\"parent_id\": null,"));
+  }
+  SECTION("duplicate parent_id is refused before first-wins access") {
+    require_refused(replace_once(
+        base, parent_edge,
+        "\"parent_id\": \"019f-bbbb\",\n"
+        "        \"parent_id\": \"019f-bbbb\","));
+  }
+  SECTION("duplicate original_id is refused before first-wins access") {
+    require_refused(replace_once(
+        base, "\"original_id\": \"019f-bbbb\"," ,
+        "\"original_id\": \"019f-bbbb\",\n"
+        "        \"original_id\": \"019f-bbbb\","));
+  }
+  SECTION("duplicate artifacts is refused before first-wins access") {
+    auto duplicate_artifacts = base;
+    const auto child_pos =
+        duplicate_artifacts.find("\"original_id\": \"019f-bbbb\"");
+    REQUIRE(child_pos != std::string::npos);
+    const auto artifacts_pos =
+        duplicate_artifacts.find("\"artifacts\":", child_pos);
+    REQUIRE(artifacts_pos != std::string::npos);
+    duplicate_artifacts.insert(artifacts_pos, "\"artifacts\": [],\n        ");
+    require_refused(duplicate_artifacts);
+  }
+}
+
+TEST_CASE("Manifest reader enforces all four per-entry graph caps") {
+  constexpr std::string_view primary_id = "019f-aaaa";
+  const auto require_cap_refused = [primary_id](const std::string& json,
+                                                 const std::string_view cap) {
+    const auto parsed = biv::manifest::parse(bytes_of(json));
+    REQUIRE_FALSE(parsed.has_value());
+    CHECK(parsed.error().kind == biv::ErrKind::ParseError);
+    CHECK(parsed.error().detail.find(cap) != std::string::npos);
+    CHECK(parsed.error().detail.find(primary_id) != std::string::npos);
+  };
+
+  SECTION("node cap accepts 1024 and short-circuits on the 1025th element") {
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(manifest_json_with({entry_with_children(1024)})));
+    REQUIRE(at_cap.has_value());
+    REQUIRE(at_cap->agent_sessions.front().children.size() == 1024U);
+
+    auto over_cap = manifest_json_with({entry_with_children(1025)});
+    over_cap = replace_once(std::move(over_cap), child_artifact(1024, 0),
+                            "../must-not-be-read");
+    require_cap_refused(over_cap, "children-node-cap");
+  }
+
+  SECTION("parent depth accepts 64 and refuses 65") {
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(manifest_json_with_parent_chain(64)));
+    REQUIRE(at_cap.has_value());
+    require_cap_refused(manifest_json_with_parent_chain(65),
+                        "children-depth-cap");
+  }
+
+  SECTION("artifacts per child accepts 256 and refuses 257") {
+    auto at_cap_entry = entry_with_children(1);
+    at_cap_entry.children.front().artifacts.clear();
+    for (std::size_t i = 0; i < 256U; ++i) {
+      at_cap_entry.children.front().artifacts.push_back(child_artifact(0, i));
+    }
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(manifest_json_with({at_cap_entry})));
+    REQUIRE(at_cap.has_value());
+
+    auto over_cap_entry = at_cap_entry;
+    over_cap_entry.children.front().artifacts.push_back(child_artifact(0, 256));
+    require_cap_refused(manifest_json_with({over_cap_entry}),
+                        "children-artifacts-per-node-cap");
+  }
+
+  SECTION("total artifacts accepts 4096 and refuses 4097") {
+    const auto at_cap = biv::manifest::parse(
+        bytes_of(manifest_json_with({entry_with_total_artifacts(4096)})));
+    REQUIRE(at_cap.has_value());
+    require_cap_refused(
+        manifest_json_with({entry_with_total_artifacts(4097)}),
+        "entry-artifacts-total-cap");
+  }
+}
+
+TEST_CASE("Manifest writer emits only non-primary parent edges and bumps schema conditionally") {
+  auto transitive = codex_session_entry();
+  transitive.children.push_back(
+      {.original_id = "019f-cccc",
+       .artifacts = {"agents/codex/019f-cccc.jsonl"},
+       .parent_id = "019f-bbbb"});
+  transitive.entry_schema = 1;
+
+  const auto transitive_json = manifest_json_with({transitive});
+  CHECK(transitive_json.find("\"parent_id\": \"019f-bbbb\"") !=
+        std::string::npos);
+  CHECK(transitive_json.find("\"entry_schema\": 2") != std::string::npos);
+  const auto transitive_round_trip =
+      biv::manifest::parse(bytes_of(transitive_json));
+  REQUIRE(transitive_round_trip.has_value());
+  REQUIRE(transitive_round_trip->agent_sessions.front().children.size() == 2U);
+  CHECK(transitive_round_trip->agent_sessions.front().children.back().parent_id ==
+        std::optional<std::string>{"019f-bbbb"});
+
+  auto direct = codex_session_entry();
+  direct.children.front().parent_id = direct.original_session_ids.primary;
+  direct.entry_schema = 2;
+  const auto direct_json = manifest_json_with({direct});
+  CHECK(direct_json.find("\"parent_id\"") == std::string::npos);
+  CHECK(direct_json.find("\"entry_schema\": 1") != std::string::npos);
+  const auto direct_round_trip = biv::manifest::parse(bytes_of(direct_json));
+  REQUIRE(direct_round_trip.has_value());
+  REQUIRE(direct_round_trip->agent_sessions.front().children.size() == 1U);
+  CHECK_FALSE(
+      direct_round_trip->agent_sessions.front().children.front().parent_id.has_value());
 }
 
 TEST_CASE("Manifest parser accepts null parents and rejects empty parent artifacts") {

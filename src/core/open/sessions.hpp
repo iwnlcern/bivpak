@@ -14,12 +14,15 @@
 
 namespace biv::core_sessions {
 
+inline constexpr int kEntrySchemaSupportedCeiling = 1;
+
 struct AgentPreview {
   std::string agent;
-  size_t parent_count{0};
-  size_t child_count{0};
+  size_t primary_count{0};
+  size_t descendant_count{0};
   bool known_adapter{false};
-  bool entry_schema_skipped{false};
+  size_t entry_schema_skipped_count{0};
+  size_t entry_schema_unparsed_count{0};
   std::optional<adapters::Capabilities> caps;
   std::optional<adapters::Store> store;
   const adapters::AgentAdapter* adapter{nullptr};
@@ -28,6 +31,7 @@ struct AgentPreview {
 struct SessionPreview {
   std::vector<AgentPreview> agents;
   bool any_sessions() const;
+  bool any_entry_schema_skipped() const;
 };
 
 enum class ConsentSource { flag, prompt, deny_default };
@@ -48,6 +52,7 @@ struct SessionRowReport {
     session_install_failed,
     unknown_agent_skipped,
     sessions_consent_skipped,
+    sessions_staged, /* m-3 spelling at consumer review */
     agent_not_validated_failed,
   } row{Row::failed};
   std::optional<std::string> reason;

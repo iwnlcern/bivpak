@@ -1994,12 +1994,12 @@ def test_drift_tripwire_ignores_write_side_install_change(tmp_path):
     shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
     source = repo / "src/adapters/claude_code/install.cpp"
     text = source.read_text(encoding="utf-8")
-    old = 'target.target_store.root / "projects" / project_key'
+    old = 'install_root / "projects" / project_key_for_record(record)'
     assert old in text
     source.write_text(
         text.replace(
             old,
-            'target.target_store.root / "projects_moved" / project_key',
+            'install_root / "projects_moved" / project_key_for_record(record)',
             1,
         ),
         encoding="utf-8",

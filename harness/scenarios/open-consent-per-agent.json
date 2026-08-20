@@ -10,9 +10,10 @@
   ],
   "expect": {
     "tree": true,
+    "tree_allowed_extra_roots": [".biv/agents"],
     "manifest_variant": "builtin",
     "session_rows": [
-      {"agent": "claude-code", "outcome": "skipped", "reason": "consent-denied"},
+      {"agent": "claude-code", "outcome": "staged", "kind": "SessionsStaged"},
       {"agent": "codex", "outcome": "installed"}
     ],
     "target_delta": {"claude-code": "unchanged", "codex": "changed"}

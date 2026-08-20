@@ -122,7 +122,19 @@ void write_open_manifest_summary(json::Writer& writer,
     writer.key("agent");
     writer.value_string(agent.agent);
     writer.key("session_count");
-    writer.value_int(static_cast<int64_t>(agent.parent_count + agent.child_count));
+    writer.value_int(static_cast<int64_t>(agent.primary_count + agent.descendant_count));
+    writer.key("primary_count");
+    writer.value_int(static_cast<int64_t>(agent.primary_count));
+    writer.key("descendant_count");
+    writer.value_int(static_cast<int64_t>(agent.descendant_count));
+    if (agent.entry_schema_skipped_count != 0U) {
+      writer.key("entry_schema_skipped_count");
+      writer.value_int(static_cast<int64_t>(agent.entry_schema_skipped_count));
+    }
+    if (agent.entry_schema_unparsed_count != 0U) {
+      writer.key("entry_schema_unparsed_count");
+      writer.value_int(static_cast<int64_t>(agent.entry_schema_unparsed_count));
+    }
     writer.end_object();
   }
   writer.end_array();
@@ -219,6 +231,8 @@ std::string_view row_name(const core_sessions::SessionRowReport::Row row) {
     case core_sessions::SessionRowReport::Row::unknown_agent_skipped:
     case core_sessions::SessionRowReport::Row::sessions_consent_skipped:
       return "skipped";
+    case core_sessions::SessionRowReport::Row::sessions_staged:
+      return "staged";
     case core_sessions::SessionRowReport::Row::failed:
     case core_sessions::SessionRowReport::Row::containment_refused:
     case core_sessions::SessionRowReport::Row::session_install_failed:
@@ -393,6 +407,8 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::AgentNotValidatedFailed:
       return 2;
     case ErrKind::SessionsConsentSkipped:
+    case ErrKind::SessionsStaged:
+    case ErrKind::EntrySchemaSkipped:
       return 0;
     case ErrKind::SourceUnreadableRoot:
     case ErrKind::RepoDiscoveredUnsupported:

@@ -661,7 +661,12 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
             findings.extend(_check_prune_summary(pack_envelope, expect.get("prune_summary", [])))
             if expect.get("tree"):
                 _remove_expected_absences(expected, expect.get("members_absent", []))
-                tree_findings = compare_trees(expected, restored, load_tolerance())
+                tree_findings = compare_trees(
+                    expected,
+                    restored,
+                    load_tolerance(),
+                    expect.get("tree_allowed_extra_roots", []),
+                )
                 findings.extend(tree_findings)
                 exercised.update({"A", "B", "C"})
                 exercised.update(_classes_for_tree_findings(tree_findings))

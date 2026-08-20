@@ -139,6 +139,11 @@ manifest::PathFlavor path_flavor(const std::filesystem::path& path) {
   return manifest::PathFlavor::posix;
 }
 
+std::optional<manifest::PackerHome> packer_home_carrier(
+    const std::filesystem::path& home) {
+  return manifest::make_packer_home(home.generic_string());
+}
+
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink);
 
 expected<std::string> write_payload_member(container::TarWriter& writer,
@@ -376,30 +381,107 @@ struct ChildArtifactMatcher {
   }
 };
 
-manifest::AgentSessionEntry manifest_entry_for(const adapters::SessionRecord& session,
-                                               const std::filesystem::path& source,
-                                               const std::string& imported_at) {
+expected<manifest::AgentSessionEntry> manifest_entry_for(
+    const adapters::SessionRecord& session,
+    const std::filesystem::path& source,
+    const std::string& imported_at) {
+  constexpr std::size_t kChildrenNodeCap = 1024U;
+  constexpr std::size_t kChildrenDepthCap = 64U;
+  constexpr std::size_t kChildArtifactsPerNodeCap = 256U;
+  constexpr std::size_t kEntryArtifactsTotalCap = 4096U;
+  const auto cap_error = [&](const std::string_view cap) {
+    return BivError{ErrKind::ArchiveWriteFailed, session.original_session_id,
+                    std::string{cap} + " entry=" +
+                        session.original_session_id};
+  };
+
+  std::map<std::string, std::string> parent_by_child;
+  for (const auto& [child, parent] : session.child_parent_map) {
+    parent_by_child.insert_or_assign(child, parent);
+  }
+  for (const auto& child_id : session.child_ids) {
+    std::size_t depth = 1U;
+    std::string cursor = child_id;
+    std::set<std::string> visited;
+    auto edge = parent_by_child.find(cursor);
+    while (edge != parent_by_child.end() &&
+           edge->second != session.original_session_id) {
+      if (!visited.insert(cursor).second || depth == kChildrenDepthCap) {
+        return std::unexpected(cap_error("children-depth-cap"));
+      }
+      ++depth;
+      cursor = edge->second;
+      edge = parent_by_child.find(cursor);
+    }
+  }
+
   std::vector<manifest::SessionChild> children;
   std::vector<std::string> parent_artifacts;
+  std::size_t total_artifacts = 0U;
   for (const auto& child_id : session.child_ids) {
-    const ChildArtifactMatcher child_matcher{.child_id = child_id};
+    if (children.size() == kChildrenNodeCap) {
+      return std::unexpected(cap_error("children-node-cap"));
+    }
     std::vector<std::string> child_artifacts;
-    for (const auto& artifact : session.artifacts) {
-      if (child_matcher.matches(artifact)) {
-        child_artifacts.push_back(artifact);
+    const auto append_child_artifact = [&](const std::string& artifact)
+        -> expected<void> {
+      if (child_artifacts.size() == kChildArtifactsPerNodeCap) {
+        return std::unexpected(
+            cap_error("children-artifacts-per-node-cap"));
+      }
+      if (total_artifacts == kEntryArtifactsTotalCap) {
+        return std::unexpected(cap_error("entry-artifacts-total-cap"));
+      }
+      child_artifacts.push_back(artifact);
+      ++total_artifacts;
+      return {};
+    };
+    for (const auto& [mapped_child, artifact] : session.child_artifact_map) {
+      if (mapped_child == child_id) {
+        if (auto appended = append_child_artifact(artifact); !appended) {
+          return std::unexpected(appended.error());
+        }
       }
     }
-    children.push_back(manifest::SessionChild{.original_id = child_id, .artifacts = std::move(child_artifacts)});
+    if (child_artifacts.empty()) {
+      const ChildArtifactMatcher child_matcher{.child_id = child_id};
+      for (const auto& artifact : session.artifacts) {
+        if (child_matcher.matches(artifact)) {
+          if (auto appended = append_child_artifact(artifact); !appended) {
+            return std::unexpected(appended.error());
+          }
+        }
+      }
+    }
+    std::optional<std::string> parent_id;
+    if (const auto parent = parent_by_child.find(child_id);
+        parent != parent_by_child.end() &&
+        parent->second != session.original_session_id) {
+      parent_id = parent->second;
+    }
+    children.push_back(manifest::SessionChild{
+        .original_id = child_id,
+        .artifacts = std::move(child_artifacts),
+        .parent_id = std::move(parent_id)});
   }
   for (const auto& artifact : session.artifacts) {
-    const bool belongs_to_child = std::ranges::any_of(session.child_ids, [&](const std::string& child_id) {
+    const bool explicitly_mapped = std::ranges::any_of(session.child_artifact_map, [&](const auto& mapping) {
+      return mapping.second == artifact;
+    });
+    const bool belongs_to_child = explicitly_mapped || std::ranges::any_of(session.child_ids, [&](const std::string& child_id) {
       return ChildArtifactMatcher{.child_id = child_id}.matches(artifact);
     });
     if (!belongs_to_child) {
+      if (total_artifacts == kEntryArtifactsTotalCap) {
+        return std::unexpected(cap_error("entry-artifacts-total-cap"));
+      }
+      ++total_artifacts;
       parent_artifacts.push_back(artifact);
     }
   }
 
+  const bool has_parent_edge = std::ranges::any_of(
+      children, [](const auto& child) { return child.parent_id.has_value(); });
   return manifest::AgentSessionEntry{
       .agent = session.agent,
       .agent_version_at_pack = session.agent_version_at_pack,
@@ -419,7 +501,7 @@ manifest::AgentSessionEntry manifest_entry_for(const adapters::SessionRecord& se
       .artifacts = std::move(parent_artifacts),
       .live_at_pack = session.live_at_pack,
       .imported_at = imported_at,
-      .entry_schema = 1};
+      .entry_schema = has_parent_edge ? 2 : 1};
 }
 
 void add_summary(PackReport& report, std::string_view agent) {
@@ -535,9 +617,6 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     if (!stores) {
       return cleanup_error(stores.error());
     }
-    if (stores->empty()) {
-      continue;
-    }
     auto collected = adapter->collect(source, *stores);
     if (!collected) {
       return cleanup_error(collected.error());
@@ -600,12 +679,23 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         report.warnings.push_back(Warning{.kind = std::string{kWarningSessionLiveAtPack},
                                           .path = session.original_session_id});
       }
+      for (const auto& torn_tail : session.torn_tails) {
+        report.warnings.push_back(Warning{.kind = torn_tail.retained
+                                                     ? "TornTailRetained"
+                                                     : std::string{kWarningTornTailDropped},
+                                          .path = session.original_session_id,
+                                          .artifact = torn_tail.artifact,
+                                          .bytes = torn_tail.bytes});
+      }
       auto entry = manifest_entry_for(session, source, created.rfc3339);
-      if (entry.artifacts.empty()) {
+      if (!entry) {
+        return cleanup_error(entry.error());
+      }
+      if (entry->artifacts.empty()) {
         return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
                                       "adapter-parent-artifacts-empty"});
       }
-      report.agent_sessions.push_back(std::move(entry));
+      report.agent_sessions.push_back(std::move(*entry));
       add_summary(report, session.agent);
       collected_sessions.push_back(std::move(session));
     }
@@ -668,6 +758,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .created_at = created.rfc3339,
       .source_path = source.generic_string(),
       .source_path_flavor = report.flavor,
+      .packer_home = packer_home_carrier(env.home),
       .agent_sessions = report.agent_sessions,
       .bivignore = scan_result->bivignore,
   };
@@ -736,6 +827,13 @@ std::string warning_text(const Warning& warning) {
     return "warning: torn tail dropped from " +
            terminal_safe(*warning.artifact) + ": " +
            std::to_string(*warning.bytes) + " bytes";
+  }
+  if (warning.kind == "TornTailRetained" &&
+      warning.artifact.has_value() && warning.bytes.has_value()) {
+    return "warning: torn tail retained in " +
+           terminal_safe(*warning.artifact) + ": " +
+           std::to_string(*warning.bytes) +
+           " bytes; install will refuse this session";
   }
   auto rendered = "warning: " + terminal_safe(warning.kind);
   if (!warning.path.empty()) {

@@ -1,9 +1,12 @@
 #include "core/manifest/manifest.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <set>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 
 #if defined(__clang__)
 #pragma GCC diagnostic push
@@ -21,6 +24,17 @@
 namespace biv::manifest {
 
 namespace {
+
+constexpr std::size_t kSessionChildrenCap = 1024U;
+constexpr std::size_t kSessionParentDepthCap = 64U;
+constexpr std::size_t kSessionArtifactsPerNodeCap = 256U;
+constexpr std::size_t kSessionArtifactsTotalCap = 4096U;
+
+BivError entry_cap_error(const std::string_view primary_id,
+                         const std::string_view cap) {
+  return BivError{ErrKind::ParseError, {},
+                  std::string{cap} + " entry=" + std::string{primary_id}};
+}
 
 expected<std::string> required_string(simdjson::dom::object object, std::string_view key) {
   std::string_view value;
@@ -78,6 +92,28 @@ expected<std::vector<std::string>> required_string_array(simdjson::dom::object o
   return out;
 }
 
+expected<std::vector<std::string>> optional_string_array(
+    simdjson::dom::object object, const std::string_view key) {
+  simdjson::dom::array array;
+  if (const auto error = object.at_key(key).get(array);
+      error == simdjson::NO_SUCH_FIELD) {
+    return std::vector<std::string>{};
+  } else if (error) {
+    return std::unexpected(
+        BivError{ErrKind::ParseError, {}, std::string{key}});
+  }
+  std::vector<std::string> out;
+  for (auto element : array) {
+    std::string_view value;
+    if (const auto error = element.get(value); error) {
+      return std::unexpected(
+          BivError{ErrKind::ParseError, {}, std::string{key}});
+    }
+    out.emplace_back(value);
+  }
+  return out;
+}
+
 expected<void> require_empty_array(simdjson::dom::object object, std::string_view key) {
   simdjson::dom::element element;
   if (const auto error = object.at_key(key).get(element); error == simdjson::NO_SUCH_FIELD) {
@@ -129,6 +165,25 @@ expected<std::optional<bool>> optional_bool(simdjson::dom::object object, std::s
   return std::optional<bool>{value};
 }
 
+expected<std::optional<std::string>> optional_nonnull_string(
+    simdjson::dom::object object, const std::string_view key) {
+  simdjson::dom::element element;
+  if (const auto error = object.at_key(key).get(element);
+      error == simdjson::NO_SUCH_FIELD) {
+    return std::optional<std::string>{};
+  } else if (error || element.is_null()) {
+    return std::unexpected(
+        BivError{ErrKind::ParseError, {}, std::string{key}});
+  }
+
+  std::string_view value;
+  if (const auto error = element.get(value); error) {
+    return std::unexpected(
+        BivError{ErrKind::ParseError, {}, std::string{key}});
+  }
+  return std::optional<std::string>{std::string{value}};
+}
+
 bool starts_with_json_object(std::string_view text) {
   const auto pos = text.find_first_not_of(" \t\r\n");
   return pos != std::string_view::npos && text.at(pos) == '{';
@@ -164,6 +219,119 @@ expected<void> validate_artifacts(std::string_view agent, const std::vector<std:
   return {};
 }
 
+expected<void> validate_stub_entry_footprint_keys(
+    simdjson::dom::object object) {
+  bool artifacts_seen = false;
+  bool children_seen = false;
+  for (const auto field : object) {
+    if (field.key == "artifacts") {
+      if (artifacts_seen) {
+        return std::unexpected(BivError{
+            ErrKind::ParseError, {},
+            "stub-footprint-entry-artifacts-duplicate-key"});
+      }
+      artifacts_seen = true;
+    } else if (field.key == "children") {
+      if (children_seen) {
+        return std::unexpected(BivError{
+            ErrKind::ParseError, {},
+            "stub-footprint-entry-children-duplicate-key"});
+      }
+      children_seen = true;
+    }
+  }
+  return {};
+}
+
+expected<void> validate_stub_child_footprint_keys(
+    simdjson::dom::object child) {
+  bool artifacts_seen = false;
+  for (const auto field : child) {
+    if (field.key != "artifacts") {
+      continue;
+    }
+    if (artifacts_seen) {
+      return std::unexpected(BivError{
+          ErrKind::ParseError, {},
+          "stub-footprint-child-artifacts-duplicate-key"});
+    }
+    artifacts_seen = true;
+  }
+  return {};
+}
+
+BivError stub_cap_error(const std::string_view cap) {
+  return BivError{ErrKind::ParseError, {}, std::string{cap}};
+}
+
+expected<std::vector<std::string>> parse_stub_member_footprint(
+    simdjson::dom::object object, const std::string_view agent) {
+  if (auto unique_keys = validate_stub_entry_footprint_keys(object);
+      !unique_keys) {
+    return std::unexpected(unique_keys.error());
+  }
+
+  auto entry_artifacts = optional_string_array(object, "artifacts");
+  if (!entry_artifacts) {
+    return std::unexpected(entry_artifacts.error());
+  }
+  if (entry_artifacts->size() > kSessionArtifactsPerNodeCap) {
+    return std::unexpected(
+        stub_cap_error("entry-artifacts-per-node-cap"));
+  }
+  if (auto valid = validate_artifacts(agent, *entry_artifacts); !valid) {
+    return std::unexpected(valid.error());
+  }
+
+  std::vector<std::string> footprint = std::move(*entry_artifacts);
+  simdjson::dom::array children;
+  if (const auto error = object.at_key("children").get(children);
+      error == simdjson::NO_SUCH_FIELD) {
+    return footprint;
+  } else if (error) {
+    return std::unexpected(
+        BivError{ErrKind::ParseError, {}, "children"});
+  }
+
+  std::size_t child_count = 0U;
+  for (auto element : children) {
+    if (child_count == kSessionChildrenCap) {
+      return std::unexpected(stub_cap_error("children-node-cap"));
+    }
+    ++child_count;
+
+    simdjson::dom::object child;
+    if (const auto error = element.get(child); error) {
+      return std::unexpected(
+          BivError{ErrKind::ParseError, {}, "children"});
+    }
+    if (auto unique_keys = validate_stub_child_footprint_keys(child);
+        !unique_keys) {
+      return std::unexpected(unique_keys.error());
+    }
+    auto child_artifacts = optional_string_array(child, "artifacts");
+    if (!child_artifacts) {
+      return std::unexpected(child_artifacts.error());
+    }
+    if (child_artifacts->size() > kSessionArtifactsPerNodeCap) {
+      return std::unexpected(
+          stub_cap_error("children-artifacts-per-node-cap"));
+    }
+    if (auto valid = validate_artifacts(agent, *child_artifacts); !valid) {
+      return std::unexpected(valid.error());
+    }
+    if (child_artifacts->size() >
+        kSessionArtifactsTotalCap - footprint.size()) {
+      return std::unexpected(
+          stub_cap_error("entry-artifacts-total-cap"));
+    }
+    footprint.insert(footprint.end(),
+                     std::make_move_iterator(child_artifacts->begin()),
+                     std::make_move_iterator(child_artifacts->end()));
+  }
+  return footprint;
+}
+
 expected<PathFlavor> parse_entry_path_flavor(std::string_view value) {
   if (value == "posix") {
     return PathFlavor::posix;
@@ -177,7 +345,33 @@ expected<PathFlavor> parse_entry_path_flavor(std::string_view value) {
   return std::unexpected(BivError{ErrKind::ParseError, {}, "path_flavor"});
 }
 
-expected<std::vector<SessionChild>> parse_session_children(simdjson::dom::object object, std::string_view agent) {
+expected<void> validate_child_keys_unique(simdjson::dom::object child) {
+  bool original_id_seen = false;
+  bool artifacts_seen = false;
+  bool parent_id_seen = false;
+  for (const auto field : child) {
+    bool* seen = nullptr;
+    if (field.key == "original_id") {
+      seen = &original_id_seen;
+    } else if (field.key == "artifacts") {
+      seen = &artifacts_seen;
+    } else if (field.key == "parent_id") {
+      seen = &parent_id_seen;
+    }
+    if (seen != nullptr && *seen) {
+      return std::unexpected(
+          BivError{ErrKind::ParseError, {}, "children-duplicate-key"});
+    }
+    if (seen != nullptr) {
+      *seen = true;
+    }
+  }
+  return {};
+}
+
+expected<std::vector<SessionChild>> parse_session_children(
+    simdjson::dom::object object, const std::string& agent,
+    const std::string_view primary_id) {
   simdjson::dom::array array;
   if (const auto error = object.at_key("children").get(array); error) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "children"});
@@ -185,20 +379,86 @@ expected<std::vector<SessionChild>> parse_session_children(simdjson::dom::object
 
   std::vector<SessionChild> out;
   for (auto element : array) {
+    if (out.size() == kSessionChildrenCap) {
+      return std::unexpected(
+          entry_cap_error(primary_id, "children-node-cap"));
+    }
     simdjson::dom::object child_object;
     if (const auto error = element.get(child_object); error) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "children"});
     }
+    if (auto unique_keys = validate_child_keys_unique(child_object);
+        !unique_keys) {
+      return std::unexpected(unique_keys.error());
+    }
     auto original_id = required_string(child_object, "original_id");
     auto artifacts = required_string_array(child_object, "artifacts");
-    if (!original_id || !artifacts || !grammar::session_id_ok(*original_id)) {
+    auto parent_id = optional_nonnull_string(child_object, "parent_id");
+    if (!original_id || !artifacts || !parent_id ||
+        !grammar::session_id_ok(*original_id) ||
+        (parent_id->has_value() && !grammar::session_id_ok(**parent_id))) {
       return std::unexpected(BivError{ErrKind::ParseError, {}, "children"});
     }
     auto valid = validate_artifacts(agent, *artifacts);
     if (!valid) {
       return std::unexpected(valid.error());
     }
-    out.push_back(SessionChild{.original_id = std::move(*original_id), .artifacts = std::move(*artifacts)});
+    if (artifacts->empty()) {
+      return std::unexpected(
+          BivError{ErrKind::ParseError, {}, "children-artifacts-empty"});
+    }
+    if (artifacts->size() > kSessionArtifactsPerNodeCap) {
+      return std::unexpected(entry_cap_error(
+          primary_id, "children-artifacts-per-node-cap"));
+    }
+    out.push_back(SessionChild{.original_id = std::move(*original_id),
+                               .artifacts = std::move(*artifacts),
+                               .parent_id = std::move(*parent_id)});
+  }
+
+  std::unordered_map<std::string, std::size_t> child_by_id;
+  child_by_id.reserve(out.size());
+  for (std::size_t i = 0; i < out.size(); ++i) {
+    const auto& child = out.at(i);
+    if (child.original_id == primary_id ||
+        !child_by_id.emplace(child.original_id, i).second) {
+      return std::unexpected(
+          BivError{ErrKind::ParseError, {}, "children-node-uniqueness"});
+    }
+  }
+
+  for (const auto& child : out) {
+    if (!child.parent_id.has_value()) {
+      continue;
+    }
+    if (*child.parent_id == primary_id ||
+        !child_by_id.contains(*child.parent_id)) {
+      return std::unexpected(
+          BivError{ErrKind::ParseError, {}, "children-parent-tree"});
+    }
+  }
+
+  for (std::size_t start = 0; start < out.size(); ++start) {
+    std::unordered_set<std::size_t> visited;
+    std::size_t current = start;
+    std::size_t depth = 1U;
+    while (true) {
+      if (!visited.insert(current).second) {
+        return std::unexpected(
+            BivError{ErrKind::ParseError, {}, "children-parent-tree"});
+      }
+      if (depth > kSessionParentDepthCap) {
+        return std::unexpected(
+            entry_cap_error(primary_id, "children-depth-cap"));
+      }
+      const auto parent_id =
+          out.at(current).parent_id.value_or(std::string{});
+      if (parent_id.empty()) {
+        break;
+      }
+      current = child_by_id.at(parent_id);
+      ++depth;
+    }
   }
   return out;
 }
@@ -222,7 +482,12 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   if (entry.entry_schema < 1) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "entry_schema"});
   }
-  if (entry.entry_schema > 1) {
+  if (entry.entry_schema > kEntrySchemaParseCeiling) {
+    auto footprint = parse_stub_member_footprint(object, entry.agent);
+    if (!footprint) {
+      return std::unexpected(footprint.error());
+    }
+    entry.stub_member_footprint = std::move(*footprint);
     return entry;
   }
 
@@ -281,11 +546,15 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   entry.original_session_ids = {
       .primary = std::move(*primary), .parent = std::move(*parent), .parent_in_image = *parent_in_image};
 
-  auto children = parse_session_children(object, entry.agent);
+  auto children = parse_session_children(
+      object, entry.agent, entry.original_session_ids.primary);
+  if (!children) {
+    return std::unexpected(children.error());
+  }
   auto artifacts = required_string_array(object, "artifacts");
   auto live_at_pack = required_bool(object, "live_at_pack");
   auto imported_at = required_string(object, "imported_at");
-  if (!children || !artifacts || !live_at_pack || !imported_at) {
+  if (!artifacts || !live_at_pack || !imported_at) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "agent-session-field"});
   }
   auto valid = validate_artifacts(entry.agent, *artifacts);
@@ -294,6 +563,14 @@ expected<AgentSessionEntry> parse_agent_session(simdjson::dom::object object) {
   }
   if (artifacts->empty()) {
     return std::unexpected(BivError{ErrKind::ParseError, {}, "artifacts-empty"});
+  }
+  std::size_t artifact_count = artifacts->size();
+  for (const auto& child : *children) {
+    artifact_count += child.artifacts.size();
+  }
+  if (artifact_count > kSessionArtifactsTotalCap) {
+    return std::unexpected(entry_cap_error(
+        entry.original_session_ids.primary, "entry-artifacts-total-cap"));
   }
   entry.children = std::move(*children);
   entry.artifacts = std::move(*artifacts);
@@ -345,6 +622,12 @@ expected<std::vector<AgentSessionEntry>> parse_agent_sessions(simdjson::dom::obj
         }
       }
     }
+    for (const auto& artifact : entry->stub_member_footprint) {
+      if (!seen_artifacts.insert(artifact).second) {
+        return std::unexpected(BivError{ErrKind::ParseError, {},
+                                        "artifact-uniqueness"});
+      }
+    }
     out.push_back(std::move(*entry));
   }
   for (const auto& entry : out) {
@@ -373,6 +656,11 @@ void write_string_array(json::Writer& writer, const std::vector<std::string>& va
 }
 
 void write_agent_session(json::Writer& writer, const AgentSessionEntry& entry) {
+  const bool has_parent_edge =
+      std::ranges::any_of(entry.children, [&entry](const SessionChild& child) {
+        return child.parent_id.has_value() &&
+               *child.parent_id != entry.original_session_ids.primary;
+      });
   writer.begin_object();
   writer.key("agent");
   writer.value_string(entry.agent);
@@ -418,6 +706,11 @@ void write_agent_session(json::Writer& writer, const AgentSessionEntry& entry) {
     writer.begin_object();
     writer.key("original_id");
     writer.value_string(child.original_id);
+    if (child.parent_id.has_value() &&
+        *child.parent_id != entry.original_session_ids.primary) {
+      writer.key("parent_id");
+      writer.value_string(*child.parent_id);
+    }
     writer.key("artifacts");
     write_string_array(writer, child.artifacts);
     writer.end_object();
@@ -430,11 +723,63 @@ void write_agent_session(json::Writer& writer, const AgentSessionEntry& entry) {
   writer.key("imported_at");
   writer.value_string(entry.imported_at);
   writer.key("entry_schema");
-  writer.value_int(entry.entry_schema);
+  writer.value_int(has_parent_edge ? 2 : 1);
   writer.end_object();
 }
 
 }  // namespace
+
+namespace {
+
+bool carrier_ascii_alpha(const char value) {
+  return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z');
+}
+
+struct CarrierRoot {
+  PathFlavor flavor;
+  std::size_t root_length;
+};
+
+std::optional<CarrierRoot> classify_carrier_root(const std::string_view path) {
+  if (path.size() >= 7U && path.starts_with("/mnt/") &&
+      carrier_ascii_alpha(path.at(5)) && path.at(6) == '/') {
+    return CarrierRoot{.flavor = PathFlavor::wsl, .root_length = 7U};
+  }
+  if (path.starts_with(R"(\\?\)") || path.starts_with("//?/")) {
+    return CarrierRoot{.flavor = PathFlavor::windows, .root_length = 7U};
+  }
+  if (path.size() >= 3U && carrier_ascii_alpha(path.at(0)) &&
+      path.at(1) == ':' && (path.at(2) == '\\' || path.at(2) == '/')) {
+    return CarrierRoot{.flavor = PathFlavor::windows, .root_length = 3U};
+  }
+  if (path.starts_with('/')) {
+    return CarrierRoot{.flavor = PathFlavor::posix, .root_length = 1U};
+  }
+  return std::nullopt;
+}
+
+}  // namespace
+
+std::optional<PathFlavor> classify_absolute(const std::string_view path) {
+  const auto root = classify_carrier_root(path);
+  return root ? std::optional<PathFlavor>{root->flavor} : std::nullopt;
+}
+
+bool packer_home_valid(const PackerHome& value) {
+  const auto root = classify_carrier_root(value.path);
+  return root && root->flavor == value.flavor &&
+         value.path.size() > root->root_length;
+}
+
+std::optional<PackerHome> make_packer_home(const std::string_view path) {
+  const auto flavor = classify_absolute(path);
+  if (!flavor) {
+    return std::nullopt;
+  }
+  PackerHome value{.path = std::string{path}, .flavor = *flavor};
+  return packer_home_valid(value) ? std::optional<PackerHome>{std::move(value)}
+                                  : std::nullopt;
+}
 
 std::string to_string(const PathFlavor flavor) {
   switch (flavor) {
@@ -482,6 +827,12 @@ std::string serialize(const Manifest& manifest) {
   writer.value_string(manifest.source_path);
   writer.key("source_path_flavor");
   writer.value_string(to_string(manifest.source_path_flavor));
+  if (manifest.packer_home && packer_home_valid(*manifest.packer_home)) {
+    writer.key("packer_home");
+    writer.value_string(manifest.packer_home->path);
+    writer.key("packer_home_flavor");
+    writer.value_string(to_string(manifest.packer_home->flavor));
+  }
   writer.key("bivignore");
   writer.begin_object();
   writer.key("source");
@@ -567,6 +918,29 @@ expected<Manifest> parse(const std::span<const std::byte> bytes) {
       return std::unexpected(flavor.error());
     }
     manifest.source_path_flavor = *flavor;
+
+    auto packer_home_text = optional_string(object, "packer_home");
+    if (!packer_home_text) {
+      return std::unexpected(packer_home_text.error());
+    }
+    auto packer_home_flavor_text = optional_string(object, "packer_home_flavor");
+    if (!packer_home_flavor_text) {
+      return std::unexpected(packer_home_flavor_text.error());
+    }
+    if (packer_home_text->has_value() != packer_home_flavor_text->has_value()) {
+      return std::unexpected(BivError{ErrKind::ParseError, {}, "packer_home_flavor"});
+    }
+    if (packer_home_text->has_value()) {
+      auto packer_home_flavor = parse_path_flavor(**packer_home_flavor_text);
+      if (!packer_home_flavor) {
+        return std::unexpected(BivError{ErrKind::ParseError, {}, "packer_home_flavor"});
+      }
+      PackerHome value{.path = std::move(**packer_home_text), .flavor = *packer_home_flavor};
+      if (!packer_home_valid(value)) {
+        return std::unexpected(BivError{ErrKind::ParseError, {}, "packer_home"});
+      }
+      manifest.packer_home = std::move(value);
+    }
 
     simdjson::dom::object bivignore;
     if (const auto error = object.at_key("bivignore").get(bivignore); error) {

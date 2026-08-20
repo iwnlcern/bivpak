@@ -7,9 +7,11 @@
   "steps": [{"op": "pack"}, {"op": "open", "args": ["--consent", "no"]}],
   "expect": {
     "tree": true,
+    "tree_allowed_extra_roots": [".biv/agents"],
     "manifest_variant": "builtin",
-    "session_rows": [{"agent": "codex", "outcome": "skipped", "reason": "consent-denied"}],
-    "target_delta": {"codex": "unchanged"}
+    "session_rows": [{"agent": "codex", "outcome": "staged", "kind": "SessionsStaged", "host_version_unverified": false, "activation_suppressed": false}],
+    "target_delta": {"codex": "unchanged"},
+    "agent_caveats": {"codex": ["picker_gap: session may not appear in the default picker until first opened by id"]}
   },
   "held": []
 }

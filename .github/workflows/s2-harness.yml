@@ -65,14 +65,15 @@ jobs:
               for key in ("successes", "failures", "expectedFailures", "skips")
           }
           want = {
-              "successes": 221,
+              "successes": 410,
               "failures": 0,
               "expectedFailures": 0,
-              "skips": 2,
+              "skips": 3,
           }
           expected_skips = {
               "pack derives relpath from slash-form Windows extended paths",
               "pack computes foreign-flavor session relpaths without host path parsing",
+              "threshold-parity per-agent distribution self-activates at R-4.29",
           }
           skipped = {
               test_case.get("name"): (test_case.find("Skip").text or "").strip()
@@ -264,11 +265,14 @@ jobs:
               key: int(cases.get(key, 0))
               for key in ("successes", "failures", "expectedFailures", "skips")
           }
+          # The `want` counts in this job were observed with the `nofile` soft limit equal
+          # to the hard limit. The chartered local substitute raises the soft limit to the
+          # inherited hard limit inside its `runuser` drop before invoking the suite.
           want = {
-              "successes": 223,
+              "successes": 412,
               "failures": 0,
               "expectedFailures": 0,
-              "skips": 0,
+              "skips": 1,
           }
           print("catch2 cases:", got)
           if got != want:

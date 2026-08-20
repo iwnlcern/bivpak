@@ -24,6 +24,15 @@
 #include "adapters/version_floor.hpp"
 #include "core/support/portability.hpp"
 
+#if defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-literal-operator"
+#endif
+#include <simdjson.h>
+#if defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 namespace biv::adapters {
 
 namespace {
@@ -42,17 +51,25 @@ struct WritePlan {
   std::string artifact;
   fs::path path;
   std::string installed_id;
+  std::optional<std::string> expected_parent_id;
 };
 
 struct PreparedSession {
   manifest::AgentSessionEntry record;
   std::string installed_id;
   std::vector<std::pair<std::string, std::string>> child_ids;
+  std::vector<std::pair<std::string, std::string>> rewrite_ids;
+  std::map<std::string, std::string> installed_by_original;
+  std::vector<std::string> origin_ids;
   std::vector<WritePlan> writes;
+  std::optional<std::string> installed_parent_id;
   bool host_version_unverified{false};
   InstallVerify verify;
+  rewrite::ReplacementPairs pair_set_applied;
   std::vector<std::vector<std::byte>> outputs;
   size_t skipped_non_utf8{0};
+  std::optional<std::string> refusal_reason;
+  std::optional<std::string> refusal_detail;
 };
 
 bool ascii_alpha(const char value) {
@@ -150,21 +167,18 @@ std::optional<std::string> id_from_artifact(const std::string& artifact) {
   return id;
 }
 
-std::vector<std::pair<std::string, std::string>> id_pairs_for(const manifest::AgentSessionEntry& record,
-                                                              std::string_view installed_id,
-                                                              const std::vector<std::pair<std::string, std::string>>&
-                                                                  child_ids) {
-  std::vector<std::pair<std::string, std::string>> ids{{record.original_session_ids.primary, std::string{installed_id}}};
-  ids.insert(ids.end(), child_ids.begin(), child_ids.end());
-  return ids;
-}
-
-std::vector<std::string> origin_ids_for(const manifest::AgentSessionEntry& record) {
-  std::vector<std::string> ids{record.original_session_ids.primary};
-  for (const auto& child : record.children) {
-    ids.push_back(child.original_id);
+std::optional<std::string> identity_for_artifacts(
+    const std::vector<std::string>& artifacts,
+    const std::string_view fallback) {
+  if (artifacts.empty()) return std::string{fallback};
+  std::set<std::string> identities;
+  for (const auto& artifact : artifacts) {
+    const auto identity = id_from_artifact(artifact);
+    if (!identity.has_value()) return std::nullopt;
+    identities.insert(*identity);
   }
-  return ids;
+  if (identities.size() != 1U) return std::nullopt;
+  return *identities.begin();
 }
 
 std::optional<std::string> non_utf8_detail(const size_t skipped_non_utf8) {
@@ -174,10 +188,75 @@ std::optional<std::string> non_utf8_detail(const size_t skipped_non_utf8) {
   return "non_utf8_skipped=" + std::to_string(skipped_non_utf8);
 }
 
+bool jsonl_decodable(const std::span<const std::byte> bytes) {
+  return strict_jsonl_decodable(bytes, [](const std::string_view line) {
+    simdjson::padded_string padded{line}; simdjson::dom::parser parser;
+    simdjson::dom::element value; return !parser.parse(padded).get(value);
+  });
+}
+
+struct RolloutIdentities {
+  std::optional<std::string> id;
+  std::optional<std::string> session_id;
+  std::vector<std::string> parent_thread_ids;
+};
+
+RolloutIdentities rollout_identities(const std::span<const std::byte> bytes) {
+  std::string input;
+  input.reserve(bytes.size());
+  for (const auto byte : bytes) input.push_back(static_cast<char>(byte));
+  size_t start = 0U;
+  while (start < input.size()) {
+    const auto newline = input.find('\n', start);
+    const auto end = newline == std::string::npos ? input.size() : newline;
+    simdjson::padded_string padded{
+        std::string_view{input}.substr(start, end - start)};
+    simdjson::dom::parser parser;
+    simdjson::dom::element root;
+    simdjson::dom::object object;
+    std::string_view type;
+    simdjson::dom::object payload;
+    if (!parser.parse(padded).get(root) && !root.get(object) &&
+        !object.at_key("type").get(type) && type == "session_meta" &&
+        !object.at_key("payload").get(payload)) {
+      RolloutIdentities identities;
+      std::string_view value;
+      if (!payload.at_key("id").get(value)) {
+        identities.id = std::string{value};
+      }
+      if (!payload.at_key("session_id").get(value)) {
+        identities.session_id = std::string{value};
+      }
+      if (!payload.at_key("parent_thread_id").get(value)) {
+        identities.parent_thread_ids.emplace_back(value);
+      }
+      simdjson::dom::object source;
+      simdjson::dom::object subagent;
+      simdjson::dom::object thread_spawn;
+      if (!payload.at_key("source").get(source) &&
+          !source.at_key("subagent").get(subagent) &&
+          !subagent.at_key("thread_spawn").get(thread_spawn) &&
+          !thread_spawn.at_key("parent_thread_id").get(value)) {
+        identities.parent_thread_ids.emplace_back(value);
+      }
+      return identities;
+    }
+    if (newline == std::string::npos) break;
+    start = newline + 1U;
+  }
+  return {};
+}
+
 void merge_verify(InstallVerify& total, const InstallVerify& next) {
   total.origin_path_hits += next.origin_path_hits;
   total.origin_id_hits += next.origin_id_hits;
   total.artifacts_checked += next.artifacts_checked;
+}
+
+std::optional<std::string> verify_failure_detail(const InstallVerify& verify) {
+  if (verify.origin_path_hits != 0U) return "origin_path";
+  if (verify.origin_id_hits != 0U) return "origin_id";
+  return std::nullopt;
 }
 
 fs::path codex_root_for_host(const Host& host) {
@@ -289,26 +368,40 @@ expected<InstallResult> codex_install(const InstallTarget& target,
                                       const std::span<const manifest::AgentSessionEntry> records) {
   InstallResult result;
   result.mode = consent == Consent::yes ? InstallResult::Mode::host_installed : InstallResult::Mode::staged;
+  const auto install_root = consent == Consent::yes
+                                ? target.target_store.root
+                                : target.workspace_root / ".biv" / "agents" /
+                                      "codex";
+  const auto publish_root = consent == Consent::yes ? target.target_store.root
+                                                    : target.workspace_root;
   for (const auto& record : records) {
-    std::set<std::string> image_ids{record.original_session_ids.primary};
+    const bool staged = record.provenance.locator == "staging" &&
+                        record.provenance.discovery_tier == "staged";
+    std::set<std::string> image_ids;
+    const auto primary = identity_for_artifacts(
+        record.artifacts, record.original_session_ids.primary);
+    bool valid = primary.has_value() &&
+                 (staged || *primary == record.original_session_ids.primary) &&
+                 image_ids.insert(*primary).second;
     for (const auto& child : record.children) {
-      image_ids.insert(child.original_id);
+      const auto child_identity =
+          identity_for_artifacts(child.artifacts, child.original_id);
+      valid = valid && child_identity.has_value() &&
+              (staged || *child_identity == child.original_id) &&
+              image_ids.insert(*child_identity).second;
     }
-    for (const auto& artifact : all_artifacts(record)) {
-      const auto original_id = id_from_artifact(artifact);
-      if (!original_id.has_value() || !image_ids.contains(*original_id)) {
-        for (const auto& refused : records) {
-          result.sessions.push_back(InstallSessionOutcome{
-              .image_session_id = refused.original_session_ids.primary,
-              .outcome = InstallSessionOutcome::Outcome::failed,
-              .reason = "containment_refused",
-              .content_rewrite = std::nullopt,
-              .host_version_unverified = false,
-              .verify = {},
-              .detail = std::nullopt});
-        }
-        return result;
+    if (!valid) {
+      for (const auto& refused : records) {
+        result.sessions.push_back(InstallSessionOutcome{
+            .image_session_id = refused.original_session_ids.primary,
+            .outcome = InstallSessionOutcome::Outcome::failed,
+            .reason = "containment_refused",
+            .content_rewrite = std::nullopt,
+            .host_version_unverified = false,
+            .verify = {},
+            .detail = std::nullopt});
       }
+      return result;
     }
   }
 
@@ -331,20 +424,50 @@ expected<InstallResult> codex_install(const InstallTarget& target,
           .detail = std::string{admission.detail}});
       continue;
     }
+    const auto primary_identity =
+        identity_for_artifacts(record.artifacts,
+                               record.original_session_ids.primary)
+            .value();
     std::map<std::string, RolloutName> rollouts;
-    rollouts.emplace(record.original_session_ids.primary, mint_rollout_name());
+    rollouts.emplace(primary_identity, mint_rollout_name());
     PreparedSession prepared{.record = record,
-                             .installed_id = rollouts.at(record.original_session_ids.primary).id,
+                             .installed_id = rollouts.at(primary_identity).id,
                              .child_ids = {},
+                             .rewrite_ids = {{record.original_session_ids.primary,
+                                              rollouts.at(primary_identity).id}},
+                             .installed_by_original = {
+                                 {record.original_session_ids.primary,
+                                  rollouts.at(primary_identity).id}},
+                             .origin_ids = {record.original_session_ids.primary},
                              .writes = {},
+                             .installed_parent_id = std::nullopt,
                              .host_version_unverified =
                                  admission.host_version_unverified,
                              .verify = {},
+                             .pair_set_applied = {},
                              .outputs = {},
-                             .skipped_non_utf8 = 0};
+                             .skipped_non_utf8 = 0,
+                             .refusal_reason = std::nullopt,
+                             .refusal_detail = std::nullopt};
+    if (primary_identity != record.original_session_ids.primary) {
+      prepared.rewrite_ids.push_back(
+          {primary_identity, prepared.installed_id});
+      prepared.origin_ids.push_back(primary_identity);
+    }
     for (const auto& child : record.children) {
-      rollouts.emplace(child.original_id, mint_rollout_name());
-      prepared.child_ids.push_back({child.original_id, rollouts.at(child.original_id).id});
+      const auto child_identity =
+          identity_for_artifacts(child.artifacts, child.original_id).value();
+      rollouts.emplace(child_identity, mint_rollout_name());
+      const auto& installed_child = rollouts.at(child_identity).id;
+      prepared.child_ids.push_back({child.original_id, installed_child});
+      prepared.installed_by_original.insert_or_assign(child.original_id,
+                                                       installed_child);
+      prepared.rewrite_ids.push_back({child.original_id, installed_child});
+      prepared.origin_ids.push_back(child.original_id);
+      if (child_identity != child.original_id) {
+        prepared.rewrite_ids.push_back({child_identity, installed_child});
+        prepared.origin_ids.push_back(child_identity);
+      }
     }
     for (const auto& artifact : all_artifacts(record)) {
       auto original_id = id_from_artifact(artifact);
@@ -364,75 +487,178 @@ expected<InstallResult> codex_install(const InstallTarget& target,
         }
         return refused;
       }
-      const auto rollout_found = rollouts.find(*original_id);
-      const auto& rollout = rollout_found->second;
+      const auto& rollout = rollouts.at(*original_id);
       const auto path =
-          target.target_store.root / "sessions" / rollout.year / rollout.month /
+          install_root / "sessions" / rollout.year / rollout.month /
           rollout.day /
           ("rollout-" + rollout.file_stamp + "-" + rollout.id + ".jsonl");
+      std::optional<std::string> expected_parent_id;
+      const auto owning_child = std::ranges::find_if(
+          record.children, [&](const auto& child) {
+            return std::ranges::find(child.artifacts, artifact) !=
+                   child.artifacts.end();
+          });
+      if (owning_child != record.children.end() &&
+          owning_child->parent_id.has_value()) {
+        const auto installed_parent = prepared.installed_by_original.find(
+            *owning_child->parent_id);
+        if (installed_parent == prepared.installed_by_original.end()) {
+          prepared.refusal_reason = "containment_refused";
+          prepared.refusal_detail = "staged_identity_mismatch";
+        } else {
+          expected_parent_id = installed_parent->second;
+        }
+      }
       prepared.writes.push_back(WritePlan{
-          .artifact = artifact, .path = path, .installed_id = rollout.id});
+          .artifact = artifact,
+          .path = path,
+          .installed_id = rollout.id,
+          .expected_parent_id = std::move(expected_parent_id)});
     }
     prepared_sessions.push_back(std::move(prepared));
   }
 
-  if (consent == Consent::yes) {
+  for (auto& prepared : prepared_sessions) {
+    const auto& parent = prepared.record.original_session_ids.parent;
+    if (!parent.has_value()) continue;
+    const auto installed_parent = std::ranges::find_if(
+        prepared_sessions, [&](const PreparedSession& candidate) {
+          return candidate.record.original_session_ids.primary == *parent;
+        });
+    if (installed_parent != prepared_sessions.end()) {
+      prepared.rewrite_ids.push_back({*parent, installed_parent->installed_id});
+      prepared.installed_parent_id = installed_parent->installed_id;
+    }
+  }
+
+  std::set<std::string> image_origin_path_set;
+  std::set<std::string> image_origin_id_set;
+  for (const auto& record : records) {
+    const auto pairs = rewrite::derive_install_pair_set(
+        record,
+        target.workspace_root.generic_string(),
+        path_flavor_for(target.workspace_root));
+    const auto origins = rewrite::origins_from_pairs(pairs);
+    image_origin_path_set.insert(origins.begin(), origins.end());
+    image_origin_id_set.insert(record.original_session_ids.primary);
+    if (record.original_session_ids.parent.has_value()) {
+      image_origin_id_set.insert(*record.original_session_ids.parent);
+    }
+    for (const auto& child : record.children) {
+      image_origin_id_set.insert(child.original_id);
+      image_origin_id_set.insert(
+          identity_for_artifacts(child.artifacts, child.original_id).value());
+    }
+    image_origin_id_set.insert(
+        identity_for_artifacts(record.artifacts,
+                               record.original_session_ids.primary)
+            .value());
+  }
+  for (const auto& prepared : prepared_sessions) {
+    image_origin_id_set.insert(prepared.origin_ids.begin(),
+                               prepared.origin_ids.end());
+  }
+  const std::vector<std::string> image_origin_paths{
+      image_origin_path_set.begin(), image_origin_path_set.end()};
+  const std::vector<std::string> image_origin_ids{
+      image_origin_id_set.begin(), image_origin_id_set.end()};
+
+  {
     for (auto& prepared : prepared_sessions) {
-      const auto pair_set = rewrite::derive_pair_set(
-          prepared.record.original_path, prepared.record.path_flavor,
+      if (prepared.refusal_reason.has_value()) continue;
+      prepared.pair_set_applied = rewrite::derive_install_pair_set(
+          prepared.record,
           target.workspace_root.generic_string(),
           path_flavor_for(target.workspace_root));
-      const auto origins = rewrite::origins_from_pairs(pair_set);
-      const auto id_map = id_pairs_for(prepared.record, prepared.installed_id,
-                                       prepared.child_ids);
-      const auto origin_ids = origin_ids_for(prepared.record);
+      std::set<std::string> mapped_node_ids;
+      for (const auto& [original, installed] :
+           prepared.installed_by_original) {
+        (void)original;
+        mapped_node_ids.insert(installed);
+      }
       for (const auto& write : prepared.writes) {
         auto data = target.member_read(write.artifact);
         if (!data) {
           return std::unexpected(data.error());
         }
+        if (!jsonl_decodable(*data)) {
+          prepared.refusal_reason = "verify-hits";
+          prepared.refusal_detail = "undecodable_line";
+          prepared.outputs.clear();
+          break;
+        }
         auto rewritten = rewrite::rewrite_jsonl_bytes(
-            *data, rewrite::PathPairsView{pair_set},
-            rewrite::IdPairsView{id_map});
+            *data, rewrite::PathPairsView{prepared.pair_set_applied},
+            rewrite::IdPairsView{prepared.rewrite_ids});
         prepared.skipped_non_utf8 += rewritten.skipped_non_utf8;
+        const auto identities = rollout_identities(rewritten.bytes);
+        const bool primary_write =
+            std::ranges::find(prepared.record.artifacts, write.artifact) !=
+            prepared.record.artifacts.end();
+        const auto identity_is_member = [&](const std::string& id) {
+          return mapped_node_ids.contains(id) ||
+                 (primary_write && prepared.installed_parent_id.has_value() &&
+                  id == *prepared.installed_parent_id);
+        };
+        const bool recoverable_separate_parent =
+            !primary_write || !prepared.installed_parent_id.has_value() ||
+            (identities.session_id.has_value() &&
+             *identities.session_id == *prepared.installed_parent_id) ||
+            std::ranges::any_of(
+                identities.parent_thread_ids,
+                [&](const auto& parent_thread_id) {
+                  return parent_thread_id == *prepared.installed_parent_id;
+                });
+        const bool edge_disagrees =
+            write.expected_parent_id.has_value() &&
+            std::ranges::any_of(
+                identities.parent_thread_ids,
+                [&](const auto& parent_thread_id) {
+                  return parent_thread_id != *write.expected_parent_id;
+                });
+        if ((identities.id.has_value() &&
+             *identities.id != write.installed_id) ||
+            (identities.session_id.has_value() &&
+             *identities.session_id != write.installed_id &&
+             !identity_is_member(*identities.session_id)) ||
+            std::ranges::any_of(
+                identities.parent_thread_ids,
+                [&](const auto& parent_thread_id) {
+                  return !identity_is_member(parent_thread_id);
+                }) ||
+            edge_disagrees ||
+            !recoverable_separate_parent) {
+          prepared.refusal_reason = "containment_refused";
+          prepared.refusal_detail = "staged_identity_mismatch";
+          prepared.outputs.clear();
+          break;
+        }
         merge_verify(prepared.verify,
                      rewrite::verify_scan(rewritten.bytes,
-                         rewrite::OriginPathsView{origins},
-                         rewrite::OriginIdsView{origin_ids}));
+                         rewrite::OriginPathsView{image_origin_paths},
+                         rewrite::OriginIdsView{image_origin_ids}));
         prepared.outputs.push_back(std::move(rewritten.bytes));
       }
-    }
-    if (std::ranges::any_of(prepared_sessions,
-                           [](const PreparedSession& prepared) {
-          return prepared.verify.origin_path_hits != 0U ||
-                 prepared.verify.origin_id_hits != 0U;
-        })) {
-      // Capability-refusal rows were emitted before preparation and must
-      // survive a rewrite-verification failure in an admitted sibling.
-      for (const auto& prepared : prepared_sessions) {
-        result.sessions.push_back(InstallSessionOutcome{
-            .image_session_id = prepared.record.original_session_ids.primary,
-            .outcome = InstallSessionOutcome::Outcome::failed,
-            .reason = "containment_refused",
-            .content_rewrite = std::nullopt,
-            .host_version_unverified = prepared.host_version_unverified,
-            .verify = prepared.verify,
-            .detail = "rewrite_verify_failed"});
+      if (const auto detail = verify_failure_detail(prepared.verify);
+          detail.has_value() && !prepared.refusal_reason.has_value()) {
+        prepared.refusal_reason = "verify-hits";
+        prepared.refusal_detail = detail;
+        prepared.outputs.clear();
       }
-      return result;
     }
 
     std::vector<secure_io::WriteRequest> writes;
     for (const auto& prepared : prepared_sessions) {
+      if (prepared.refusal_reason.has_value()) continue;
       for (size_t i = 0; i < prepared.writes.size(); ++i) {
         writes.push_back(secure_io::WriteRequest{
             .relative_path = prepared.writes.at(i).path.lexically_relative(
-                target.target_store.root),
+                publish_root),
             .bytes = prepared.outputs.at(i)});
       }
     }
     if (!writes.empty()) {
-      auto ok = secure_io::write_batch_no_replace(target.target_store.root, writes);
+      auto ok = secure_io::write_batch_no_replace(publish_root, writes);
       if (!ok) {
         const bool containment = ok.error().detail == "containment_refused";
         std::optional<std::string> cohort_detail;
@@ -450,6 +676,18 @@ expected<InstallResult> codex_install(const InstallTarget& target,
         // No clear(): capability-refusal rows never entered prepared_sessions
         // or the batch, and clearing here deleted them from the report.
         for (const auto& prepared : prepared_sessions) {
+          if (prepared.refusal_reason.has_value()) {
+            result.sessions.push_back(InstallSessionOutcome{
+                .image_session_id =
+                    prepared.record.original_session_ids.primary,
+                .outcome = InstallSessionOutcome::Outcome::failed,
+                .reason = prepared.refusal_reason,
+                .content_rewrite = std::nullopt,
+                .host_version_unverified = prepared.host_version_unverified,
+                .verify = prepared.verify,
+                .detail = prepared.refusal_detail});
+            continue;
+          }
           result.sessions.push_back(InstallSessionOutcome{
               .image_session_id = prepared.record.original_session_ids.primary,
               .outcome = InstallSessionOutcome::Outcome::failed,
@@ -465,20 +703,34 @@ expected<InstallResult> codex_install(const InstallTarget& target,
   }
 
   for (auto& prepared : prepared_sessions) {
+    if (prepared.refusal_reason.has_value()) {
+      result.sessions.push_back(InstallSessionOutcome{
+          .image_session_id = prepared.record.original_session_ids.primary,
+          .outcome = InstallSessionOutcome::Outcome::failed,
+          .reason = prepared.refusal_reason,
+          .content_rewrite = std::nullopt,
+          .host_version_unverified = prepared.host_version_unverified,
+          .verify = prepared.verify,
+          .detail = prepared.refusal_detail});
+      continue;
+    }
     result.id_map.push_back(IdMapEntry{
         .agent = "codex",
         .image_session_id = prepared.record.original_session_ids.primary,
         .installed_session_id = prepared.installed_id,
         .children = prepared.child_ids});
+    result.pair_set_applied.insert(result.pair_set_applied.end(),
+                                   prepared.pair_set_applied.begin(),
+                                   prepared.pair_set_applied.end());
     if (consent == Consent::no) {
       result.sessions.push_back(InstallSessionOutcome{
           .image_session_id = prepared.record.original_session_ids.primary,
           .outcome = InstallSessionOutcome::Outcome::staged,
           .reason = std::nullopt,
-          .content_rewrite = std::nullopt,
+          .content_rewrite = "pair",
           .host_version_unverified = prepared.host_version_unverified,
-          .verify = {},
-          .detail = std::nullopt});
+          .verify = prepared.verify,
+          .detail = non_utf8_detail(prepared.skipped_non_utf8)});
       continue;
     }
 
