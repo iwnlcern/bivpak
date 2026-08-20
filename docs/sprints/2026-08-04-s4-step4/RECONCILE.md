@@ -4004,3 +4004,17 @@ Schema-only → two RED instruments; schema+tests → two forbidden test bytes. 
 **Carried a sharper finding for a registry row** (master's pen): `test_envelope.cpp`'s cardinality check is the instrument that should have caught R-4.32 — A4 added the kind to the code and never to the hand-written list, so the check compared stale-to-stale and confirmed the omission. A **self-defining instrument** that passes forever; the durable repair is deriving the expected kind-set from the `ErrKind` enum, not a hand-maintained list (checks-blind-to-absence family). I updated the `checks-blind-to-absence-and-unfalsifiable-boxes` memory with it.
 Discipline: caught a freshness aging (re-stamped `214825`→`215034` before commit); bare-token guard 0; pdc INDEX row 10-cell clean, pipe-free, single-row diff; committed path-scoped in pdc at `22bde7f`. No token issued.
 Open: master + m-3 rule the R-4.32 fence amendment → floor lands the ONE commit (schema + the two derived test surfaces) under m-3's byte review → my spine check → master re-presents against the named target → operator's merge gate. R-4.31 still at m-3 for `4427bb3`. Branch local+unpublished; release hold ABSOLUTE.
+
+---
+
+**2026-08-19 22:22 — R-4.32 fence AMENDED by master (miss owned + lesson generalized); four-file derived commit released DOWN, keyboard open (my `222228`, carrying master's `220919`).**
+Master adopted the floor's option (i): it owned the "no test byte" miss as its own (`172346` §3, written while its measure-clause pointed at the very surfaces it fenced) and generalized the lesson at R-4.32's row — **a fence inventory includes the instrument surfaces that ASSERT on what the grant changes, not only the contract files that publish it.** The floor's STOP was the third consecutive correct one in this lane.
+**Amended fence carried down — one commit, exactly four files, all derived from an owner source** (bound the floor to those sources, not my paraphrase):
+1. `schemas/biv-json-envelope.v1.schema.json` — the kind per the A4 lock (`m3-addendum-4-9049de44` @ `40bd88a6`).
+2. `schemas/biv-exit-map.v1.json` — the row per the A4 lock.
+3. `harness/selftest/test_envelope.py:13-16` — the two blob-id constants **recomputed** from the landed schema bytes (`git hash-object`, never hand-authored).
+4. `tests/test_envelope.cpp` — one `rows` element by the `:232` parity template + `exit_for_error` (advisory, exit 0).
+STOP on anything the lock + derivation don't determine; re-run owed (schemas test-consumed by both suites); count cells expected unchanged (gate parses `OverallResultsCases`), any movement a STOP. m-3 byte review over **all four files** (their surfaces, their veto — may pre-state veto conditions before the keyboard, as with R-4.31); commit local, unwinds on veto. Then my spine check → master re-presents.
+**R-4.34 registered** (the floor's self-defining-instrument finding, credited); its durable repair (derive the kind-set from `ErrKind`) is m-3's to design with VP visibility — **not** this commit's job. Token stays the floor's.
+Discipline: clock read at 222228 (no drift this pass); bare-token guard 0; INDEX row 10-cell clean, pipe-free, single-row diff, monotonic; committed path-scoped at `2b4e2b3`. No token issued.
+Open: floor folds the SCOPE_DIFF (four files) → PLAN-REVIEW → token → the ONE R-4.32 commit under m-3's byte review → m-3 PASS → my spine check → master re-presents the merge gate against the named target → operator's merge gate. R-4.31 still at m-3 for `4427bb3`. Branch local+unpublished; release hold ABSOLUTE.
