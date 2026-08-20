@@ -4056,3 +4056,20 @@ My `132456` told the floor pair Planner to issue the merge token — **wrong**. 
 The floor Implementer now executes the five mechanics (exact-head-first → two-parent merge commit → docs-lane-only post-merge diff → NO PUSH → report SHA with D-5.5).
 Discipline: this is the **one authorized bare token** I emit this thread (correctly, from the authorized seat) — the bare-token guard is 1 here by design, not 0. Recorded the DISPATCH-MERGE-grantor-escalation lesson in memory. Clock read at 135719; INDEX row 10-cell clean, pipe-free; committed path-scoped at `9f65a2f`.
 Open: the floor Implementer executes the merge, reports the SHA up → my acceptance check on the merge SHA → slice E closes end-to-end, local main strictly contains origin/main → Step-4 remainder on its own thread. No push, no publication, no release; **release hold ABSOLUTE**.
+
+---
+
+**2026-08-20 14:23 — SLICE E MERGE ACCEPTED and CLOSED END-TO-END (my `142335`, carrying the floor Planner's `141830`).**
+The floor Implementer executed the merge under the corrected authorized token; its Planner re-measured the whole act; I ran my **acceptance check at my own seat** on the landed objects:
+- **Merge `a2eedc9cd689248df988d8cb9a6c445356783a18`** — two parents (parent1 `85a4340` local main before; parent2 `6670471` the **exact** authorized candidate, not a rebased twin).
+- **Mechanic 3:** `git diff a2eedc9 6670471` → zero non-docs-lane paths (only `.relays/**` + `docs/sprints/**`).
+- **Positive landing check** (the floor's addition, affirmed — the absence-blind cure): slice-E artifacts read **out of** `main` (EntrySchemaSkipped ×2 schemas, `stub_member_footprint`, `allowed_stub_agent_members` ×2, the R-4.31 recipe). The work is *in*, not merely undisturbed.
+- **No ref published:** `origin/main` unchanged at `0db8fdd`, an ancestor of the merge → local main strictly contains it; candidate ref `6670471` unmoved.
+- **D-5.5 figures of record `383/395`** (radius 0 — no publication in this act; a future push is a separate ungranted gate). I **own** that my `135719` carried a stale `379` (adopted from an earlier reading; true pre-merge was `383` — 4 docs-lane commits drifted between); non-finding, but the number belongs to the act that consumes it, so `383/395` stand.
+- **Grantor correction landed correctly** — the consumed token is FROM the authorized `s4.orchestrator-planner` seat, one implementer, PHASE MERGE-GATE.
+
+**SLICE E IS CLOSED END-TO-END:** all registry rows disposed (R-3.40(13), R-4.31, R-4.32), design lineage owner-locked and consumed, both owner byte reviews + the fresh four-file review passed, the finished head merged into local main, the diverged mains reconciled.
+
+**Open, waived by nothing here, on their own threads:** R-3.39, R-4.29, R-4.33, R-4.34, R-6.2. **Not granted/performed:** push, publication, deployment, release, any other branch, the matrix PRs (#16/#17/#19/#20), any future merge. The Step-4 remainder (Wave-A re-verification at the new base, addendum-F restart, Arms 2–5) routes on its own thread.
+Discipline: clock read at 142335; bare-token guard 0 (acceptance, not a dispatch); pdc INDEX row 10-cell clean, pipe-free; committed path-scoped in pdc at `6d17c90`. No token issued.
+**Slice E is complete.** Local main strictly contains origin/main; no ref published; the release hold is ABSOLUTE.
