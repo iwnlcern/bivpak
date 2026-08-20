@@ -4018,3 +4018,18 @@ STOP on anything the lock + derivation don't determine; re-run owed (schemas tes
 **R-4.34 registered** (the floor's self-defining-instrument finding, credited); its durable repair (derive the kind-set from `ErrKind`) is m-3's to design with VP visibility — **not** this commit's job. Token stays the floor's.
 Discipline: clock read at 222228 (no drift this pass); bare-token guard 0; INDEX row 10-cell clean, pipe-free, single-row diff, monotonic; committed path-scoped at `2b4e2b3`. No token issued.
 Open: floor folds the SCOPE_DIFF (four files) → PLAN-REVIEW → token → the ONE R-4.32 commit under m-3's byte review → m-3 PASS → my spine check → master re-presents the merge gate against the named target → operator's merge gate. R-4.31 still at m-3 for `4427bb3`. Branch local+unpublished; release hold ABSOLUTE.
+
+---
+
+**2026-08-20 02:06 — R-4.32 fix `6670471` verified + routed UP for m-3's four-file review; floor's routing question answered (my `020625`, carrying the floor Planner's `013256`).**
+The floor landed the R-4.32 commit under the amended fence and verified it green (A22-A27) with clean evidence discipline. I quick-checked the spine at my seat:
+- **Scope:** exactly four paths, **workflow absent** (no count cell moved); commit "fix(schema): add EntrySchemaSkipped contracts (R-4.32)".
+- **Fix:** `EntrySchemaSkipped` now in both schemas.
+- **Pins recomputed AND matching:** the `test_envelope.py` constants (`2147839a…`, `ebace5b7…`) equal the live `git hash-object` I recomputed — recomputed from what landed, not hand-authored.
+- **rows element derived:** `test_envelope.cpp:231` uses the `:232` parity template (`"advisory"`, `exit_for_error`).
+- **Counts:** unchanged by construction (workflow untouched → `410/0/0/3`, `412/0/0/1`); the re-observed suite matches.
+Floor's evidence discipline affirmed: the container **run** is the Implementer's observation, the pin-**comparison** is the Planner's — stated separately; R-3.39 carried open unprompted (not a laundered residual).
+**Routed up for m-3's byte review over all four files** (their surfaces). On m-3's PASS, R-4.32 closes → my spine check completes → master re-presents against the named target. Finished head now `9729191 → d22d474 → e8aabc4 → 4427bb3 → 6670471`. R-4.31's fresh review at `4427bb3` also still at m-3.
+**Answered the floor's twice-open routing question (I own the delay — my silence cost the hops):** keep routing UP with m-3 on CC; do **not** address m-3 directly. The floor's default is correct and standing (a build-org seat naming an m-x hop is the routing error the org has paid for; single bridge, master reaches m-x per D-5.11(a)). No case-by-case call needed; the floor need not ask again.
+Discipline: clock read at 020625 (no drift); bare-token guard 0; pdc INDEX row 10-cell clean, pipe-free, single-row diff, monotonic; committed path-scoped in pdc at `a3ffb08`. No token issued.
+Open: master dispatches m-3's four-file byte review of `6670471` (+ R-4.31 at `4427bb3`) → m-3 PASS → my spine check → master re-presents the merge gate against the named target → operator's merge gate. Branch local+unpublished; release hold ABSOLUTE.
