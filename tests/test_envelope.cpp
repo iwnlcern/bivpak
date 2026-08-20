@@ -228,6 +228,7 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
       {"ContainmentRefused", "divergence", biv::report::exit_for_error(biv::ErrKind::ContainmentRefused)},
       {"SessionInstallFailed", "divergence", biv::report::exit_for_error(biv::ErrKind::SessionInstallFailed)},
       {"UnknownAgentSkipped", "divergence", biv::report::exit_for_error(biv::ErrKind::UnknownAgentSkipped)},
+      {"EntrySchemaSkipped", "advisory", biv::report::exit_for_error(biv::ErrKind::EntrySchemaSkipped)},
       {"SessionsConsentSkipped", "advisory", biv::report::exit_for_error(biv::ErrKind::SessionsConsentSkipped)},
       {"SessionsStaged", "advisory", 0},
       {"AgentNotValidatedFailed", "divergence", biv::report::exit_for_error(biv::ErrKind::AgentNotValidatedFailed)},
