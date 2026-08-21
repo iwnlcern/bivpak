@@ -119,23 +119,23 @@ class ByteCapture {
  public:
   ByteCapture(std::vector<std::byte>& bytes, const std::size_t cap,
               bool& output_incomplete)
-      : bytes_{bytes}, cap_{cap}, output_incomplete_{output_incomplete} {}
+      : bytes_{&bytes}, cap_{cap}, output_incomplete_{&output_incomplete} {}
 
   void write(const char* data, const std::size_t size) {
     const auto retained =
-        std::min(size, cap_ - std::min(cap_, bytes_.size()));
-    output_incomplete_ = output_incomplete_ || retained != size;
+        std::min(size, cap_ - std::min(cap_, bytes_->size()));
+    *output_incomplete_ = *output_incomplete_ || retained != size;
     const std::string_view input{data, retained};
     std::ranges::transform(
-        input, std::back_inserter(bytes_), [](const unsigned char value) {
+        input, std::back_inserter(*bytes_), [](const unsigned char value) {
           return static_cast<std::byte>(value);
         });
   }
 
  private:
-  std::vector<std::byte>& bytes_;
+  std::vector<std::byte>* bytes_;
   std::size_t cap_;
-  bool& output_incomplete_;
+  bool* output_incomplete_;
 };
 
 BivError invalid_request(const std::string_view detail) {
@@ -217,7 +217,7 @@ bool add_close(SpawnActions& actions, const Fd& fd) {
 enum class DrainStatus { idle, progress, failed };
 
 DrainStatus drain_once(Fd& fd, ByteCapture& capture) {
-  std::array<char, 8192> buffer;
+  std::array<char, 8192> buffer{};
   for (;;) {
     const auto count = ::read(fd.get(), buffer.data(), buffer.size());
     if (count > 0) {
