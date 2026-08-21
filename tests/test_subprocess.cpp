@@ -88,6 +88,47 @@ TEST_CASE("run_argv marks both captured streams incomplete at their caps") {
   CHECK(as_string(result->stderr_bytes) == "uvw");
 }
 
+TEST_CASE("run_argv marks output incomplete when only stdout reaches its cap") {
+  auto request = shell_request("printf 'abcdef'; printf 'uv' >&2");
+  request.stdout_cap = 3U;
+
+  const auto result = biv::support::run_argv(request);
+
+  REQUIRE(result.has_value());
+  CHECK(result->exit_code == 0);
+  CHECK_FALSE(result->io_failed);
+  CHECK(result->output_incomplete);
+  CHECK(as_string(result->stdout_bytes) == "abc");
+  CHECK(as_string(result->stderr_bytes) == "uv");
+}
+
+TEST_CASE("run_argv marks output incomplete when only stderr reaches its cap") {
+  auto request = shell_request("printf 'ab'; printf 'uvwxyz' >&2");
+  request.stderr_cap = 3U;
+
+  const auto result = biv::support::run_argv(request);
+
+  REQUIRE(result.has_value());
+  CHECK(result->exit_code == 0);
+  CHECK_FALSE(result->io_failed);
+  CHECK(result->output_incomplete);
+  CHECK(as_string(result->stdout_bytes) == "ab");
+  CHECK(as_string(result->stderr_bytes) == "uvw");
+}
+
+TEST_CASE("run_argv leaves output complete when both streams fit") {
+  const auto request = shell_request("printf 'abc'; printf 'uvw' >&2");
+
+  const auto result = biv::support::run_argv(request);
+
+  REQUIRE(result.has_value());
+  CHECK(result->exit_code == 0);
+  CHECK_FALSE(result->io_failed);
+  CHECK_FALSE(result->output_incomplete);
+  CHECK(as_string(result->stdout_bytes) == "abc");
+  CHECK(as_string(result->stderr_bytes) == "uvw");
+}
+
 TEST_CASE("run_argv separate topology keeps streams apart") {
   const auto request =
       shell_request("printf 'out\\n'; printf 'err\\n' >&2");
