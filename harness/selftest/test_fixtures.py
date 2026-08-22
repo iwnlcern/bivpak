@@ -102,9 +102,12 @@ def test_git_repo_builder_is_deterministic_and_host_config_isolated(monkeypatch,
     second_repo = second / "project"
     assert _git(first_repo, "rev-parse", "HEAD") == _git(second_repo, "rev-parse", "HEAD")
     assert _git(first_repo, "status", "--porcelain=v2") == ""
-    assert _git(first_repo, "show", "-s", "--format=%an|%ae|%aI|%cn|%ce|%cI", "HEAD") == (
-        "Biv Harness|biv-harness@example.invalid|2000-01-01T00:00:00Z|"
-        "Biv Harness|biv-harness@example.invalid|2000-01-01T00:00:00Z"
+    assert _git(
+        first_repo, "show", "-s", "--date=raw",
+        "--format=%an|%ae|%ad|%cn|%ce|%cd", "HEAD"
+    ) == (
+        "Biv Harness|biv-harness@example.invalid|946684800 +0000|"
+        "Biv Harness|biv-harness@example.invalid|946684800 +0000"
     )
     assert "Hostile User" not in _git(first_repo, "log", "--format=%an", "-2")
     advertised = _git(first_repo, "ls-remote", "origin")
