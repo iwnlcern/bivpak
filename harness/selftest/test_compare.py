@@ -122,6 +122,12 @@ def test_member_absence_assertion_flags_forbidden_member():
     ]
 
 
+def _git(repo, *args):
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
 def _matching_git_trees(tmp_path):
     src = tmp_path / "src"
     restored = tmp_path / "restored"
@@ -159,6 +165,32 @@ def test_compare_trees_composes_additive_roots_with_repo_semantics(tmp_path):
 
     assert not any(".biv/agents" in finding for finding in findings)
     assert any("missing ref: refs/heads/keep" in finding for finding in findings)
+
+
+def test_ref_restored_to_a_divergent_sha_reports_a_ref_mismatch(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    repo = restored / "repo"
+    head = _git(repo, "rev-parse", "HEAD")
+    keep = _git(repo, "rev-parse", "refs/heads/keep")
+    assert head != keep
+    _git(repo, "update-ref", "refs/heads/keep", head)
+
+    findings = compare_trees(src, restored, load_tolerance())
+
+    assert any(
+        f"ref mismatch for refs/heads/keep: {keep} != {head}" in item
+        for item in findings
+    )
+
+
+def test_extra_restored_ref_reports_a_repo_finding(tmp_path):
+    src, restored = _matching_git_trees(tmp_path)
+    repo = restored / "repo"
+    _git(repo, "update-ref", "refs/heads/unexpected", _git(repo, "rev-parse", "HEAD"))
+
+    findings = compare_trees(src, restored, load_tolerance())
+
+    assert any("extra ref: refs/heads/unexpected" in item for item in findings)
 
 
 def test_git_admin_bytes_are_excluded_from_byte_findings(tmp_path):
@@ -317,6 +349,31 @@ def test_repo_state_expectation_checks_head_branch_cleanliness_and_refs(tmp_path
     )
     assert any("HEAD mismatch" in item for item in findings)
     assert any("missing ref: refs/heads/missing" in item for item in findings)
+
+
+def test_repo_state_expectation_reports_a_divergent_ref_sha(tmp_path):
+    src, _ = _matching_git_trees(tmp_path)
+    repo = src / "repo"
+    head = _git(repo, "rev-parse", "HEAD")
+    keep = _git(repo, "rev-parse", "refs/heads/keep")
+    assert head != keep
+
+    findings = assert_repo_state(
+        src,
+        {
+            "repo": {
+                "head_sha": head,
+                "branch": "main",
+                "porcelain_clean": True,
+                "refs": {"refs/heads/keep": head, "refs/heads/main": head},
+            }
+        },
+    )
+
+    assert any(
+        f"ref mismatch for refs/heads/keep: {keep} != {head}" in item
+        for item in findings
+    )
 
 
 def test_repo_state_expectation_accepts_unborn_head(tmp_path):
