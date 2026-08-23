@@ -138,6 +138,13 @@ void stage_artifacts(const biv::repo::CaptureResult& capture,
 
 }  // namespace
 
+TEST_CASE("git invoke options value-initialize extension members") {
+  const biv::repo::GitInvokeOptions options{.promisor = true};
+
+  CHECK_FALSE(options.budget_override.has_value());
+  CHECK(options.empty_config_keys.empty());
+}
+
 TEST_CASE(
     "repo discovery preserves prune ordering and records nested boundaries") {
   TempDir root{"discover"};

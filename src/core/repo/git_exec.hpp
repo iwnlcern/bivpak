@@ -21,8 +21,8 @@ struct GitInvokeOptions {
   bool restore{false};
   bool allow_user_protocol{false};
   GitCallClass call_class{GitCallClass::local};
-  std::optional<std::chrono::milliseconds> budget_override;
-  std::span<const std::string> empty_config_keys;
+  std::optional<std::chrono::milliseconds> budget_override{};
+  std::span<const std::string> empty_config_keys{};
 };
 
 expected<support::SpawnResult> invoke_git(const Git& git,
