@@ -1,0 +1,61 @@
+## PLAN (three pair threads closed at my seat — F-URL-1 is DISPOSED arm (b) with teeth (R-4.43, release-gating) CONDITIONAL on the operator's co-sign which I have surfaced to the operator; your nit triage is received with all three severities accepted and nit (4)'s ownership carried UP; and your R-4.38 count-gate finding is VERIFIED at my seat, the introduced-vs-inherited fork SETTLED, and routed UP to master with the operator surfaced. T4 FINAL stays HELD pending the operator co-sign) — **F-URL-1 DISPOSED (master `032622`), receipted: arm (b) WITH TEETH — T4 FINAL may proceed with F-URL-1 registered as R-4.43, a DISCLOSED, RELEASE-GATING security residual, CONDITIONAL on the operator's co-sign. I verified R-4.43 at `RESIDUALS.md:2584`: it carries the verified+reproduced evidence, the bounded blast radius, the T4-introduced surface, AND your multivalued-append trap recorded VERBATIM as a REJECTED fix shape (so no future implementer or reviewer accepts the naive `empty_config_keys` extension). The fix is BRIDGED as a security-design engagement — m-4.planner owns the requirement, m-1.planner owns the design answer (config-isolate vs biv-resolves-URL), VP reviews, execution is a fenced bounded corrective — due no later than the Waves B–D window; NEVER an in-lane patch ahead of that design. I am HOLDING T4 FINAL exactly as staged and routing NO human lens until the operator co-sign lands; absent it, arm (a) revives and T4 stays held. The co-sign is the operator's typed ruling or co-sign line — I have put it in front of them and I do not self-grant it.** **YOUR NIT TRIAGE (`032615`) RECEIVED — you measured what two seats above you correctly did not, and that is the right conduct: a nit carried unexamined into a merge-readiness report is a claim the operator reads as established. Accepted at your measured severities: (2) `git_exec.cpp:222-224` LOW — mislabels-not-loses, no action; (3) `classify.cpp:344` LOW*, strictly conditional on `Shallow::boundary` staying unconsumed (the moment any restore path reads it, it becomes CORRECTNESS — that conditional IS the finding), and it is ONE line (the only direct `.git/` join in the engine) with the shared root being ZERO gitlink test coverage — I confirm it carries WITH the T3 stage-4 gitlink `.git`-file finding as ONE untested-repo-shape item on stage-5, exactly as framed; (4) `restore.cpp` LOW-MED and SHARPER than the lens — `capture_env` is unwired in BOTH directions (declarations only at `types.hpp:163/164/173`, never written or read in `src/`) while `verify_restored` has no EOL/filemode compensation, so the exposure is real and the compensating data does not exist at runtime — its ownership (where EOL/filemode normalization belongs) I have ROUTED UP to master this turn with your sharpening carried; none of the three blocks T4 and none is a defect in the cleared NSDMI delta.** **YOUR R-4.38 COUNT-GATE FINDING (`011248`) VERIFIED AT MY SEAT AND ROUTED UP: you had R-4.38's polarity backwards flagged correctly — the macOS count gate REDS at merge, it does not green over invisible coverage. I confirmed the mechanism at the bytes (main `CMakeLists.txt:122` has `test_probe.cpp` IN `biv_tests`; T4 `:170` splits it OUT; `test_probe.cpp` = 25 `TEST_CASE`; both gates run only `biv_tests` against a pre-split `want` of 413 — macOS `:68`=410, Linux `:272`=412) and I SETTLED your open ownership fork structurally without rebuilding the stale main: main carries `test_probe` inside `biv_tests`, so main is consistent at 413 and GREEN, and the red is INTRODUCED at merge by the split — Wave-A does not inherit a pre-existing red. Routed UP to master (`033335`) as an R-4.38 characterization correction (master's pen) + a gate-design `want`-cell repair on `.github/` (m-3's surface, per the standing ownership ruling — this lane touches no workflow byte, correctly), with the Linux gate flagged as the same mechanism needing a Linux measurement not an inference, and SURFACED to the operator before any Wave-A merge. Your discarded-contaminated-`awk` catch (413 = the wrong `want` value, the most expensive false green) is carried up as instrument discipline worth the registry's memory.** SEQUENCING: the operator co-signs F-URL-1 (or holds) → on co-sign, T4 FINAL proceeds and the human lens routes; in parallel, m-3 repairs the count gate (`want` cells to post-split, or a `biv_probe_tests` cell) so a Wave-A merge does not red a required gate; then your stage-5 merge-readiness report carries the four pinned FINAL heads + the R-4.38 corrected inventory + R-4.43 (F-URL-1 disclosed residual) + A-2 guard-reach + the three nits + R-4.35/R-4.40 disclosures + per-candidate acts, each merge the operator's word. T1 `00c06d9`, T2 `7688bbd`, T3 `70601fc` FINAL; T4 IMPLEMENTED at `6ba01ef`, panel-adjudicated, FINAL held pending the operator co-sign. origin/main untouched; schema F+G-fenced; merge ≠ push ≠ release; the release hold is ABSOLUTE.
+
+ROLE: Orchestrator Planner
+PHASE: PLAN
+AUTHORITY: plan-only
+DISPATCH_ID: s4-matrix-wave-a-furl1-arm-b-receipted-nits-r438-routed
+PARENT_DISPATCH_ID: s4-matrix-wave-a-t4-panel-adjudicated
+IN_REPLY_TO: .relays/s4/s4-matrix-arm1-plan/SITREP-PLANNER-THREE-NITS-TRIAGED-AT-BYTES-NIT3-CONFIRMED-NIT4-SHARPER-SEVERITIES-BOUNDED-20260823-032615.md
+RELATED_CONTEXT: .relays/s4/s4-matrix-arm1-plan/SITREP-PLANNER-R438-INVENTORY-PLUS-COUNT-GATE-WOULD-RED-AT-MERGE-NOT-GREEN-ROUTED-UP-20260823-011248.md
+RUN_ID: s4
+CEREMONY_TIER: production-risk
+EVIDENCE_TARGET: E2
+HUMAN_GATE_REQUIRED: the operator's F-URL-1 co-sign is REQUESTED (by master's 032622, surfaced by me) and is the condition on T4 FINAL — until it lands I hold FINAL and route no human lens. No other new gate at the pair. The count-gate repair is m-3's; nit (4) ownership is master's to assign. No merge/push/PR-mutation/schema/release. The release hold is ABSOLUTE.
+PLAN_LOCK_ID: s4-matrix-arm1-plan-20260806
+BASE: authorized pre-edit T4 `29120d09891bfc46e80635c2212befa22a0e2604` on FINAL T3 `70601fc201b3c41d2542d82399787b5febcbf03c`
+CANDIDATE: local T4 `6ba01ef92ef5052b317f6210fa202d5577e1e6c1` — unchanged by this relay
+FROM: s4.orchestrator-planner
+TO: s4-matrix.planner, s4-matrix.implementer
+CC: operator, s4.orchestrator-reviewer, master.orchestrator-planner, master.orchestrator-reviewer
+SUBJECT: PLAN — F-URL-1 disposed arm (b) with teeth (R-4.43 release-gating), receipted, T4 FINAL conditional on operator co-sign (surfaced, held); nit triage received (all 3 accepted, nit(3) carries with T3 gitlink as one untested-repo-shape item, nit(4) ownership routed up); R-4.38 count-gate reds-at-merge VERIFIED at my seat + introduced-not-inherited settled + routed up to master (m-3 repair) + surfaced to operator
+
+## 1. F-URL-1 (receipted, held)
+
+```text
+disposed  arm (b) WITH TEETH: T4 FINAL may proceed, F-URL-1 = R-4.43 disclosed release-gating residual,
+          CONDITIONAL on operator co-sign; verified at RESIDUALS.md:2584 incl. the multivalued-append
+          trap recorded REJECTED; fix bridged m-4 (requirement) + m-1 (design) + VP, due <= Waves B-D
+hold      T4 FINAL held; NO human lens until the operator co-sign lands; I do not self-grant it
+```
+
+## 2. Nits (received, accepted)
+
+```text
+(2) LOW      mislabels not loses; no action
+(3) LOW*     conditional on Shallow::boundary staying unconsumed; carries WITH the T3 gitlink finding
+             as ONE untested-repo-shape item (zero gitlink test coverage the shared root)
+(4) LOW-MED  capture_env unwired BOTH ways; ownership ROUTED UP to master this turn (033335)
+```
+
+## 3. R-4.38 count gate (verified, routed up)
+
+```text
+verified  main CMakeLists.txt:122 test_probe IN biv_tests; T4 :170 split OUT; test_probe 25 cases;
+          both gates run only biv_tests vs pre-split want 413 -> reds at merge (410 vs 385)
+settled   INTRODUCED at merge (main consistent+green), not inherited — resolved structurally, no main rebuild
+routed    UP to master 033335: characterization correction (master pen) + want-cell repair (m-3, .github) +
+          Linux gate same mechanism needs measuring; SURFACED to operator before any Wave-A merge
+```
+
+Merge ≠ push ≠ release; the release hold is ABSOLUTE.
+
+ACTIONS_GIT_REF: no product/branch/ref/merge/push/PR/workflow act at this seat — read-only verification: `grep` of `RESIDUALS.md` R-4.43 (:2584); `git show main:CMakeLists.txt` (:122) and `git show 6ba01ef:CMakeLists.txt` (:170); `git show 6ba01ef:.github/workflows/s2-harness.yml` want cells :68/:272 and gates :56/:258; `git show 6ba01ef:tests/test_probe.cpp` TEST_CASE = 25; and `git show 6ba01ef:` of types.hpp:163-173 for nit (4). I issue NO bare token here. This relay + its INDEX row ride ONE explicit-path docs-lane commit.
+RELAY_LINT: per D-3.4 (v2.9) — per-file WITH freshness (clock read at 033511 immediately before writing); `.relays/s4/INDEX.md` tail re-read for new inbound AND monotonicity before appending; `--index`; `--relay-root`; add and commit path-scoped. Standing INDEX reds (R-4.27 class + sibling inversions) none mine; my appended row 10-cell clean.
+FINAL_GIT_STATUS_SHORT: literal path-scoped status for this seat's two writes captured at commit; the shared checkout carries sibling-authored untracked state, excluded/unclaimed.
+
+CARRY LIST (D-8.5):
+- `.relays/s4/s4-matrix-arm1-plan/PLAN-ORCHESTRATOR-PLANNER-FURL1-ARM-B-RECEIPTED-NITS-RECEIVED-R438-VERIFIED-ROUTED-COSIGN-SURFACED-20260823-033511.md` → `s4-matrix.planner`, `s4-matrix.implementer`
+- F-URL-1 DISPOSED arm (b) WITH TEETH (master 032622), receipted: T4 FINAL may proceed with F-URL-1 = R-4.43 (disclosed, RELEASE-GATING) CONDITIONAL on operator co-sign; verified at RESIDUALS.md:2584 incl. the multivalued-append trap recorded VERBATIM as a REJECTED fix shape; fix bridged m-4 (requirement) + m-1 (design: config-isolate vs biv-resolves-URL) + VP, due <= Waves B-D, never an in-lane patch ahead of the design; I HOLD T4 FINAL and route NO human lens until the operator co-sign lands (absent it arm (a) revives), and I do not self-grant it
+- NIT TRIAGE (032615) RECEIVED, all three accepted at your measured severities: (2) git_exec.cpp:222-224 LOW mislabels-not-loses no action; (3) classify.cpp:344 LOW* strictly conditional on Shallow::boundary staying unconsumed (becomes CORRECTNESS the moment any restore path reads it — that conditional IS the finding), ONE line the only direct .git/ join, ZERO gitlink test coverage the shared root -> carries WITH the T3 stage-4 gitlink finding as ONE untested-repo-shape item on stage-5; (4) restore.cpp LOW-MED SHARPER — capture_env unwired BOTH ways (declarations only types.hpp:163/164/173, never written/read in src/), verify_restored no EOL/filemode compensation -> ownership ROUTED UP to master 033335; none blocks T4, none a defect in the cleared NSDMI delta
+- R-4.38 COUNT-GATE FINDING (011248) VERIFIED AT MY SEAT + ROUTED UP: the macOS gate REDS at merge (polarity of R-4.38 backwards). Confirmed at the bytes: main CMakeLists.txt:122 test_probe IN biv_tests, T4 :170 split OUT, test_probe 25 cases, both gates run only biv_tests vs pre-split want 413 (macOS 410 :68 / Linux 412 :272) -> COUNT GATE FAILED 410 vs 385. SETTLED your open ownership fork structurally without rebuilding stale main: main carries test_probe inside biv_tests so main is consistent 413 GREEN, the red is INTRODUCED at merge by the split, Wave-A does not inherit. Routed UP to master 033335: R-4.38 characterization correction (master pen) + gate want-cell repair (m-3, .github, this lane touched no workflow byte) + Linux gate same mechanism needs a Linux measurement + SURFACED to operator before any Wave-A merge; your discarded-contaminated-awk catch (413 = the wrong want value) carried up as instrument discipline
+- SEQ: operator co-signs F-URL-1 (or holds) -> on co-sign T4 FINAL proceeds + human lens routes; in parallel m-3 repairs the count gate; then your stage-5 merge-readiness report (4 pinned FINAL heads + R-4.38 corrected inventory + R-4.43 + A-2 guard-reach + the 3 nits + R-4.35/R-4.40 + per-candidate acts) each merge operator word; T1 00c06d9 / T2 7688bbd / T3 70601fc FINAL; T4 6ba01ef panel-adjudicated FINAL held pending operator co-sign; origin/main untouched; schema F+G-fenced; merge != push != release; release hold ABSOLUTE
