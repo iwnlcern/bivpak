@@ -25,8 +25,8 @@ struct Verdict {
   bool unknown_tip{false};
 };
 
-void append_advertisement(const Remote& remote, const std::string& output,
-                          std::vector<AdvertisedTip>& tips) {
+void append_advertisement(const Remote &remote, const std::string &output,
+                          std::vector<AdvertisedTip> &tips) {
   std::size_t cursor = 0;
   while (cursor < output.size() && tips.size() <= kMaxAdvertisedTips) {
     const auto end = output.find('\n', cursor);
@@ -51,12 +51,12 @@ void append_advertisement(const Remote& remote, const std::string& output,
   }
 }
 
-expected<void> mark_present_tips(const Git& git,
-                                 const std::filesystem::path& repo,
-                                 std::vector<AdvertisedTip>& tips,
+expected<void> mark_present_tips(const Git &git,
+                                 const std::filesystem::path &repo,
+                                 std::vector<AdvertisedTip> &tips,
                                  const bool promisor) {
   std::unordered_map<std::string, bool> presence;
-  for (auto& tip : tips) {
+  for (auto &tip : tips) {
     const auto known = presence.find(tip.sha);
     if (known != presence.end()) {
       tip.present = known->second;
@@ -74,15 +74,15 @@ expected<void> mark_present_tips(const Git& git,
   return {};
 }
 
-expected<Verdict> check_ancestry(const Git& git,
-                                 const std::filesystem::path& repo,
-                                 const std::string& sha,
-                                 const std::vector<AdvertisedTip>& tips,
+expected<Verdict> check_ancestry(const Git &git,
+                                 const std::filesystem::path &repo,
+                                 const std::string &sha,
+                                 const std::vector<AdvertisedTip> &tips,
                                  const bool promisor) {
   Verdict verdict;
-  std::vector<const AdvertisedTip*> present;
+  std::vector<const AdvertisedTip *> present;
   present.reserve(tips.size());
-  for (const auto& tip : tips) {
+  for (const auto &tip : tips) {
     if (!tip.present) {
       verdict.unknown_tip = true;
       continue;
@@ -127,7 +127,7 @@ expected<Verdict> check_ancestry(const Git& git,
     }
     cursor = end + 1U;
   }
-  for (const auto* tip : present) {
+  for (const auto *tip : present) {
     if (reachable.contains(tip->sha)) {
       verdict.proof = Proof{.remote = tip->remote,
                             .url = tip->url,
@@ -139,18 +139,18 @@ expected<Verdict> check_ancestry(const Git& git,
   return verdict;
 }
 
-void force_full(RepoEntry& entry, Eligibility eligibility) {
+void force_full(RepoEntry &entry, Eligibility eligibility) {
   entry.capture_mode = CaptureMode::full;
   entry.eligibility = std::move(eligibility);
-  for (auto& ref : entry.local_refs) {
+  for (auto &ref : entry.local_refs) {
     ref.availability = RefAvailability::repo_bundle_carried;
     ref.proof.reset();
   }
 }
 
-}  // namespace
+} // namespace
 
-expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
+expected<void> run_eligibility(const Git &git, RepoEntry &entry) {
   if (entry.head_state == HeadState::unborn || entry.shallow) {
     return {};
   }
@@ -173,13 +173,14 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
 
   std::vector<AdvertisedTip> tips;
   std::size_t reachable_remotes = 0;
-  for (const auto& remote : entry.remotes) {
+  for (const auto &remote : entry.remotes) {
     auto advertisement =
         invoke_git(git, repo, {"ls-remote", "--heads", "--tags"}, {remote.url},
                    "eligibility-advertisement",
                    GitInvokeOptions{.promisor = entry.promisor,
                                     .allow_user_protocol = true,
-                                    .call_class = GitCallClass::network});
+                                    .call_class = GitCallClass::network,
+                                    .requested_endpoints = {remote.url}});
     if (!advertisement) {
       return std::unexpected(advertisement.error());
     }
@@ -224,7 +225,7 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
   }
   entry.eligibility = std::move(eligibility);
 
-  for (auto& ref : entry.local_refs) {
+  for (auto &ref : entry.local_refs) {
     ref.proof.reset();
     if (!valid_ref_name(ref.ref) || !valid_object_id(ref.sha)) {
       ref.availability = RefAvailability::bundle_carried;
@@ -244,4 +245,4 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry) {
   return {};
 }
 
-}  // namespace biv::repo
+} // namespace biv::repo

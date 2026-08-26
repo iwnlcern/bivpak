@@ -10,7 +10,7 @@ namespace {
 
 // The two views are named domain values at every private call site.
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-BivError restore_error(const RepoEntry& entry, const std::string_view step,
+BivError restore_error(const RepoEntry &entry, const std::string_view step,
                        const std::string_view detail = {}) {
   auto message = "RepoRestoreFailed: " + std::string{step};
   if (!detail.empty()) {
@@ -20,28 +20,47 @@ BivError restore_error(const RepoEntry& entry, const std::string_view step,
                            std::move(message));
 }
 
-expected<support::SpawnResult> restore_invoke(
-    const Git& git, const std::filesystem::path& repo,
-    std::vector<std::string> args, std::vector<std::string> operands = {},
-    const GitCallClass call_class = GitCallClass::local,
-    const bool allow_user_protocol = false) {
+expected<support::SpawnResult>
+restore_invoke(const Git &git, const std::filesystem::path &repo,
+               std::vector<std::string> args,
+               std::vector<std::string> operands = {},
+               const GitCallClass call_class = GitCallClass::local,
+               const bool allow_user_protocol = false,
+               std::optional<std::string> requested_endpoint = std::nullopt) {
   const auto operation = args.empty() ? std::string{"git"} : args.front();
-  return invoke_git(git, repo, args, operands, operation,
-                    GitInvokeOptions{.promisor = false,
-                                     .restore = true,
-                                     .allow_user_protocol = allow_user_protocol,
-                                     .call_class = call_class});
+  return invoke_git(
+      git, repo, args, operands, operation,
+      GitInvokeOptions{
+          .promisor = false,
+          .restore = true,
+          .allow_user_protocol = allow_user_protocol,
+          .call_class = call_class,
+          .requested_endpoints =
+              requested_endpoint
+                  ? std::vector<std::string>{std::move(*requested_endpoint)}
+                  : std::vector<std::string>{}});
 }
 
-expected<void> require_success(
-    const Git& git, const std::filesystem::path& repo,
-    std::vector<std::string> args, std::vector<std::string> operands,
-    const RepoEntry& entry, const std::string_view step,
-    const GitCallClass call_class = GitCallClass::local,
-    const bool allow_user_protocol = false) {
+expected<void>
+require_success(const Git &git, const std::filesystem::path &repo,
+                std::vector<std::string> args,
+                std::vector<std::string> operands, const RepoEntry &entry,
+                const std::string_view step,
+                const GitCallClass call_class = GitCallClass::local,
+                const bool allow_user_protocol = false,
+                std::optional<std::string> requested_endpoint = std::nullopt) {
   auto result = restore_invoke(git, repo, std::move(args), std::move(operands),
-                               call_class, allow_user_protocol);
+                               call_class, allow_user_protocol,
+                               std::move(requested_endpoint));
   if (!result) {
+    if (engine_error_kind(result.error()) ==
+        EngineErrorKind::url_divergence_refused) {
+      auto refusal = result.error();
+      refusal.path = entry.relpath.string();
+      refusal.facts.emplace("repo_id", entry.id);
+      refusal.facts.emplace("relpath", entry.relpath.string());
+      return std::unexpected(std::move(refusal));
+    }
     return std::unexpected(result.error());
   }
   if (result->exit_code != 0) {
@@ -57,8 +76,8 @@ expected<void> require_success(
   return {};
 }
 
-expected<void> make_directories(const std::filesystem::path& path,
-                                const RepoEntry& entry) {
+expected<void> make_directories(const std::filesystem::path &path,
+                                const RepoEntry &entry) {
   std::error_code error;
   std::filesystem::create_directories(path, error);
   if (error) {
@@ -68,17 +87,17 @@ expected<void> make_directories(const std::filesystem::path& path,
   return {};
 }
 
-bool path_exists(const std::filesystem::path& path, std::error_code& error) {
+bool path_exists(const std::filesystem::path &path, std::error_code &error) {
   error.clear();
   return std::filesystem::exists(path, error);
 }
 
-expected<void> validate_entry(const RepoEntry& entry) {
+expected<void> validate_entry(const RepoEntry &entry) {
   if (!valid_manifest_path(entry.relpath, true)) {
     return std::unexpected(
         restore_error(entry, "clone", "unsafe repo relpath"));
   }
-  for (const auto* member :
+  for (const auto *member :
        {entry.bundle ? &*entry.bundle : nullptr,
         entry.local_refs_bundle ? &*entry.local_refs_bundle : nullptr}) {
     if (member != nullptr && !valid_manifest_path(*member)) {
@@ -101,7 +120,7 @@ expected<void> validate_entry(const RepoEntry& entry) {
     return std::unexpected(
         restore_error(entry, "clone", "invalid eligibility proof"));
   }
-  for (const auto& ref : entry.local_refs) {
+  for (const auto &ref : entry.local_refs) {
     if (!valid_ref_name(ref.ref) || !valid_object_id(ref.sha)) {
       return std::unexpected(
           restore_error(entry, "ref-recreation", "invalid ref record"));
@@ -115,9 +134,10 @@ expected<void> validate_entry(const RepoEntry& entry) {
   return {};
 }
 
-expected<std::filesystem::path> contained_member(
-    const std::filesystem::path& stage_root,
-    const std::filesystem::path& relative, const RepoEntry& entry) {
+expected<std::filesystem::path>
+contained_member(const std::filesystem::path &stage_root,
+                 const std::filesystem::path &relative,
+                 const RepoEntry &entry) {
   std::error_code root_error;
   const auto root = std::filesystem::weakly_canonical(stage_root, root_error);
   std::error_code member_error;
@@ -126,7 +146,7 @@ expected<std::filesystem::path> contained_member(
   const auto relative_to_root = member.lexically_relative(root);
   if (root_error || member_error || relative_to_root.empty() ||
       relative_to_root.is_absolute() ||
-      std::ranges::any_of(relative_to_root, [](const auto& component) {
+      std::ranges::any_of(relative_to_root, [](const auto &component) {
         return component == "..";
       })) {
     return std::unexpected(
@@ -135,11 +155,12 @@ expected<std::filesystem::path> contained_member(
   return member;
 }
 
-std::optional<std::string> clone_url(const RepoEntry& entry) {
+std::optional<std::string> clone_url(const RepoEntry &entry) {
   if (entry.remote) {
-    const auto selected = std::ranges::find_if(
-        entry.remotes,
-        [&](const auto& remote) { return remote.name == *entry.remote; });
+    const auto selected =
+        std::ranges::find_if(entry.remotes, [&](const auto &remote) {
+          return remote.name == *entry.remote;
+        });
     if (selected != entry.remotes.end()) {
       return selected->url;
     }
@@ -150,14 +171,14 @@ std::optional<std::string> clone_url(const RepoEntry& entry) {
   return std::nullopt;
 }
 
-expected<void> replace_remotes(const Git& git,
-                               const std::filesystem::path& target,
-                               const RepoEntry& entry) {
+expected<void> replace_remotes(const Git &git,
+                               const std::filesystem::path &target,
+                               const RepoEntry &entry) {
   auto removed = restore_invoke(git, target, {"remote", "remove"}, {"origin"});
   if (!removed) {
     return std::unexpected(removed.error());
   }
-  for (const auto& remote : entry.remotes) {
+  for (const auto &remote : entry.remotes) {
     if (auto added = require_success(git, target, {"remote", "add"},
                                      {remote.name, remote.url}, entry, "clone");
         !added) {
@@ -167,10 +188,10 @@ expected<void> replace_remotes(const Git& git,
   return {};
 }
 
-expected<void> import_bundle_closure(const Git& git,
-                                     const std::filesystem::path& target,
-                                     const std::filesystem::path& bundle,
-                                     const RepoEntry& entry) {
+expected<void> import_bundle_closure(const Git &git,
+                                     const std::filesystem::path &target,
+                                     const std::filesystem::path &bundle,
+                                     const RepoEntry &entry) {
   std::error_code status_error;
   if (!std::filesystem::is_regular_file(bundle, status_error) || status_error) {
     return std::unexpected(
@@ -180,9 +201,9 @@ expected<void> import_bundle_closure(const Git& git,
                          entry, "clone", GitCallClass::bundle, true);
 }
 
-expected<std::optional<std::string>> current_ref(
-    const Git& git, const std::filesystem::path& target,
-    const std::string& ref) {
+expected<std::optional<std::string>>
+current_ref(const Git &git, const std::filesystem::path &target,
+            const std::string &ref) {
   auto result =
       restore_invoke(git, target, {"show-ref", "--verify", "--quiet"}, {ref});
   if (!result) {
@@ -210,9 +231,9 @@ expected<std::optional<std::string>> current_ref(
       trim_git_newline(git_bytes(result->stdout_bytes))};
 }
 
-expected<void> ensure_object(const Git& git,
-                             const std::filesystem::path& target,
-                             const LocalRef& ref, const RepoEntry& entry) {
+expected<void> ensure_object(const Git &git,
+                             const std::filesystem::path &target,
+                             const LocalRef &ref, const RepoEntry &entry) {
   auto present = restore_invoke(git, target, {"cat-file", "-e"}, {ref.sha});
   if (!present) {
     return std::unexpected(present.error());
@@ -226,7 +247,7 @@ expected<void> ensure_object(const Git& git,
   }
   if (auto fetched = require_success(
           git, target, {"fetch", "--no-tags"}, {ref.proof->url, ref.proof->ref},
-          entry, "ref-recreation", GitCallClass::network, true);
+          entry, "ref-recreation", GitCallClass::network, true, ref.proof->url);
       !fetched) {
     return fetched;
   }
@@ -239,12 +260,12 @@ expected<void> ensure_object(const Git& git,
   return {};
 }
 
-std::vector<LocalRefRestoreRow> recreate_refs(
-    const Git& git, const std::filesystem::path& target,
-    const RepoEntry& entry) {
+expected<std::vector<LocalRefRestoreRow>>
+recreate_refs(const Git &git, const std::filesystem::path &target,
+              const RepoEntry &entry) {
   std::vector<LocalRefRestoreRow> rows;
   rows.reserve(entry.local_refs.size());
-  for (const auto& ref : entry.local_refs) {
+  for (const auto &ref : entry.local_refs) {
     LocalRefRestoreRow row{.ref = ref.ref,
                            .recreated = false,
                            .skipped_at_sha = false,
@@ -262,6 +283,10 @@ std::vector<LocalRefRestoreRow> recreate_refs(
       continue;
     }
     if (auto available = ensure_object(git, target, ref, entry); !available) {
+      if (engine_error_kind(available.error()) ==
+          EngineErrorKind::url_divergence_refused) {
+        return std::unexpected(available.error());
+      }
       row.detail = available.error().detail;
       rows.push_back(std::move(row));
       continue;
@@ -280,9 +305,9 @@ std::vector<LocalRefRestoreRow> recreate_refs(
   return rows;
 }
 
-expected<void> establish_head(const Git& git,
-                              const std::filesystem::path& target,
-                              const RepoEntry& entry) {
+expected<void> establish_head(const Git &git,
+                              const std::filesystem::path &target,
+                              const RepoEntry &entry) {
   if (entry.head_state == HeadState::unborn) {
     if (!entry.branch) {
       return std::unexpected(
@@ -307,10 +332,10 @@ expected<void> establish_head(const Git& git,
       entry, "checkout");
 }
 
-expected<void> verify_restored(const Git& git,
-                               const std::filesystem::path& target,
-                               const RepoEntry& entry, const bool root_repo) {
-  for (const auto& ref : entry.local_refs) {
+expected<void> verify_restored(const Git &git,
+                               const std::filesystem::path &target,
+                               const RepoEntry &entry, const bool root_repo) {
+  for (const auto &ref : entry.local_refs) {
     auto actual = current_ref(git, target, ref.ref);
     if (!actual || !*actual || **actual != ref.sha) {
       return std::unexpected(
@@ -350,9 +375,9 @@ expected<void> verify_restored(const Git& git,
   return {};
 }
 
-void append_note_advisories(const RepoEntry& entry, RepoRestoreRow& row) {
-  for (const auto& note : entry.notes) {
-    if (const auto* refs = std::get_if<NonCarriedRefsNote>(&note)) {
+void append_note_advisories(const RepoEntry &entry, RepoRestoreRow &row) {
+  for (const auto &note : entry.notes) {
+    if (const auto *refs = std::get_if<NonCarriedRefsNote>(&note)) {
       auto advisory =
           "non-carried refs: listed=" + std::to_string(refs->refs_p1.size());
       if (refs->omitted_count) {
@@ -363,8 +388,8 @@ void append_note_advisories(const RepoEntry& entry, RepoRestoreRow& row) {
   }
 }
 
-void append_ref_warnings(RepoRestoreRow& row) {
-  for (const auto& ref : row.local_refs) {
+void append_ref_warnings(RepoRestoreRow &row) {
+  for (const auto &ref : row.local_refs) {
     if (ref.detail) {
       row.advisories.push_back("local-ref-failed: " + ref.ref + ": " +
                                *ref.detail);
@@ -372,9 +397,10 @@ void append_ref_warnings(RepoRestoreRow& row) {
   }
 }
 
-expected<void> initialize_root_base(
-    const Git& git, const std::filesystem::path& target, const RepoEntry& entry,
-    const std::optional<std::filesystem::path>& bundle) {
+expected<void>
+initialize_root_base(const Git &git, const std::filesystem::path &target,
+                     const RepoEntry &entry,
+                     const std::optional<std::filesystem::path> &bundle) {
   if (auto initialized =
           require_success(git, target, {"init"}, {}, entry, "clone");
       !initialized) {
@@ -390,15 +416,16 @@ expected<void> initialize_root_base(
   return require_success(
       git, target, {"fetch", "--no-tags"},
       {entry.eligibility->proof->url, entry.eligibility->proof->ref}, entry,
-      "clone", GitCallClass::network, true);
+      "clone", GitCallClass::network, true, entry.eligibility->proof->url);
 }
 
-}  // namespace
+} // namespace
 
 expected<RepoRestoreRow> restore_entry(
-    const Git& git, const RepoEntry& entry,
-    const std::filesystem::path& partial_root,
-    const std::filesystem::path& stage_root) {
+    const Git &git, const RepoEntry &entry,
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): stable public API.
+    const std::filesystem::path &partial_root,
+    const std::filesystem::path &stage_root) {
   if (auto valid = validate_entry(entry); !valid) {
     return std::unexpected(valid.error());
   }
@@ -469,7 +496,11 @@ expected<RepoRestoreRow> restore_entry(
         !imported) {
       return std::unexpected(imported.error());
     }
-    row.local_refs = recreate_refs(git, target, entry);
+    auto refs = recreate_refs(git, target, entry);
+    if (!refs) {
+      return std::unexpected(refs.error());
+    }
+    row.local_refs = std::move(*refs);
     append_ref_warnings(row);
     if (auto head = establish_head(git, target, entry); !head) {
       return std::unexpected(head.error());
@@ -512,7 +543,10 @@ expected<RepoRestoreRow> restore_entry(
             {source, target.string()}, entry, "clone",
             entry.capture_mode == CaptureMode::full ? GitCallClass::bundle
                                                     : GitCallClass::network,
-            true);
+            true,
+            entry.capture_mode == CaptureMode::overlay
+                ? std::optional<std::string>{source}
+                : std::nullopt);
         !cloned) {
       return std::unexpected(cloned.error());
     }
@@ -537,7 +571,11 @@ expected<RepoRestoreRow> restore_entry(
       !detached) {
     return std::unexpected(detached.error());
   }
-  row.local_refs = recreate_refs(git, target, entry);
+  auto refs = recreate_refs(git, target, entry);
+  if (!refs) {
+    return std::unexpected(refs.error());
+  }
+  row.local_refs = std::move(*refs);
   append_ref_warnings(row);
   if (auto head = establish_head(git, target, entry); !head) {
     return std::unexpected(head.error());
@@ -551,4 +589,4 @@ expected<RepoRestoreRow> restore_entry(
   return row;
 }
 
-}  // namespace biv::repo
+} // namespace biv::repo

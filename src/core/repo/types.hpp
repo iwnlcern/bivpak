@@ -42,6 +42,7 @@ enum class EngineErrorKind {
   unmerged_index_unrepresentable,
   ref_uncapturable,
   promisor_objects_unavailable,
+  url_divergence_refused,
   git_invocation_failed,
   git_budget_expired,
   repo_restore_failed
@@ -53,40 +54,42 @@ struct EngineIssue {
   std::string detail;
 };
 
-inline constexpr std::string_view engine_error_name(
-    const EngineErrorKind kind) noexcept {
+inline constexpr std::string_view
+engine_error_name(const EngineErrorKind kind) noexcept {
   switch (kind) {
-    case EngineErrorKind::repo_dirty_unsupported:
-      return "repo-dirty-unsupported";
-    case EngineErrorKind::repo_nested_unsupported:
-      return "repo-nested-unsupported";
-    case EngineErrorKind::repo_submodule_unsupported:
-      return "repo-submodule-unsupported";
-    case EngineErrorKind::unmerged_index_unrepresentable:
-      return "unmerged-index-unrepresentable";
-    case EngineErrorKind::ref_uncapturable:
-      return "ref-uncapturable";
-    case EngineErrorKind::promisor_objects_unavailable:
-      return "promisor-objects-unavailable";
-    case EngineErrorKind::git_invocation_failed:
-      return "git-invocation-failed";
-    case EngineErrorKind::git_budget_expired:
-      return "git-budget-expired";
-    case EngineErrorKind::repo_restore_failed:
-      return "repo-restore-failed";
+  case EngineErrorKind::repo_dirty_unsupported:
+    return "repo-dirty-unsupported";
+  case EngineErrorKind::repo_nested_unsupported:
+    return "repo-nested-unsupported";
+  case EngineErrorKind::repo_submodule_unsupported:
+    return "repo-submodule-unsupported";
+  case EngineErrorKind::unmerged_index_unrepresentable:
+    return "unmerged-index-unrepresentable";
+  case EngineErrorKind::ref_uncapturable:
+    return "ref-uncapturable";
+  case EngineErrorKind::promisor_objects_unavailable:
+    return "promisor-objects-unavailable";
+  case EngineErrorKind::url_divergence_refused:
+    return "url-divergence-refused";
+  case EngineErrorKind::git_invocation_failed:
+    return "git-invocation-failed";
+  case EngineErrorKind::git_budget_expired:
+    return "git-budget-expired";
+  case EngineErrorKind::repo_restore_failed:
+    return "repo-restore-failed";
   }
   return "git-invocation-failed";
 }
 
 inline BivError make_engine_error(const EngineErrorKind kind,
-                                  const std::filesystem::path& path,
+                                  const std::filesystem::path &path,
                                   std::string detail) {
   BivError error{ErrKind::InternalError, path.string(), std::move(detail)};
   error.facts.emplace("repo_engine_kind", std::string{engine_error_name(kind)});
   return error;
 }
 
-inline std::optional<EngineErrorKind> engine_error_kind(const BivError& error) {
+inline std::optional<EngineErrorKind> engine_error_kind(const BivError &error) {
   const auto fact = error.facts.find("repo_engine_kind");
   if (fact == error.facts.end()) {
     return std::nullopt;
@@ -97,6 +100,7 @@ inline std::optional<EngineErrorKind> engine_error_kind(const BivError& error) {
                           EngineErrorKind::unmerged_index_unrepresentable,
                           EngineErrorKind::ref_uncapturable,
                           EngineErrorKind::promisor_objects_unavailable,
+                          EngineErrorKind::url_divergence_refused,
                           EngineErrorKind::git_invocation_failed,
                           EngineErrorKind::git_budget_expired,
                           EngineErrorKind::repo_restore_failed}) {
@@ -218,4 +222,4 @@ struct RepoEntry {
   std::optional<EngineSourceState> engine_source;
 };
 
-}  // namespace biv::repo
+} // namespace biv::repo
