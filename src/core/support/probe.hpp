@@ -72,6 +72,7 @@ std::string sanitize_utf8(std::string_view input);
 
 // biv never invokes an agent with a prompt, never starts/resumes a session, never spends;
 // the disclosed, pinnable, shell-free `<binary> --version` probe is the sole sanctioned exec (operator ruling 062318).
+// That ruling is absolute for agent execution; git is not an agent and its argv-only execution is governed separately by the sealed Step-4 contracts.
 // The probe places the child in its OWN process group and, on cleanup, sweeps THAT GROUP (TERM → 200ms grace → KILL to `-pgid`).
 // A descendant that REMOVES ITSELF from the group before the sweep — e.g. via `setsid()` or `setpgid()` — is NOT portably killable on the target platforms and is NOT claimed to be reaped.
 // Group members are swept; a self-detached descendant is acknowledged, not silently promised.

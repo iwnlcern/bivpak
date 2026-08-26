@@ -42,8 +42,11 @@ endforeach()
 
 option(BIV_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 
-add_library(biv_support STATIC src/core/support/portability.cpp)
+add_library(biv_support STATIC
+  src/core/support/portability.cpp
+  src/core/support/subprocess.cpp)
 target_include_directories(biv_support PUBLIC src)
+target_link_libraries(biv_support PUBLIC Threads::Threads)
 target_compile_options(biv_support PRIVATE -Wall -Wextra -Werror)
 
 add_library(bivcore STATIC
@@ -58,6 +61,13 @@ add_library(bivcore STATIC
   src/core/open/render.cpp
   src/core/open/sessions.cpp
   src/core/pack/pack.cpp
+  src/core/repo/classify.cpp
+  src/core/repo/capture.cpp
+  src/core/repo/discover.cpp
+  src/core/repo/eligibility.cpp
+  src/core/repo/git.cpp
+  src/core/repo/git_exec.cpp
+  src/core/repo/restore.cpp
   src/core/report/envelope.cpp
   src/core/scan/scan.cpp
   src/core/support/probe.cpp
@@ -89,9 +99,36 @@ target_link_libraries(biv PRIVATE bivcore biv_adapters)
 target_compile_options(biv PRIVATE -Wall -Wextra -Werror)
 
 enable_testing()
+add_executable(biv_subprocess_tests tests/test_subprocess.cpp)
+target_include_directories(biv_subprocess_tests PRIVATE src)
+target_link_libraries(biv_subprocess_tests PRIVATE
+  biv_support Catch2::Catch2WithMain)
+target_compile_options(biv_subprocess_tests PRIVATE -Wall -Wextra -Werror)
+add_test(NAME subprocess COMMAND biv_subprocess_tests)
+
+add_library(biv_repo_git_test_seam STATIC src/core/repo/git.cpp)
+target_include_directories(biv_repo_git_test_seam PUBLIC src)
+target_link_libraries(biv_repo_git_test_seam PRIVATE biv_support Threads::Threads)
+target_compile_options(biv_repo_git_test_seam PRIVATE -Wall -Wextra -Werror)
+target_compile_definitions(biv_repo_git_test_seam PRIVATE BIV_REPO_TESTING=1)
+
+add_executable(biv_repo_git_tests tests/test_repo_git.cpp)
+target_include_directories(biv_repo_git_tests PRIVATE src)
+target_link_libraries(biv_repo_git_tests PRIVATE
+  biv_repo_git_test_seam biv_support Catch2::Catch2WithMain)
+target_compile_options(biv_repo_git_tests PRIVATE -Wall -Wextra -Werror)
+target_compile_definitions(biv_repo_git_tests PRIVATE BIV_REPO_TESTING=1)
+add_test(NAME repo_git COMMAND biv_repo_git_tests)
+
+add_executable(biv_repo_engine_tests tests/test_repo_engine.cpp)
+target_include_directories(biv_repo_engine_tests PRIVATE src)
+target_link_libraries(biv_repo_engine_tests PRIVATE bivcore Catch2::Catch2WithMain)
+target_compile_options(biv_repo_engine_tests PRIVATE -Wall -Wextra -Werror)
+add_test(NAME repo_engine COMMAND biv_repo_engine_tests)
+
 add_library(biv_probe_test_seam STATIC src/core/support/probe.cpp)
 target_include_directories(biv_probe_test_seam PUBLIC src)
-target_link_libraries(biv_probe_test_seam PRIVATE Threads::Threads)
+target_link_libraries(biv_probe_test_seam PRIVATE biv_support Threads::Threads)
 target_compile_options(biv_probe_test_seam PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(biv_probe_test_seam PRIVATE
   BIV_PROBE_TESTING=1
@@ -119,7 +156,6 @@ target_sources(biv_tests PRIVATE tests/test_adapter_codex_collect.cpp)
 target_sources(biv_tests PRIVATE tests/test_adapter_codex_install.cpp)
 target_sources(biv_tests PRIVATE tests/test_sessions.cpp)
 target_sources(biv_tests PRIVATE tests/test_render.cpp)
-target_sources(biv_tests PRIVATE tests/test_probe.cpp)
 target_link_libraries(biv_tests PRIVATE
   biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
@@ -130,6 +166,16 @@ target_compile_definitions(biv_tests PRIVATE
   BIV_BINARY_PATH="$<TARGET_FILE:biv>"
   BIV_GENERATED_ENVELOPE_PATH="${BIV_GENERATED_ENVELOPE}")
 add_test(NAME biv_tests COMMAND biv_tests)
+
+add_executable(biv_probe_tests tests/test_probe.cpp)
+target_link_libraries(biv_probe_tests PRIVATE
+  biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
+target_compile_options(biv_probe_tests PRIVATE -Wall -Wextra -Werror)
+target_compile_definitions(biv_probe_tests PRIVATE
+  BIV_PROBE_TESTING=1
+  BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME probe COMMAND biv_probe_tests)
+
 add_test(NAME open_no_rewrite_gate
   COMMAND ${CMAKE_SOURCE_DIR}/tests/check_open_no_rewrite.sh
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

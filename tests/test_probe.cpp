@@ -19,30 +19,12 @@
 #include <vector>
 
 #include "core/support/probe.hpp"
+#include "support/temp_dir.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
-
-class TempDir {
- public:
-  explicit TempDir(const std::string_view name)
-      : path_{fs::temp_directory_path() / ("biv-probe-" + std::string{name} +
-                                           "-" + std::to_string(::getpid()))} {
-    fs::remove_all(path_);
-    fs::create_directories(path_);
-  }
-
-  ~TempDir() { fs::remove_all(path_); }
-
-  TempDir(const TempDir&) = delete;
-  TempDir& operator=(const TempDir&) = delete;
-
-  const fs::path& path() const { return path_; }
-
- private:
-  fs::path path_;
-};
+using biv::test_support::TempDir;
 
 fs::path write_executable(const fs::path& path, const std::string_view body) {
   fs::create_directories(path.parent_path());
@@ -996,12 +978,21 @@ TEST_CASE("version probe has one traced readiness primitive") {
   CHECK(waiter(invalid_descriptor, std::chrono::milliseconds{1}) ==
         biv::support::ReadinessResult::failed);
 
-  const auto source_path =
-      fs::path{BIV_SOURCE_DIR} / "src" / "core" / "support" / "probe.cpp";
+  // the one-traced-readiness-primitive seal moved with its machinery from
+  // probe.cpp to subprocess.cpp; probe.cpp's half strengthened to
+  // zero-primitives.
+  const auto source_path = fs::path{BIV_SOURCE_DIR} / "src" / "core" /
+                           "support" / "subprocess.cpp";
   std::ifstream in{source_path};
   REQUIRE(in);
   const std::string source{std::istreambuf_iterator<char>{in},
                            std::istreambuf_iterator<char>{}};
+  const auto probe_path =
+      fs::path{BIV_SOURCE_DIR} / "src" / "core" / "support" / "probe.cpp";
+  std::ifstream probe_in{probe_path};
+  REQUIRE(probe_in);
+  const std::string probe_source{std::istreambuf_iterator<char>{probe_in},
+                                 std::istreambuf_iterator<char>{}};
   const auto occurrence_count = [](const std::string_view text,
                                    const std::string_view token) {
     std::size_t count = 0;
@@ -1033,6 +1024,9 @@ TEST_CASE("version probe has one traced readiness primitive") {
   CHECK(without_waiter.find("::poll(") == std::string::npos);
   CHECK(without_waiter.find("::select(") == std::string::npos);
   CHECK(without_waiter.find("::ppoll(") == std::string::npos);
+  CHECK(probe_source.find("::poll(") == std::string::npos);
+  CHECK(probe_source.find("::select(") == std::string::npos);
+  CHECK(probe_source.find("::ppoll(") == std::string::npos);
 
   const auto clock_begin = source.find("ProbeClock production_probe_clock()");
   const auto clock_end = source.find("\n}\n", clock_begin);
@@ -1046,11 +1040,12 @@ TEST_CASE("version probe has one traced readiness primitive") {
 
   const auto reap_begin =
       source.find("static_cast<void>(settle_post_kill(");
-  const auto reap_end = source.find("capture.finish();", reap_begin);
+  const auto reap_end =
+      source.find("result.spawn_failed = ownership_failed;", reap_begin);
   REQUIRE(reap_begin != std::string::npos);
   REQUIRE(reap_end != std::string::npos);
   const auto reap_source = source.substr(reap_begin, reap_end - reap_begin);
   CHECK(occurrence_count(reap_source, "settle_post_kill(") == 1U);
   CHECK(occurrence_count(reap_source,
-                         "budgets.post_kill_reap, clock.now,") == 1U);
+                         "request.budgets.post_kill_reap, clock));") == 1U);
 }
