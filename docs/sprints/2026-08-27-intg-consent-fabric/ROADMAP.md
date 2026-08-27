@@ -24,7 +24,7 @@ The release hold is ABSOLUTE.
 ## Standing dispositions from master (answer relay `intg-substep1-master-answers/PLAN-master-planner-20260827-155221.md`)
 
 - Branch base CONFIRMED: `intg/consent-fabric` cuts from local `main@02b51435` (the phase-design pin); no rebase without a routed STOP.
-- A7 (`m3-addendum-7`, S5–S7) rides the renewed VP verification; on the pass it seals at m-3 and JOINS the spec-of-record set — the S5–S7 surfaces stay un-PLANNED until the seal carries down.
+- A7 (`m3-addendum-7`, S5–S7) is APPROVED at the exact pin `4c40fe3782ae39fe37912285e97c9f9059a943740847634ec1da33c344da0ec5` @ `516a36c` (Master Reviewer `163228` on implementer `042911`; carried down `164216`) and the pin is CITABLE in the spec-of-record set — the S5–S7 surfaces may enter PLAN DRAFTING against the pin now. The m-3 seal stamp was observed landing on disk at this seat's read (lock id `m3-addendum-7-4c40fe37-lock-20260827`, working-tree state); the lock id is adopted into citations when master's naming carry arrives. The first GATED plan still files only after W-3 is effective.
 - Bridge transport: up-facing relays file in this root and ride the operator's hand-carry; answers file in the pdc root and ride the carry back; no master-root intg seat.
 - W-3 (cross-repo plan-lineage waiver) PROPOSED, not effective: no gated PLAN files before the operator's grant and the Master Reviewer's concurrence both land.
 
