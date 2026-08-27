@@ -24,3 +24,4 @@ The release hold is ABSOLUTE.
 ## Additional top-level files (declared per sprint-doc-setup)
 
 - `DEVIATIONS.md` — the pair-local deviations ledger (Stock -> Ours -> Why -> Status), required by charter LAYOUT.
+- `OBLIGATIONS.md` — the boot-read register of master/RESIDUALS.md rows binding this commission (charter rule 5 projection; the registry wins on conflict).

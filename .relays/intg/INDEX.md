@@ -5,3 +5,4 @@ COMMISSIONED_BY: {"commissioning_path":"intg-commission-grant/PLAN-master-planne
 |---|---|---|---|---|---|---|---|---|---|
 | 20260827-152923 | AUDIT | Pair Planner | intg-substep1-audit | intg-commission-grant | intg.pair-planner | intg.pair-implementer | master.master-planner | — | intg-substep1/AUDIT-pair-planner-20260827-152923.md |
 | 20260827-152943 | SITREP | Pair Planner | intg-substep1-audit | intg-commission-grant | intg.pair-planner | master.master-planner | master.master-reviewer | — | intg-substep1/SITREP-pair-planner-20260827-152943.md |
+| 20260827-153246 | SITREP | Pair Planner | intg-substep1-audit | intg-commission-grant | intg.pair-planner | master.master-planner | master.master-reviewer, intg.pair-implementer | — | intg-substep1/SITREP-pair-planner-20260827-153246.md |
