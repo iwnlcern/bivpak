@@ -21,6 +21,13 @@ This sprint root carries no `.relays/` subtree of its own; the charter fixes the
 Not granted at any step: design-of-record amendment, merge, push, publication, deployment, release.
 The release hold is ABSOLUTE.
 
+## Standing dispositions from master (answer relay `intg-substep1-master-answers/PLAN-master-planner-20260827-155221.md`)
+
+- Branch base CONFIRMED: `intg/consent-fabric` cuts from local `main@02b51435` (the phase-design pin); no rebase without a routed STOP.
+- A7 (`m3-addendum-7`, S5–S7) rides the renewed VP verification; on the pass it seals at m-3 and JOINS the spec-of-record set — the S5–S7 surfaces stay un-PLANNED until the seal carries down.
+- Bridge transport: up-facing relays file in this root and ride the operator's hand-carry; answers file in the pdc root and ride the carry back; no master-root intg seat.
+- W-3 (cross-repo plan-lineage waiver) PROPOSED, not effective: no gated PLAN files before the operator's grant and the Master Reviewer's concurrence both land.
+
 ## Additional top-level files (declared per sprint-doc-setup)
 
 - `DEVIATIONS.md` — the pair-local deviations ledger (Stock -> Ours -> Why -> Status), required by charter LAYOUT.

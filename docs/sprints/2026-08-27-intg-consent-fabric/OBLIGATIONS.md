@@ -27,7 +27,7 @@ Wiring (2b): the R-4.43 survivors (m-1 veto 9 + V-A6-6 double veto; product-scop
 
 ## C — step gates as written
 
-R-3.25 build half OPEN (the (a)→(b) ordering binds any codex branch-3 test). R-W.2 OPEN, org-safety infra carried by master — confirm enumeration at dispatch, not pair-shaped. R-4.4 Step-4-exit receipts. R-4.30 executed; closes on this pair's first filed relay (filed 152923). R-4.45 closed — engine workflow binds this substrate. R-4.46 OPEN — no push ever from this pair; R-4.38+R-3.37 repair due before any push AND before the count gate is cited as merge-readiness for ANY candidate including ours. Release hold ABSOLUTE.
+R-3.25 build half OPEN (the (a)→(b) ordering binds any codex branch-3 test). R-W.2 OPEN, org-safety infra carried by master — confirm enumeration at dispatch, not pair-shaped. R-4.4 Step-4-exit receipts. R-4.30 CLOSED at master's pen 2026-08-27 on this pair's first filed relay (`152923`; master's answer relay `intg-substep1-master-answers/PLAN-master-planner-20260827-155221.md`, closure verified at the registry bytes). R-4.45 closed — engine workflow binds this substrate. R-4.46 OPEN — no push ever from this pair; R-4.38+R-3.37 repair due before any push AND before the count gate is cited as merge-readiness for ANY candidate including ours. Release hold ABSOLUTE.
 
 ## D — standing class rules binding any code we write
 
@@ -39,7 +39,7 @@ Row CLOSED; surviving and binding: the release-checklist clause (first checklist
 
 ## F — accident-prone
 
-- Cross-repo plan lineage: our gated PLANs consume pdc-side locks and WILL draw relay-lint's foreign-lock red; W-2's coverage is dormant/empty and does NOT extend to intg — the pair needs its OWN disposition (routed UP 2026-08-27, supplement SITREP).
+- Cross-repo plan lineage: our gated PLANs consume pdc-side locks and WILL draw relay-lint's foreign-lock red; W-2's coverage is dormant/empty and does NOT extend to intg. DISPOSITIONED 2026-08-27: **W-3 PROPOSED** in master/RESIDUALS.md (arm-(d) disclosure-by-class on each gated PLAN's face + master's manual bytes-and-approval verification as the assurance of record + per-plan MEASURED `DESIGN_DOC_ID -> DESIGN_LOCK_ID` coverage entries, current-revision-not-cumulative; eligible sealed set = A6/M/N + A7-upon-seal + SR-URL-where-cited). NOT EFFECTIVE until the operator's post-scan grant AND master.master-reviewer's concurrence land — **NO gated PLAN files before both**. The DESIGN_SOURCE_* seven-field route is declined as unmeasured; the pair may propose it later only with a measured clean demonstration at a real PLAN.
 - FU-1 (symlink-target restore ruling) is top-level + operator, un-delegated — route up on contact.
 - R-4.14 (A9 sidecar content leak review) — do not extend the A9 sidecar without it.
 - Opportunistic-fix riders: R-3.41 / R-3.54 / R-3.56 / R-3.50 discharge only if their files are opened substantively.
