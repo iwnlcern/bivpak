@@ -13,3 +13,4 @@ COMMISSIONED_BY: {"commissioning_path":"intg-commission-grant/PLAN-master-planne
 | 20260827-222444 | SITREP | Pair Planner | intg-substep1-audit | intg-commission-grant | intg.pair-planner | master.master-planner | master.master-reviewer, intg.pair-implementer | — | intg-substep1/SITREP-pair-planner-20260827-222444.md |
 | 20260827-225858 | BOOT | pair-implementer | intg-boot-pair-implementer | — | intg.pair-implementer | intg.pair-implementer | — | — | intg-boot/BOOT-pair-implementer-20260827-225858.md |
 | 20260827-231149 | AUDIT | Pair Implementer | intg-substep1-audit | intg-commission-grant | intg.pair-implementer | intg.pair-planner | — | — | intg-substep1/AUDIT-pair-implementer-20260827-231149.md |
+| 20260827-232251 | RECONCILE | Pair Planner | intg-substep1-audit | intg-commission-grant | intg.pair-planner | intg.pair-implementer | master.master-planner | — | intg-substep1/RECONCILE-pair-planner-20260827-232251.md |
