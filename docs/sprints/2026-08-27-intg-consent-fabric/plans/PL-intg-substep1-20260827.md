@@ -79,7 +79,7 @@ Modify: harness/selftest/test_envelope.py (both blob pins recomputed; a6·17 str
 Modify: CMakeLists.txt              (line 97: add src/cli/url_consent.cpp to the biv executable; one new target_sources(biv_tests PRIVATE src/cli/url_consent.cpp) line in the existing biv_tests block at :137-158 — no new target, no new test binary)
 ```
 
-Run-command convention for every task (literal, per the reviewed tree): configure/build with `cmake --build build/dev --target biv_tests biv`, then invoke the test binary directly with Catch2 name filters, e.g. `./build/dev/biv_tests "a6.18 inherited no-help boundary witnessed on pack/list/info"`. (`ctest --test-dir build/dev -R cli` selects ZERO tests on this tree — never use `-R cli`.) The selftest runs as `python3 -m pytest harness/selftest/test_envelope.py -q`.
+Run-command convention for every task (literal, per the reviewed tree): configure/build with `cmake --build build/dev --target biv_tests biv`, then invoke the test binary directly. Every NEW test case carries the `[a6-fabric]` tag and is selected as `./build/dev/biv_tests "[a6-fabric]"` -- tag selection because the pinned Catch2 grammar treats unescaped commas in a name spec as OR separators and several new names contain commas; existing comma-free names may be invoked exactly. (`ctest --test-dir build/dev -R cli` selects ZERO tests on this tree -- never use `-R cli`.) The IMPL report lists the executed new test names from the Catch2 output, proving they RAN. The selftest runs as `python3 -m pytest harness/selftest/test_envelope.py -q`.
 
 ---
 
@@ -105,7 +105,7 @@ CHECK(help.out ==
       "  --verify\n"
       "  --json\n");
 
-TEST_CASE("a6-R3 pack and open accept --accept-url-divergence") {
+TEST_CASE("a6-R3 pack and open accept --accept-url-divergence", "[a6-fabric]") {
   // open: flag parses alongside an image; no usage error
   {
     char prog[] = "biv", verb[] = "open", flag[] = "--accept-url-divergence", img[] = "x.bvpk";
@@ -130,7 +130,7 @@ TEST_CASE("a6-R3 pack and open accept --accept-url-divergence") {
   }
 }
 
-TEST_CASE("a6.14 list/info accept the flag inert: full-stream equality with flagless") {
+TEST_CASE("a6.14 list/info accept the flag inert: full-stream equality with flagless", "[a6-fabric]") {
   const auto root = make_tmp("a6-14-inert");
   // FULL code/out/err equality for EACH verb — a mutant emitting any A6 surface on any
   // stream, or shifting the exit, REDs here (flag-specific: only this spelling compared).
@@ -147,7 +147,7 @@ TEST_CASE("a6.14 list/info accept the flag inert: full-stream equality with flag
   std::filesystem::remove_all(root);
 }
 
-TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info") {
+TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info", "[a6-fabric]") {
   const auto root = make_tmp("a6-18-nohelp");
   // The sealed leg requires the OTHER verbs' help ABSENCE witnessed, not assumed.
   // The witness is help-is-not-special FULL-STREAM equality: for each verb, `--help`
@@ -159,17 +159,27 @@ TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info") {
       {"pack --help", "pack --no-such-flag"},          // pack rejects every flag alike
       {"list --help x.bvpk", "list --no-such-flag x.bvpk"},  // stubs ignore trailing tokens alike
       {"info --help x.bvpk", "info --no-such-flag x.bvpk"}};
+  // EXACT stable baselines at the reviewed base (kills the shared-baseline mutant --
+  // a help-like block emitted on BOTH flag paths cannot match these):
+  //   all three verbs: exit code 5, EMPTY stdout;
+  //   pack stderr  == "biv: UsageError: unknown-flag\n"
+  //   list/info stderr == "biv: UsageError: NotYetImplemented\n"
+  const std::map<std::string, std::string> expected_err{
+      {"pack", "biv: UsageError: unknown-flag\n"},
+      {"list", "biv: UsageError: NotYetImplemented\n"},
+      {"info", "biv: UsageError: NotYetImplemented\n"}};
   for (const auto& [help_form, baseline_form] : probes) {
+    const auto verb = help_form.substr(0, help_form.find(' '));
     const auto help = run_cmd(help_form, root);
     const auto baseline = run_cmd(baseline_form, root);
     INFO(help_form);
+    CHECK(help.code == 5);
+    CHECK(help.out.empty());
+    CHECK(help.err == expected_err.at(verb));
+    // belt: help gets NO special treatment vs any other unknown/ignored flag
     CHECK(help.code == baseline.code);
     CHECK(help.out == baseline.out);
     CHECK(help.err == baseline.err);
-    CHECK(help.out.find("usage:") == std::string::npos);
-    CHECK(help.err.find("usage:") == std::string::npos);
-    CHECK(help.out.find("--accept-url-divergence") == std::string::npos);
-    CHECK(help.err.find("--accept-url-divergence") == std::string::npos);
   }
   std::filesystem::remove_all(root);
 }
@@ -177,7 +187,7 @@ TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info") {
 
 (The a6·14 case pins the FLAG spelling's inert observable only — it must not assert acceptance of arbitrary trailing tokens; the stub path is not this feature's contract. RECONCILE I2.)
 
-- [ ] **Step 2: run, verify FAIL** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "Task 4 CLI help documents the strict agent binary pin syntax,a6-R3 pack and open accept --accept-url-divergence,a6.14 list/info accept the flag inert: full-stream equality with flagless,a6.18 inherited no-help boundary witnessed on pack/list/info"` — the help golden fails on the missing line; the parser cases fail on `unknown-flag`.
+- [ ] **Step 2: run, verify FAIL** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "[a6-fabric]" && ./build/dev/biv_tests "Task 4 CLI help documents the strict agent binary pin syntax"` — the help golden fails on the missing line; the parser cases fail on `unknown-flag`.
 - [ ] **Step 3: implement.**
 
 ```cpp
@@ -278,7 +288,7 @@ simdjson::dom::array single_accepted_entries(const simdjson::dom::element docume
 }
 }  // namespace
 
-TEST_CASE("a6-R1 open carriers: exact rows, order, cardinality, grouped advisory, zero state") {
+TEST_CASE("a6-R1 open carriers: exact rows, order, cardinality, grouped advisory, zero state", "[a6-fabric]") {
   biv::open::OpenReport report{.image_path = "img.bvpk", .output_dir = "out"};
   // zero state (a6.15 unit half): both carriers ABSENT on the open branch
   const auto zero = biv::report::envelope("open", std::nullopt, report, std::nullopt, 0);
@@ -301,7 +311,7 @@ TEST_CASE("a6-R1 open carriers: exact rows, order, cardinality, grouped advisory
   check_accepted_entry(entries.at(0), "https://acc-req", "https://acc-eff", "clone", "/hook/acc");
 }
 
-TEST_CASE("a6-R1 pack carries the grouped advisory too: exact entries, order, zero state") {
+TEST_CASE("a6-R1 pack carries the grouped advisory too: exact entries, order, zero state", "[a6-fabric]") {
   biv::pack::PackReport report{.image_path = "img.bvpk", .source_path = "src"};
   const auto zero = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 0);
   CHECK(zero.find("url-divergence-accepted") == std::string::npos);
@@ -319,7 +329,7 @@ TEST_CASE("a6-R1 pack carries the grouped advisory too: exact entries, order, ze
   check_accepted_entry(entries.at(1), "https://p2-req", "https://p2-eff", "fetch", "/pack/two");
 }
 
-TEST_CASE("a6-R1 site 1: the preflight grain rides the top-level error carrier") {
+TEST_CASE("a6-R1 site 1: the preflight grain rides the top-level error carrier", "[a6-fabric]") {
   // kind/path/facts asserted; the A6-R4 detail BYTES are Task-4/STOP-1-gated and are
   // deliberately NOT asserted here (this unit proves the carrier, not the template):
   biv::BivError error{.kind = biv::ErrKind::UrlDivergenceRefused,
@@ -338,7 +348,7 @@ TEST_CASE("a6-R1 site 1: the preflight grain rides the top-level error carrier")
   CHECK(envelope.find("\"result\": null") != std::string::npos);
 }
 
-TEST_CASE("a6-R1 exit composition: one typed aggregator over both sources") {
+TEST_CASE("a6-R1 exit composition: one typed aggregator over both sources", "[a6-fabric]") {
   core_sessions::SessionsOutcome clean{};  // no rows -> exit_for_sessions == 0
   const std::vector<biv::UrlDivergenceEntryRefusal> rows{
       {"r1", "a/b", "https://req", "https://eff", "fetch"}};
@@ -586,7 +596,7 @@ CURRENT_LOCKED_SCHEMA_BLOBS = {
 }
 ```
 
-- [ ] **Step 4: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "[envelope]" "schema artifacts reserve envelope and exit-map contracts,a6-R1 open carriers: exact rows, order, cardinality, grouped advisory, zero state,a6-R1 pack carries the grouped advisory too: exact entries, order, zero state,a6-R1 site 1: the preflight grain rides the top-level error carrier,a6-R1 exit composition: one typed aggregator over both sources"` (Catch2 name filters; drop "[envelope]" if no such tag exists on this tree — the comma-joined name list is the operative filter) and `python3 -m pytest harness/selftest/test_envelope.py -q` (pins + a6·17 + the existing scenario validations, the zero-state half of a6·16 now running against the widened schema).
+- [ ] **Step 4: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "[a6-fabric]" && ./build/dev/biv_tests "schema artifacts reserve envelope and exit-map contracts"` and `python3 -m pytest harness/selftest/test_envelope.py -q` (pins + a6·17 + the existing scenario validations, the zero-state half of a6·16 now running against the widened schema).
 - [ ] **Step 5: commit (the one-commit contract landing)** — `git add src/core/support/error.hpp src/core/support/error.cpp src/core/support/url_divergence.hpp src/core/open/open.hpp src/core/pack/pack.hpp src/core/report/envelope.hpp src/core/report/envelope.cpp src/cli/main.cpp schemas/biv-exit-map.v1.json schemas/biv-json-envelope.v1.schema.json tests/test_envelope.cpp harness/selftest/test_envelope.py && git commit -m "feat(contract): the two url-divergence ErrKinds land WITH both exit-map rows, all three envelope-schema sites, carrier structs/serialization, the widened open-exit aggregator, derived parity rows, and both recomputed selftest pins (sealed A6-R1; V-A6-3 one-commit rule)"`
 
 ### Task 3: E2 zero-state legs at verb scope (a6·15)
@@ -596,7 +606,7 @@ CURRENT_LOCKED_SCHEMA_BLOBS = {
 - [ ] **Step 1: failing test** (fails only if Task 2 mis-emits; expected to pass immediately — it is the a6·15 landing instrument, keep it even when green on first run):
 
 ```cpp
-TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb envelopes") {
+TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb envelopes", "[a6-fabric]") {
   // the exact fixture sequence of "CLI pack/open round-trip emits JSON envelopes"
   // (tests/test_cli.cpp:891-916), reused verbatim:
   const auto root = make_tmp("a6-15-zero");
@@ -623,7 +633,7 @@ TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb 
 }
 ```
 
-- [ ] **Step 2: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "a6.15 zero state: no divergence -> both carriers absent on real verb envelopes"`.
+- [ ] **Step 2: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "[a6-fabric]"`.
 - [ ] **Step 3: commit** — `git add tests/test_cli.cpp && git commit -m "test: a6.15 zero-state landing leg — both url-divergence carriers absent on divergence-free pack/open envelopes"`
 
 ### Task 4: the PROMPT D renderer module (STOP-1 ANSWERED — un-blocked)
@@ -645,7 +655,7 @@ TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb 
 - [ ] **Step 1: failing byte-equality tests** — each template asserted BYTE-WHOLE against the sealed text (with STOP-1 cells resolved), e.g.:
 
 ```cpp
-TEST_CASE("A6-R2 PROMPT D bytes are golden") {
+TEST_CASE("A6-R2 PROMPT D bytes are golden", "[a6-fabric]") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
   CHECK(biv::cli::render_prompt_d(facts) ==
         "  fetch: the address git will contact for /w/repo differs from the requested address:\n"
@@ -653,12 +663,12 @@ TEST_CASE("A6-R2 PROMPT D bytes are golden") {
         "    effective: https://eff\n"
         "  Contact the effective address? [y/N] ");  // STOP-1a: trailing space, NO newline (m-3 235912)
 }
-TEST_CASE("A6-R4 accepted notice bytes are golden") {
+TEST_CASE("A6-R4 accepted notice bytes are golden", "[a6-fabric]") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
   CHECK(biv::cli::render_accepted_notice(facts) ==
         "  fetch: contacting https://eff for /w/repo (requested: https://req — accepted for this run)\n");
 }
-TEST_CASE("A6-R4 refusal + guidance bytes are golden") {
+TEST_CASE("A6-R4 refusal + guidance bytes are golden", "[a6-fabric]") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
   CHECK(biv::cli::render_pack_refusal_detail(facts) ==
         "pack refused: fetch for /w/repo would contact https://eff instead of the requested https://req; approval was not given. Re-run interactively to review, or pass --accept-url-divergence to proceed.");
@@ -670,7 +680,7 @@ TEST_CASE("A6-R4 refusal + guidance bytes are golden") {
   CHECK(biv::cli::render_run_guidance_line(2) ==
         "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
 }
-TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err") {
+TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err", "[a6-fabric]") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/r", "https://q", "https://e"};
   // EVERY branch also binds the wrapper's stderr bytes byte-whole to the golden
   // render — a wrapper emitting nothing, drifted bytes, or extra bytes REDs here:
@@ -691,16 +701,17 @@ TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds; wrapper renders by
     CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
     CHECK(err.str() == golden); }
   { std::istringstream in{"y\n"}; std::ostringstream err;
-    err.setstate(std::ios::failbit);                                // stream failure -> refuse
-    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err)); }
+    in.setstate(std::ios::failbit);                                 // FAILED INPUT -> refuse
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));   // (a proceed on failed input REDs)
+    CHECK(err.str() == golden); }                                   // prompt still rendered byte-whole
 }
 ```
 
 Addresses render VERBATIM — no elision, truncation, or normalization anywhere in the module (A6-R2). These are unit tests of the module's bytes; they claim NO FX-A6 behavioral leg (those need verb-reachable divergence, due 2b).
 
-- [ ] **Step 2: run, verify FAIL** — `cmake --build build/dev --target biv_tests` fails to link (module absent) or the filtered run `./build/dev/biv_tests "A6-R2 PROMPT D bytes are golden"` fails.
+- [ ] **Step 2: run, verify FAIL** — `cmake --build build/dev --target biv_tests` fails to link (module absent) or the filtered run `./build/dev/biv_tests "[a6-fabric]"` fails.
 - [ ] **Step 3: implement the module** — template literals exactly as the tests assert (STOP-1 cells per m-3's answer); the predicate; the prompt function reading one line, `y`/`Y` → true, anything else (including empty/EOF/stream-fail) → false. No file, env, or config read/write anywhere in the module (V-A6-1, A7-R1).
-- [ ] **Step 4: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "A6-R2 PROMPT D bytes are golden,A6-R4 accepted notice bytes are golden,A6-R4 refusal + guidance bytes are golden,A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err"`.
+- [ ] **Step 4: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "[a6-fabric]"`.
 - [ ] **Step 5: commit** — `git add src/cli/url_consent.hpp src/cli/url_consent.cpp tests/test_cli.cpp CMakeLists.txt && git commit -m "feat(cli): PROMPT D renderer module — sealed A6-R2/R4 golden bytes (STOP-1 cells per m-3 ruling intg-stop1-a6-golden-bytes/DESIGN-planner-20260827-235912.md), A7-R1 stdin+stderr predicate, default-N prompt; consumer is sub-step 2b's wiring (V-A6-6)"`
 
 ### Task 5: fence proofs + verification battery + IMPL report
@@ -717,7 +728,7 @@ grep -n 'require_empty_array' src/core/manifest/manifest.cpp
 grep -nE 'getenv|setenv|ofstream|fopen|config' src/cli/url_consent.cpp ; test $? -eq 1
 # the A7-R1 predicate is EXACTLY the stdin+stderr isatty pair, with no json/env/config
 # term anywhere in the module (acceptance criterion 6's source proof):
-grep -c 'isatty' src/cli/url_consent.cpp        # expect exactly 2 (STDIN_FILENO, STDERR_FILENO)
+test "$(grep -c 'isatty' src/cli/url_consent.cpp)" -eq 2   # EXACTLY two isatty calls, exit-gated
 grep -n 'isatty(STDIN_FILENO)' src/cli/url_consent.cpp
 grep -n 'isatty(STDERR_FILENO)' src/cli/url_consent.cpp
 grep -nE 'STDOUT_FILENO|json' src/cli/url_consent.cpp ; test $? -eq 1
@@ -747,7 +758,8 @@ Engine wiring or any product→engine call/include; hook installation into engin
 ## Open gates (live at this revision; none is this plan's to discharge locally)
 
 1. **STOP-1 — ANSWERED AND FOLDED** (owner ruling m-3 `intg-stop1-a6-golden-bytes/DESIGN-planner-20260827-235912.md`, carried down at master `000750`): both cells resolved as byte-level readings and folded into Task 4's literals; the renderer task is un-blocked. No undetermined golden byte remains.
-2. **Commissioning-chain lint residue (rule-3d family, now rule 3a)** — adjudicated OUTSIDE W-3 by master `234934`; two directed transport repairs executed exactly as scripted (the grant, then the bounded four-member chain completion: T1 `142730`, charter rev0 `142832`, charter rev1 `144023`, approval `144253` — all byte-identical, sha-verified both sides at this seat, engine-reconciled hand-origin). The residue transformed each time rather than clearing; at the current sweep it reads: "latest authorization-universe member intg-commission-charter/DESIGN-master-planner-20260827-144023.md fails stage-(a) shape; marker-bearing malformed authorization shadows and fails (DD-v29-master-authority-20260809 cross-seat rule 3a)" — apparently because the charter's own face carries `COMMISSION_AUTHORIZATION: yes` and shadows T1 as the universe's latest member. Per the fallback the transport stopped there; the residue is reported UP verbatim and the adjudication sits at master. **No approval or implementation dispatch issues while this gate is open.**
-3. **W-3 coverage**: appended for revision `233453`, updated to `000218` (master `000750`) and to `001327` (master `001956`); one entry throughout. Each successor revision re-measures per the current-revision rule with an archived full-root sweep under `results/` as the reproducible instrument (the root-mode linter sweeps ALL Markdown under the root; the plan-file verdict is the exact-path-filtered subset of the archived output). Archives of record so far: `results/lint-root-sweep-post-reconcile-20260827.txt` (grant carried), `results/lint-root-sweep-chain-complete-20260828.txt` (chain carried, measured at `000218`), `results/lint-root-sweep-successor2-20260828.txt` (`001327`); this revision's archive is named in its accompanying relay.
+2. **Commissioning-chain lint residue (rule-3a) — ADJUDICATED at master `001956`, repair-forward in flight:** master verified the mechanism at its own bytes and OWNED the defect (both filed charter revisions wrongly carry the stage-(a) marker `COMMISSION_AUTHORIZATION: yes`; the linter is correct; not W-3's class; not a kit question). The repair runs inside the H27 grammar at master's pen: charter rev2 `001903` (marker-only delta, identity byte-equal to T1) → renewed stage-(c) at the Master Reviewer → a fresh stage-(d) grant at the unchanged four-field identity (no pair re-boot; the daemon's commissioned-by tuple stays valid). THIS SEAT CARRIES NOTHING until master's one-act directive names the refreshed members; the hold lifts on an archived sweep showing the 3a/3d family GONE with only the covered red remaining. **No approval-consuming implementation dispatch issues before that clearing sweep.** Until then every archived sweep is expected to show exactly two plan-file errors: the W-3-covered design-lineage red and this master-held rule-3a residue.
+
+3. **W-3 coverage**: appended for revision `233453`, updated to `000218` (master `000750`) and to `001327` (master `001956`); one entry throughout. Each successor revision re-measures per the current-revision rule with an archived full-root sweep under `results/` as the reproducible instrument (the root-mode linter sweeps ALL Markdown under the root; the plan-file verdict is the exact-path-filtered subset of the archived output). Archives of record so far: `results/lint-root-sweep-post-reconcile-20260827.txt` (grant carried), `results/lint-root-sweep-chain-complete-20260828.txt` (chain carried, measured at `000218`), `results/lint-root-sweep-successor2-20260828.txt` (`001327`); `results/lint-root-sweep-successor3-20260828.txt` (`003308`); each successor's carrier names its own archive literally.
 
 Every other byte is determined by the sealed texts.
