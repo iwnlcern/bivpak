@@ -11,6 +11,7 @@
 #include "core/manifest/manifest.hpp"
 #include "core/scan/scan.hpp"
 #include "core/support/error.hpp"
+#include "core/support/url_divergence.hpp"
 
 namespace biv::pack {
 
@@ -52,6 +53,7 @@ struct PackReport {
   std::vector<manifest::AgentSessionEntry> agent_sessions;
   std::vector<Warning> warnings;
   std::vector<Advisory> advisories;
+  std::vector<biv::UrlDivergenceAcceptedEntry> url_divergence_accepted{};
 };
 
 expected<PackReport> pack(const std::filesystem::path& source_dir);

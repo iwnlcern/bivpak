@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "core/open/open.hpp"
 #include "core/open/sessions.hpp"
@@ -27,5 +28,8 @@ std::string envelope(std::string_view verb,
                      std::optional<BivError> error,
                      int exit_code,
                      std::optional<OpenSessionsReport> sessions = std::nullopt);
+
+int exit_for_open(const core_sessions::SessionsOutcome& outcome,
+                  const std::vector<UrlDivergenceEntryRefusal>& refusals) noexcept;
 
 }  // namespace biv::report

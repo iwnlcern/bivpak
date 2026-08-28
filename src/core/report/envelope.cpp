@@ -60,7 +60,35 @@ void write_paths(json::Writer& writer, const std::vector<std::string>& paths) {
   writer.end_array();
 }
 
-void write_advisories(json::Writer& writer, const std::vector<pack::Advisory>& advisories) {
+void write_url_divergence_accepted(json::Writer& writer,
+                                   const std::vector<UrlDivergenceAcceptedEntry>& entries) {
+  if (entries.empty()) {
+    return;
+  }
+  writer.begin_object();
+  writer.key("kind");
+  writer.value_string("url-divergence-accepted");
+  writer.key("entries");
+  writer.begin_array();
+  for (const auto& entry : entries) {
+    writer.begin_object();
+    writer.key("requested");
+    writer.value_string(entry.requested);
+    writer.key("effective");
+    writer.value_string(entry.effective);
+    writer.key("op");
+    writer.value_string(entry.op);
+    writer.key("repo");
+    writer.value_string(entry.repo);
+    writer.end_object();
+  }
+  writer.end_array();
+  writer.end_object();
+}
+
+void write_advisories(json::Writer& writer,
+                      const std::vector<pack::Advisory>& advisories,
+                      const std::vector<UrlDivergenceAcceptedEntry>& accepted_entries) {
   writer.key("advisories");
   writer.begin_array();
   for (const auto& advisory : advisories) {
@@ -74,6 +102,7 @@ void write_advisories(json::Writer& writer, const std::vector<pack::Advisory>& a
     }
     writer.end_object();
   }
+  write_url_divergence_accepted(writer, accepted_entries);
   writer.end_array();
 }
 
@@ -367,6 +396,27 @@ void write_open_result(json::Writer& writer,
   } else {
     write_empty_manifest_summary(writer, report.manifest_format_version);
   }
+  if (!report.url_divergence_refusals.empty()) {
+    writer.key("url_divergence_refusals");
+    writer.begin_array();
+    for (const auto& row : report.url_divergence_refusals) {
+      writer.begin_object();
+      writer.key("kind");
+      writer.value_string("UrlDivergenceEntryRefused");
+      writer.key("repo_id");
+      writer.value_string(row.repo_id);
+      writer.key("relpath");
+      writer.value_string(row.relpath);
+      writer.key("requested");
+      writer.value_string(row.requested);
+      writer.key("effective");
+      writer.value_string(row.effective);
+      writer.key("op");
+      writer.value_string(row.op);
+      writer.end_object();
+    }
+    writer.end_array();
+  }
 }
 
 void write_error(json::Writer& writer, const BivError& error) {
@@ -405,6 +455,7 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::SessionInstallFailed:
     case ErrKind::UnknownAgentSkipped:
     case ErrKind::AgentNotValidatedFailed:
+    case ErrKind::UrlDivergenceEntryRefused:
       return 2;
     case ErrKind::SessionsConsentSkipped:
     case ErrKind::SessionsStaged:
@@ -423,6 +474,7 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::MemberPathUnsafe:
     case ErrKind::CollisionRefused:
     case ErrKind::OpenPartialPresent:
+    case ErrKind::UrlDivergenceRefused:
       return 3;
   }
   return 4;
@@ -439,6 +491,16 @@ int exit_for_sessions(const core_sessions::SessionsOutcome& outcome) noexcept {
     if (kind.has_value()) {
       exit_code = std::max(exit_code, exit_for_error(*kind));
     }
+  }
+  return exit_code;
+}
+
+int exit_for_open(const core_sessions::SessionsOutcome& outcome,
+                  const std::vector<UrlDivergenceEntryRefusal>& refusals) noexcept {
+  int exit_code = exit_for_sessions(outcome);
+  for (const auto& row : refusals) {
+    (void)row;
+    exit_code = std::max(exit_code, exit_for_error(ErrKind::UrlDivergenceEntryRefused));
   }
   return exit_code;
 }
@@ -463,13 +525,16 @@ std::string envelope(std::string_view verb,
   writer.value_int(exit_code);
   if (pack_report.has_value()) {
     write_warnings(writer, pack_report->warnings);
-    write_advisories(writer, pack_report->advisories);
+    write_advisories(writer, pack_report->advisories, pack_report->url_divergence_accepted);
   } else {
     writer.key("warnings");
     writer.begin_array();
     writer.end_array();
     writer.key("advisories");
     writer.begin_array();
+    if (open_report.has_value()) {
+      write_url_divergence_accepted(writer, open_report->url_divergence_accepted);
+    }
     writer.end_array();
   }
   writer.key("result");

@@ -233,7 +233,9 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
       {"SessionsStaged", "advisory", 0},
       {"AgentNotValidatedFailed", "divergence", biv::report::exit_for_error(biv::ErrKind::AgentNotValidatedFailed)},
       {"InternalError", "mid-fail", biv::report::exit_for_error(biv::ErrKind::InternalError)},
-      {"UsageError", "usage", biv::report::exit_for_error(biv::ErrKind::UsageError)}};
+      {"UsageError", "usage", biv::report::exit_for_error(biv::ErrKind::UsageError)},
+      {"UrlDivergenceRefused", "refusal", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceRefused)},
+      {"UrlDivergenceEntryRefused", "divergence", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceEntryRefused)}};
   for (const auto& row : rows) {
     const std::string needle = "\"kind\": \"" + std::string{row.kind} + "\"";
     INFO(row.kind);
@@ -773,4 +775,111 @@ TEST_CASE("a generated detail-bearing envelope is emitted for schema conformance
   out << json;
   out.close();
   REQUIRE(out);
+}
+
+namespace {
+
+void check_refusal_row(const simdjson::dom::element row,
+                       const std::string& repo_id, const std::string& relpath,
+                       const std::string& requested, const std::string& effective,
+                       const std::string& op) {
+  CHECK(std::string_view{row["kind"]} == "UrlDivergenceEntryRefused");
+  CHECK(std::string_view{row["repo_id"]} == repo_id);
+  CHECK(std::string_view{row["relpath"]} == relpath);
+  CHECK(std::string_view{row["requested"]} == requested);
+  CHECK(std::string_view{row["effective"]} == effective);
+  CHECK(std::string_view{row["op"]} == op);
+  CHECK(simdjson::dom::object(row).size() == 6);
+}
+
+void check_accepted_entry(const simdjson::dom::element entry,
+                          const std::string& requested, const std::string& effective,
+                          const std::string& op, const std::string& repo) {
+  CHECK(std::string_view{entry["requested"]} == requested);
+  CHECK(std::string_view{entry["effective"]} == effective);
+  CHECK(std::string_view{entry["op"]} == op);
+  CHECK(std::string_view{entry["repo"]} == repo);
+  CHECK(simdjson::dom::object(entry).size() == 4);
+}
+
+simdjson::dom::array single_accepted_entries(const simdjson::dom::element document) {
+  size_t accepted_count = 0;
+  simdjson::dom::array entries;
+  for (const auto advisory : simdjson::dom::array(document["advisories"])) {
+    if (std::string_view{advisory["kind"]} == "url-divergence-accepted") {
+      ++accepted_count;
+      entries = simdjson::dom::array(advisory["entries"]);
+    }
+  }
+  REQUIRE(accepted_count == 1);
+  return entries;
+}
+
+}  // namespace
+
+TEST_CASE("a6-R1 open carriers: exact rows, order, cardinality, grouped advisory, zero state", "[a6-fabric]") {
+  biv::open::OpenReport report{};
+  report.image_path = "img.bvpk";
+  report.output_dir = "out";
+  const auto zero = biv::report::envelope("open", std::nullopt, report, std::nullopt, 0);
+  CHECK(zero.find("url_divergence_refusals") == std::string::npos);
+  CHECK(zero.find("url-divergence-accepted") == std::string::npos);
+  report.url_divergence_refusals = {
+      {"repoA", "path/one", "https://req-1", "https://eff-1", "fetch"},
+      {"repoB", "path/two", "https://req-2", "https://eff-2", "ls-remote"}};
+  report.url_divergence_accepted = {{"https://acc-req", "https://acc-eff", "clone", "/hook/acc"}};
+  const auto populated = biv::report::envelope("open", std::nullopt, report, std::nullopt, 2);
+  simdjson::dom::parser parser;
+  const simdjson::dom::element document = parser.parse(populated);
+  const simdjson::dom::array rows{document["result"]["url_divergence_refusals"]};
+  REQUIRE(rows.size() == 2);
+  check_refusal_row(rows.at(0), "repoA", "path/one", "https://req-1", "https://eff-1", "fetch");
+  check_refusal_row(rows.at(1), "repoB", "path/two", "https://req-2", "https://eff-2", "ls-remote");
+  const auto entries = single_accepted_entries(document);
+  REQUIRE(entries.size() == 1);
+  check_accepted_entry(entries.at(0), "https://acc-req", "https://acc-eff", "clone", "/hook/acc");
+}
+
+TEST_CASE("a6-R1 pack carries the grouped advisory too: exact entries, order, zero state", "[a6-fabric]") {
+  biv::pack::PackReport report{};
+  report.image_path = "img.bvpk";
+  report.source_path = "src";
+  const auto zero = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 0);
+  CHECK(zero.find("url-divergence-accepted") == std::string::npos);
+  CHECK(zero.find("url_divergence_refusals") == std::string::npos);
+  report.url_divergence_accepted = {
+      {"https://p1-req", "https://p1-eff", "ls-remote", "/pack/one"},
+      {"https://p2-req", "https://p2-eff", "fetch", "/pack/two"}};
+  const auto populated = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 0);
+  simdjson::dom::parser parser;
+  const simdjson::dom::element document = parser.parse(populated);
+  const auto entries = single_accepted_entries(document);
+  REQUIRE(entries.size() == 2);
+  check_accepted_entry(entries.at(0), "https://p1-req", "https://p1-eff", "ls-remote", "/pack/one");
+  check_accepted_entry(entries.at(1), "https://p2-req", "https://p2-eff", "fetch", "/pack/two");
+}
+
+TEST_CASE("a6-R1 site 1: the preflight grain rides the top-level error carrier", "[a6-fabric]") {
+  biv::BivError error{.kind = biv::ErrKind::UrlDivergenceRefused,
+                      .path = "/hook/repo",
+                      .detail = "placeholder-until-task-4",
+                      .facts = {{"requested", "https://req"},
+                                {"effective", "https://eff"},
+                                {"op", "ls-remote"}}};
+  const auto envelope = biv::report::envelope("pack", std::nullopt, std::nullopt, error, 3);
+  CHECK(envelope.find("\"kind\": \"UrlDivergenceRefused\"") != std::string::npos);
+  CHECK(envelope.find("\"path\": \"/hook/repo\"") != std::string::npos);
+  CHECK(envelope.find("\"requested\": \"https://req\"") != std::string::npos);
+  CHECK(envelope.find("\"effective\": \"https://eff\"") != std::string::npos);
+  CHECK(envelope.find("\"op\": \"ls-remote\"") != std::string::npos);
+  CHECK(envelope.find("\"exit_code\": 3") != std::string::npos);
+  CHECK(envelope.find("\"result\": null") != std::string::npos);
+}
+
+TEST_CASE("a6-R1 exit composition: one typed aggregator over both sources", "[a6-fabric]") {
+  biv::core_sessions::SessionsOutcome clean{};
+  const std::vector<biv::UrlDivergenceEntryRefusal> rows{
+      {"r1", "a/b", "https://req", "https://eff", "fetch"}};
+  CHECK(biv::report::exit_for_open(clean, {}) == 0);
+  CHECK(biv::report::exit_for_open(clean, rows) == 2);
 }
