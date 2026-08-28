@@ -916,6 +916,32 @@ TEST_CASE("CLI pack/open round-trip emits JSON envelopes") {
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb envelopes", "[a6-fabric]") {
+  // the exact fixture sequence of "CLI pack/open round-trip emits JSON envelopes"
+  // (tests/test_cli.cpp:891-916), reused verbatim:
+  const auto root = make_tmp("a6-15-zero");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source / "dir");
+  write_file(source / "a.txt", "alpha");
+  write_file(source / "dir" / "b.txt", "beta");
+
+  const auto packed = run_cmd("pack '" + source.string() + "' --json", root);
+  REQUIRE(packed.code == 0);
+  REQUIRE(std::filesystem::exists(root / "sample.bvpk"));
+  CHECK(packed.out.find("url-divergence-accepted") == std::string::npos);
+  CHECK(packed.out.find("url_divergence_refusals") == std::string::npos);
+  CHECK(packed.out.find("UrlDivergence") == std::string::npos);
+
+  const auto opened = run_cmd("open '" + (root / "sample.bvpk").string() + "' --dest '" +
+                                  (root / "restore").string() + "' --json",
+                              root);
+  REQUIRE(opened.code == 0);
+  CHECK(opened.out.find("url-divergence-accepted") == std::string::npos);
+  CHECK(opened.out.find("url_divergence_refusals") == std::string::npos);
+  CHECK(opened.out.find("UrlDivergence") == std::string::npos);
+  std::filesystem::remove_all(root);
+}
+
 namespace slice_e_controls {
 
 class ScopedPackDiscoveryEnv {
