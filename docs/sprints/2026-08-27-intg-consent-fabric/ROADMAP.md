@@ -27,6 +27,7 @@ The release hold is ABSOLUTE.
 - A7 is **SEALED**: lock `m3-addendum-7-4c40fe37-lock-20260827`, locked pin `4c40fe3782ae39fe37912285e97c9f9059a943740847634ec1da33c344da0ec5` @ `516a36c`, post-stamp `e4a6b982635a9f0cba6a3e57a2b88ef92851faf280f69ac3b897b73fe6c2d701` (named by master's carry `172310`; stamp commit `3329bdf`, declaration `a7-renewed-verification/DESIGN-planner-20260827-165108.md`; all re-verified at this seat's own bytes). The sub-step-1 spec-of-record set is COMPLETE: LOCKED A6 + LOCKED A7; the `200932` sub-step-1 pre-commitment is DISCHARGED. Cite the lock id from now on. The first GATED plan still files only after W-3 is effective.
 - Bridge transport: up-facing relays file in this root and ride the operator's hand-carry; answers file in the pdc root and ride the carry back; no master-root intg seat.
 - W-3 (cross-repo plan-lineage waiver) PROPOSED, not effective: no gated PLAN files before the operator's grant and the Master Reviewer's concurrence both land.
+- The m-4 mandatory reachability re-review is **GREEN at our base `02b51435`** (`204641`, carried `210737`, registered R-4.47): no pre-format or pre-wiring addendum needed; wiring stays behind veto 9 + V-A6-6 + the R-4.47 bar until its byte reviews land green with E1–E5 executed. The ONE PLAN is born carrying the bar in its acceptance criteria (see OBLIGATIONS §B2 for the verbatim-shaped bar and the tranche mapping).
 
 ## Additional top-level files (declared per sprint-doc-setup)
 
