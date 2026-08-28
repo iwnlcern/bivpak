@@ -1,0 +1,58 @@
+WARN .relays/intg: intg-commission-charter/DESIGN-master-planner-20260827-142832.md: DISPATCH MERGE appears inside fenced code on line 53; quoted/fenced tokens are inert
+ERROR .relays/intg: intg-boot/BOOT-pair-implementer-20260827-225858.md: ROLE has non-canonical value: 'pair-implementer'
+ERROR .relays/intg: intg-boot/BOOT-pair-implementer-20260827-225858.md: PHASE has non-canonical value: 'BOOT'
+ERROR .relays/intg: intg-boot/BOOT-pair-implementer-20260827-225858.md: AUTHORITY has non-canonical value: 'seat-registration'
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/AUDIT-pair-implementer-20260827-230204.md: missing required header field ROLE
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/AUDIT-pair-implementer-20260827-230204.md: missing required header field PHASE
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/AUDIT-pair-implementer-20260827-230204.md: missing required header field AUTHORITY
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/AUDIT-pair-implementer-20260827-230204.md: missing required header field DISPATCH_ID
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/AUDIT-pair-implementer-20260827-230204.md: missing required header field CEREMONY_TIER
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/AUDIT-pair-implementer-20260827-230204.md: missing required header field EVIDENCE_TARGET
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/AUDIT-pair-implementer-20260827-230204.md: missing required header field HUMAN_GATE_REQUIRED
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/AUDIT-pair-implementer-20260827-230204.md: OPERATOR_WAIVER required when any ESCALATION_SCAN row is yes/unknown
+ERROR .relays/intg: SEATS.md: missing required header field ROLE
+ERROR .relays/intg: SEATS.md: missing required header field PHASE
+ERROR .relays/intg: SEATS.md: missing required header field AUTHORITY
+ERROR .relays/intg: SEATS.md: missing required header field DISPATCH_ID
+ERROR .relays/intg: SEATS.md: missing required header field CEREMONY_TIER
+ERROR .relays/intg: SEATS.md: missing required header field EVIDENCE_TARGET
+ERROR .relays/intg: SEATS.md: missing required header field HUMAN_GATE_REQUIRED
+ERROR .relays/intg: INDEX.md: line 22: index time 20260827-144459 precedes the previous row 20260827-235343; an append-only index must be non-decreasing
+ERROR .relays/intg: intg-commission-charter/DESIGN-master-planner-20260827-142832.md: relay carries COMMISSION_AUTHORIZATION but fails stage-(a) shape (literal yes, direct-authority FROM, PHASE PLAN, AUTHORITY plan-only, TO exactly one master-planner, complete equality surface, pair-planner COMMISSION_TO) (DD-v29-master-authority-20260809 cross-seat rule 3a)
+ERROR .relays/intg: intg-commission-charter/DESIGN-master-planner-20260827-144023.md: relay carries COMMISSION_AUTHORIZATION but fails stage-(a) shape (literal yes, direct-authority FROM, PHASE PLAN, AUTHORITY plan-only, TO exactly one master-planner, complete equality surface, pair-planner COMMISSION_TO) (DD-v29-master-authority-20260809 cross-seat rule 3a)
+ERROR .relays/intg: intg-commission-charter/DESIGN-REVIEW-master-reviewer-20260827-144253.md: latest authorization-universe member intg-commission-charter/DESIGN-master-planner-20260827-144023.md fails stage-(a) shape; marker-bearing malformed authorization shadows and fails (DD-v29-master-authority-20260809 cross-seat rule 3a)
+ERROR .relays/intg: intg-commission-grant/PLAN-master-planner-20260827-144459.md: latest authorization-universe member intg-commission-charter/DESIGN-master-planner-20260827-144023.md fails stage-(a) shape; marker-bearing malformed authorization shadows and fails (DD-v29-master-authority-20260809 cross-seat rule 3a)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-152943.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-153246.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-163220.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-165131.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-180314.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-212015.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-222444.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/RECONCILE-pair-planner-20260827-232251.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/PLAN-pair-planner-20260827-233332.md: commissioned pair receipt has incomplete equality surface (DD-v29-master-authority-20260809 cross-seat rule 3d)
+ERROR .relays/intg: intg-substep1/PLAN-pair-planner-20260827-233453.md: latest authorization-universe member intg-commission-charter/DESIGN-master-planner-20260827-144023.md fails stage-(a) shape; marker-bearing malformed authorization shadows and fails (DD-v29-master-authority-20260809 cross-seat rule 3a)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-233624.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260827-233702.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/PLAN-REVIEW-pair-implementer-20260827-235317.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/PLAN-REVIEW-pair-implementer-20260827-235343.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/PLAN-pair-planner-20260828-000218.md: latest authorization-universe member intg-commission-charter/DESIGN-master-planner-20260827-144023.md fails stage-(a) shape; marker-bearing malformed authorization shadows and fails (DD-v29-master-authority-20260809 cross-seat rule 3a)
+ERROR .relays/intg: intg-substep1/SITREP-pair-planner-20260828-000314.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-implementer/PLAN-REVIEW-SUCCESSOR-FA197652-MUST-REVISE.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/PLAN-SUBSTEP1-A6-FABRIC.md: latest authorization-universe member intg-commission-charter/DESIGN-master-planner-20260827-144023.md fails stage-(a) shape; marker-bearing malformed authorization shadows and fails (DD-v29-master-authority-20260809 cross-seat rule 3a)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/RECONCILE-SUBSTEP1-AUDITS.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-3D-REPAIR-RESIDUE-AND-SUCCESSOR-FIRED-SET.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-A7-APPROVAL-RECEIVED.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-A7-LOCK-ID-ADOPTED.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-BOOT-COMPLETE-AUDIT-OPEN.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-BOOT-READ-COMPLETE-OBLIGATIONS-REGISTER.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-M4-GATE-GREEN-BAR-TAKEN.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-MASTER-ANSWERS-RECEIVED-FOLDED.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-STOP1-GOLDEN-BYTE-CELLS.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-W3-EFFECTIVE-RECEIVED.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/SITREP-W3-FIRED-SET-REPORT.md: commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
+ERROR .relays/intg: intg-substep1/PLAN-pair-planner-20260827-233332.md: DESIGN_LOCK_ID 'm3-addendum-6-c41d015f-lock-20260825' has no earlier same-owner DESIGN relay carrying matching DESIGN_DOC_ID
+ERROR .relays/intg: intg-substep1/PLAN-pair-planner-20260827-233453.md: DESIGN_LOCK_ID 'm3-addendum-6-c41d015f-lock-20260825' has no earlier same-owner DESIGN relay carrying matching DESIGN_DOC_ID
+ERROR .relays/intg: intg-substep1/PLAN-pair-planner-20260828-000218.md: DESIGN_LOCK_ID 'm3-addendum-6-c41d015f-lock-20260825' has no earlier same-owner DESIGN relay carrying matching DESIGN_DOC_ID
+ERROR .relays/intg: .engine/drafts/intg.pair-planner/PLAN-SUBSTEP1-A6-FABRIC.md: DESIGN_LOCK_ID 'm3-addendum-6-c41d015f-lock-20260825' has no earlier same-owner DESIGN relay carrying matching DESIGN_DOC_ID
+ERROR .relays/intg: intg-substep1/PLAN-pair-planner-20260827-233332.md: PLAN_SHA256: no artifact resolves for stem 'PL-intg-substep1-20260827' under plans/ at any probe root

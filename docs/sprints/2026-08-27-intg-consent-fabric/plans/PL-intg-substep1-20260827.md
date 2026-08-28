@@ -14,7 +14,7 @@
 
 - Base and branch: `git worktree add ../bivpak-intg-consent-fabric -b intg/consent-fabric 02b51435` — product work happens ONLY in that worktree (the primary worktree hosts the relay daemon and other seats; never switch its branch). No rebase without a routed STOP.
 - SEALED TEXT ONLY: where A6/A7 determine, execute byte-exactly; anything they defer or are silent on is a STOP up the pair line — never a keyboard call (A6-R7, A7-R5).
-- Golden-byte fence (V-A6-2): every user-facing template byte comes verbatim from A6-R2/R4. Two byte cells are UNDETERMINED and are routed as STOP-1 (see Task 4's gate); Task 4 is blocked until the answer relay is cited.
+- Golden-byte fence (V-A6-2): every user-facing template byte comes verbatim from A6-R2/R4, with the two once-open STOP-1 cells resolved by the owner's ruling (m-3 `235912`, carried `000750`) and folded into Task 4's literals; no other byte cell is open.
 - One-commit rule (V-A6-3, R-3.43, R-4.34-lesson): the commit that lands either ErrKind lands, in the SAME commit, both exit-map rows, all three envelope-schema sites, both derived parity rows in `tests/test_envelope.cpp`, and BOTH recomputed selftest blob pins. Task 2 is that commit.
 - Zero-engine fence (V-A6-6 / R-4.47 V1, RECONCILE I6): no engine byte changes; no product call site to `run_eligibility`, `restore_entry`, `repo::capture`, or any network-class engine path; no `#include` of any `src/core/repo/` header from product code. Task 5 proves it by grep.
 - No PROCEED-default anywhere; `--json` is never a consent suppressor or enabler (A7-R2, R-4.47 V3 shadow); PROMPT D's predicate has NO json term and NO env/config override (A7-R1; proposing one is a STOP to MASTER).
@@ -587,9 +587,9 @@ TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb 
 - [ ] **Step 2: run, verify PASS both assertions on real verb envelopes.**
 - [ ] **Step 3: commit** — `git add tests/test_cli.cpp && git commit -m "test: a6.15 zero-state landing leg — both url-divergence carriers absent on divergence-free pack/open envelopes"`
 
-### Task 4: the PROMPT D renderer module (BLOCKED on STOP-1)
+### Task 4: the PROMPT D renderer module (STOP-1 ANSWERED — un-blocked)
 
-**GATE:** do not start until the pair Planner cites m-3's answer relay for STOP-1 (the two golden-byte cells: (a) PROMPT D's terminal bytes after `[y/N]` — trailing space per PROMPT B's convention vs the fenced block's bare line; (b) whether the fenced templates' two-space leading indent is part of the golden bytes on BOTH carriers of the pack-refusal template (`error.detail` + stream) or is stream-rendering only). The template literals below carry `<STOP-1>` markers at the two undetermined cells; everything else is sealed-verbatim.
+**GATE DISCHARGED:** STOP-1 is answered by the owner — m-3's ruling `intg-stop1-a6-golden-bytes/DESIGN-planner-20260827-235912.md` (pdc), carried down at master's `intg-substep1-master-answers/PLAN-master-planner-20260828-000750.md`; both cells are byte-level READINGS of the sealed text, no addendum. The resolved bytes, folded below: **(STOP-1a)** PROMPT D's golden final line is `  Contact the effective address? [y/N] ` — terminal bytes ONE SPACE then NOTHING (no newline), cursor stays on the line, answer read from stdin on the same line; the block keeps its two-space base indent and the nested `requested:`/`effective:` lines their four-space depth. **(STOP-1b)** the pack-refusal TEMPLATE's golden bytes begin at `pack refused:` — NO leading indent; `error.detail` carries EXACTLY the template bytes; the stream carries the template EMBEDDED by the standard typed-error machinery (`biv: <kind>: <detail>\n`, `src/cli/main.cpp:30-42`) — no separate stream renderer exists for it; a6·7's byte-identity ranges over the TEMPLATE bytes on both carriers. The single-carrier blocks (PROMPT D, per-entry refusal line, run-level guidance line) are golden AS WRITTEN including their leading indents.
 
 **Files:** Create `src/cli/url_consent.hpp`, `src/cli/url_consent.cpp`; modify `tests/test_cli.cpp` (unit tests; include ONLY the header — `tests/test_cli.cpp:34` already compiles `../src/cli/args.cpp` by source-include, so do not source-include a second TU); modify root `CMakeLists.txt` UNCONDITIONALLY: line 97 becomes `add_executable(biv src/cli/main.cpp src/cli/args.cpp src/cli/url_consent.cpp)` and one new line `target_sources(biv_tests PRIVATE src/cli/url_consent.cpp)` joins the existing `target_sources(biv_tests …)` block.
 
@@ -612,7 +612,7 @@ TEST_CASE("A6-R2 PROMPT D bytes are golden") {
         "  fetch: the address git will contact for /w/repo differs from the requested address:\n"
         "    requested: https://req\n"
         "    effective: https://eff\n"
-        "  Contact the effective address? [y/N]<STOP-1a>");
+        "  Contact the effective address? [y/N] ");  // STOP-1a: trailing space, NO newline (m-3 235912)
 }
 TEST_CASE("A6-R4 accepted notice bytes are golden") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
@@ -622,7 +622,10 @@ TEST_CASE("A6-R4 accepted notice bytes are golden") {
 TEST_CASE("A6-R4 refusal + guidance bytes are golden") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
   CHECK(biv::cli::render_pack_refusal_detail(facts) ==
-        "<STOP-1b>pack refused: fetch for /w/repo would contact https://eff instead of the requested https://req; approval was not given. Re-run interactively to review, or pass --accept-url-divergence to proceed.");
+        "pack refused: fetch for /w/repo would contact https://eff instead of the requested https://req; approval was not given. Re-run interactively to review, or pass --accept-url-divergence to proceed.");
+  // STOP-1b (m-3 235912): the template begins at "pack refused:" — no leading indent;
+  // this string IS error.detail exactly; the stream renders it via the standard
+  // typed-error machinery ("biv: <kind>: <detail>\n") — no separate stream renderer.
   CHECK(biv::cli::render_entry_refusal_line("a/b.txt", facts) ==
         "  a/b.txt: restore failed — fetch would contact https://eff instead of the requested https://req; approval was not given.\n");
   CHECK(biv::cli::render_run_guidance_line(2) ==
@@ -644,7 +647,7 @@ Addresses render VERBATIM — no elision, truncation, or normalization anywhere 
 - [ ] **Step 2: run, verify FAIL (module absent).**
 - [ ] **Step 3: implement the module** — template literals exactly as the tests assert (STOP-1 cells per m-3's answer); the predicate; the prompt function reading one line, `y`/`Y` → true, anything else (including empty/EOF/stream-fail) → false. No file, env, or config read/write anywhere in the module (V-A6-1, A7-R1).
 - [ ] **Step 4: run, verify PASS.**
-- [ ] **Step 5: commit** — `git add src/cli/url_consent.hpp src/cli/url_consent.cpp tests/test_cli.cpp CMakeLists.txt && git commit -m "feat(cli): PROMPT D renderer module — sealed A6-R2/R4 golden bytes (STOP-1 cells per m-3 <answer relay id>), A7-R1 stdin+stderr predicate, default-N prompt; consumer is sub-step 2b's wiring (V-A6-6)"` (the `<answer relay id>` placeholder is filled with m-3's actual STOP-1 answer relay reference at execution — the one deliberate fill-at-execution cell, gated, not forgotten)
+- [ ] **Step 5: commit** — `git add src/cli/url_consent.hpp src/cli/url_consent.cpp tests/test_cli.cpp CMakeLists.txt && git commit -m "feat(cli): PROMPT D renderer module — sealed A6-R2/R4 golden bytes (STOP-1 cells per m-3 ruling intg-stop1-a6-golden-bytes/DESIGN-planner-20260827-235912.md), A7-R1 stdin+stderr predicate, default-N prompt; consumer is sub-step 2b's wiring (V-A6-6)"`
 
 ### Task 5: fence proofs + verification battery + IMPL report
 
@@ -683,8 +686,8 @@ Engine wiring or any product→engine call/include; hook installation into engin
 
 ## Open gates (live at this revision; none is this plan's to discharge locally)
 
-1. **STOP-1** (routed: pair → master `233702` → m-3.planner, master's dispatch `intg-stop1-a6-golden-bytes`): the two golden-byte cells gating Task 4 only — PROMPT D's terminal bytes; the pack-refusal template's leading indent across its two byte-identical carriers. No third undetermined golden byte is known (implementer-confirmed at review).
-2. **Rule-3d commissioning red** (adjudicated OUTSIDE W-3 by master `234934`; directed transport repair executed — the grant hand-carried byte-identical and engine-reconciled as hand-origin — after which the red MUTATED to "selected latest charter revision <none> fails stage-(b) shape"; per the directive's fallback the repair stopped there and the residue is reported UP verbatim; the adjudication resumes at master). No approval or implementation dispatch issues while this gate's disposition is open, unless master rules the residue transport-repairable or otherwise disposed.
-3. **W-3 coverage**: appended by master `234934` for revision `233453` (one entry); the successor revision re-measures per the waiver's current-revision rule, with the archived full-root sweep at `results/lint-root-sweep-post-reconcile-20260827.txt` as the reproducible instrument (the root-mode linter sweeps ALL Markdown under the root; the plan-file verdict is the exact-path-filtered subset, full output archived so the derivation is checkable).
+1. **STOP-1 — ANSWERED AND FOLDED** (owner ruling m-3 `intg-stop1-a6-golden-bytes/DESIGN-planner-20260827-235912.md`, carried down at master `000750`): both cells resolved as byte-level readings and folded into Task 4's literals; the renderer task is un-blocked. No undetermined golden byte remains.
+2. **Commissioning-chain lint residue (rule-3d family, now rule 3a)** — adjudicated OUTSIDE W-3 by master `234934`; two directed transport repairs executed exactly as scripted (the grant, then the bounded four-member chain completion: T1 `142730`, charter rev0 `142832`, charter rev1 `144023`, approval `144253` — all byte-identical, sha-verified both sides at this seat, engine-reconciled hand-origin). The residue transformed each time rather than clearing; at the current sweep it reads: "latest authorization-universe member intg-commission-charter/DESIGN-master-planner-20260827-144023.md fails stage-(a) shape; marker-bearing malformed authorization shadows and fails (DD-v29-master-authority-20260809 cross-seat rule 3a)" — apparently because the charter's own face carries `COMMISSION_AUTHORIZATION: yes` and shadows T1 as the universe's latest member. Per the fallback the transport stopped there; the residue is reported UP verbatim and the adjudication sits at master. **No approval or implementation dispatch issues while this gate is open.**
+3. **W-3 coverage**: appended for revision `233453` and updated to `000218` (master `000750`; one entry, unchanged); each successor revision re-measures per the current-revision rule with an archived full-root sweep under `results/` as the reproducible instrument (the root-mode linter sweeps ALL Markdown under the root; the plan-file verdict is the exact-path-filtered subset of the archived output).
 
 Every other byte is determined by the sealed texts.
