@@ -47,7 +47,7 @@ Downstream consumer: sub-step 2b's verb-to-engine wiring (installs the hook, pop
 Contract: two ErrKinds (UrlDivergenceRefused refusal/3; UrlDivergenceEntryRefused
        divergence/2); two refusal grains never crossing (V-A6-5); ONE grouped
        url-divergence-accepted advisory member on BOTH verbs; exact golden render bytes
-       (STOP-1 cells pending m-3); the A7-R1 stdin+stderr predicate with no json term;
+       (STOP-1 cells RESOLVED per m-3 235912); the A7-R1 stdin+stderr predicate with no json term;
        the same-commit published-contract topology (V-A6-3); no persistence; no wiring.
 Proof: the landing legs at THIS act (a6.14, a6.15, a6.17, a6.18, zero-state half of
        a6.16, E2/unit as tasked); the writer-reader round-trip and every behavioral leg
@@ -73,13 +73,13 @@ Modify: src/core/report/envelope.hpp (exit_for_open declaration)
 Modify: src/core/report/envelope.cpp (exit rows; writer: refusals array + third advisory member on both verbs; exit_for_open)
 Modify: schemas/biv-exit-map.v1.json (two rows appended)
 Modify: schemas/biv-json-envelope.v1.schema.json (three A6-R1 sites)
-Modify: tests/test_cli.cpp          (help golden; a6·14 regression; parser tests)
-Modify: tests/test_envelope.cpp     (two derived parity rows; writer/aggregator unit tests)
+Modify: tests/test_cli.cpp          (help golden; a6·14 regression; a6·18 no-help arms; parser tests; Task-4 unit tests — include ONLY src/cli/url_consent.hpp)
+Modify: tests/test_envelope.cpp     (two derived parity rows; row-bound carrier/aggregator unit tests)
 Modify: harness/selftest/test_envelope.py (both blob pins recomputed; a6·17 structural tests; zero-state validation)
-Create: tests/test_url_consent.cpp only if CMake needs it — otherwise the unit tests join tests/test_cli.cpp (follow the existing single-binary layout; do NOT add a ctest target)
+Modify: CMakeLists.txt              (line 97: add src/cli/url_consent.cpp to the biv executable; one new target_sources(biv_tests PRIVATE src/cli/url_consent.cpp) line in the existing biv_tests block at :137-158 — no new target, no new test binary)
 ```
 
-CMake note: if `tests/CMakeLists.txt` enumerates source files, add the new `src/cli/url_consent.cpp` to the existing `biv` / `biv_tests` source lists — no new target.
+Run-command convention for every task (literal, per the reviewed tree): configure/build with `cmake --build build/dev --target biv_tests biv`, then invoke the test binary directly with Catch2 name filters, e.g. `./build/dev/biv_tests "a6.18 inherited no-help boundary witnessed on pack/list/info"`. (`ctest --test-dir build/dev -R cli` selects ZERO tests on this tree — never use `-R cli`.) The selftest runs as `python3 -m pytest harness/selftest/test_envelope.py -q`.
 
 ---
 
@@ -149,15 +149,27 @@ TEST_CASE("a6.14 list/info accept the flag inert: full-stream equality with flag
 
 TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info") {
   const auto root = make_tmp("a6-18-nohelp");
-  // The sealed leg requires the OTHER verbs' help ABSENCE witnessed, not assumed:
-  // pack's argument loop rejects flags; list/info stubs flow to NotYetImplemented —
-  // none may emit help bytes (the usage line "usage: biv open" is open's alone).
-  for (const std::string verb : {"pack", "list", "info"}) {
-    const auto res = run_cmd(verb + " --help", root);
-    CHECK(res.out.find("usage: biv open") == std::string::npos);
-    CHECK(res.out.find("--accept-url-divergence") == std::string::npos);
-    CHECK(res.err.find("--accept-url-divergence") == std::string::npos);
-    CHECK(res.code != 0);  // no help mode exists: pack usage-errors; list/info NotYetImplemented
+  // The sealed leg requires the OTHER verbs' help ABSENCE witnessed, not assumed.
+  // The witness is help-is-not-special FULL-STREAM equality: for each verb, `--help`
+  // must produce EXACTLY what any other unknown/ignored flag produces (code, stdout,
+  // stderr) — a mutant emitting ANY help production on ANY stream for that verb
+  // diverges from its own unknown-flag baseline and REDs here. Belt: no usage/help
+  // text on either stream.
+  const std::vector<std::pair<std::string, std::string>> probes{
+      {"pack --help", "pack --no-such-flag"},          // pack rejects every flag alike
+      {"list --help x.bvpk", "list --no-such-flag x.bvpk"},  // stubs ignore trailing tokens alike
+      {"info --help x.bvpk", "info --no-such-flag x.bvpk"}};
+  for (const auto& [help_form, baseline_form] : probes) {
+    const auto help = run_cmd(help_form, root);
+    const auto baseline = run_cmd(baseline_form, root);
+    INFO(help_form);
+    CHECK(help.code == baseline.code);
+    CHECK(help.out == baseline.out);
+    CHECK(help.err == baseline.err);
+    CHECK(help.out.find("usage:") == std::string::npos);
+    CHECK(help.err.find("usage:") == std::string::npos);
+    CHECK(help.out.find("--accept-url-divergence") == std::string::npos);
+    CHECK(help.err.find("--accept-url-divergence") == std::string::npos);
   }
   std::filesystem::remove_all(root);
 }
@@ -165,7 +177,7 @@ TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info") {
 
 (The a6·14 case pins the FLAG spelling's inert observable only — it must not assert acceptance of arbitrary trailing tokens; the stub path is not this feature's contract. RECONCILE I2.)
 
-- [ ] **Step 2: run, verify FAIL** — `ctest --test-dir build -R cli` (or the repo's equivalent target): the help golden fails on the missing line; the parser cases fail on `unknown-flag`.
+- [ ] **Step 2: run, verify FAIL** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "Task 4 CLI help documents the strict agent binary pin syntax,a6-R3 pack and open accept --accept-url-divergence,a6.14 list/info accept the flag inert: full-stream equality with flagless,a6.18 inherited no-help boundary witnessed on pack/list/info"` — the help golden fails on the missing line; the parser cases fail on `unknown-flag`.
 - [ ] **Step 3: implement.**
 
 ```cpp
@@ -203,7 +215,7 @@ TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info") {
       } else if (arg == "--verify") {
 ```
 
-- [ ] **Step 4: run, verify PASS** (help golden byte-whole; parser cases; a6·14 pair).
+- [ ] **Step 4: run, verify PASS** — the same literal build + filtered `./build/dev/biv_tests` invocation as Step 2; all four named cases green (help golden byte-whole; parser cases; a6·14 full-stream equality; a6·18 no-help arms).
 - [ ] **Step 5: commit** — `git add src/cli/args.hpp src/cli/args.cpp tests/test_cli.cpp && git commit -m "feat(cli): --accept-url-divergence parses on pack/open; open help gains its line after --consent (sealed A6-R3/R9; a6.18 golden updated; a6.14 inert regression)"`
 
 ### Task 2: the CONTRACT + CARRIER commit (one commit, V-A6-3)
@@ -224,60 +236,87 @@ TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info") {
       {"UrlDivergenceRefused", "refusal", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceRefused)},
       {"UrlDivergenceEntryRefused", "divergence", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceEntryRefused)}};
 
-TEST_CASE("a6-R1 carriers: refusal rows, grouped advisory, zero-state absence") {
+// Row-bound helpers for the two carriers (simdjson dom, the file's existing
+// instrument — see the parser use at tests/test_envelope.cpp:115). Every value in
+// every row is DISTINCT so a field omission, swap, or cross-row bleed cannot be
+// satisfied by another row's identical value.
+namespace {
+void check_refusal_row(const simdjson::dom::element row,
+                       const std::string& repo_id, const std::string& relpath,
+                       const std::string& requested, const std::string& effective,
+                       const std::string& op) {
+  CHECK(std::string_view{row["kind"]} == "UrlDivergenceEntryRefused");
+  CHECK(std::string_view{row["repo_id"]} == repo_id);
+  CHECK(std::string_view{row["relpath"]} == relpath);
+  CHECK(std::string_view{row["requested"]} == requested);
+  CHECK(std::string_view{row["effective"]} == effective);
+  CHECK(std::string_view{row["op"]} == op);
+  CHECK(simdjson::dom::object(row).size() == 6);  // exact row shape, no extra members
+}
+void check_accepted_entry(const simdjson::dom::element entry,
+                          const std::string& requested, const std::string& effective,
+                          const std::string& op, const std::string& repo) {
+  CHECK(std::string_view{entry["requested"]} == requested);
+  CHECK(std::string_view{entry["effective"]} == effective);
+  CHECK(std::string_view{entry["op"]} == op);
+  CHECK(std::string_view{entry["repo"]} == repo);
+  CHECK(simdjson::dom::object(entry).size() == 4);
+}
+// Returns the single url-divergence-accepted advisory object, asserting exactly one
+// exists among the advisories and returning its entries array.
+simdjson::dom::array single_accepted_entries(const simdjson::dom::element document) {
+  size_t accepted_count = 0;
+  simdjson::dom::array entries;
+  for (const auto advisory : simdjson::dom::array(document["advisories"])) {
+    if (std::string_view{advisory["kind"]} == "url-divergence-accepted") {
+      ++accepted_count;
+      entries = simdjson::dom::array(advisory["entries"]);
+    }
+  }
+  REQUIRE(accepted_count == 1);  // ONE grouped outer object, never one-per-triple
+  return entries;
+}
+}  // namespace
+
+TEST_CASE("a6-R1 open carriers: exact rows, order, cardinality, grouped advisory, zero state") {
   biv::open::OpenReport report{.image_path = "img.bvpk", .output_dir = "out"};
-  // zero state (a6.15 unit half): both carriers ABSENT
+  // zero state (a6.15 unit half): both carriers ABSENT on the open branch
   const auto zero = biv::report::envelope("open", std::nullopt, report, std::nullopt, 0);
   CHECK(zero.find("url_divergence_refusals") == std::string::npos);
   CHECK(zero.find("url-divergence-accepted") == std::string::npos);
-  // populated: rows in vector (encounter) order; advisory grouped, one outer object
+  // populated — DISTINCT values everywhere:
   report.url_divergence_refusals = {
-      {"r1", "a/b", "https://req", "https://eff", "fetch"},
-      {"r2", "c/d", "https://req2", "https://eff2", "fetch"}};
-  report.url_divergence_accepted = {{"https://q", "https://e", "fetch", "/repo"}};
+      {"repoA", "path/one", "https://req-1", "https://eff-1", "fetch"},
+      {"repoB", "path/two", "https://req-2", "https://eff-2", "ls-remote"}};
+  report.url_divergence_accepted = {{"https://acc-req", "https://acc-eff", "clone", "/hook/acc"}};
   const auto populated = biv::report::envelope("open", std::nullopt, report, std::nullopt, 2);
-  // every refusal-row field asserted, rows in vector (encounter) order:
-  const auto first = populated.find("\"repo_id\": \"r1\"");
-  const auto second = populated.find("\"repo_id\": \"r2\"");
-  REQUIRE(first != std::string::npos);
-  REQUIRE(second != std::string::npos);
-  CHECK(first < second);
-  for (const std::string needle :
-       {"\"kind\": \"UrlDivergenceEntryRefused\"", "\"relpath\": \"a/b\"",
-        "\"requested\": \"https://req\"", "\"effective\": \"https://eff\"",
-        "\"op\": \"fetch\"", "\"relpath\": \"c/d\"", "\"requested\": \"https://req2\"",
-        "\"effective\": \"https://eff2\""}) {
-    INFO(needle);
-    CHECK(populated.find(needle) != std::string::npos);
-  }
-  // every accepted-entry field, grouped once:
-  CHECK(count_occurrences(populated, "url-divergence-accepted") == 1);
-  for (const std::string needle :
-       {"\"requested\": \"https://q\"", "\"effective\": \"https://e\"", "\"repo\": \"/repo\""}) {
-    INFO(needle);
-    CHECK(populated.find(needle) != std::string::npos);
-  }
+  simdjson::dom::parser parser;
+  const simdjson::dom::element document = parser.parse(populated);
+  const simdjson::dom::array rows{document["result"]["url_divergence_refusals"]};
+  REQUIRE(rows.size() == 2);  // exact cardinality
+  check_refusal_row(rows.at(0), "repoA", "path/one", "https://req-1", "https://eff-1", "fetch");
+  check_refusal_row(rows.at(1), "repoB", "path/two", "https://req-2", "https://eff-2", "ls-remote");
+  const auto entries = single_accepted_entries(document);
+  REQUIRE(entries.size() == 1);
+  check_accepted_entry(entries.at(0), "https://acc-req", "https://acc-eff", "clone", "/hook/acc");
 }
 
-TEST_CASE("a6-R1 pack verb carries the grouped advisory too (both-verbs contract)") {
+TEST_CASE("a6-R1 pack carries the grouped advisory too: exact entries, order, zero state") {
   biv::pack::PackReport report{.image_path = "img.bvpk", .source_path = "src"};
-  // zero state on the PACK branch:
   const auto zero = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 0);
   CHECK(zero.find("url-divergence-accepted") == std::string::npos);
-  // populated: ONE grouped object after the existing pack advisories, entries in
-  // encounter order, all four fields:
-  report.url_divergence_accepted = {{"https://q1", "https://e1", "ls-remote", "/r1"},
-                                    {"https://q2", "https://e2", "ls-remote", "/r2"}};
+  CHECK(zero.find("url_divergence_refusals") == std::string::npos);
+  // two entries, EVERY field distinct per entry, encounter order:
+  report.url_divergence_accepted = {
+      {"https://p1-req", "https://p1-eff", "ls-remote", "/pack/one"},
+      {"https://p2-req", "https://p2-eff", "fetch", "/pack/two"}};
   const auto populated = biv::report::envelope("pack", report, std::nullopt, std::nullopt, 0);
-  CHECK(count_occurrences(populated, "url-divergence-accepted") == 1);
-  const auto e1 = populated.find("\"repo\": \"/r1\"");
-  const auto e2 = populated.find("\"repo\": \"/r2\"");
-  REQUIRE(e1 != std::string::npos);
-  REQUIRE(e2 != std::string::npos);
-  CHECK(e1 < e2);
-  CHECK(populated.find("\"requested\": \"https://q1\"") != std::string::npos);
-  CHECK(populated.find("\"effective\": \"https://e1\"") != std::string::npos);
-  CHECK(populated.find("\"op\": \"ls-remote\"") != std::string::npos);
+  simdjson::dom::parser parser;
+  const simdjson::dom::element document = parser.parse(populated);
+  const auto entries = single_accepted_entries(document);
+  REQUIRE(entries.size() == 2);
+  check_accepted_entry(entries.at(0), "https://p1-req", "https://p1-eff", "ls-remote", "/pack/one");
+  check_accepted_entry(entries.at(1), "https://p2-req", "https://p2-eff", "fetch", "/pack/two");
 }
 
 TEST_CASE("a6-R1 site 1: the preflight grain rides the top-level error carrier") {
@@ -547,7 +586,7 @@ CURRENT_LOCKED_SCHEMA_BLOBS = {
 }
 ```
 
-- [ ] **Step 4: run, verify PASS** — `biv_tests` envelope suite (parity + carriers + aggregator) and `pytest harness/selftest/test_envelope.py` (pins + a6·17 + the existing scenario validations, which are the zero-state half of a6·16 now running against the widened schema).
+- [ ] **Step 4: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "[envelope]" "schema artifacts reserve envelope and exit-map contracts,a6-R1 open carriers: exact rows, order, cardinality, grouped advisory, zero state,a6-R1 pack carries the grouped advisory too: exact entries, order, zero state,a6-R1 site 1: the preflight grain rides the top-level error carrier,a6-R1 exit composition: one typed aggregator over both sources"` (Catch2 name filters; drop "[envelope]" if no such tag exists on this tree — the comma-joined name list is the operative filter) and `python3 -m pytest harness/selftest/test_envelope.py -q` (pins + a6·17 + the existing scenario validations, the zero-state half of a6·16 now running against the widened schema).
 - [ ] **Step 5: commit (the one-commit contract landing)** — `git add src/core/support/error.hpp src/core/support/error.cpp src/core/support/url_divergence.hpp src/core/open/open.hpp src/core/pack/pack.hpp src/core/report/envelope.hpp src/core/report/envelope.cpp src/cli/main.cpp schemas/biv-exit-map.v1.json schemas/biv-json-envelope.v1.schema.json tests/test_envelope.cpp harness/selftest/test_envelope.py && git commit -m "feat(contract): the two url-divergence ErrKinds land WITH both exit-map rows, all three envelope-schema sites, carrier structs/serialization, the widened open-exit aggregator, derived parity rows, and both recomputed selftest pins (sealed A6-R1; V-A6-3 one-commit rule)"`
 
 ### Task 3: E2 zero-state legs at verb scope (a6·15)
@@ -584,7 +623,7 @@ TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb 
 }
 ```
 
-- [ ] **Step 2: run, verify PASS both assertions on real verb envelopes.**
+- [ ] **Step 2: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "a6.15 zero state: no divergence -> both carriers absent on real verb envelopes"`.
 - [ ] **Step 3: commit** — `git add tests/test_cli.cpp && git commit -m "test: a6.15 zero-state landing leg — both url-divergence carriers absent on divergence-free pack/open envelopes"`
 
 ### Task 4: the PROMPT D renderer module (STOP-1 ANSWERED — un-blocked)
@@ -631,22 +670,37 @@ TEST_CASE("A6-R4 refusal + guidance bytes are golden") {
   CHECK(biv::cli::render_run_guidance_line(2) ==
         "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
 }
-TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds") {
+TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/r", "https://q", "https://e"};
+  // EVERY branch also binds the wrapper's stderr bytes byte-whole to the golden
+  // render — a wrapper emitting nothing, drifted bytes, or extra bytes REDs here:
+  const auto golden = biv::cli::render_prompt_d(facts);
   { std::istringstream in{"\n"}; std::ostringstream err;
-    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err)); }
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));   // empty -> refuse (a6.1 default)
+    CHECK(err.str() == golden); }
   { std::istringstream in{"y\n"}; std::ostringstream err;
-    CHECK(biv::cli::prompt_url_divergence(facts, in, err)); }
+    CHECK(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"Y\n"}; std::ostringstream err;
+    CHECK(biv::cli::prompt_url_divergence(facts, in, err));         // uppercase Y proceeds
+    CHECK(err.str() == golden); }
   { std::istringstream in{"n\n"}; std::ostringstream err;
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{""}; std::ostringstream err;              // EOF -> refuse
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"y\n"}; std::ostringstream err;
+    err.setstate(std::ios::failbit);                                // stream failure -> refuse
     CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err)); }
 }
 ```
 
 Addresses render VERBATIM — no elision, truncation, or normalization anywhere in the module (A6-R2). These are unit tests of the module's bytes; they claim NO FX-A6 behavioral leg (those need verb-reachable divergence, due 2b).
 
-- [ ] **Step 2: run, verify FAIL (module absent).**
+- [ ] **Step 2: run, verify FAIL** — `cmake --build build/dev --target biv_tests` fails to link (module absent) or the filtered run `./build/dev/biv_tests "A6-R2 PROMPT D bytes are golden"` fails.
 - [ ] **Step 3: implement the module** — template literals exactly as the tests assert (STOP-1 cells per m-3's answer); the predicate; the prompt function reading one line, `y`/`Y` → true, anything else (including empty/EOF/stream-fail) → false. No file, env, or config read/write anywhere in the module (V-A6-1, A7-R1).
-- [ ] **Step 4: run, verify PASS.**
+- [ ] **Step 4: run, verify PASS** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "A6-R2 PROMPT D bytes are golden,A6-R4 accepted notice bytes are golden,A6-R4 refusal + guidance bytes are golden,A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err"`.
 - [ ] **Step 5: commit** — `git add src/cli/url_consent.hpp src/cli/url_consent.cpp tests/test_cli.cpp CMakeLists.txt && git commit -m "feat(cli): PROMPT D renderer module — sealed A6-R2/R4 golden bytes (STOP-1 cells per m-3 ruling intg-stop1-a6-golden-bytes/DESIGN-planner-20260827-235912.md), A7-R1 stdin+stderr predicate, default-N prompt; consumer is sub-step 2b's wiring (V-A6-6)"`
 
 ### Task 5: fence proofs + verification battery + IMPL report
@@ -661,6 +715,12 @@ git grep -n '#include "core/repo' -- 'src' ':!src/core/repo' ; test $? -eq 1
 grep -n 'require_empty_array' src/core/manifest/manifest.cpp
 # no persistence tokens in the new module (env/config/file APIs absent):
 grep -nE 'getenv|setenv|ofstream|fopen|config' src/cli/url_consent.cpp ; test $? -eq 1
+# the A7-R1 predicate is EXACTLY the stdin+stderr isatty pair, with no json/env/config
+# term anywhere in the module (acceptance criterion 6's source proof):
+grep -c 'isatty' src/cli/url_consent.cpp        # expect exactly 2 (STDIN_FILENO, STDERR_FILENO)
+grep -n 'isatty(STDIN_FILENO)' src/cli/url_consent.cpp
+grep -n 'isatty(STDERR_FILENO)' src/cli/url_consent.cpp
+grep -nE 'STDOUT_FILENO|json' src/cli/url_consent.cpp ; test $? -eq 1
 # engine bytes untouched:
 git diff --stat 02b51435..HEAD -- src/core/repo | wc -l   # must be 0
 ```
@@ -688,6 +748,6 @@ Engine wiring or any product→engine call/include; hook installation into engin
 
 1. **STOP-1 — ANSWERED AND FOLDED** (owner ruling m-3 `intg-stop1-a6-golden-bytes/DESIGN-planner-20260827-235912.md`, carried down at master `000750`): both cells resolved as byte-level readings and folded into Task 4's literals; the renderer task is un-blocked. No undetermined golden byte remains.
 2. **Commissioning-chain lint residue (rule-3d family, now rule 3a)** — adjudicated OUTSIDE W-3 by master `234934`; two directed transport repairs executed exactly as scripted (the grant, then the bounded four-member chain completion: T1 `142730`, charter rev0 `142832`, charter rev1 `144023`, approval `144253` — all byte-identical, sha-verified both sides at this seat, engine-reconciled hand-origin). The residue transformed each time rather than clearing; at the current sweep it reads: "latest authorization-universe member intg-commission-charter/DESIGN-master-planner-20260827-144023.md fails stage-(a) shape; marker-bearing malformed authorization shadows and fails (DD-v29-master-authority-20260809 cross-seat rule 3a)" — apparently because the charter's own face carries `COMMISSION_AUTHORIZATION: yes` and shadows T1 as the universe's latest member. Per the fallback the transport stopped there; the residue is reported UP verbatim and the adjudication sits at master. **No approval or implementation dispatch issues while this gate is open.**
-3. **W-3 coverage**: appended for revision `233453` and updated to `000218` (master `000750`; one entry, unchanged); each successor revision re-measures per the current-revision rule with an archived full-root sweep under `results/` as the reproducible instrument (the root-mode linter sweeps ALL Markdown under the root; the plan-file verdict is the exact-path-filtered subset of the archived output).
+3. **W-3 coverage**: appended for revision `233453`, updated to `000218` (master `000750`) and to `001327` (master `001956`); one entry throughout. Each successor revision re-measures per the current-revision rule with an archived full-root sweep under `results/` as the reproducible instrument (the root-mode linter sweeps ALL Markdown under the root; the plan-file verdict is the exact-path-filtered subset of the archived output). Archives of record so far: `results/lint-root-sweep-post-reconcile-20260827.txt` (grant carried), `results/lint-root-sweep-chain-complete-20260828.txt` (chain carried, measured at `000218`), `results/lint-root-sweep-successor2-20260828.txt` (`001327`); this revision's archive is named in its accompanying relay.
 
 Every other byte is determined by the sealed texts.
