@@ -730,14 +730,19 @@ Addresses render VERBATIM — no elision, truncation, or normalization anywhere 
 ```bash
 # zero engine references from product code (definitions + tests excepted):
 git grep -n 'run_eligibility\|restore_entry\|repo::capture' -- 'src' ':!src/core/repo' ; test $? -eq 1
-git grep -n '#include "core/repo' -- 'src' ':!src/core/repo' ; test $? -eq 1
+git grep -n '#include "core/repo/' -- 'src' ':!src/core/repo' ; test $? -eq 1
+# (the trailing slash is load-bearing: the un-slashed prefix form falsely matches the
+# legitimate core/report includes -- the rev-6 command's verified defect)
 # repos fence intact:
 grep -n 'require_empty_array' src/core/manifest/manifest.cpp
 # no persistence tokens in the new module (env/config/file APIs absent):
 grep -nE 'getenv|setenv|ofstream|fopen|config' src/cli/url_consent.cpp ; test $? -eq 1
 # the A7-R1 predicate is EXACTLY the stdin+stderr isatty pair, with no json/env/config
 # term anywhere in the module (acceptance criterion 6's source proof):
-test "$(grep -c 'isatty' src/cli/url_consent.cpp)" -eq 2   # EXACTLY two isatty calls, exit-gated
+test "$(grep -o 'isatty' src/cli/url_consent.cpp | wc -l)" -eq 2   # EXACTLY two isatty TOKENS, exit-gated
+# (token-level -o, not line-level -c: the mandated ONE-LINE conjunction below puts both
+# calls on a single line, so grep -c returns 1 by design -- the rev-6 command's verified
+# self-contradiction)
 # the REQUIRED CONJUNCTION witnessed as a fixed string (an || mutant REDs here — the
 # expression below is the module's mandated predicate line, byte-exact):
 grep -F '::isatty(STDIN_FILENO) != 0 && ::isatty(STDERR_FILENO) != 0' src/cli/url_consent.cpp
@@ -747,7 +752,7 @@ test -z "$(git diff --name-only 02b51435..HEAD -- src/core/repo)"   # exit-gated
 ```
 
 - [ ] **Step 2: full local suite** — configure + build + `ctest` on macOS (both test binaries; note R-3.37: the macOS allowlist is deny-by-default — these tests live in EXISTING binaries; verify the new cases actually RAN by name in the ctest/Catch2 output, not just that the suite is green).
-- [ ] **Step 3: Linux parity leg** — Docker `ubuntu-24.04 --platform linux/amd64 --init` (R-4.40), raise `nofile` soft→hard inside the runuser context before the suite (R-4.31(a)), reproduce the s2-harness recipe; count-gate posture: R-4.38's pre-existing red stands disclosed and is NOT citable as merge-readiness (its repair is m-3's parallel gate).
+- [ ] **Step 3: Linux parity leg** — Docker `ubuntu-24.04 --platform linux/amd64 --init` (R-4.40), raise `nofile` soft→hard inside the runuser context before the suite (R-4.31(a)), reproducing the canonical s2-harness recipe INCLUDING the pinned clang-tidy-22 provisioning (`.github/workflows/s2-harness.yml:114-184` — sha256-verified debs from the immutable mirror tag; distro clang-tidy-18 never substitutes, and a skipped tidy row is a gap, not a pass). Run the battery WITHOUT `set -e` so the post-CTest evidence commands (the tagged `--success` run, the XML/count reads) execute even when known-family rows red. Red-row disposition, pre-stated: the `harness-selftest` mutation-adversary reds are the REGISTERED R-4.35 family (pre-existing, flaky, attributed to NO candidate by the registry's own text; the correctness question is R-4.36's row, m-4-owned) — record them with the citation, never charge them to this branch and never close them as environmental; count-gate posture: R-4.38's pre-existing red stands disclosed and is NOT citable as merge-readiness (its repair is m-3's parallel gate).
 - [ ] **Step 4: IMPL report** (file-first relay): claims with evidence levels; `ACTIONS_GIT_REF` branch@sha; the leg census (a6·14/15/17/18 + zero-half 16 — where each ran and its counts); the fence-grep outputs; the STOP-1 answer relay cited; explicit NOT-DONE list (all behavioral legs due 2b; no wiring; no merge claim).
 
 ## Acceptance criteria (the plan is met when ALL hold)
