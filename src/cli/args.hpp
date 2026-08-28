@@ -18,6 +18,7 @@ struct Command {
   Verb verb{Verb::pack};
   bool json{false};
   bool help{false};
+  bool accept_url_divergence{false};
   std::filesystem::path pack_dir;
   biv::open::OpenOptions open_options;
   core_sessions::ConsentSpec consent;

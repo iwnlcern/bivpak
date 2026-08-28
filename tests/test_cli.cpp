@@ -1431,12 +1431,92 @@ TEST_CASE("Task 4 CLI help documents the strict agent binary pin syntax") {
         "usage: biv open <image> [options]\n"
         "  --dest <path>\n"
         "  --consent <yes|no|agent=yes,...>\n"
+        "  --accept-url-divergence\n"
         "  --agent-bin <claude-code|codex>=<absolute-or-relative-path>\n"
         "  --rename\n"
         "  --abort-on-collision\n"
         "  --verify\n"
         "  --json\n");
   CHECK(help.err.empty());
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("a6-R3 pack and open accept --accept-url-divergence", "[a6-fabric]") {
+  // open: flag parses alongside an image; no usage error
+  {
+    char prog[] = "biv", verb[] = "open", flag[] = "--accept-url-divergence", img[] = "x.bvpk";
+    char* argv[] = {prog, verb, flag, img};
+    const auto parsed = biv::cli::parse_args(std::span<char* const>{argv, 4});
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->accept_url_divergence);
+    CHECK(parsed->verb == biv::cli::Verb::open);
+  }
+  // pack: the ONE accepted flag; other flags still rejected
+  {
+    char prog[] = "biv", verb[] = "pack", flag[] = "--accept-url-divergence", dir[] = "srcdir";
+    char* argv[] = {prog, verb, flag, dir};
+    const auto parsed = biv::cli::parse_args(std::span<char* const>{argv, 4});
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->accept_url_divergence);
+  }
+  {
+    char prog[] = "biv", verb[] = "pack", flag[] = "--not-a-flag", dir[] = "srcdir";
+    char* argv[] = {prog, verb, flag, dir};
+    CHECK_FALSE(biv::cli::parse_args(std::span<char* const>{argv, 4}).has_value());
+  }
+}
+
+TEST_CASE("a6.14 list/info accept the flag inert: full-stream equality with flagless", "[a6-fabric]") {
+  const auto root = make_tmp("a6-14-inert");
+  // FULL code/out/err equality for EACH verb — a mutant emitting any A6 surface on any
+  // stream, or shifting the exit, REDs here (flag-specific: only this spelling compared).
+  const auto list_flag = run_cmd("list --accept-url-divergence missing.bvpk", root);
+  const auto list_none = run_cmd("list missing.bvpk", root);
+  CHECK(list_flag.code == list_none.code);
+  CHECK(list_flag.out == list_none.out);
+  CHECK(list_flag.err == list_none.err);
+  const auto info_flag = run_cmd("info --accept-url-divergence missing.bvpk", root);
+  const auto info_none = run_cmd("info missing.bvpk", root);
+  CHECK(info_flag.code == info_none.code);
+  CHECK(info_flag.out == info_none.out);
+  CHECK(info_flag.err == info_none.err);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info", "[a6-fabric]") {
+  const auto root = make_tmp("a6-18-nohelp");
+  // The sealed leg requires the OTHER verbs' help ABSENCE witnessed, not assumed.
+  // The witness is help-is-not-special FULL-STREAM equality: for each verb, `--help`
+  // must produce EXACTLY what any other unknown/ignored flag produces (code, stdout,
+  // stderr) — a mutant emitting ANY help production on ANY stream for that verb
+  // diverges from its own unknown-flag baseline and REDs here. Belt: no usage/help
+  // text on either stream.
+  const std::vector<std::pair<std::string, std::string>> probes{
+      {"pack --help", "pack --no-such-flag"},          // pack rejects every flag alike
+      {"list --help x.bvpk", "list --no-such-flag x.bvpk"},  // stubs ignore trailing tokens alike
+      {"info --help x.bvpk", "info --no-such-flag x.bvpk"}};
+  // EXACT stable baselines at the reviewed base (kills the shared-baseline mutant --
+  // a help-like block emitted on BOTH flag paths cannot match these):
+  //   all three verbs: exit code 5, EMPTY stdout;
+  //   pack stderr  == "biv: UsageError: unknown-flag\n"
+  //   list/info stderr == "biv: UsageError: NotYetImplemented\n"
+  const std::map<std::string, std::string> expected_err{
+      {"pack", "biv: UsageError: unknown-flag\n"},
+      {"list", "biv: UsageError: NotYetImplemented\n"},
+      {"info", "biv: UsageError: NotYetImplemented\n"}};
+  for (const auto& [help_form, baseline_form] : probes) {
+    const auto verb = help_form.substr(0, help_form.find(' '));
+    const auto help = run_cmd(help_form, root);
+    const auto baseline = run_cmd(baseline_form, root);
+    INFO(help_form);
+    CHECK(help.code == 5);
+    CHECK(help.out.empty());
+    CHECK(help.err == expected_err.at(verb));
+    // belt: help gets NO special treatment vs any other unknown/ignored flag
+    CHECK(help.code == baseline.code);
+    CHECK(help.out == baseline.out);
+    CHECK(help.err == baseline.err);
+  }
   std::filesystem::remove_all(root);
 }
 
