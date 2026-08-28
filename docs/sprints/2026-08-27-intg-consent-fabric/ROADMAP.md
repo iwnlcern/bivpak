@@ -21,6 +21,11 @@ This sprint root carries no `.relays/` subtree of its own; the charter fixes the
 Not granted at any step: design-of-record amendment, merge, push, publication, deployment, release.
 The release hold is ABSOLUTE.
 
+## Plan state
+
+The ONE W-3-bound plan is **APPROVED at the pair gate**: `intg-substep1/PLAN-REVIEW-pair-implementer-20260828-011234.md`, verdict approve at exact artifact sha256 `d286a0df…` (`plans/PL-intg-substep1-20260827.md`, five review rounds: 235343 → 001849 → 004524 → 005821 → approve).
+The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep (charter rev2 refresh loop); on its archived clear, the pair Planner issues the bare dispatch token under the grant's delegated conditional authority with the mechanical SCOPE_DIFF over the plan's file fence.
+
 ## Standing dispositions from master (answer relay `intg-substep1-master-answers/PLAN-master-planner-20260827-155221.md`)
 
 - Branch base CONFIRMED: `intg/consent-fabric` cuts from local `main@02b51435` (the phase-design pin); no rebase without a routed STOP.
