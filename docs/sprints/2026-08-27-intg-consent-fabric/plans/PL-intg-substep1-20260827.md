@@ -79,7 +79,7 @@ Modify: harness/selftest/test_envelope.py (both blob pins recomputed; a6·17 str
 Modify: CMakeLists.txt              (line 97: add src/cli/url_consent.cpp to the biv executable; one new target_sources(biv_tests PRIVATE src/cli/url_consent.cpp) line in the existing biv_tests block at :137-158 — no new target, no new test binary)
 ```
 
-Run-command convention for every task (literal, per the reviewed tree): configure/build with `cmake --build build/dev --target biv_tests biv`, then invoke the test binary directly. Every NEW test case carries the `[a6-fabric]` tag and is selected as `./build/dev/biv_tests "[a6-fabric]"` -- tag selection because the pinned Catch2 grammar treats unescaped commas in a name spec as OR separators and several new names contain commas; existing comma-free names may be invoked exactly. (`ctest --test-dir build/dev -R cli` selects ZERO tests on this tree -- never use `-R cli`.) The IMPL report lists the executed new test names from the Catch2 output, proving they RAN. The selftest runs as `python3 -m pytest harness/selftest/test_envelope.py -q`.
+Run-command convention for every task (literal, per the reviewed tree): configure/build with `cmake --build build/dev --target biv_tests biv`, then invoke the test binary directly. Every NEW test case carries the `[a6-fabric]` tag and is selected as `./build/dev/biv_tests "[a6-fabric]"` -- tag selection because the pinned Catch2 grammar treats unescaped commas in a name spec as OR separators and several new names contain commas; existing comma-free names may be invoked exactly. (`ctest --test-dir build/dev -R cli` selects ZERO tests on this tree -- never use `-R cli`.) The EVIDENCE invocation for the IMPL report is `./build/dev/biv_tests "[a6-fabric]" --success` — pinned Catch2 documents `-s/--success` as the switch that reports successful results (default reporting omits passing names, proving only the aggregate); the report retains that output's names + counts, proving all twelve new cases RAN and PASSED by name. A `--list-tests` run may additionally prove selection but never substitutes for execution proof. The selftest runs as `python3 -m pytest harness/selftest/test_envelope.py -q`.
 
 ---
 
@@ -187,7 +187,16 @@ TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info", "[a6-f
 
 (The a6·14 case pins the FLAG spelling's inert observable only — it must not assert acceptance of arbitrary trailing tokens; the stub path is not this feature's contract. RECONCILE I2.)
 
-- [ ] **Step 2: run, verify FAIL** — `cmake --build build/dev --target biv_tests biv && ./build/dev/biv_tests "[a6-fabric]" && ./build/dev/biv_tests "Task 4 CLI help documents the strict agent binary pin syntax"` — the help golden fails on the missing line; the parser cases fail on `unknown-flag`.
+- [ ] **Step 2: run, verify FAIL — each RED observed INDEPENDENTLY, never behind `&&`** (the parser cases reference the not-yet-existing `Command::accept_url_divergence`, so the BUILD fails first; record each intended failure on its own line):
+
+```bash
+cmake --build build/dev --target biv_tests biv   # EXPECTED: compile error on accept_url_divergence (record it)
+# after adding ONLY the Command field declaration (no parser behavior), rebuild, then:
+./build/dev/biv_tests "[a6-fabric]"              # EXPECTED: parser cases FAIL on unknown-flag; a6.14/a6.18 arms FAIL
+./build/dev/biv_tests "Task 4 CLI help documents the strict agent binary pin syntax"   # EXPECTED: FAIL on the missing help line
+```
+
+Both intended failures are recorded (names + failure text) BEFORE the behavior edit.
 - [ ] **Step 3: implement.**
 
 ```cpp
@@ -729,11 +738,12 @@ grep -nE 'getenv|setenv|ofstream|fopen|config' src/cli/url_consent.cpp ; test $?
 # the A7-R1 predicate is EXACTLY the stdin+stderr isatty pair, with no json/env/config
 # term anywhere in the module (acceptance criterion 6's source proof):
 test "$(grep -c 'isatty' src/cli/url_consent.cpp)" -eq 2   # EXACTLY two isatty calls, exit-gated
-grep -n 'isatty(STDIN_FILENO)' src/cli/url_consent.cpp
-grep -n 'isatty(STDERR_FILENO)' src/cli/url_consent.cpp
+# the REQUIRED CONJUNCTION witnessed as a fixed string (an || mutant REDs here — the
+# expression below is the module's mandated predicate line, byte-exact):
+grep -F '::isatty(STDIN_FILENO) != 0 && ::isatty(STDERR_FILENO) != 0' src/cli/url_consent.cpp
 grep -nE 'STDOUT_FILENO|json' src/cli/url_consent.cpp ; test $? -eq 1
 # engine bytes untouched:
-git diff --stat 02b51435..HEAD -- src/core/repo | wc -l   # must be 0
+test -z "$(git diff --name-only 02b51435..HEAD -- src/core/repo)"   # exit-gated: ANY engine edit fails this command
 ```
 
 - [ ] **Step 2: full local suite** — configure + build + `ctest` on macOS (both test binaries; note R-3.37: the macOS allowlist is deny-by-default — these tests live in EXISTING binaries; verify the new cases actually RAN by name in the ctest/Catch2 output, not just that the suite is green).
