@@ -7,6 +7,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -23,6 +24,7 @@
 #include <simdjson.h>
 
 #include "cli/args.hpp"
+#include "cli/url_consent.hpp"
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
@@ -1465,6 +1467,56 @@ TEST_CASE("Task 4 CLI help documents the strict agent binary pin syntax") {
         "  --json\n");
   CHECK(help.err.empty());
   std::filesystem::remove_all(root);
+}
+
+TEST_CASE("A6-R2 PROMPT D bytes are golden", "[a6-fabric]") {
+  const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
+  CHECK(biv::cli::render_prompt_d(facts) ==
+        "  fetch: the address git will contact for /w/repo differs from the requested address:\n"
+        "    requested: https://req\n"
+        "    effective: https://eff\n"
+        "  Contact the effective address? [y/N] ");
+}
+
+TEST_CASE("A6-R4 accepted notice bytes are golden", "[a6-fabric]") {
+  const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
+  CHECK(biv::cli::render_accepted_notice(facts) ==
+        "  fetch: contacting https://eff for /w/repo (requested: https://req — accepted for this run)\n");
+}
+
+TEST_CASE("A6-R4 refusal + guidance bytes are golden", "[a6-fabric]") {
+  const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
+  CHECK(biv::cli::render_pack_refusal_detail(facts) ==
+        "pack refused: fetch for /w/repo would contact https://eff instead of the requested https://req; approval was not given. Re-run interactively to review, or pass --accept-url-divergence to proceed.");
+  CHECK(biv::cli::render_entry_refusal_line("a/b.txt", facts) ==
+        "  a/b.txt: restore failed — fetch would contact https://eff instead of the requested https://req; approval was not given.\n");
+  CHECK(biv::cli::render_run_guidance_line(2) ==
+        "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
+}
+
+TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err",
+          "[a6-fabric]") {
+  const biv::cli::UrlDivergenceFacts facts{"fetch", "/r", "https://q", "https://e"};
+  const auto golden = biv::cli::render_prompt_d(facts);
+  { std::istringstream in{"\n"}; std::ostringstream err;
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"y\n"}; std::ostringstream err;
+    CHECK(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"Y\n"}; std::ostringstream err;
+    CHECK(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"n\n"}; std::ostringstream err;
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{""}; std::ostringstream err;
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"y\n"}; std::ostringstream err;
+    in.setstate(std::ios::failbit);
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
 }
 
 TEST_CASE("a6-R3 pack and open accept --accept-url-divergence", "[a6-fabric]") {
