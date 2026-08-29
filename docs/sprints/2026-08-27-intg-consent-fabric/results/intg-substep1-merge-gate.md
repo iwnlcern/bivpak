@@ -96,19 +96,23 @@ condition 3  VERIFIED at master's own bytes (record: master/relays/
 condition 4  the operator's DISPATCH MERGE, PHASE: MERGE-GATE, issued directly —
              PENDING; sought only after the owner predicate returns; nothing in
              this packet is or substitutes for it
-owner gate   REQUIRED PREDICATE, separate from the four: m-3 byte-level review at
-             exact 3cd31e4 with no standing veto, by m-3's own filed relay —
-             PENDING (master's dispatch intg-m3-byte-review-3cd31e4); SEC-1 is
-             FOLDED INTO that review's scope by master's supplement (same turn as
-             the 212827 verification), asking m-3 to rule fence-or-silence, the
-             option, and conditions-this-merge vs binds-at-2b; no other domain's
-             fence was routed by master
+owner gate   SATISFIED — m-3 byte review at exact 3cd31e4 returned
+             BYTE_REVIEW_VERDICT: green-no-veto (master/relays/
+             intg-m3-byte-review-3cd31e4/DESIGN-REVIEW-implementer-20260828-220220.md,
+             SEC1_FENCE_RULING: fenced-raw-substitution), and the A6/A7 authoring
+             seat CONCURRED WHOLE (intg-sec1-m3-owner-concurrence/
+             DESIGN-planner-20260828-225500.md — the seal's omission owned at that
+             pen; SEC-1-2B-PRECONDITION adopted as a standing m-3 veto, registered
+             R-4.48); both relays verified at the pair-planner's own read; no other
+             domain's fence was routed by master
 ```
 
 The release hold is ABSOLUTE and untouched by any of the above. Merged is not pushed, not published, not released.
 
 ## 7. Hold
 
-Assembled and HELD at completion per master's directive. Condition 3 verified (master `212827`). The packet advances only on: the m-3 byte-review verdict (owner predicate + SEC-1 disposition), then the operator's token.
+Assembled and HELD. Condition 3 verified (master `212827`). Owner predicate SATISFIED (m-3 `220220` green-no-veto + authoring-seat concurrence `225500`; census complete recorded at master `021404`). **The ONLY remaining gate is condition 4 — the operator's merge token, issued directly; master surfaced the decision to the operator.**
 
-Minors ruling of record (master `212827`): NO fold at `3cd31e4`. Contingent: if m-3's verdict is veto-with-findings (a new SHA anyway), the three test-only Minors fold in that SAME revision so one fresh targeted panel covers everything; if green-no-veto, they defer to the 2b lane as recorded in §5.
+SEC-1 disposition of record: fence-not-silence; renderer-owned escaping selected (caller-sanitizes rejected); a HARD 2b PRECONDITION registered as **R-4.48** — no production caller or engine-hook wiring of the raw renderer API before its five cells discharge (the joint m-3+m-4 re-cut is dispatched); SEC-1 binds NOTHING at this candidate. The three test-only Minors DEFER to the 2b lane (the green-no-veto arm of master's `212827` contingent rule). The eventual push stays behind the R-4.38 repair + R-4.46 regardless of the merge.
+
+If the token issues: the merge is a LANE-LOCAL act (merge ≠ push ≠ release) executed per §4's recorded topology, reported UP with post-merge receipts. The release hold is ABSOLUTE.
