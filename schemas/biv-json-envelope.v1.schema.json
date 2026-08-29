@@ -56,6 +56,27 @@
               "kind": {"const": "nested-bivignore-ignored"},
               "paths": {"type": "array", "items": {"type": "string"}}
             }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "entries"],
+            "properties": {
+              "kind": {"const": "url-divergence-accepted"},
+              "entries": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["requested", "effective", "op", "repo"],
+                  "properties": {
+                    "requested": {"type": "string"},
+                    "effective": {"type": "string"},
+                    "op": {"type": "string"},
+                    "repo": {"type": "string"}
+                  }
+                }
+              }
+            }
           }
         ]
       }
@@ -76,6 +97,22 @@
             "collision_action": {"enum": ["none", "renamed", "refused"]},
             "restored_member_count": {"type": "integer"},
             "checksums_verified": {"type": "boolean"},
+            "url_divergence_refusals": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["kind", "repo_id", "relpath", "requested", "effective", "op"],
+                "properties": {
+                  "kind": {"const": "UrlDivergenceEntryRefused"},
+                  "repo_id": {"type": "string"},
+                  "relpath": {"type": "string"},
+                  "requested": {"type": "string"},
+                  "effective": {"type": "string"},
+                  "op": {"type": "string"}
+                }
+              }
+            },
             "sessions": {
               "type": "object",
               "required": ["prompt_shown", "warning_shown", "consent", "agents"],
@@ -191,7 +228,10 @@
               "properties": {
                 "partial_path": {"type": "string"},
                 "spool_path": {"type": "string"},
-                "partial_dir": {"type": "string"}
+                "partial_dir": {"type": "string"},
+                "requested": {"type": "string"},
+                "effective": {"type": "string"},
+                "op": {"type": "string"}
               }
             }
           }

@@ -133,6 +133,7 @@ std::string help_text(const Verb verb) {
         "usage: biv open <image> [options]\n"
         "  --dest <path>\n"
         "  --consent <yes|no|agent=yes,...>\n"
+        "  --accept-url-divergence\n"
         "  --agent-bin <";
     help += registered_agent_list();
     help +=
@@ -166,6 +167,10 @@ expected<Command> parse_args(std::span<char* const> args) {
     command.verb = Verb::pack;
     std::optional<std::filesystem::path> dir;
     for (size_t i = 1; i < tokens.size(); ++i) {
+      if (tokens.at(i) == "--accept-url-divergence") {
+        command.accept_url_divergence = true;
+        continue;
+      }
       if (is_flag(tokens.at(i))) {
         return std::unexpected(usage("unknown-flag"));
       }
@@ -244,6 +249,8 @@ expected<Command> parse_args(std::span<char* const> args) {
       } else if (arg == "--abort-on-collision") {
         saw_abort = true;
         command.open_options.collision = biv::open::Collision::abort_preset;
+      } else if (arg == "--accept-url-divergence") {
+        command.accept_url_divergence = true;
       } else if (arg == "--verify") {
         command.open_options.verify = true;
       } else if (is_flag(arg)) {

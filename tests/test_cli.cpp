@@ -7,6 +7,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -23,6 +24,7 @@
 #include <simdjson.h>
 
 #include "cli/args.hpp"
+#include "cli/url_consent.hpp"
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
@@ -916,6 +918,32 @@ TEST_CASE("CLI pack/open round-trip emits JSON envelopes") {
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb envelopes", "[a6-fabric]") {
+  // the exact fixture sequence of "CLI pack/open round-trip emits JSON envelopes"
+  // (tests/test_cli.cpp:891-916), reused verbatim:
+  const auto root = make_tmp("a6-15-zero");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source / "dir");
+  write_file(source / "a.txt", "alpha");
+  write_file(source / "dir" / "b.txt", "beta");
+
+  const auto packed = run_cmd("pack '" + source.string() + "' --json", root);
+  REQUIRE(packed.code == 0);
+  REQUIRE(std::filesystem::exists(root / "sample.bvpk"));
+  CHECK(packed.out.find("url-divergence-accepted") == std::string::npos);
+  CHECK(packed.out.find("url_divergence_refusals") == std::string::npos);
+  CHECK(packed.out.find("UrlDivergence") == std::string::npos);
+
+  const auto opened = run_cmd("open '" + (root / "sample.bvpk").string() + "' --dest '" +
+                                  (root / "restore").string() + "' --json",
+                              root);
+  REQUIRE(opened.code == 0);
+  CHECK(opened.out.find("url-divergence-accepted") == std::string::npos);
+  CHECK(opened.out.find("url_divergence_refusals") == std::string::npos);
+  CHECK(opened.out.find("UrlDivergence") == std::string::npos);
+  std::filesystem::remove_all(root);
+}
+
 namespace slice_e_controls {
 
 class ScopedPackDiscoveryEnv {
@@ -1431,12 +1459,142 @@ TEST_CASE("Task 4 CLI help documents the strict agent binary pin syntax") {
         "usage: biv open <image> [options]\n"
         "  --dest <path>\n"
         "  --consent <yes|no|agent=yes,...>\n"
+        "  --accept-url-divergence\n"
         "  --agent-bin <claude-code|codex>=<absolute-or-relative-path>\n"
         "  --rename\n"
         "  --abort-on-collision\n"
         "  --verify\n"
         "  --json\n");
   CHECK(help.err.empty());
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("A6-R2 PROMPT D bytes are golden", "[a6-fabric]") {
+  const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
+  CHECK(biv::cli::render_prompt_d(facts) ==
+        "  fetch: the address git will contact for /w/repo differs from the requested address:\n"
+        "    requested: https://req\n"
+        "    effective: https://eff\n"
+        "  Contact the effective address? [y/N] ");
+}
+
+TEST_CASE("A6-R4 accepted notice bytes are golden", "[a6-fabric]") {
+  const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
+  CHECK(biv::cli::render_accepted_notice(facts) ==
+        "  fetch: contacting https://eff for /w/repo (requested: https://req — accepted for this run)\n");
+}
+
+TEST_CASE("A6-R4 refusal + guidance bytes are golden", "[a6-fabric]") {
+  const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
+  CHECK(biv::cli::render_pack_refusal_detail(facts) ==
+        "pack refused: fetch for /w/repo would contact https://eff instead of the requested https://req; approval was not given. Re-run interactively to review, or pass --accept-url-divergence to proceed.");
+  CHECK(biv::cli::render_entry_refusal_line("a/b.txt", facts) ==
+        "  a/b.txt: restore failed — fetch would contact https://eff instead of the requested https://req; approval was not given.\n");
+  CHECK(biv::cli::render_run_guidance_line(2) ==
+        "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
+}
+
+TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err",
+          "[a6-fabric]") {
+  const biv::cli::UrlDivergenceFacts facts{"fetch", "/r", "https://q", "https://e"};
+  const auto golden = biv::cli::render_prompt_d(facts);
+  { std::istringstream in{"\n"}; std::ostringstream err;
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"y\n"}; std::ostringstream err;
+    CHECK(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"Y\n"}; std::ostringstream err;
+    CHECK(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"n\n"}; std::ostringstream err;
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{""}; std::ostringstream err;
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+  { std::istringstream in{"y\n"}; std::ostringstream err;
+    in.setstate(std::ios::failbit);
+    CHECK_FALSE(biv::cli::prompt_url_divergence(facts, in, err));
+    CHECK(err.str() == golden); }
+}
+
+TEST_CASE("a6-R3 pack and open accept --accept-url-divergence", "[a6-fabric]") {
+  // open: flag parses alongside an image; no usage error
+  {
+    char prog[] = "biv", verb[] = "open", flag[] = "--accept-url-divergence", img[] = "x.bvpk";
+    char* argv[] = {prog, verb, flag, img};
+    const auto parsed = biv::cli::parse_args(std::span<char* const>{argv, 4});
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->accept_url_divergence);
+    CHECK(parsed->verb == biv::cli::Verb::open);
+  }
+  // pack: the ONE accepted flag; other flags still rejected
+  {
+    char prog[] = "biv", verb[] = "pack", flag[] = "--accept-url-divergence", dir[] = "srcdir";
+    char* argv[] = {prog, verb, flag, dir};
+    const auto parsed = biv::cli::parse_args(std::span<char* const>{argv, 4});
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->accept_url_divergence);
+  }
+  {
+    char prog[] = "biv", verb[] = "pack", flag[] = "--not-a-flag", dir[] = "srcdir";
+    char* argv[] = {prog, verb, flag, dir};
+    CHECK_FALSE(biv::cli::parse_args(std::span<char* const>{argv, 4}).has_value());
+  }
+}
+
+TEST_CASE("a6.14 list/info accept the flag inert: full-stream equality with flagless", "[a6-fabric]") {
+  const auto root = make_tmp("a6-14-inert");
+  // FULL code/out/err equality for EACH verb — a mutant emitting any A6 surface on any
+  // stream, or shifting the exit, REDs here (flag-specific: only this spelling compared).
+  const auto list_flag = run_cmd("list --accept-url-divergence missing.bvpk", root);
+  const auto list_none = run_cmd("list missing.bvpk", root);
+  CHECK(list_flag.code == list_none.code);
+  CHECK(list_flag.out == list_none.out);
+  CHECK(list_flag.err == list_none.err);
+  const auto info_flag = run_cmd("info --accept-url-divergence missing.bvpk", root);
+  const auto info_none = run_cmd("info missing.bvpk", root);
+  CHECK(info_flag.code == info_none.code);
+  CHECK(info_flag.out == info_none.out);
+  CHECK(info_flag.err == info_none.err);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("a6.18 inherited no-help boundary witnessed on pack/list/info", "[a6-fabric]") {
+  const auto root = make_tmp("a6-18-nohelp");
+  // The sealed leg requires the OTHER verbs' help ABSENCE witnessed, not assumed.
+  // The witness is help-is-not-special FULL-STREAM equality: for each verb, `--help`
+  // must produce EXACTLY what any other unknown/ignored flag produces (code, stdout,
+  // stderr) — a mutant emitting ANY help production on ANY stream for that verb
+  // diverges from its own unknown-flag baseline and REDs here. Belt: no usage/help
+  // text on either stream.
+  const std::vector<std::pair<std::string, std::string>> probes{
+      {"pack --help", "pack --no-such-flag"},          // pack rejects every flag alike
+      {"list --help x.bvpk", "list --no-such-flag x.bvpk"},  // stubs ignore trailing tokens alike
+      {"info --help x.bvpk", "info --no-such-flag x.bvpk"}};
+  // EXACT stable baselines at the reviewed base (kills the shared-baseline mutant --
+  // a help-like block emitted on BOTH flag paths cannot match these):
+  //   all three verbs: exit code 5, EMPTY stdout;
+  //   pack stderr  == "biv: UsageError: unknown-flag\n"
+  //   list/info stderr == "biv: UsageError: NotYetImplemented\n"
+  const std::map<std::string, std::string> expected_err{
+      {"pack", "biv: UsageError: unknown-flag\n"},
+      {"list", "biv: UsageError: NotYetImplemented\n"},
+      {"info", "biv: UsageError: NotYetImplemented\n"}};
+  for (const auto& [help_form, baseline_form] : probes) {
+    const auto verb = help_form.substr(0, help_form.find(' '));
+    const auto help = run_cmd(help_form, root);
+    const auto baseline = run_cmd(baseline_form, root);
+    INFO(help_form);
+    CHECK(help.code == 5);
+    CHECK(help.out.empty());
+    CHECK(help.err == expected_err.at(verb));
+    // belt: help gets NO special treatment vs any other unknown/ignored flag
+    CHECK(help.code == baseline.code);
+    CHECK(help.out == baseline.out);
+    CHECK(help.err == baseline.err);
+  }
   std::filesystem::remove_all(root);
 }
 

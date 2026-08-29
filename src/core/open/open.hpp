@@ -13,6 +13,7 @@
 #include "adapters/adapter.hpp"
 #include "core/manifest/manifest.hpp"
 #include "core/support/error.hpp"
+#include "core/support/url_divergence.hpp"
 
 namespace biv::open {
 
@@ -32,6 +33,8 @@ struct OpenReport {
   uint64_t restored_member_count{0};
   bool checksums_verified{false};
   int manifest_format_version{0};
+  std::vector<biv::UrlDivergenceEntryRefusal> url_divergence_refusals{};
+  std::vector<biv::UrlDivergenceAcceptedEntry> url_divergence_accepted{};
 };
 
 struct PlannedAgentMember {

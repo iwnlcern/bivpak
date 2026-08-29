@@ -32,7 +32,9 @@ enum class ErrKind {
   AgentNotValidatedFailed,
   InternalError,
   UsageError,
-  ParseError
+  ParseError,
+  UrlDivergenceRefused,
+  UrlDivergenceEntryRefused
 };
 
 struct BivError {

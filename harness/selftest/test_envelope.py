@@ -11,8 +11,8 @@ from test_specs import SCENARIOS, STUB
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CURRENT_LOCKED_SCHEMA_BLOBS = {
-    "schemas/biv-json-envelope.v1.schema.json": "2147839ada7fec06a2807c4ccc56e39e8bdac712",
-    "schemas/biv-exit-map.v1.json": "ebace5b7d3d837da76604820dd95bbe2c1014848",
+    "schemas/biv-json-envelope.v1.schema.json": "fe42d6fb696850d7bbb8d73385e2b1b604b6bd59",
+    "schemas/biv-exit-map.v1.json": "31fb8ef8966f2de44b9de268265a5c7e013e6c5d",
 }
 
 
@@ -27,6 +27,42 @@ def test_vendored_schema_artifacts_match_current_locked_bytes():
     }
 
     assert actual == CURRENT_LOCKED_SCHEMA_BLOBS
+
+
+def _schema():
+    return json.loads((REPO_ROOT / "schemas/biv-json-envelope.v1.schema.json").read_text())
+
+
+def test_a6_17_i_open_result_declares_url_divergence_refusals():
+    result_obj = next(b for b in _schema()["properties"]["result"]["anyOf"]
+                      if isinstance(b, dict) and b.get("type") == "object")
+    prop = result_obj["properties"]["url_divergence_refusals"]
+    assert prop["minItems"] == 1
+    items = prop["items"]
+    assert sorted(items["required"]) == ["effective", "kind", "op", "relpath", "repo_id", "requested"]
+    assert items["properties"]["kind"] == {"const": "UrlDivergenceEntryRefused"}
+    for field in ("repo_id", "relpath", "requested", "effective", "op"):
+        assert items["properties"][field] == {"type": "string"}
+
+
+def test_a6_17_ii_error_facts_declare_the_three_hook_facts():
+    error_obj = next(b for b in _schema()["properties"]["error"]["anyOf"]
+                     if isinstance(b, dict) and b.get("type") == "object")
+    facts = error_obj["properties"]["facts"]["properties"]
+    for field in ("requested", "effective", "op"):
+        assert facts[field] == {"type": "string"}
+
+
+def test_a6_17_iii_accepted_advisory_branch_declares_complete_structure():
+    branches = _schema()["properties"]["advisories"]["items"]["oneOf"]
+    branch = next(b for b in branches
+                  if b.get("properties", {}).get("kind") == {"const": "url-divergence-accepted"})
+    assert sorted(branch["required"]) == ["entries", "kind"]
+    entries = branch["properties"]["entries"]
+    assert entries["minItems"] == 1
+    assert sorted(entries["items"]["required"]) == ["effective", "op", "repo", "requested"]
+    for field in ("requested", "effective", "op", "repo"):
+        assert entries["items"]["properties"][field] == {"type": "string"}
 
 
 def test_fv99_spec_asserts_reconciled_exit_and_error_kind(monkeypatch, tmp_path):

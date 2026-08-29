@@ -56,6 +56,10 @@ const char* to_string(const ErrKind kind) noexcept {
       return "UsageError";
     case ErrKind::ParseError:
       return "ParseError";
+    case ErrKind::UrlDivergenceRefused:
+      return "UrlDivergenceRefused";
+    case ErrKind::UrlDivergenceEntryRefused:
+      return "UrlDivergenceEntryRefused";
   }
   return "InternalError";
 }

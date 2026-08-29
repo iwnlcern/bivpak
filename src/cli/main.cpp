@@ -360,7 +360,8 @@ int main(int argc, char** argv) {
         if (!sessions) {
           return emit_error("open", sessions.error(), parsed->json);
         }
-        const int exit_code = biv::report::exit_for_sessions(*sessions);
+        const int exit_code =
+            biv::report::exit_for_open(*sessions, report->url_divergence_refusals);
         biv::report::OpenSessionsReport sessions_report{.prompt_shown = prompt_shown,
                                                          .warning_shown = warning_shown,
                                                          .consent = consent,
