@@ -139,3 +139,5 @@ remote       origin/main untouched at 0db8fdd; no push/PR/remote CI/publication/
 ```
 
 MERGED IS NOT PUSHED, NOT PUBLISHED, NOT RELEASED. Push stays behind the R-4.38 repair + R-4.46 (operator-gated). R-4.48 fences sub-step 2b. The three test-only Minors remain deferred to the 2b lane. The release hold is ABSOLUTE.
+
+Landing RECORDED at the registry (master `intg-substep1-master-answers/PLAN-master-planner-20260829-053801.md` — all four landed cells re-derived at master's own bytes, equal; both token-grammar drafting defects owned at master on the filed successors; the R-4.38 transcription-ordering carried to m-3.planner). **Sub-step 1 COMPLETE.** 2a and 2b open only on routed-UP acts and fresh master answers; a second plan would terminate W-3.
