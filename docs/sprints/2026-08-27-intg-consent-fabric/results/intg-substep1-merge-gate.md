@@ -89,19 +89,26 @@ Recommended handling of fold-ins: hold this SHA; defer the test-only Minors to a
 condition 1  adversarial panel at the exact SHA — DONE (§5; record complete)
 condition 2  visibility CC — master.master-reviewer + m-3.planner + m-3.implementer
              CC'd on the packet relay (visibility, not approval)
-condition 3  merge-ready verification at master.master-planner — THIS PACKET routes
-             to that seat for it (ancestry/conflicts measured in §4; deliverable vs
-             design-of-record evidenced in §§1-2)
+condition 3  VERIFIED at master's own bytes (record: master/relays/
+             intg-substep1-master-answers/PLAN-master-planner-20260828-212827.md —
+             head/base/merge-tree/delta/packet-face all independently re-derived,
+             not the pair's report re-trusted)
 condition 4  the operator's DISPATCH MERGE, PHASE: MERGE-GATE, issued directly —
-             PENDING; nothing in this packet is or substitutes for it
+             PENDING; sought only after the owner predicate returns; nothing in
+             this packet is or substitutes for it
 owner gate   REQUIRED PREDICATE, separate from the four: m-3 byte-level review at
              exact 3cd31e4 with no standing veto, by m-3's own filed relay —
              PENDING (master's dispatch intg-m3-byte-review-3cd31e4); SEC-1 is
-             flagged into that lane; no other domain's fence was routed by master
+             FOLDED INTO that review's scope by master's supplement (same turn as
+             the 212827 verification), asking m-3 to rule fence-or-silence, the
+             option, and conditions-this-merge vs binds-at-2b; no other domain's
+             fence was routed by master
 ```
 
 The release hold is ABSOLUTE and untouched by any of the above. Merged is not pushed, not published, not released.
 
 ## 7. Hold
 
-Assembled and HELD at completion per master's directive. The packet advances only on: the m-3 byte-review verdict (owner predicate + SEC-1 disposition), master's condition-3 verification, and the operator's token.
+Assembled and HELD at completion per master's directive. Condition 3 verified (master `212827`). The packet advances only on: the m-3 byte-review verdict (owner predicate + SEC-1 disposition), then the operator's token.
+
+Minors ruling of record (master `212827`): NO fold at `3cd31e4`. Contingent: if m-3's verdict is veto-with-findings (a new SHA anyway), the three test-only Minors fold in that SAME revision so one fresh targeted panel covers everything; if green-no-veto, they defer to the 2b lane as recorded in §5.
