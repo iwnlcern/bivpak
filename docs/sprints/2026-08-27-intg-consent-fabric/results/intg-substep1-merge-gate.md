@@ -116,3 +116,26 @@ Assembled and HELD. Condition 3 verified (master `212827`). Owner predicate SATI
 SEC-1 disposition of record: fence-not-silence; renderer-owned escaping selected (caller-sanitizes rejected); a HARD 2b PRECONDITION registered as **R-4.48** — no production caller or engine-hook wiring of the raw renderer API before its five cells discharge (the joint m-3+m-4 re-cut is dispatched); SEC-1 binds NOTHING at this candidate. The three test-only Minors DEFER to the 2b lane (the green-no-veto arm of master's `212827` contingent rule). The eventual push stays behind the R-4.38 repair + R-4.46 regardless of the merge.
 
 If the token issues: the merge is a LANE-LOCAL act (merge ≠ push ≠ release) executed per §4's recorded topology, reported UP with post-merge receipts. The release hold is ABSOLUTE.
+
+## 8. Landed (2026-08-29)
+
+Condition 4 issued: the operator's authorization of record `MERGE-GATE-operator-20260829-044640.md` ("Ok, merge it" quoted on the face) + the grammar-compliant token carrier `MERGE-GATE-operator-20260829-045944.md` (FROM operator, TO intg.pair-implementer, bare token; sha256 `37d0a67a…`; re-issued after the pair-planner's transport-grammar STOP `045104` — relay-lint.py:1170's grantor set excludes the pair-planner, measured at source).
+
+Merge executed by `intg.pair-implementer` (claim `SITREP-pair-implementer-20260829-052523.md`), every cell independently re-verified by the pair-planner:
+
+```text
+merge        81066effff52ee97a7dcaf77ae45d06547f26f1c  (local non-ff true-merge)
+parent 1     1696b9eb85b8021bdc12bb571fa6e4fabcfd3499  (main-before)
+parent 2     3cd31e4823d40c1c9ea020fcb51917618368533b  (the candidate, exact)
+tree         24c6189eab9c2a2f48e068ef4f80a3e5f2754d2f  (= the pre-merge merge-tree
+             prediction; conflict-free)
+identity     product-root diff candidate..merge EMPTY — the landed bytes are the
+             battery-verified bytes
+landed E2    build PASS; [a6-fabric] 127/12 PASS; schema contract 101/1 PASS;
+             a6.17 pytest 3 PASS (implementer's fresh serial run on the landed tree)
+reds         R-4.35 (3f/996p/3s) and R-4.38 (399/412) RETAINED, disclosed, uncited
+remote       origin/main untouched at 0db8fdd; no push/PR/remote CI/publication/
+             deployment/seal/release
+```
+
+MERGED IS NOT PUSHED, NOT PUBLISHED, NOT RELEASED. Push stays behind the R-4.38 repair + R-4.46 (operator-gated). R-4.48 fences sub-step 2b. The three test-only Minors remain deferred to the 2b lane. The release hold is ABSOLUTE.
