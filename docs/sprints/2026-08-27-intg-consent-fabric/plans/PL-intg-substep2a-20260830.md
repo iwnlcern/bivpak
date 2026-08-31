@@ -21,7 +21,7 @@
 2. **The one symmetric commit** (V-FA-2/V-M-INT-2): writer + parser + round-trip witness + fence retirement land together in Task 3's single commit; no interim fence-less or asymmetric state exists at any commit boundary.
 3. **Never serialized** (V-M-INT-1/V-FA-3): `promisor`, `engine_source`, any host-absolute path. Nothing beyond §2.3+G+H+N (V-M-INT-3).
 4. **No `format_version` bump** (V-FA-5/N-R5). `kFormatVersion` and every version literal untouched.
-5. **Parse-reach only** (V-FA-6): zero new callers of engine entrypoints; the census `git grep -n 'run_eligibility\|restore_entry\|repo::capture' -- ':!src/core/repo' ':!tests'` returns empty at the candidate head.
+5. **Parse-reach only** (V-FA-6): zero new PRODUCTION callers of engine entrypoints; the census `git grep -n 'run_eligibility\|restore_entry\|repo::capture' -- src ':!src/core/repo'` returns empty (rc 1) at the candidate head — the positive `src` pathspec scopes the census to production source (relays and docs legitimately name these symbols and are not callers).
 6. **Evidence grep-derived at the head under review** (V-FA-7); FX-M-1's fourteen engine-seam legs stay green as the regression floor; all ten FX-N legs execute ((i)/(j) as m-1's review censuses — this plan PREPARES their exact commands as evidence).
 7. **Two platforms** (V-FA-8): macOS suite + the chartered Ubuntu 24.04 amd64 parity container at the candidate head, per the proven four-phase instrument (Task 4).
 8. **STOPs**: S-FA-1..6 + the generic defer-or-silence rule — route UP through the pair-planner; never a keyboard call.
@@ -78,9 +78,9 @@
 ### Task 4 — the evidence battery + IMPL report
 
 - [ ] **Step 1: fence transcript at the candidate head** (each command + rc retained verbatim):
-  - zero-caller census: `git grep -n 'run_eligibility\|restore_entry\|repo::capture' -- ':!src/core/repo' ':!tests'` → empty, rc 1 (V-FA-6);
+  - zero-caller census: `git grep -n 'run_eligibility\|restore_entry\|repo::capture' -- src ':!src/core/repo'` → empty, rc 1 (V-FA-6; production-scoped by the positive `src` pathspec);
   - no-bump: `git diff <base>..HEAD -- src/core/manifest | grep -c 'format_version\|kFormatVersion'` → 0 semantic changes (the carrier addition aside, assert `kFormatVersion` literal unchanged: `grep -n 'kFormatVersion = ' src/core/manifest/manifest.hpp` byte-equal to base);
-  - scope census: `git diff --name-only <base>..HEAD` → EXACTLY the six planned paths (V-FA-1);
+  - scope census: `git diff --name-only <base>..HEAD | sort` → byte-equal to the sorted SEVEN-path allowlist (src/core/manifest/manifest.cpp, src/core/manifest/manifest.hpp, src/core/repo/classify.cpp, src/core/repo/restore.cpp, src/core/repo/types.hpp, tests/test_manifest.cpp, tests/test_repo_engine.cpp) — cardinality AND membership both mechanically proved (V-FA-1);
   - never-serialized greps on the writer TU: no `promisor`/`engine_source` key emission (`grep -n '"promisor"\|"engine_source"' src/core/manifest/manifest.cpp` → empty);
   - the M-surface untouched: `git diff --quiet <base>..HEAD -- src/core/repo/git_exec.hpp src/core/repo/git_exec.cpp src/core/repo/eligibility.cpp` → rc 0 *(eligibility.cpp is out of the write set entirely)*;
   - the (i)/(j) census commands PREPARED and EXECUTED as report evidence (m-1 re-runs them at the byte review): (i) `grep -c ';' `-style member count on `struct Shallow` (exactly one member), zero mirror population sites, zero consumers of shallow-carried sha/remotes; (j) control-flow order derivation over `classify.cpp` (each tier-1 return precedes the shallow probe's first site; no shallow population before a tier-1 return; no writer path serializes a cell for `Classification::Fence` results).
@@ -97,7 +97,7 @@
 5. Tier-1 fences above shallow; shallow above unborn-return and dirty; unborn-before-dirt preserved for non-shallow (the (j) census + (h) arms green; `test_repo_engine.cpp:798` untouched and green).
 6. `shallow_pointer` precedes `payload_only_unborn`; H's control still green.
 7. FX-M-1's fourteen green (floor); full suites green on candidate-attributable rows on BOTH platforms; registered reds retained-not-cited.
-8. Every global-constraint fence grep holds at the candidate head; no format_version bump; no new engine caller; no byte outside the six planned paths.
+8. Every global-constraint fence grep holds at the candidate head; no format_version bump; no new production engine caller (the src-scoped census empty); no byte outside the seven planned paths (the sorted-allowlist equality proof).
 
 ## Out of scope (hard)
 
