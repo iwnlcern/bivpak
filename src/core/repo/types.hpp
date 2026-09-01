@@ -145,9 +145,7 @@ struct Eligibility {
 };
 
 struct Shallow {
-  std::string sha;
   std::vector<std::string> boundary;
-  std::vector<std::string> remote_urls;
 };
 
 enum class ForcedPayloadReason {

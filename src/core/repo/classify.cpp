@@ -197,6 +197,27 @@ expected<Classification> classify(const Git& git,
                                 : refs.error());
   }
   const auto ref_pairs = parse_ref_pairs(git_bytes(refs->stdout_bytes));
+  auto shallow = invoke_classify({"rev-parse", "--is-shallow-repository"},
+                                 result.entry.promisor);
+  if (!shallow || shallow->exit_code != 0) {
+    return std::unexpected(shallow ? command_error(repo, "is-shallow")
+                                   : shallow.error());
+  }
+  if (trim_git_newline(git_bytes(shallow->stdout_bytes)) == "true") {
+    Shallow metadata{.boundary = {}};
+    const auto shallow_file = repo / ".git/shallow";
+    std::ifstream input{shallow_file};
+    std::string boundary;
+    while (std::getline(input, boundary)) {
+      if (!boundary.empty()) {
+        metadata.boundary.push_back(boundary);
+      }
+    }
+    result.entry.shallow = std::move(metadata);
+    if (result.entry.promisor) {
+      result.entry.notes.emplace_back(PromisorSourceNote{});
+    }
+  }
   if (head->exit_code != 0) {
     result.entry.head_state = HeadState::unborn;
     result.entry.sha.reset();
@@ -206,7 +227,7 @@ expected<Classification> classify(const Git& git,
     if (branch && branch->exit_code == 0) {
       result.entry.branch = trim_git_newline(git_bytes(branch->stdout_bytes));
     }
-    if (!ref_pairs.empty()) {
+    if (!result.entry.shallow && !ref_pairs.empty()) {
       for (const auto& [name, sha] : ref_pairs) {
         if (name.starts_with("refs/heads/") || name.starts_with("refs/tags/")) {
           result.entry.local_refs.push_back(
@@ -272,13 +293,15 @@ expected<Classification> classify(const Git& git,
   } else {
     result.entry.head_state = HeadState::detached;
   }
-  for (const auto& [name, sha] : ref_pairs) {
-    if (name.starts_with("refs/heads/") || name.starts_with("refs/tags/")) {
-      result.entry.local_refs.push_back(
-          LocalRef{.ref = name,
-                   .sha = sha,
-                   .availability = RefAvailability::bundle_carried,
-                   .proof = std::nullopt});
+  if (!result.entry.shallow) {
+    for (const auto& [name, sha] : ref_pairs) {
+      if (name.starts_with("refs/heads/") || name.starts_with("refs/tags/")) {
+        result.entry.local_refs.push_back(
+            LocalRef{.ref = name,
+                     .sha = sha,
+                     .availability = RefAvailability::bundle_carried,
+                     .proof = std::nullopt});
+      }
     }
   }
 
@@ -311,6 +334,16 @@ expected<Classification> classify(const Git& git,
     result.entry.remote = result.entry.remotes.front().name;
   }
 
+  if (result.entry.shallow) {
+    if (auto recorded = record_penumbra(
+            git, source_state, result.entry.promisor, repo,
+            source_state.neutralized_git_config_keys);
+        !recorded) {
+      return std::unexpected(recorded.error());
+    }
+    return result;
+  }
+
   auto dirt = invoke_classify({"status", "--porcelain=v2", "-z"},
                               result.entry.promisor);
   if (!dirt || dirt->exit_code != 0) {
@@ -332,31 +365,6 @@ expected<Classification> classify(const Git& git,
     return std::unexpected(recorded.error());
   }
 
-  auto shallow = invoke_classify({"rev-parse", "--is-shallow-repository"},
-                                 result.entry.promisor);
-  if (!shallow || shallow->exit_code != 0) {
-    return std::unexpected(shallow ? command_error(repo, "is-shallow")
-                                   : shallow.error());
-  }
-  if (trim_git_newline(git_bytes(shallow->stdout_bytes)) == "true") {
-    Shallow metadata{
-        .sha = *result.entry.sha, .boundary = {}, .remote_urls = {}};
-    const auto shallow_file = repo / ".git/shallow";
-    std::ifstream input{shallow_file};
-    std::string boundary;
-    while (std::getline(input, boundary)) {
-      if (!boundary.empty()) {
-        metadata.boundary.push_back(boundary);
-      }
-    }
-    for (const auto& remote : result.entry.remotes) {
-      metadata.remote_urls.push_back(remote.url);
-    }
-    result.entry.shallow = std::move(metadata);
-    if (result.entry.promisor) {
-      result.entry.notes.emplace_back(PromisorSourceNote{});
-    }
-  }
   return result;
 }
 
