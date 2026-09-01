@@ -1190,6 +1190,9 @@ TEST_CASE("classification lets shallowness dominate dirt for a born source") {
   REQUIRE(result.has_value());
   REQUIRE(result->entry.shallow.has_value());
   CHECK_FALSE(result->entry.shallow->boundary.empty());
+  CHECK(result->entry.local_refs.empty());
+  CHECK_FALSE(result->entry.eligibility.has_value());
+  CHECK_FALSE(result->entry.bundle.has_value());
   CHECK(result->fence == biv::repo::Classification::Fence::none);
   CHECK_FALSE(result->issue.has_value());
 }
