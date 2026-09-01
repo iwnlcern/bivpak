@@ -1710,7 +1710,9 @@ TEST_CASE(
 
 TEST_CASE(
     "restore dispatch leaves zero-ref and shallow payload trees untouched") {
-  auto git = resolved_git();
+  std::vector<biv::support::SpawnRequest> requests;
+  auto git = resolved_git(
+      [&](const auto &request) { requests.push_back(request); });
   TempDir root{"restore-payload-branches"};
   const auto partial = root.path() / "partial";
   touch(partial / "empty/payload.txt", "payload\n");
@@ -1734,7 +1736,7 @@ TEST_CASE(
   shallow.id = "shallow";
   shallow.relpath = "shallow";
   shallow.sha = "0123456789012345678901234567890123456789";
-  shallow.head_state = biv::repo::HeadState::detached;
+  shallow.head_state = biv::repo::HeadState::unborn;
   shallow.shallow = biv::repo::Shallow{
       .boundary = {"0123456789012345678901234567890123456789"}};
 
@@ -1746,6 +1748,7 @@ TEST_CASE(
   REQUIRE(pointer->shallow.has_value());
   CHECK(pointer->sha == shallow.sha);
   CHECK(pointer->shallow->boundary == shallow.shallow->boundary);
+  CHECK(requests.empty());
   CHECK_FALSE(std::filesystem::exists(partial / "shallow/.git"));
 }
 
