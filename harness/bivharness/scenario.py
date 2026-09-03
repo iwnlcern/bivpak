@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import hashlib
 import io
@@ -20,8 +21,284 @@ from bivharness.manifest import validate_manifest
 from bivharness.precheck import pin_env, probe
 from bivharness.report import ScenarioResult, Status
 
-
 COMMAND_TIMEOUT_S = 30
+HERMETIC_LOCATORS: tuple[str, ...] = (
+    "HOME",
+    "CODEX_HOME",
+    "CODEX_SQLITE_HOME",
+    "CLAUDE_CONFIG_DIR",
+    "TMPDIR",
+)
+MANDATORY_PROCESS_LOCATORS: frozenset[str] = frozenset({"HOME", "TMPDIR"})
+
+
+def _hermetic_overlay(work: Path) -> dict[str, str]:
+    root = work / "hermetic"
+    names = {
+        "HOME": "home",
+        "CODEX_HOME": "codex-home",
+        "CODEX_SQLITE_HOME": "codex-sqlite",
+        "CLAUDE_CONFIG_DIR": "claude-config",
+        "TMPDIR": "tmp",
+    }
+    overlay: dict[str, str] = {}
+    for locator in HERMETIC_LOCATORS:
+        path = root / names[locator]
+        path.mkdir(parents=True, exist_ok=True)
+        overlay[locator] = str(path)
+    return overlay
+
+
+def _assert_hermetic(env: dict[str, str], work: Path) -> list[str]:
+    reasons: list[str] = []
+    for locator in HERMETIC_LOCATORS:
+        value = env.get(locator)
+        if value is None:
+            reasons.append(f"hermetic-env: {locator} absent from command environment")
+            continue
+        if not Path(value).resolve().is_relative_to(work.resolve()):
+            reasons.append(
+                f"hermetic-env: {locator} points outside scenario scratch: {value}"
+            )
+    return reasons
+
+
+POISON_SESSION_IDS: dict[str, str] = {
+    "HOME:codex": "0d15ea5e-0001-4000-8000-00000000c0de",
+    "HOME:claude": "0d15ea5e-0002-4000-8000-0000000c1a0d",
+    "CODEX_HOME": "0d15ea5e-0003-4000-8000-000000c0de40",
+    "CLAUDE_CONFIG_DIR": "0d15ea5e-0004-4000-8000-0000c1a0dec0",
+}
+POISON_SUBROOTS: dict[str, str] = {
+    "home": "HOME",
+    "codex-home": "CODEX_HOME",
+    "codex-sqlite": "CODEX_SQLITE_HOME",
+    "claude-config": "CLAUDE_CONFIG_DIR",
+    "tmp": "TMPDIR",
+}
+
+
+def _codex_rollout(sessions_root: Path, session_id: str, source: Path) -> None:
+    path = (
+        sessions_root
+        / "2026"
+        / "01"
+        / "01"
+        / f"rollout-2026-01-01T00-00-00-{session_id}.jsonl"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "\n".join(
+            (
+                json.dumps(
+                    {
+                        "timestamp": "2026-01-01T00:00:00Z",
+                        "type": "session_meta",
+                        "payload": {
+                            "id": session_id,
+                            "session_id": session_id,
+                            "cwd": source.as_posix(),
+                            "cli_version": "0.142.5",
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-01-01T00:01:00Z",
+                        "type": "turn_context",
+                        "payload": {
+                            "cwd": source.as_posix(),
+                            "workspace_roots": [source.as_posix()],
+                        },
+                    }
+                ),
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _claude_transcript(
+    projects_root: Path, session_id: str, source: Path
+) -> None:
+    path = projects_root / _project_key(source) / f"{session_id}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "\n".join(
+            (
+                json.dumps(
+                    {
+                        "type": "user",
+                        "cwd": source.as_posix(),
+                        "uuid": "0d15ea5e-aaaa-4111-8111-111111111111",
+                        "parentUuid": None,
+                        "sessionId": session_id,
+                        "version": "2.1.202",
+                        "message": "poison one",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "assistant",
+                        "cwd": source.as_posix(),
+                        "uuid": "0d15ea5e-bbbb-4222-8222-222222222222",
+                        "parentUuid": "0d15ea5e-aaaa-4111-8111-111111111111",
+                        "sessionId": session_id,
+                        "message": "poison two",
+                    }
+                ),
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _poison_roots(root: Path, source: Path) -> dict[str, str]:
+    """Create four disjoint poison stores and one poison temp root."""
+    if root.exists():
+        shutil.rmtree(root)
+    home, codex_home, codex_sqlite, claude_config, tmp = (
+        root / name
+        for name in ("home", "codex-home", "codex-sqlite", "claude-config", "tmp")
+    )
+    _codex_rollout(
+        home / ".codex" / "sessions", POISON_SESSION_IDS["HOME:codex"], source
+    )
+    _claude_transcript(
+        home / ".claude" / "projects", POISON_SESSION_IDS["HOME:claude"], source
+    )
+    _codex_rollout(
+        codex_home / "sessions", POISON_SESSION_IDS["CODEX_HOME"], source
+    )
+    codex_sqlite.mkdir(parents=True)
+    (codex_sqlite / "state_5.sqlite").write_bytes(
+        b"POISON-CODEX-SQLITE: not a database\n"
+    )
+    _claude_transcript(
+        claude_config / "projects",
+        POISON_SESSION_IDS["CLAUDE_CONFIG_DIR"],
+        source,
+    )
+    tmp.mkdir(parents=True)
+    return {
+        "HOME": str(home),
+        "CODEX_HOME": str(codex_home),
+        "CODEX_SQLITE_HOME": str(codex_sqlite),
+        "CLAUDE_CONFIG_DIR": str(claude_config),
+        "TMPDIR": str(tmp),
+    }
+
+
+@contextlib.contextmanager
+def _inherited_environment(values: dict[str, str]):
+    saved = {name: os.environ.get(name) for name in values}
+    os.environ.update(values)
+    try:
+        yield
+    finally:
+        for name, previous in saved.items():
+            if previous is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = previous
+
+
+def _poison_tag(value: str, poison_root: Path) -> str | None:
+    for key, session_id in POISON_SESSION_IDS.items():
+        if session_id in value:
+            return key.split(":")[0]
+    try:
+        relative = Path(value).resolve().relative_to(poison_root.resolve())
+    except (ValueError, OSError):
+        return None
+    return POISON_SUBROOTS.get(relative.parts[0]) if relative.parts else None
+
+
+def _isolation_leaks(
+    envelopes: list[dict[str, Any]], poison_root: Path
+) -> list[str]:
+    findings: list[str] = []
+
+    def check(field: str, value: Any) -> None:
+        if isinstance(value, str):
+            tag = _poison_tag(value, poison_root)
+            if tag:
+                findings.append(f"isolation-leak {tag}: {field}={value}")
+
+    for envelope in envelopes:
+        for index, warning in enumerate(envelope.get("warnings", []) or []):
+            kind, path = warning.get("kind"), warning.get("path")
+            tag = (
+                _poison_tag(path, poison_root) if isinstance(path, str) else None
+            ) or (
+                _poison_tag(kind, poison_root) if isinstance(kind, str) else None
+            )
+            if tag:
+                findings.append(
+                    f"isolation-leak {tag}: warnings[{index}] "
+                    f"kind={kind} path={path}"
+                )
+        result_obj = envelope.get("result")
+        agents = (
+            result_obj.get("sessions", {}).get("agents", [])
+            if isinstance(result_obj, dict)
+            else []
+        )
+        for agent in agents:
+            check(f"agents[{agent.get('agent')}].store_root", agent.get("store_root"))
+            for row in agent.get("sessions", []):
+                check(
+                    f"agents[{agent.get('agent')}].image_session_id",
+                    row.get("image_session_id"),
+                )
+                check(
+                    f"agents[{agent.get('agent')}].installed_session_id",
+                    row.get("installed_session_id"),
+                )
+    return findings
+
+
+RP_STAGED: dict[str, tuple[str, str]] = {
+    "codex": ("019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001", "source-codex"),
+    "claude-code": ("aaaaaaaa-1111-4000-8000-000000000001", "source-claude"),
+}
+
+
+def _rp_positive(manifest: dict[str, Any], work: Path) -> list[str]:
+    findings: list[str] = []
+    entries = manifest.get("agent_sessions", []) or []
+    for agent, (primary, store_dir) in RP_STAGED.items():
+        expected_root = (work / "profiles" / store_dir).resolve()
+        matches = [
+            entry
+            for entry in entries
+            if entry.get("agent") == agent
+            and entry.get("original_session_ids", {}).get("primary") == primary
+        ]
+        if len(matches) != 1:
+            findings.append(
+                f"isolation-positive missing: {agent} staged session {primary} "
+                f"appears {len(matches)} times in agent_sessions (expected 1)"
+            )
+            continue
+        provenance = matches[0].get("provenance", {}) or {}
+        root = provenance.get("store_root", "")
+        try:
+            same_root = Path(root).resolve() == expected_root
+        except OSError:
+            same_root = False
+        if not same_root or provenance.get("discovery_tier") != "env":
+            findings.append(
+                f"isolation-positive missing: {agent} provenance "
+                f"store_root={root!r} "
+                f"discovery_tier={provenance.get('discovery_tier')!r}; "
+                f"expected {expected_root} tier 'env'"
+            )
+    return findings
+
+
 BUILTIN_BIVIGNORE_SHA256 = "e271561320eecb76b6736a4b85bfc98069e1259b8fc9609ebea926e8aa5bb1d3"
 SCHEMA_FILES = ("biv-json-envelope.v1.schema.json", "biv-exit-map.v1.json")
 
@@ -468,10 +745,28 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
         return result
     pin_env()
 
+    if not spec.get("isolation_witness"):
+        return _execute_scenario(spec, biv, scratch, result, None)
+    poison_root = scratch / f"{spec['id']}.poison"
+    poison_env = _poison_roots(poison_root, scratch / spec["id"] / "source")
+    with _inherited_environment(poison_env):
+        return _execute_scenario(spec, biv, scratch, result, poison_root)
+
+
+def _execute_scenario(
+    spec: dict[str, Any],
+    biv: Path,
+    scratch: Path,
+    result: ScenarioResult,
+    poison_root: Path | None,
+) -> ScenarioResult:
+    classes = list(spec.get("classes", []))
+
     work = scratch / spec["id"]
     if work.exists():
         shutil.rmtree(work)
     work.mkdir(parents=True)
+    overlay = _hermetic_overlay(work)
     standins = _prepare_probe_standins(work)
     source = work / "source"
     restored = work / "restored"
@@ -481,6 +776,8 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
     source_env, target_env, target_stores = _prepare_agent_profiles(
         work, source, list(spec.get("agents", []))
     )
+    source_env = {**overlay, **source_env}
+    target_env = {**overlay, **target_env}
     target_before = {agent: _fingerprint(path) for agent, path in target_stores.items()}
     for agent, mode in spec.get("target_modes", {}).items():
         os.chmod(target_stores[agent], int(mode, 8))
@@ -496,6 +793,10 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
     for step in spec.get("steps", []):
         op = step["op"]
         if op == "pack":
+            reasons = _assert_hermetic(source_env, work)
+            if reasons:
+                invalids.extend(reasons)
+                break
             run = _run_json(biv, ["pack", str(source), *step.get("args", [])], work, source_env)
             if run.invalid:
                 invalids.extend(run.invalid)
@@ -532,6 +833,11 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
             if step.get("precreate_default"):
                 restored.mkdir(parents=True, exist_ok=True)
                 (restored / "collision.txt").write_text("collision\n", encoding="utf-8")
+            open_env = _probe_open_env(target_env, standins)
+            reasons = _assert_hermetic(open_env, work)
+            if reasons:
+                invalids.extend(reasons)
+                break
             run = _run_json(
                 biv,
                 [
@@ -541,7 +847,7 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
                     *_probe_open_args(standins),
                 ],
                 open_cwd,
-                _probe_open_env(target_env, standins),
+                open_env,
             )
             if run.invalid:
                 invalids.extend(run.invalid)
@@ -588,6 +894,16 @@ def run_scenario(spec_path: Path, biv: Path, scratch: Path) -> ScenarioResult:
         else:
             invalids.append(f"unknown step op: {op}")
             break
+
+    if poison_root is not None and not invalids:
+        try:
+            rp_manifest = json.loads(extract_member(image, "manifest.json"))
+        except (FileNotFoundError, KeyError, json.JSONDecodeError, OSError, ValueError) as exc:
+            findings.append(f"isolation-positive missing: manifest unreadable: {exc}")
+        else:
+            findings.extend(_rp_positive(rp_manifest, work))
+        findings.extend(_isolation_leaks([pack_envelope, run.envelope], poison_root))
+        exercised.add("K")
 
     expect = spec.get("expect", {})
     if not invalids and expect.get("session_rows"):

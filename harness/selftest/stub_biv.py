@@ -6,6 +6,7 @@ import os
 import shutil
 import sys
 import tarfile
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -131,7 +132,68 @@ def _add_payload(tf: tarfile.TarFile, source: Path):
             tf.addfile(info)
 
 
+def _discover_model(env):
+    """Transcribe the pinned adapters' discovery precedence."""
+    rows = []
+    home = Path(env["HOME"]) if env.get("HOME") else None
+
+    ccd = env.get("CLAUDE_CONFIG_DIR")
+    if ccd and Path(ccd).exists():
+        claude_roots = [("CLAUDE_CONFIG_DIR", Path(ccd))]
+    elif home and (home / ".claude").exists():
+        claude_roots = [("HOME", home / ".claude")]
+    else:
+        claude_roots = []
+    for tag, root in claude_roots:
+        rows += [(tag, path) for path in sorted((root / "projects").rglob("*.jsonl"))]
+
+    codex_roots = []
+    env_root = None
+    codex_home = env.get("CODEX_HOME")
+    if codex_home and Path(codex_home).exists():
+        env_root = Path(codex_home)
+        codex_roots.append(("CODEX_HOME", env_root))
+    if home and (home / ".codex").exists() and (
+        env_root is None
+        or os.path.normpath(home / ".codex") != os.path.normpath(env_root)
+    ):
+        codex_roots.append(("HOME", home / ".codex"))
+    codex_sqlite_home = env.get("CODEX_SQLITE_HOME")
+    for tag, root in codex_roots:
+        for subdirectory in ("sessions", "archived_sessions"):
+            if (root / subdirectory).exists():
+                rows += [
+                    (tag, path)
+                    for path in sorted((root / subdirectory).rglob("*.jsonl"))
+                ]
+        if (
+            codex_sqlite_home
+            and Path(codex_sqlite_home).exists()
+            and (Path(codex_sqlite_home) / "state_5.sqlite").exists()
+        ):
+            rows.append(
+                (
+                    "CODEX_SQLITE_HOME",
+                    Path(codex_sqlite_home) / "state_5.sqlite",
+                )
+            )
+        elif (root / "state_5.sqlite").exists():
+            rows.append((tag, root / "state_5.sqlite"))
+    return rows
+
+
+def _echo_discovery(verb):
+    log = os.environ.get("STUB_BIV_DISCOVERY_LOG")
+    if not log:
+        return
+    lines = [f"{verb} {tag} {path}" for tag, path in _discover_model(os.environ)]
+    lines.append(f"{verb} TMPDIR {tempfile.gettempdir()}")
+    with Path(log).open("a", encoding="utf-8") as stream:
+        stream.write("\n".join(lines) + "\n")
+
+
 def pack(args):
+    _echo_discovery("pack")
     source = Path(args[0]).resolve()
     if _mode() == "pack-fail":
         return _emit(
@@ -186,6 +248,7 @@ def pack(args):
 
 
 def open_image(args):
+    _echo_discovery("open")
     image = Path(args[0]).resolve()
     if "--dest" in args:
         if _mode() == "reject-dest":
