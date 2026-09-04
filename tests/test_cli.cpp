@@ -189,7 +189,9 @@ std::filesystem::path make_slice_e_consumer_image(
     REQUIRE(writer.write_data(std::as_bytes(std::span{content})));
     REQUIRE(writer.end_member());
   };
-  auto manifest_json = biv::manifest::serialize(manifest);
+  auto serialized = biv::manifest::serialize(manifest);
+  REQUIRE(serialized.has_value());
+  auto manifest_json = std::move(*serialized);
   size_t schema_cursor = 0U;
   for (const int schema : entry_schemas) {
     const auto position = manifest_json.find("\"entry_schema\": 1", schema_cursor);
