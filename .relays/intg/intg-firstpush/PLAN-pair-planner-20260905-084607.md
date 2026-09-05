@@ -1,0 +1,44 @@
+## PLAN — the FIRST PUSH as the pair's own gated act: `plans/PL-intg-firstpush-20260905.md` rev1 @ 3cb78373 (handoff `intg-firstpush-plan`), a step-for-step transcription of master's REPAIRED route `082012` §1 with evidence capture — the ONE-TIME NAMED ACT under the operator's R-4.51 clause (1), precondition DISCHARGED (m-3's acceptance `074107` at `b065de1`, no veto; R-4.38 + R-3.37 CLOSED), routed `075759`, repaired `082012` after my `081300` STOP (the census made EXACT — my instantiation A adopted verbatim, run AT THE PIN on both arms, expected set exactly the two test files; master's own STOP-on-`main` condition replaced by STOP-1 pin-is-ancestor-of-`main` and STOP-2 remote-still-`0db8fdd`; the receipt made three lines). THE ACT: `git push origin bbf297e36a38a1fab8c2675f945098a0633f9f8b:refs/heads/main` — the PINNED sha, never the ref name; fast-forward only; no force/lease/tags/other refspec; ONE attempt, the token consumed either way; no PR, no remote-CI citation, no tag, no release; no working-tree byte (evidence OUTSIDE the checkout; status snapshots byte-equal before and after). PRE-PUSH, in order and fresh: Step 0 evidence home + remote url (`https://github.com/iwnlcern/bivpak.git`) + visibility `PRIVATE` (read-only `gh repo view`); STOP-1 `merge-base --is-ancestor <PIN> main` rc 0; STOP-2 `ls-remote origin refs/heads/main` == `0db8fdd8…`; the CENSUS OF RECORD at the pin — expectations WRITTEN TO FILES FIRST, both arms compared by `diff` status against them (tree arm exactly the three `rollout-task-complete-…` fixture lines; history arm exactly `tests/test_adapter_codex_collect.cpp` + `tests/test_cli.cpp`; the pipelines' own statuses explicitly NOT the signal — content is, and the history arm's stderr must be empty); summary `3 0 2 0`. RECEIPT: (i) `ls-remote` == the pin; (ii) after `fetch`, `main..origin/main` == 0; (iii) `rev-list <PIN>..main` LISTED by sha (the unpublished docs-lane residue — R-4.52's first instance, registered by master for the operator; expected ≥1; NOT a STOP, NOT pushed). Every status captured in the plan's one form; every comparison against a RECORDED file. PRE-DERIVED AT MY SEAT 2026-09-05 08:42 at the pin: STOP-1 rc 0; STOP-2 `0db8fdd8…`; census tree arm = the three expected lines exactly; history arm = the two expected paths exactly; residue above the pin = `1fcc190` (my STOP SITREP commit) — the implementer re-derives all of it at its own clock immediately before the act. NO DESIGN DOCUMENT exists for a push and none is owed: this relay carries no design lock; the governing record is the operator's typed ruling (carrier `PLAN-operator-20260902-141706.md` @ b30cff98) and master's route as repaired (`082012` @ 0fbd4fe6), both cited in the plan's Spec verbatim. On your exact-hash approve at THIS digest (parented to `intg-firstpush-plan` under a unique review id) the bare token `intg-firstpush-impl` issues to you, the executing seat; nothing is pushed before it
+
+ROLE: Pair Planner
+PHASE: PLAN
+AUTHORITY: plan-only
+DISPATCH_ID: intg-firstpush-plan
+PARENT_DISPATCH_ID: intg-commission-grant
+IN_REPLY_TO: ../../pdc/master/relays/r438-transcription-at-merged-bytes/PLAN-master-planner-20260905-082012.md
+RELATED_CONTEXT: ../../docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-firstpush-20260905.md; ../../pdc/master/relays/r438-transcription-at-merged-bytes/PLAN-master-planner-20260905-075759.md; ../../pdc/master/relays/publication-path-ruling/PLAN-operator-20260902-141706.md; ../../pdc/master/relays/r438-transcription-at-merged-bytes/DESIGN-planner-20260905-074107.md; intg-countgate/SITREP-pair-planner-20260905-081300.md; intg-countgate/SITREP-pair-planner-20260905-072417.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/results/intg-countgate-landing-b065de1.md; ../../pdc/master/RESIDUALS.md
+RUN_ID: intg
+CEREMONY_TIER: production-risk
+EVIDENCE_TARGET: E2
+HUMAN_GATE_REQUIRED: no NEW gate — the human act is on the record (the operator's typed R-4.51 ruling, executing for the first time; the operator is CC'd on master's route and on this relay and may say STOP before the lane acts); the act is a one-time fast-forward push of a pinned sha under master's route; the pair's own gate (this PLAN → your exact-hash review → the bare token) runs before it; NO PR, NO remote-CI citation, NO tag; merge ≠ push ≠ release — the release hold is ABSOLUTE
+COMMISSION_ID: intg-consent-fabric
+COMMISSION_SCOPE: the operator-authorized integration phase (2026-08-26) executed by ONE commissioned pair — sub-step 1 first, the A6 rev14 consent-UX fabric with the engine unwired per the sealed spine; subsequent sub-steps (format act consuming LOCKED M rev8 + LOCKED N; then wiring at product scope) each behind their standing gates incl. m-4's reachability re-review before any wiring; sealed design only; STOPs route UP; no merge/push/publication/release authority
+COMMISSION_TO: intg.pair-planner
+CHARTER_DOC_ID: CH-intg-consent-fabric
+PLAN_LOCK_ID: intg-firstpush-plan-20260905 @ sha256 3cb78373f44bdc22488c0ff2ff6ec8ce7b06c01fc5631b573d5487ab5c379de9
+BASE: the push publishes EXACTLY the pinned commit bbf297e36a38a1fab8c2675f945098a0633f9f8b and its history to origin refs/heads/main (currently 0db8fdd8424d27aad2c547614e9ebb95621a2794; 814 commits, fast-forwardable); local main is ABOVE the pin by the pair's docs-lane commits (1fcc190 at authoring) and stays unpublished above it (receipt (iii), R-4.52)
+BRANCH: none — no branch, no tag, no working-tree byte; ONE remote ref moves, by fast-forward, to the pin
+TARGET_BRANCH: origin refs/heads/main (the remote ref; the ONLY ref this act touches)
+FROM: intg.pair-planner
+TO: intg.pair-implementer
+CC: master.master-planner, master.master-reviewer, operator, m-3.planner, m-3.implementer, m-4.planner
+SUBJECT: PLAN — the first push as the pair's gated act (PL-intg-firstpush-20260905 rev1 @ 3cb78373; intg-firstpush-plan): master's repaired route 082012 transcribed — push the PINNED bbf297e to origin refs/heads/main, ff-only, one attempt, no force/tags/PR/CI citation; pre-push STOP-1 (pin ancestor of main) + STOP-2 (remote still 0db8fdd) + the census of record at the pin on both arms against pre-written expectations (3 lines / 2 paths); receipt (i) ls-remote == pin, (ii) main..origin/main == 0, (iii) the unpublished residue listed; no design lock (a routed act, not a designed feature); your exact-hash review → token intg-firstpush-impl
+
+## What the reviewer is asked to grade at 3cb78373 (counts MEASURED on the artifact and asserted before this relay was written)
+
+```text
+ACT      the refspec literal  "$PIN:refs/heads/main"  = 1 line (Task 2 Step 1);  main:main  = 1 line(s) — the prohibition text only;  --force  = 2 lines — prohibitions only
+PIN      bbf297e36a38a1fab8c2675f945098a0633f9f8b  = 4 lines (Goal, Global Constraints, Step 0, Acceptance 1)
+CENSUS   the exact alternation  = 2 lines (Global Constraints + Task 1 Step 3); expectations written to files BEFORE the census; both arms compared by diff status; stderr-empty check; summary 3 0 2 0
+STOPs    STOP-1 is-ancestor rc 0 · STOP-2 == 0db8fdd8…  (2 lines) · rejected push = STOP, never retried · census delta = STOP · visibility != PRIVATE = STOP · status snapshot delta = STOP
+RECEIPT  (i) ls-remote == pin · (ii) main..origin/main == 0 after fetch · (iii) rev-list PIN..main listed (≥1; R-4.52; not a STOP)
+ID       handoff  intg-firstpush-plan  = 1 lines; token-to-be intg-firstpush-impl (PARENT = your approving review id; SCOPE_DIFF: the one remote ref → in, no working-tree path)
+NO       design lock / design record kind on this relay (no design document exists for a push; the governing record is the operator's ruling + master's route, cited in Spec)
+```
+
+ACTIONS_GIT_REF: docs-lane writes only — the plan artifact (3cb78373) and this relay via the engine; read-only re-derivation at the pin (`merge-base`, `ls-remote`, `git grep` on the pinned tree and its history, `rev-list`); NO push, no refspec touched, no PR, no tag, no product byte; the post-filing root-mode sweep is archived and reported UP; commit path-scoped follows (a docs-lane commit above the pin — R-4.52 residue by construction)
+RELAY_LINT: engine-rendered submission; per-file v2.9.2 lint rides the daemon gate (the draft pre-linted per-file; the four commission-surface lines copied byte-for-byte from the grant, hash-checked); every grading count above computed from the artifact bytes and asserted before this draft was written; every upstream route directory and every pair cycle directory re-listed immediately before submit
+FINAL_GIT_STATUS_SHORT:
+ ?? .relays/intg/.engine/drafts/intg.pair-planner/PLAN-FIRSTPUSH-REV1.md
+ ?? docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-firstpush-20260905.md
+Literal path-scoped status for this seat's own writes at authoring time; the shared bivpak tree additionally carries sibling-authored state not claimed clean here.
