@@ -1,0 +1,46 @@
+## SITREP — the COUNT-GATE REPAIR IS LANDED on lane-local `main` at **`b065de1107161bb5df9543c09b50091365338c1c`** and re-verified at this seat; the implementer's file-first IMPL return `intg-countgate/IMPL-pair-implementer-20260905-071231.md` is hereby routed to you for m-3.planner's SEVEN-POINT byte review (CG-R6.3 (i)–(vii), the veto's home) — acceptance is NOT self-claimed. WHAT I RE-DERIVED FROM THE OBJECTS, not the report (receipt `results/intg-countgate-landing-b065de1.md` @ 1eff4c81): ONE parent, `e14f15f` — the token-issuance commit itself, i.e. the captured run head; `81066ef`, `29acc6c`, `e14f15f` all ancestors; `diff-tree` exactly `.github/workflows/s2-harness.yml`; `git show --check` clean; the workflow blob sha256 `1af1d1cb…` equals the report's; `origin/main` unchanged at `0db8fdd`, no new branch, tags 5 — nothing pushed. THE BYTES, diff read in full: the macOS `-R` include allowlist is GONE, replaced by `-E '^safety-hardening$'` (the one explicit exclusion, a platform-instrument absence — `readelf unavailable`, observed in the scout log; R-OBS-4's expected set exactly); ten `-r xml` executions and ten per-binary exact-equality want cells across the two jobs; EVERY want literal equals its observed tuple in the evidence home's `tuples-macos.txt` (`a91402bb…`) and `tuples-linux.txt` (`1e3b4224…`) — biv_subprocess 12/0/0/0 · repo_git 6/0/0/0 · repo_engine 60/0/0/0 · biv_tests 418/0/0/3 (macOS) and **420/0/0/1 (Linux — the R-4.38 +8, transcribed from its own run at the run head, the 2a preview `420` used as a source nowhere)** · probe 25/0/0/0; the `expected_skips` literal block hashes `c2e7761f…` in BOTH the parent and the landed blob (5 lines, extracted brace-to-brace; membership unchanged); the only `env:` and the only remaining `-R harness-selftest` line are the harness job's pre-existing lines, identical in the parent — no env, secrets, or hygiene byte landed (R-OBS-2). THE PROVENANCE: the 71-line commit message carries the design and plan pins, `run_head=e14f15f… ancestor_81066ef_rc=0 ancestor_29acc6c_rc=0` (the rev9 measured facts), the five-binary inventory, the ten cells with run ids and XML sha256s, both run identities, the derived unset-name list and the presence census (NAMES ONLY), `rc1=8 rc2=0 present_count=1 iff=PASS hygiene=PASS`, `cat_rc=0 hits=0`, `scout_rc=8` with the one exclusion, the skip-block proof, and the Linux four-phase ledger (`ubuntu:24.04 linux/amd64 --init`; run head observed == expected; nofile soft == hard; name-free census) — every claimed fact traces to a recorded file. THE EVIDENCE HOME (read-only, 95 files, outside the checkout): `run-head-ancestry.txt`, `discriminator-predicate.txt`, `precommit-guard.txt` (`s=0 s1=0 s2=0 d=1 removed=0 g=1 added=M  .github/workflows/s2-harness.yml` — the rev6–rev8 instrument in its intended state), `token-scan.txt`, `landed-sha.txt` all as reported; `status-initial.txt` and `status-post-observation.txt` cmp-EQUAL (`fbf10318…`, the 36 inherited S4 rows preserved); arm 1 (ambient host, ONE credential name present) red on `harness-selftest` → rc1=8; arm 2 (the ruled environment) 100% → rc2=0 — m-3's ruling `012332` route (A) reproduced on the record as the plan required; no value read or recorded anywhere I looked. Two things the report did not have to say and I checked: the two REJECTED Docker transport probes left no repository effect and no lingering container (the only container on the host is a three-week-old inherited S4 artifact, untouched); the harness job at line 24 is outside the design's scope and untouched. THIS SEAT'S DOCS-LANE FREEZE LIFTS at this landing (the landed sha has returned); ONE path-scoped commit follows this SITREP carrying the implementer's return relay, this relay, the receipt, ROADMAP, OBLIGATIONS, and the INDEX projection. NEXT, in your hands: m-3.planner's seven-point byte review at `b065de1` (the IMPL report's partition maps (i)–(vii) explicitly); on m-3's acceptance, the FIRST PUSH is your routed one-time named act to `intg.pair-implementer` (R-4.51) — never this lane's initiative; then the R-4.50 route, R-4.49 after. No push, PR, remote CI, publication, deployment, seal, or release has occurred or is requested; the release hold is ABSOLUTE
+
+ROLE: Pair Planner
+PHASE: SITREP
+AUTHORITY: report-only
+DISPATCH_ID: intg-countgate-impl-2
+PARENT_DISPATCH_ID: intg-countgate-plan-review-9
+IN_REPLY_TO: intg-countgate/IMPL-pair-implementer-20260905-071231.md
+RELATED_CONTEXT: intg-countgate/IMPL-pair-planner-20260905-055031.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/results/intg-countgate-landing-b065de1.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-countgate-20260830.md; intg-countgate/PLAN-REVIEW-pair-implementer-20260905-053645.md; intg-countgate/SITREP-pair-planner-20260905-055947.md; ../../pdc/master/domains/m-3-restore-cli/design/2026-08-30-count-gate-repair-r438-rev1.md; ../../pdc/master/relays/r438-transcription-at-merged-bytes/DESIGN-planner-20260905-012332.md; ../../pdc/master/relays/r438-transcription-at-merged-bytes/PLAN-master-planner-20260905-013755.md; ../../pdc/master/relays/r438-transcription-at-merged-bytes/PLAN-master-planner-20260903-135906.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/ROADMAP.md; ../../pdc/master/RESIDUALS.md
+RUN_ID: intg
+CEREMONY_TIER: production-risk
+EVIDENCE_TARGET: E2
+HUMAN_GATE_REQUIRED: no NEW gate — a landing receipt and a routing report: m-3.planner's seven-point byte review at the landed sha is the acceptance gate ahead (via you; this lane names no m-x seat as its next hop); the first push is your routed named act after that review (R-4.51); no merge gate exists for this act (ONE lane-local commit on unpublished main, as the isolation act); PR, publication, deployment, seal, and release remain held; the release hold is ABSOLUTE
+COMMISSION_ID: intg-consent-fabric
+CHARTER_DOC_ID: CH-intg-consent-fabric
+DESIGN_DOC_ID: intg-countgate-plan
+DESIGN_LOCK_ID: m3-countgate-repair-20260830 @ sha256 0099d1cf4aeb39f3732e823657ec0b78434f6a638db70b69a3fd6bd4dd717875
+DESIGN_RECORD_KIND: design-doc
+PLAN_LOCK_ID: intg-countgate-plan-20260830 @ sha256 652f0d73f6784ddf38757371bc1c1755454a8402b4f64c9f8a6276002f0a1e55
+FROM: intg.pair-planner
+TO: master.master-planner
+CC: operator, master.master-reviewer, intg.pair-implementer, m-3.planner, m-3.implementer, m-4.planner
+SUBJECT: SITREP — COUNT-GATE REPAIR LANDED at b065de1 on lane-local main (one parent e14f15f = the run head; one path; ten want cells == ten observed tuples incl. Linux biv_tests 420/0/0/1; expected_skips block byte-identical; no env/secrets byte; the ruled observer contract on the record, names only, discriminator iff/hygiene PASS) — re-verified at this seat (receipt 1eff4c81); the IMPL return 071231 routed to you for m-3.planner's seven-point byte review; freeze lifted, one commit follows; then your routed first push (R-4.51)
+
+## The seven points, where the report answers each (for m-3.planner's convenience; the report's own words govern)
+
+```text
+(i)   one commit, one path        §"Landed workflow and m-3 seven-point review partition" item 1 · my receipt §1 (parents, diff-tree, --check)
+(ii)  all five binaries, both targets   item 2 · receipt §2 (ten -r xml, two five-entry checks dicts)
+(iii) allowlist inverted           item 3 · receipt §2 (-R gone; -E '^safety-hardening$' the only exclusion; Linux unfiltered)
+(iv)  observed cells               item 4 + "Ten observed cells — verbatim" · receipt §3 (ten want == ten observed, tuples files a91402bb / 1e3b4224)
+(v)   provenance                   item 5 · receipt §4 (the 71-line message; both ancestry rc values; run ids; XML sha256s; both environment blocks)
+(vi)  expected_skips               item 6 · receipt §2 (c2e7761f in parent AND landed)
+(vii) CG-R5 census                 item 7 · receipt §4 (the five, before any observation, in the message)
+plus  R-OBS-1..6 (012332)          "Task 1 preflight and observer environments" · receipt §5 (names only; one environment; discriminator recorded; exclusion set; two-stage scan 0; Linux name-free)
+```
+
+ACTIONS_GIT_REF: docs-lane writes only — this SITREP via the engine; the receipt `results/intg-countgate-landing-b065de1.md`; ROADMAP and OBLIGATIONS lines; the freeze LIFTS with this landing and ONE path-scoped commit follows (the implementer's 071231 return relay, this relay, the receipt, ROADMAP, OBLIGATIONS, INDEX at zero removed lines); no workflow byte, no product byte, no observation at this seat; the landing commit b065de1 is the implementer's under the token
+RELAY_LINT: engine-rendered submission; per-file v2.9.2 lint rides the daemon gate (this draft pre-linted per-file); every upstream route directory and every pair cycle directory re-listed immediately before submit
+FINAL_GIT_STATUS_SHORT:
+ M .relays/intg/INDEX.md
+ M docs/sprints/2026-08-27-intg-consent-fabric/ROADMAP.md
+?? .relays/intg/.engine/drafts/intg.pair-planner/SITREP-COUNTGATE-LANDED-B065DE1-ROUTE-M3-REVIEW.md
+?? .relays/intg/intg-countgate/IMPL-pair-implementer-20260905-071231.md
+?? docs/sprints/2026-08-27-intg-consent-fabric/results/intg-countgate-landing-b065de1.md
+Literal path-scoped status for this seat's own writes at authoring time (OBLIGATIONS edited after this draft); the shared bivpak tree additionally carries sibling-authored state not claimed clean here.
