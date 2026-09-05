@@ -84,6 +84,29 @@ Assembled and HELD. Cells 1–3 DONE and verified at this seat; the ONLY remaini
 
 If the token issues: the merge is a LANE-LOCAL act on unpublished `main` (DEVIATIONS row 1) executed by the implementer per §4's recorded topology (true merge, parents `main-before` + `a2f6fd1`; predicted tree `8b26f827…` re-derived immediately before the merge; product-root diff candidate..merge EMPTY; both retained tags untouched; `origin/main` untouched), reported UP with post-merge receipts. THEN, in order and unchanged: the count-gate token issues (approve `141141` in hand; one-path SCOPE_DIFF; the run head postdates the landing) → observation transcribes the +8 → ONE workflow-only commit under the run-head guard → m-3's seven-point review → the FIRST PUSH as master's routed named act (R-4.51) → the R-4.50 route → R-4.49. Merge ≠ push ≠ release; the release hold is ABSOLUTE.
 
-## 8. Landed
+## 8. Landed (2026-09-04)
 
-(projection pending — written on the landing receipt)
+Condition 4 issued: the operator's authorization of record `master/relays/intg-substep2a-merge-token/MERGE-GATE-operator-20260904-194922.md` ("lgtm" quoted on the face; `MERGE_STATUS: AUTHORIZED`; packet sha `2926cf1a…` equal; master's own-bytes verification `dd7d308`) + the grammar-compliant token carrier `MERGE-GATE-operator-20260904-203826.md` (FROM operator, TO `intg.pair-implementer`, the bare token alone on its own line; sha256 `b3aeb1bf…`; re-issued after the pair-planner's transport-grammar STOP `200604` — `relay-lint.py:1169-1170`'s grantor set excludes the pair-planner and `:804` bars the master tier, measured at source and by a three-probe discriminator; the sub-step-1 `045104`→`045944` class, recurring).
+
+Record hygiene discharged BEFORE the merge: docs commit `ba8b7176c51c376dca34174292951563388f0336` adds exactly the eight implementer relays (IMPL `181132` `181438` `181612` `222330` `062639`; PLAN-REVIEW `210020` `225905` `043346`) and no other path — verified at the pair-planner's read (`git show --stat`: 8 files, 942 insertions).
+
+Merge executed by `intg.pair-implementer` (claim `intg-substep2a/SITREP-pair-implementer-20260904-210903.md`), every cell independently re-derived by the pair-planner:
+
+```text
+merge        29acc6c2aca462a6f6fe6b9dac386a6af3774a69  (local non-ff true merge; author intg.pair-implementer)
+parent 1     ba8b7176c51c376dca34174292951563388f0336  (main-before = the record-hygiene commit)
+parent 2     a2f6fd1adf67fd86c8d0c692db34f113a9691135  (the candidate, exact)
+tree         088b8f625ea07f5b240c253ef20be461080b3b19  (= git merge-tree --write-tree ba8b717 a2f6fd1 RE-DERIVED at the pair-planner's seat; equal)
+             (the §4 prediction 8b26f827… was against main@53008b6; main moved by 8372780 + ba8b717, docs-lane only, before the merge — re-derivation at the actual parent is the proof)
+identity     git diff --stat a2f6fd1 29acc6c -- src tests EMPTY; the six Task-3 blobs at the landing == the candidate's blobs (rev-parse per path, all EQUAL);
+             candidate..merge differs ONLY in .relays/, docs/, and the four harness/ paths of main's own isolation landing 85f9c4d6 (never on the candidate's base)
+census       git diff --name-only ba8b717..29acc6c | sort = exactly the TEN-path allowlist
+topology     ba8b717 not an ancestor of a2f6fd1 and vice versa → true merge; exactly two parents
+landed E2    (implementer's fresh serial macOS run on main@29acc6c) configure/build PASS; biv_tests 16,343/16,343, 418 passed + 3 configured skips of 421;
+             FX-O 803/11 PASS; FX-N 135/5 PASS; E4 request-trace slice 13/1 PASS
+reds         R-4.35 (3 failed / 996 passed / 3 skipped) and R-4.38 (420/0/0/1 vs pinned 412/0/0/1 — the +8 the count-gate act now transcribes) RETAINED, disclosed, uncited
+tags         retained-task3-9e6ebe8 → 9e6ebe8; retained-task3b-b09e192 → b09e192 (untouched; not on the branch)
+remote       origin/main untouched at 0db8fdd8424d27aad2c547614e9ebb95621a2794; local main 796 commits ahead, unpublished; no push/PR/remote CI/publication/deployment/seal/release
+```
+
+MERGED IS NOT PUSHED, NOT PUBLISHED, NOT RELEASED. The first push is master's routed one-time named act AFTER the count-gate repair lands (R-4.51). **Sub-step 2a (the format act) is LANDED on lane-local `main`.** The count-gate token issues on this landing (approve `141141` in hand; direction (a) transcription-last; the run head postdates `29acc6c`). Sub-step 2b stays behind R-4.48's five cells + m-4's wiring bar. The release hold is ABSOLUTE.
