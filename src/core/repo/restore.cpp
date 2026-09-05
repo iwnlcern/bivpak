@@ -440,15 +440,15 @@ expected<RepoRestoreRow> restore_entry(
                      .shallow = std::nullopt};
   append_note_advisories(entry, row);
 
+  if (entry.shallow) {
+    row.outcome = RepoRestoreOutcome::shallow_pointer;
+    row.shallow = entry.shallow;
+    return row;
+  }
   if (entry.head_state == HeadState::unborn && !entry.bundle &&
       !entry.eligibility) {
     row.outcome = RepoRestoreOutcome::payload_only_unborn;
     row.advisories.push_back("EmptyRepoPayloadOnly");
-    return row;
-  }
-  if (entry.shallow) {
-    row.outcome = RepoRestoreOutcome::shallow_pointer;
-    row.shallow = entry.shallow;
     return row;
   }
 

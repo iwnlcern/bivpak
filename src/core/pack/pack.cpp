@@ -762,7 +762,10 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .agent_sessions = report.agent_sessions,
       .bivignore = scan_result->bivignore,
   };
-  const std::string manifest_json = manifest::serialize(manifest_model);
+  auto manifest_json = manifest::serialize(manifest_model);
+  if (!manifest_json) {
+    return cleanup_error(manifest_json.error());
+  }
   const std::string checksums_json = manifest::serialize(checksums);
 
   {
@@ -775,7 +778,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     }};
     auto zstd_sink = zstd.as_sink();
     container::TarWriter archive{zstd_sink};
-    if (auto ok = write_string_member(archive, "manifest.json", manifest_json, created.seconds); !ok) {
+    if (auto ok = write_string_member(archive, "manifest.json", *manifest_json, created.seconds); !ok) {
       return cleanup_error(ok.error());
     }
     if (auto ok = write_string_member(archive, "checksums.json", checksums_json, created.seconds); !ok) {

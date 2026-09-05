@@ -6,9 +6,11 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "core/ignore/matcher.hpp"
@@ -164,6 +166,48 @@ void add_remote_and_push(const biv::repo::Git &git,
                          const std::filesystem::path &remote) {
   git_run(git, repo, {"remote", "add"}, {"origin", remote.string()});
   git_run(git, repo, {"push", "-u", "origin", "main"});
+}
+
+class ScopedEnv {
+ public:
+  ScopedEnv(std::string name, std::string value) : name_(std::move(name)) {
+    if (const char *current = std::getenv(name_.c_str()); current != nullptr) {
+      previous_ = std::string{current};
+    }
+    if (::setenv(name_.c_str(), value.c_str(), 1) != 0) {
+      throw std::runtime_error{"fixture environment setup failed"};
+    }
+  }
+
+  ~ScopedEnv() {
+    if (previous_) {
+      (void)::setenv(name_.c_str(), previous_->c_str(), 1);
+    } else {
+      (void)::unsetenv(name_.c_str());
+    }
+  }
+
+  ScopedEnv(const ScopedEnv &) = delete;
+  ScopedEnv &operator=(const ScopedEnv &) = delete;
+
+ private:
+  std::string name_;
+  std::optional<std::string> previous_;
+};
+
+std::filesystem::path clone_real_shallow_repo(
+    const biv::repo::Git &git, const std::filesystem::path &root,
+    const std::string_view name) {
+  const auto publisher = root / "publisher";
+  init_repo(git, publisher);
+  const auto remote = init_bare_remote(git, root);
+  add_remote_and_push(git, publisher, remote);
+  git_run(git, remote, {"symbolic-ref", "HEAD", "refs/heads/main"});
+
+  const auto clone = root / name;
+  git_run(git, root, {"clone", "--depth", "1"},
+          {"file://" + remote.string(), clone.string()});
+  return clone;
 }
 
 void configure_url_rewrite(const biv::repo::Git &git,
@@ -1067,12 +1111,115 @@ TEST_CASE("classification records shallow promisor source without a bundle") {
 
   REQUIRE(result.has_value());
   REQUIRE(result->entry.shallow.has_value());
-  CHECK(result->entry.shallow->sha == head);
+  CHECK(result->entry.sha == head);
   CHECK(result->entry.shallow->boundary == std::vector<std::string>{head});
   CHECK_FALSE(result->entry.bundle.has_value());
   REQUIRE(result->entry.notes.size() == 1);
   CHECK(std::holds_alternative<biv::repo::PromisorSourceNote>(
       result->entry.notes.front()));
+}
+
+TEST_CASE("classification records a zero-ref shallow unborn source as payload-only") {
+  TempDir root{"classify-shallow-unborn-zero-ref"};
+  const auto home = root.path() / "home";
+  const auto global_config = root.path() / "global.gitconfig";
+  std::filesystem::create_directories(home);
+  touch(global_config, "[protocol \"file\"]\n\tallow = always\n");
+  ScopedEnv fixture_home{"HOME", home.string()};
+  ScopedEnv fixture_global{"GIT_CONFIG_GLOBAL", global_config.string()};
+  ScopedEnv fixture_no_system{"GIT_CONFIG_NOSYSTEM", "1"};
+  auto git = resolved_git();
+  const auto repo = clone_real_shallow_repo(git, root.path(), "zero-ref");
+  git_run(git, repo, {"checkout", "--orphan", "orphan-zero"});
+  git_run(git, repo, {"update-ref", "-d", "refs/heads/main"});
+
+  auto result = biv::repo::classify(git, repo, one_repo());
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->entry.shallow.has_value());
+  CHECK_FALSE(result->entry.shallow->boundary.empty());
+  CHECK(result->entry.head_state == biv::repo::HeadState::unborn);
+  CHECK_FALSE(result->entry.sha.has_value());
+  CHECK(result->entry.branch == "orphan-zero");
+  CHECK(result->entry.local_refs.empty());
+  CHECK_FALSE(result->entry.bundle.has_value());
+  CHECK_FALSE(result->entry.eligibility.has_value());
+}
+
+TEST_CASE("classification suppresses refs for a shallow unborn source") {
+  TempDir root{"classify-shallow-unborn-refs"};
+  const auto home = root.path() / "home";
+  const auto global_config = root.path() / "global.gitconfig";
+  std::filesystem::create_directories(home);
+  touch(global_config, "[protocol \"file\"]\n\tallow = always\n");
+  ScopedEnv fixture_home{"HOME", home.string()};
+  ScopedEnv fixture_global{"GIT_CONFIG_GLOBAL", global_config.string()};
+  ScopedEnv fixture_no_system{"GIT_CONFIG_NOSYSTEM", "1"};
+  auto git = resolved_git();
+  const auto repo = clone_real_shallow_repo(git, root.path(), "with-refs");
+  git_run(git, repo, {"checkout", "--orphan", "orphan-refs"});
+
+  auto result = biv::repo::classify(git, repo, one_repo());
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->entry.shallow.has_value());
+  CHECK_FALSE(result->entry.shallow->boundary.empty());
+  CHECK(result->entry.head_state == biv::repo::HeadState::unborn);
+  CHECK_FALSE(result->entry.sha.has_value());
+  CHECK(result->entry.branch == "orphan-refs");
+  CHECK(result->entry.local_refs.empty());
+  CHECK_FALSE(result->entry.bundle.has_value());
+  CHECK_FALSE(result->entry.eligibility.has_value());
+}
+
+TEST_CASE("classification lets shallowness dominate dirt for a born source") {
+  TempDir root{"classify-shallow-dirty-born"};
+  const auto home = root.path() / "home";
+  const auto global_config = root.path() / "global.gitconfig";
+  std::filesystem::create_directories(home);
+  touch(global_config, "[protocol \"file\"]\n\tallow = always\n");
+  ScopedEnv fixture_home{"HOME", home.string()};
+  ScopedEnv fixture_global{"GIT_CONFIG_GLOBAL", global_config.string()};
+  ScopedEnv fixture_no_system{"GIT_CONFIG_NOSYSTEM", "1"};
+  auto git = resolved_git();
+  const auto repo = clone_real_shallow_repo(git, root.path(), "dirty-born");
+  touch(repo / "a.txt", "modified\n");
+
+  auto result = biv::repo::classify(git, repo, one_repo());
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->entry.shallow.has_value());
+  CHECK_FALSE(result->entry.shallow->boundary.empty());
+  CHECK(result->entry.local_refs.empty());
+  CHECK_FALSE(result->entry.eligibility.has_value());
+  CHECK_FALSE(result->entry.bundle.has_value());
+  CHECK(result->fence == biv::repo::Classification::Fence::none);
+  CHECK_FALSE(result->issue.has_value());
+}
+
+TEST_CASE("classification lets shallowness dominate dirt for an unborn source") {
+  TempDir root{"classify-shallow-dirty-unborn"};
+  const auto home = root.path() / "home";
+  const auto global_config = root.path() / "global.gitconfig";
+  std::filesystem::create_directories(home);
+  touch(global_config, "[protocol \"file\"]\n\tallow = always\n");
+  ScopedEnv fixture_home{"HOME", home.string()};
+  ScopedEnv fixture_global{"GIT_CONFIG_GLOBAL", global_config.string()};
+  ScopedEnv fixture_no_system{"GIT_CONFIG_NOSYSTEM", "1"};
+  auto git = resolved_git();
+  const auto repo = clone_real_shallow_repo(git, root.path(), "dirty-unborn");
+  git_run(git, repo, {"checkout", "--orphan", "orphan-dirty"});
+
+  auto result = biv::repo::classify(git, repo, one_repo());
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->entry.shallow.has_value());
+  CHECK_FALSE(result->entry.shallow->boundary.empty());
+  CHECK(result->entry.head_state == biv::repo::HeadState::unborn);
+  CHECK_FALSE(result->entry.sha.has_value());
+  CHECK(result->entry.branch == "orphan-dirty");
+  CHECK(result->fence == biv::repo::Classification::Fence::none);
+  CHECK_FALSE(result->issue.has_value());
 }
 
 TEST_CASE("eligibility proves HEAD from one advertisement snapshot") {
@@ -1563,7 +1710,9 @@ TEST_CASE(
 
 TEST_CASE(
     "restore dispatch leaves zero-ref and shallow payload trees untouched") {
-  auto git = resolved_git();
+  std::vector<biv::support::SpawnRequest> requests;
+  auto git = resolved_git(
+      [&](const auto &request) { requests.push_back(request); });
   TempDir root{"restore-payload-branches"};
   const auto partial = root.path() / "partial";
   touch(partial / "empty/payload.txt", "payload\n");
@@ -1587,11 +1736,9 @@ TEST_CASE(
   shallow.id = "shallow";
   shallow.relpath = "shallow";
   shallow.sha = "0123456789012345678901234567890123456789";
-  shallow.head_state = biv::repo::HeadState::detached;
+  shallow.head_state = biv::repo::HeadState::unborn;
   shallow.shallow = biv::repo::Shallow{
-      .sha = "0123456789012345678901234567890123456789",
-      .boundary = {"0123456789012345678901234567890123456789"},
-      .remote_urls = {"https://example.invalid/r.git"}};
+      .boundary = {"0123456789012345678901234567890123456789"}};
 
   auto pointer =
       biv::repo::restore_entry(git, shallow, partial, root.path() / "stage");
@@ -1599,9 +1746,9 @@ TEST_CASE(
   REQUIRE(pointer.has_value());
   CHECK(pointer->outcome == biv::repo::RepoRestoreOutcome::shallow_pointer);
   REQUIRE(pointer->shallow.has_value());
-  CHECK(pointer->shallow->sha == shallow.shallow->sha);
+  CHECK(pointer->sha == shallow.sha);
   CHECK(pointer->shallow->boundary == shallow.shallow->boundary);
-  CHECK(pointer->shallow->remote_urls == shallow.shallow->remote_urls);
+  CHECK(requests.empty());
   CHECK_FALSE(std::filesystem::exists(partial / "shallow/.git"));
 }
 

@@ -128,7 +128,9 @@ void write_bivpak(const std::filesystem::path& image,
   auto sink = zstd.as_sink();
   biv::container::TarWriter writer{sink};
 
-  const auto manifest_json = biv::manifest::serialize(manifest);
+  const auto serialized = biv::manifest::serialize(manifest);
+  REQUIRE(serialized.has_value());
+  const auto& manifest_json = *serialized;
   REQUIRE(writer.begin_member(biv::container::MemberMeta{.path = "manifest.json",
                                                          .kind = biv::scan::NodeKind::file,
                                                          .mode = 0644,
