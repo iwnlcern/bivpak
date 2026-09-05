@@ -50,44 +50,80 @@ jobs:
       - name: Build macOS product
         run: cmake --build --preset ci-macos
       - name: Run macOS product and harness rows
-        run: ctest --preset ci-macos -R '^(biv_tests|harness-selftest|harness-e2|errno_table_gate|generated_envelope_conforms)$' --output-on-failure
+        run: ctest --preset ci-macos -E '^safety-hardening$' --output-on-failure
       - name: Enforce macOS Catch2 counts and skip identity
         run: |
-          ./build/ci-macos/biv_tests -r xml > catch.xml
+          ./build/ci-macos/biv_subprocess_tests -r xml > catch-biv_subprocess_tests.xml
+          ./build/ci-macos/biv_repo_git_tests -r xml > catch-biv_repo_git_tests.xml
+          ./build/ci-macos/biv_repo_engine_tests -r xml > catch-biv_repo_engine_tests.xml
+          ./build/ci-macos/biv_tests -r xml > catch-biv_tests.xml
+          ./build/ci-macos/biv_probe_tests -r xml > catch-biv_probe_tests.xml
           python3 - <<'PY'
           import sys
           import xml.etree.ElementTree as ET
 
-          root = ET.parse("catch.xml").getroot()
-          cases = root.find("OverallResultsCases")
-          got = {
-              key: int(cases.get(key, 0))
-              for key in ("successes", "failures", "expectedFailures", "skips")
-          }
-          want = {
-              "successes": 410,
-              "failures": 0,
-              "expectedFailures": 0,
-              "skips": 3,
+          checks = {
+              "biv_subprocess_tests": {
+                  "successes": 12,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 0,
+              },
+              "biv_repo_git_tests": {
+                  "successes": 6,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 0,
+              },
+              "biv_repo_engine_tests": {
+                  "successes": 60,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 0,
+              },
+              "biv_tests": {
+                  "successes": 418,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 3,
+              },
+              "biv_probe_tests": {
+                  "successes": 25,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 0,
+              },
           }
           expected_skips = {
               "pack derives relpath from slash-form Windows extended paths",
               "pack computes foreign-flavor session relpaths without host path parsing",
               "threshold-parity per-agent distribution self-activates at R-4.29",
           }
+          roots = {}
+          for binary, want in checks.items():
+              root = ET.parse(f"catch-{binary}.xml").getroot()
+              roots[binary] = root
+              cases = root.find("OverallResultsCases")
+              got = {
+                  key: int(cases.get(key, 0))
+                  for key in ("successes", "failures", "expectedFailures", "skips")
+              }
+              print(f"{binary} catch2 cases:", got)
+              if got != want:
+                  sys.exit(
+                      f"COUNT GATE FAILED for {binary}: expected {want}, got {got}"
+                  )
+
           skipped = {
               test_case.get("name"): (test_case.find("Skip").text or "").strip()
-              for test_case in root.iter("TestCase")
+              for test_case in roots["biv_tests"].iter("TestCase")
               if test_case.find("Skip") is not None
           }
 
-          print("catch2 cases:", got)
           print("skipped cases:")
           for name, reason in sorted(skipped.items()):
               print(f' - "{name}" ({reason})')
 
-          if got != want:
-              sys.exit(f"COUNT GATE FAILED: expected {want}, got {got}")
           if set(skipped) != expected_skips:
               sys.exit(
                   "SKIP-IDENTITY GATE FAILED: "
@@ -255,26 +291,61 @@ jobs:
           if [ "$ctest_rc" -ne 0 ] || [ "$tidy_gate_rc" -ne 0 ]; then exit 1; fi
       - name: Enforce Linux Catch2 counts
         run: |
-          ./build/ci/biv_tests -r xml > catch.xml
+          ./build/ci/biv_subprocess_tests -r xml > catch-biv_subprocess_tests.xml
+          ./build/ci/biv_repo_git_tests -r xml > catch-biv_repo_git_tests.xml
+          ./build/ci/biv_repo_engine_tests -r xml > catch-biv_repo_engine_tests.xml
+          ./build/ci/biv_tests -r xml > catch-biv_tests.xml
+          ./build/ci/biv_probe_tests -r xml > catch-biv_probe_tests.xml
           python3 - <<'PY'
           import sys
           import xml.etree.ElementTree as ET
 
-          cases = ET.parse("catch.xml").getroot().find("OverallResultsCases")
-          got = {
-              key: int(cases.get(key, 0))
-              for key in ("successes", "failures", "expectedFailures", "skips")
-          }
           # The `want` counts in this job were observed with the `nofile` soft limit equal
           # to the hard limit. The chartered local substitute raises the soft limit to the
           # inherited hard limit inside its `runuser` drop before invoking the suite.
-          want = {
-              "successes": 412,
-              "failures": 0,
-              "expectedFailures": 0,
-              "skips": 1,
+          checks = {
+              "biv_subprocess_tests": {
+                  "successes": 12,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 0,
+              },
+              "biv_repo_git_tests": {
+                  "successes": 6,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 0,
+              },
+              "biv_repo_engine_tests": {
+                  "successes": 60,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 0,
+              },
+              "biv_tests": {
+                  "successes": 420,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 1,
+              },
+              "biv_probe_tests": {
+                  "successes": 25,
+                  "failures": 0,
+                  "expectedFailures": 0,
+                  "skips": 0,
+              },
           }
-          print("catch2 cases:", got)
-          if got != want:
-              sys.exit(f"COUNT GATE FAILED: expected {want}, got {got}")
+          for binary, want in checks.items():
+              cases = ET.parse(
+                  f"catch-{binary}.xml"
+              ).getroot().find("OverallResultsCases")
+              got = {
+                  key: int(cases.get(key, 0))
+                  for key in ("successes", "failures", "expectedFailures", "skips")
+              }
+              print(f"{binary} catch2 cases:", got)
+              if got != want:
+                  sys.exit(
+                      f"COUNT GATE FAILED for {binary}: expected {want}, got {got}"
+                  )
           PY
