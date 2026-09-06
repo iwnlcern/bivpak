@@ -1,0 +1,46 @@
+## SITREP — THE FIRST PUSH IS DONE: `origin/main` = **`bbf297e36a38a1fab8c2675f945098a0633f9f8b`**, the PINNED sha, by ONE literal fast-forward push under `intg-firstpush-impl-2`; the three-line receipt you named (`082012`) re-derived at this seat and carried here VERBATIM. **(i)** `git ls-remote origin refs/heads/main` → `bbf297e36a38a1fab8c2675f945098a0633f9f8b	refs/heads/main` (read fresh at this seat 21:16, equal to the implementer's `receipt-i.txt`); **(ii)** after the implementer's ONE-ref `--no-tags` fetch, `refs/remotes/origin/main` = the PIN and `git rev-list --count main..origin/main` = **0** (re-derived here without any fetch of my own); **(iii)** `git rev-list bbf297e..main` = **11** docs-lane commits — `64638fa9 ce95b9aa 036bd700 65ed8371 a041463a fd75f964 4c2b4b70 33565f0d e842e193 b7cf25e4 1fcc190e` — my listing byte-equal (`cmp`) to the implementer's `receipt-iii.txt`; every one a relay, plan, receipt, or sweep archive of this cycle; NOT pushed; NOT a finding; R-4.52's first instance, yours to carry to the operator (12 with the commit that carries this SITREP). THE ACT, from the implementer's return `intg-firstpush/IMPL-pair-implementer-20260905-195647.md` and the evidence home read at this seat (58 files): the fresh gate GREEN in full — STOP-1 rc 0, STOP-2 `0db8fdd8…`, push URL ×1 == fetch URL, hook absent, PRIVATE, census 3/0/2/0, **shell zsh 5.9** (the shell that defeated the rev4 attempt), `act_line_count=1 act_span_bound=0 act_cmd_bound=0` (the approved plan's ENTIRE executable act span bound byte-for-byte before the act; `act-span.txt` == `act-span-expected.txt` at my read), `dryrun_rc=0` naming `0db8fdd..bbf297e -> main`; then the ONE literal `git push origin bbf297e36a38a1fab8c2675f945098a0633f9f8b:refs/heads/main` → rc 0, stderr `0db8fdd..bbf297e  bbf297e… -> main`; the outcome probe → `remote_after=bbf297e…`, **`class=a`**; `findings.txt` EMPTY (sha256 e3b0c442…); the boundary BYTE-IDENTICAL — `status_diff_rc=0 files=17842 inventory_diff_rc=0 symlinks=17 symlink_cmp_rc=0`; the verdict COMPUTED: class a AND empty findings = SUCCESS. THE PUBLICATION, re-derived: 814 commits `0db8fdd..bbf297e` (PIN tree `255e46d3…`); remote heads 25 unchanged (only `refs/heads/main` moved); remote tags 3 — none pushed (local tags 5); local `main` unchanged at `64638fa`. My receipt: `results/intg-firstpush-receipt-bbf297e.md` @ 31f3a34d. THE LEDGER, honestly: the act took SEVEN plan revisions and TWO tokens; the first attempt failed on MY zsh-unsafe refspec (a recorded lesson not applied; owned `164106`); the six reviews after it each found a real gap in the instruments I added (a non-binding count; unchecked writes; a prefix binder; an escaped-backtick sed caught by executing the plan's own bytes) — none of it touched the tree or the remote, and the act itself, once run, published exactly the pin. Your standing corrective (`164704`) is applied at this seat as method: every load-bearing line executed in the target shell from the plan's own bytes, expansions recorded, `--dry-run` as a push's validation, recorded lessons grepped against plan bytes. FROM HERE R-4.51 CLAUSE (2) GOVERNS: every later work is a PULL REQUEST from a REMOTE BRANCH (the PR the vehicle, never the evidence; a red remote CI blocks nothing and is cited nowhere); the R-4.50 route (claude `discover` parity) is yours to carry down as the first PR-vehicle act; R-4.49 after; R-4.52's arms reach the operator through you now that the receipt is on the record. NOT DONE and not requested: no PR, no remote-CI citation, no tag, no merge, no deployment, no seal, no release — the release hold is ABSOLUTE
+
+ROLE: Pair Planner
+PHASE: SITREP
+AUTHORITY: report-only
+DISPATCH_ID: intg-firstpush-impl-2
+PARENT_DISPATCH_ID: intg-firstpush-plan-review-7
+IN_REPLY_TO: intg-firstpush/IMPL-pair-implementer-20260905-195647.md
+RELATED_CONTEXT: intg-firstpush/IMPL-pair-planner-20260905-192430.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/results/intg-firstpush-receipt-bbf297e.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-firstpush-20260905.md; intg-firstpush/PLAN-REVIEW-pair-implementer-20260905-190721.md; intg-firstpush/SITREP-pair-planner-20260905-193348.md; intg-firstpush/IMPL-pair-implementer-20260905-163348.md; intg-firstpush/SITREP-pair-planner-20260905-164106.md; ../../pdc/master/relays/r438-transcription-at-merged-bytes/PLAN-master-planner-20260905-164704.md; ../../pdc/master/relays/r438-transcription-at-merged-bytes/PLAN-master-planner-20260905-082012.md; ../../pdc/master/relays/r438-transcription-at-merged-bytes/PLAN-master-planner-20260905-075759.md; ../../pdc/master/relays/publication-path-ruling/PLAN-operator-20260902-141706.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/ROADMAP.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/OBLIGATIONS.md; ../../pdc/master/RESIDUALS.md
+RUN_ID: intg
+CEREMONY_TIER: production-risk
+EVIDENCE_TARGET: E2
+HUMAN_GATE_REQUIRED: no NEW gate — the receipt of the operator's already-authorized one-time act (R-4.51 clause (1)), executed as routed; R-4.52 (the docs-lane residue) is the operator's ruling, carried by you; every later act is a PR from a remote branch under clause (2) with the merge bar, owner byte reviews, and the operator's condition-4 token unchanged; no PR, tag, remote-CI citation, deployment, seal, or release has occurred or is requested; the release hold is ABSOLUTE
+COMMISSION_ID: intg-consent-fabric
+CHARTER_DOC_ID: CH-intg-consent-fabric
+PLAN_LOCK_ID: intg-firstpush-plan-20260905 @ sha256 76bb7a548e916b3ed201ded92a331dcfd1dae6ae56a59107391f02f54cc6fdf1
+FROM: intg.pair-planner
+TO: master.master-planner
+CC: operator, master.master-reviewer, intg.pair-implementer, m-3.planner, m-3.implementer, m-4.planner
+SUBJECT: SITREP — THE FIRST PUSH IS DONE: origin/main = bbf297e36a38a1fab8c2675f945098a0633f9f8b (814 commits, one literal ff push under intg-firstpush-impl-2, class a, findings empty, boundary byte-identical, zsh 5.9); receipt (i) ls-remote == PIN, (ii) main..origin/main = 0, (iii) the 11 unpublished docs-lane commits listed — all three re-derived at this seat (receipt 31f3a34d); R-4.51 clause (2) now governs; R-4.52's arms to the operator via you; the R-4.50 route next as the first PR-vehicle act; no PR/tag/CI citation/release
+
+## The receipt, VERBATIM from the implementer's recorded files and equal at my read
+
+```text
+receipt-i.txt        bbf297e36a38a1fab8c2675f945098a0633f9f8b	refs/heads/main
+receipt-ii.txt       main..origin/main=0
+receipt-iii.txt      64638fa924d8118ddb83288ad9cbb723222456ae · ce95b9aa5eef830432ed7cd7c4a86c013cb1ebaf · 036bd70026948d2221d198ac4b573ad5ccf61cb3 · 65ed837199f35e88d94fe7b6a48f7564fab6ec8f
+                     a041463a321e9a657da021d0cda24cba1cf1da37 · fd75f9643a74d1b6c0c827344b754432c136a3e0 · 4c2b4b70d0d5cb8597a3a1d0495efcd097e94adf · 33565f0dc667522d0ce46fbe163f0bd463030835
+                     e842e193004cc29ccbb93aad6e788f59086b09a7 · b7cf25e4b24ebf787d8c0093cc6c64d296fc8f33 · 1fcc190e644a6703e51c9b6f57f73e322d4d113f
+push-rc.txt          push_rc=0 · outcome_probe_rc=0 · remote_after=bbf297e36a38a1fab8c2675f945098a0633f9f8b · class=a
+prepush-gate.txt     stop1_rc=0 stop2_remote=0db8fdd8424d27aad2c547614e9ebb95621a2794 push_url_count=1 push_url=https://github.com/iwnlcern/bivpak.git fetch_url=https://github.com/iwnlcern/bivpak.git hook=pre_push_hook_path=.git/hooks/pre-push executable=no visibility=PRIVATE census=census_tree_lines=3 census_tree_diff_rc=0 census_history_paths=2 census_history_diff_rc=0 shell=shell zsh=5.9 bash= act_line_count=1 act_span_bound=0 act_cmd_bound=0 dryrun_rc=0
+boundary-proof.txt   status_diff_rc=0 files=17842 inventory_diff_rc=0 symlinks=17 symlink_cmp_rc=0 findings=0
+findings.txt         EMPTY
+re-derived here      ls-remote == PIN · refs/remotes/origin/main == PIN · main..origin/main 0 · rev-list PIN..main == receipt-iii (cmp) · 0db8fdd..PIN = 814 · remote heads 25 · remote tags 3 (none pushed) · main 64638fa
+```
+
+ACTIONS_GIT_REF: read-only re-derivation at `../bivpak` (`ls-remote`, `rev-parse`, `rev-list`, `merge-base`, `cmp` against the implementer's evidence files); this SITREP via the engine; the receipt `results/intg-firstpush-receipt-bbf297e.md`; ROADMAP and OBLIGATIONS C lines; ONE path-scoped commit follows (the implementer's 195647 return relay, this relay, the receipt, the ledgers, the INDEX projection at zero removed lines) — a docs-lane commit above the pin, R-4.52 residue by construction; NO push of any kind by this seat, no PR, no tag, no product byte
+RELAY_LINT: engine-rendered submission; per-file v2.9.2 lint rides the daemon gate (this draft pre-linted per-file); every upstream route directory and every pair cycle directory re-listed immediately before submit
+FINAL_GIT_STATUS_SHORT:
+ M .relays/intg/INDEX.md
+ M docs/sprints/2026-08-27-intg-consent-fabric/OBLIGATIONS.md
+ M docs/sprints/2026-08-27-intg-consent-fabric/ROADMAP.md
+?? .relays/intg/.engine/drafts/intg.pair-planner/SITREP-FIRSTPUSH-PUBLISHED-RECEIPT.md
+?? .relays/intg/intg-firstpush/IMPL-pair-implementer-20260905-195647.md
+?? docs/sprints/2026-08-27-intg-consent-fabric/results/intg-firstpush-receipt-bbf297e.md
+Literal path-scoped status for this seat's own writes at authoring time; the shared bivpak tree additionally carries sibling-authored state not claimed clean here.
