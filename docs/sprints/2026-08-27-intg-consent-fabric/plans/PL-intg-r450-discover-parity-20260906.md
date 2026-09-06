@@ -1,8 +1,8 @@
-# R-4.50 claude-discover parity — Implementation Plan (revision 2)
+# R-4.50 claude-discover parity — Implementation Plan (revision 3)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task, IN DOCUMENT ORDER. Steps use checkbox (`- [ ]`) syntax for tracking. Nothing in this document is authority: implementation starts only on the pair Planner's addressed token after the exact-hash PLAN-REVIEW approve.
 
-**Revision 2 (2026-09-06) — the `065859` must-revise of rev1 (`3931edab`) folded, all four findings, across the WHOLE artifact:** F1 RED is fail-CLOSED (build status required 0; test status captured and required nonzero with `-w UnmatchedTestSpec`; the retained Catch2 XML parsed so ROW 1 and ROW 5 are the ONLY red leaves and ROWS 2–4 pass; every input non-empty and status-checked); F2 the R-OBS observer environment is derived in Task 0 BEFORE any suite run, the workflow-equivalent macOS suite runs under it in Task 1 Step 5 and again at C, the ambient run survives only as discriminator arm 1; F3 the local tag is GONE — P is retained by its recorded object id, proven with `git cat-file -e` before every use, and held by the branch reflog; F4 every producer's status is preserved (diffs, greps, rev-list, xargs, sed, sort materialized to files with captured status; expected-zero greps classified 0/1 vs 2+; every evidence file non-empty before use) — swept over EVERY executable span, not only the five cited. Also folded: CG-R7 is now rev5 (`9a0320b6`, Master Reviewer approve `053521`) — B/P/C predeclared per CG-R7.7 with binding points and the old(B)/observed(P)/new(C) table, the trigger OBSERVED not syntactic (CG-R7.1); and the R-4.52 landing rule (operator option A, master `015102`): the landing push of `main` is the merge packet's own step, not this token's.
+**Revision 3 (2026-09-06) — the `161925` must-revise of rev2 (`9b889d04`) folded across the WHOLE artifact:** F1 the six helpers are MATERIALIZED at Task 0 Step 0b, before any use (every invocation now follows its creation in document order — checked mechanically: each helper's first `python3 "$EVID/<name>.py"` line number > its fenced block's line number); F2 every helper invocation carries a CAPTURED status that is the gate (`cells.py` at B and C, `gate.py`, both `tuples.py` runs — a partial parse or an `equal=no` run exits nonzero with non-empty output, so `[ -s ]` alone was never a gate), and the two wc-to-tr line-count pipelines are replaced by a single-stage `awk 'END { print NR }'` count with its own status; the pipeline sweep is now MECHANICAL over executable spans (every backtick span containing a spaced pipe character; result 0 — prose cites no pipeline in backticks); F3 acceptance criterion 2 names its FIVE producing steps — `witness.py green` on the full-suite `biv_tests` XML at P/macOS, P/Linux, C/macOS, C/Linux plus the targeted run at P — each status-captured with a non-empty verdict file. Helper bytes and owner-ruled semantics unchanged from rev2. **Revision 2** folded `065859` (F1 RED fail-closed; F2 R-OBS before any suite run; F3 no tag; F4 producers materialized), CG-R7 rev5 B/P/C, and the R-4.52 landing rule.
 
 **Goal:** execute sealed c1 §7 in the claude adapter's `discover` body so an existing `CLAUDE_CONFIG_DIR` store no longer suppresses an existing `$HOME/.claude` default store (both are searched, env first), with codex's `discover` as the reference shape; witness it with rows 1–5 + the codex parity row; land as ONE commit on a branch cut at the PUBLISHED base, carried to `origin` as a PR (the vehicle, never the evidence).
 
@@ -67,7 +67,10 @@ A literal cannot be observed at the commit that contains it. Resolution, all thr
 **Files:** none modified.
 
 - [ ] **Step 0: evidence home + initial snapshot** (the inside-repo `case` guard VALIDATED 2026-09-06 in bash AND zsh: /tmp → ok, ./build → STOP) — `EVID=$(mktemp -d "${TMPDIR:-/tmp}/r450-evidence-XXXXXX")`; `case "$(cd "$EVID" && pwd -P)/" in "$(git rev-parse --show-toplevel)/"*) echo STOP-evid-inside-repo; exit 1;; esac`; `s0=0; git -C /Users/jack/Programming/bivpak status --porcelain > "$EVID/status-initial.txt" || s0=$?; [ "$s0" -eq 0 ] || STOP` (inherited S4 modifications are PRESERVED and DISCLOSED, never staged or cleaned; this file may legitimately be non-empty).
-- [ ] **Step 1: the base is the published pin — B RESOLVED and RECORDED** — `f=0; git -C /Users/jack/Programming/bivpak fetch --no-tags origin refs/heads/main:refs/remotes/origin/main || f=$?; [ "$f" -eq 0 ] || STOP` (one ref, literal refspec); `BASE=$(git -C /Users/jack/Programming/bivpak rev-parse origin/main)`; REQUIRE `[ "$BASE" = bbf297e36a38a1fab8c2675f945098a0633f9f8b ] || STOP` (the remote moved — STOP UP, never re-base silently); `d=0; git -C /Users/jack/Programming/bivpak diff --quiet bbf297e36a38a1fab8c2675f945098a0633f9f8b main -- src tests CMakeLists.txt CMakePresets.json harness .github || d=$?; [ "$d" -eq 0 ] || STOP` (product bytes at the published pin == local main; measured 2026-09-05: 0 lines; `d` 1 = a real difference, 2+ = an error — both STOP, distinguished by the recorded value). B's workflow values: `w=0; git -C /Users/jack/Programming/bivpak show bbf297e36a38a1fab8c2675f945098a0633f9f8b:.github/workflows/s2-harness.yml > "$EVID/B-workflow.yml" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/B-workflow.yml" ] || STOP`; `python3 "$EVID/cells.py" "$EVID/B-workflow.yml" > "$EVID/B-cells.txt"` (the cell reader below; rc 0 REQUIRED; `[ -s "$EVID/B-cells.txt" ] || STOP`) — the ten `binary target successes failures expectedFailures skips` lines + the macOS `expected_skips` name list (the Linux job carries no identity block; its skip identity is compared by COUNT only, the observed names recorded for the report), READ from B's bytes, never typed. Record `printf 'B=%s\n' "$BASE" > "$EVID/B.txt"`.
+
+- [ ] **Step 0b: MATERIALIZE THE SIX HELPERS — before ANY use (F1 of `161925`)** — each block below is written to `$EVID/<name>.py` VERBATIM from this plan (copy the fenced bytes exactly; no edits), then proven present and syntactically valid with a CAPTURED status before the next helper is written: for each name in `cells witness hunks tuples transcribe gate`: `[ -s "$EVID/<name>.py" ] || STOP; k=0; python3 -m py_compile "$EVID/<name>.py" || k=$?; [ "$k" -eq 0 ] || STOP` (VALIDATED 2026-09-06 in bash AND zsh: the six extracted helpers compile with k=0; a helper with one byte corrupted → k=1 → STOP). Every later step INVOKES a helper only; no step writes one. Helper semantics are unchanged from rev2 (each carries its VALIDATED note, re-run at the pair Planner's seat on the rev3 bytes).
+
+**`cells.py`**
 
 ```python
 #!/usr/bin/env python3
@@ -95,6 +98,152 @@ for target, (lo, hi) in zip(("macos", "linux"), zip(starts, bounds[1:])):
 ```
 
 Write this block to `$EVID/cells.py` VERBATIM from the plan (the pair Planner extracted and RAN it on the workflow at `bbf297e` 2026-09-06: ten cells with `biv_tests macos successes=418 … skips=3` and `biv_tests linux successes=420 … skips=1`; `expected_skips macos n=3` and `expected_skips linux absent` — the Linux job carries NO `expected_skips` identity block, only its count cell (`grep -c expected_skips` = 3 at `bbf297e`, all in the macOS job: the definition `:97` and its two uses `:119`/`:127`; none in the Linux job); on a copy with the Linux block removed → rc 2; with one binary removed → rc 3).
+
+**`witness.py`**
+
+```python
+#!/usr/bin/env python3
+# usage: witness.py <catch2-xml> red|green   — exit 0 iff the five ROW leaves have exactly the expected outcome
+import sys, xml.etree.ElementTree as ET
+xml_path, mode = sys.argv[1], sys.argv[2]
+NAME = "Claude adapter discovery returns every store found: env and default both searched with codex parity (c1 §7)"
+RED_ROWS = {"ROW 1", "ROW 5"} if mode == "red" else set()
+root = ET.parse(xml_path).getroot()
+cases = [tc for tc in root.iter("TestCase") if tc.get("name") == NAME]
+if len(cases) != 1:
+    sys.exit(2)  # the named case must appear exactly once
+seen = {}
+for section in cases[0].findall("Section"):
+    label = section.get("name", "").split(":")[0].strip()  # "ROW n"
+    if not label.startswith("ROW "):
+        continue
+    results = section.find("OverallResults")
+    if results is None or label in seen:
+        sys.exit(3)  # every leaf carries one OverallResults; a leaf appears once
+    seen[label] = int(results.get("failures", "-1"))
+if set(seen) != {"ROW 1", "ROW 2", "ROW 3", "ROW 4", "ROW 5"}:
+    sys.exit(4)  # all five leaves present
+for label, failures in sorted(seen.items()):
+    expected_red = label in RED_ROWS
+    if failures < 0 or (failures > 0) != expected_red:
+        sys.exit(5)  # a leaf's outcome differs from the mode's expectation
+    print(f"{label} failures={failures} expected={'red' if expected_red else 'green'} ok")
+overall = cases[0].find("OverallResult")
+if overall is None or (overall.get("success") == "true") != (mode == "green"):
+    sys.exit(6)  # the case verdict must agree with the mode
+print(f"{mode} verdict ok")
+```
+
+Write this block to `$EVID/witness.py` VERBATIM from the plan (the pair Planner extracted and RAN it 2026-09-06 against synthetic Catch2 XML in the shape the binary emits: red-mode YES case ROW 1 + ROW 5 failing → 0; all-green in red mode → 5; ROW 2 failing in red mode → 5; a missing ROW 4 → 4; a duplicated leaf → 3; the wrong case name → 2; green-mode with the all-green XML → 0).
+
+**`hunks.py`**
+
+```python
+#!/usr/bin/env python3
+# usage: hunks.py <hunk-headers-file> <lo> <hi>  — exit 0 iff every @@ -a,b +c,d @@ old-range lies within [lo, hi]
+import re, sys
+lo, hi = int(sys.argv[2]), int(sys.argv[3])
+headers = [line for line in open(sys.argv[1], encoding="utf-8").read().split("\n") if line.startswith("@@")]
+if not headers:
+    sys.exit(2)
+for header in headers:
+    m = re.match(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', header)
+    if m is None:
+        sys.exit(3)
+    start = int(m.group(1)); count = int(m.group(2)) if m.group(2) is not None else 1
+    end = start + count - 1 if count > 0 else start
+    if start < lo or end > hi:
+        print(f"OUTSIDE {header}")
+        sys.exit(4)
+    print(f"inside {header}")
+```
+
+Write this block to `$EVID/hunks.py` VERBATIM (the pair Planner RAN it 2026-09-06: a header `@@ -570,27 +570,29 @@` with bounds 570 596 → 0; `@@ -569,2 +569,2 @@` → 4; `@@ -590,10 +590,10 @@` → 4; an empty file → 2; a malformed header → 3).
+
+**`tuples.py`**
+
+```python
+#!/usr/bin/env python3
+# usage: tuples.py <target> <xml>...  — one line per XML: binary target successes failures expectedFailures skips xml_sha256; then the biv_tests skip set
+import hashlib, os, sys, xml.etree.ElementTree as ET
+target = sys.argv[1]
+skips = None
+for xml_path in sys.argv[2:]:
+    binary = os.path.basename(xml_path).split("-")[0]
+    data = open(xml_path, "rb").read()
+    if not data:
+        sys.exit(2)
+    cases = ET.fromstring(data).find("OverallResultsCases")
+    if cases is None:
+        sys.exit(3)
+    tuple_ = " ".join(f"{k}={cases.get(k, '0')}" for k in ("successes", "failures", "expectedFailures", "skips"))
+    print(f"{binary} {target} {tuple_} xml_sha256={hashlib.sha256(data).hexdigest()}")
+    if binary == "biv_tests":
+        skips = sorted(tc.get("name") for tc in ET.fromstring(data).iter("TestCase") if tc.find("Skip") is not None)
+if skips is None:
+    sys.exit(4)
+print(f"expected_skips_observed {target} n={len(skips)} " + " | ".join(skips))
+```
+
+Write this block to `$EVID/tuples.py` VERBATIM (the pair Planner RAN it 2026-09-06 on a synthetic five-XML set in the binary's shape: five tuple lines + the skip line with n=3; an empty XML → 2; an XML without `OverallResultsCases` → 3; a set without a `biv_tests` XML → 4).
+
+**`transcribe.py`**
+
+```python
+#!/usr/bin/env python3
+# usage: transcribe.py <workflow> <macos-biv_tests.xml> <linux-biv_tests.xml>
+# Writes the observed biv_tests "successes" cells into lines 85 and 326 of the workflow.
+# No arithmetic: the value written IS the XML's OverallResultsCases successes attribute.
+import sys, re, xml.etree.ElementTree as ET
+workflow, macos_xml, linux_xml = sys.argv[1], sys.argv[2], sys.argv[3]
+def observed(path):
+    cases = ET.parse(path).getroot().find("OverallResultsCases")
+    if cases is None or cases.get("successes") is None:
+        sys.exit(2)
+    return cases.get("successes")
+targets = {85: observed(macos_xml), 326: observed(linux_xml)}
+lines = open(workflow, encoding="utf-8").read().split("\n")
+for lineno in targets:
+    if lines[lineno - 2].strip() != '"biv_tests": {':
+        sys.exit(3)  # the anchor line above each cell must be the biv_tests block opener
+    m = re.fullmatch(r'(\s+"successes": )(\d+)(,)', lines[lineno - 1])
+    if m is None:
+        sys.exit(3)
+    lines[lineno - 1] = f"{m.group(1)}{targets[lineno]}{m.group(3)}"
+open(workflow, "w", encoding="utf-8").write("\n".join(lines))
+print("transcribed", targets)
+```
+
+**`gate.py`**
+
+```python
+#!/usr/bin/env python3
+# usage: gate.py <C-cells.txt> <P-macos> <P-linux> <C-macos> <C-linux>  — exit 0 iff every cell agrees across literal(C), observed(P), observed(C)
+import sys
+def read(path):
+    rows = {}
+    for line in open(path, encoding="utf-8"):
+        parts = line.split()
+        if len(parts) >= 6 and parts[0].startswith("biv_") and parts[2].startswith("successes="):
+            rows[(parts[0], parts[1])] = tuple(p.split("=", 1)[1] for p in parts[2:6])
+    return rows
+literals = read(sys.argv[1])
+observed_p = {**read(sys.argv[2]), **read(sys.argv[3])}
+observed_c = {**read(sys.argv[4]), **read(sys.argv[5])}
+if len(literals) != 10 or set(literals) != set(observed_p) or set(literals) != set(observed_c):
+    sys.exit(2)
+bad = 0
+for key in sorted(literals):
+    ok = literals[key] == observed_p[key] == observed_c[key]
+    bad += 0 if ok else 1
+    print(f"{key[0]} {key[1]} literal_C={literals[key]} observed_P={observed_p[key]} observed_C={observed_c[key]} equal={'yes' if ok else 'no'}")
+sys.exit(0 if bad == 0 else 5)
+```
+
+Write this block to `$EVID/gate.py` VERBATIM (the pair Planner RAN it 2026-09-06 on synthetic inputs: all ten agreeing → 0 with ten `equal=yes` lines; one C tuple altered → 5 with one `equal=no`; a missing cell → 2).
+
+- [ ] **Step 1: the base is the published pin — B RESOLVED and RECORDED** — `f=0; git -C /Users/jack/Programming/bivpak fetch --no-tags origin refs/heads/main:refs/remotes/origin/main || f=$?; [ "$f" -eq 0 ] || STOP` (one ref, literal refspec); `BASE=$(git -C /Users/jack/Programming/bivpak rev-parse origin/main)`; REQUIRE `[ "$BASE" = bbf297e36a38a1fab8c2675f945098a0633f9f8b ] || STOP` (the remote moved — STOP UP, never re-base silently); `d=0; git -C /Users/jack/Programming/bivpak diff --quiet bbf297e36a38a1fab8c2675f945098a0633f9f8b main -- src tests CMakeLists.txt CMakePresets.json harness .github || d=$?; [ "$d" -eq 0 ] || STOP` (product bytes at the published pin == local main; measured 2026-09-05: 0 lines; `d` 1 = a real difference, 2+ = an error — both STOP, distinguished by the recorded value). B's workflow values: `w=0; git -C /Users/jack/Programming/bivpak show bbf297e36a38a1fab8c2675f945098a0633f9f8b:.github/workflows/s2-harness.yml > "$EVID/B-workflow.yml" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/B-workflow.yml" ] || STOP`; `c=0; python3 "$EVID/cells.py" "$EVID/B-workflow.yml" > "$EVID/B-cells.txt" || c=$?; printf 'cells_B_rc=%s\n' "$c" > "$EVID/B-cells.rc"; [ "$c" -eq 0 ] && [ -s "$EVID/B-cells.txt" ] || STOP` (the helper materialized at Step 0b; a rejected PARTIAL parse exits 3 with six lines already printed — the STATUS is the gate, non-emptiness alone is not: VALIDATED 2026-09-06 in bash AND zsh: a mutant with one LINUX binary removed → the six macOS lines printed, then c=3 — output NON-EMPTY yet STOP reached on the status; a mutant with a macOS binary removed → c=3 with empty output) — the ten `binary target successes failures expectedFailures skips` lines + the macOS `expected_skips` name list (the Linux job carries no identity block; its skip identity is compared by COUNT only, the observed names recorded for the report), READ from B's bytes, never typed. Record `printf 'B=%s\n' "$BASE" > "$EVID/B.txt"`.
+
 - [ ] **Step 2: worktree + branch** — `git -C /Users/jack/Programming/bivpak worktree add -b intg/r450-discover-parity /Users/jack/Programming/bivpak-intg-r450-discover-parity bbf297e36a38a1fab8c2675f945098a0633f9f8b`; `cd /Users/jack/Programming/bivpak-intg-r450-discover-parity`; REQUIRE `[ "$(git rev-parse HEAD)" = bbf297e36a38a1fab8c2675f945098a0633f9f8b ] || STOP`; `s=0; git status --porcelain > "$EVID/status-worktree-0.txt" || s=$?; [ "$s" -eq 0 ] && [ ! -s "$EVID/status-worktree-0.txt" ] || STOP` (an EMPTY status is the expected content — checked as empty AFTER the producer's status is proven).
 - [ ] **Step 3: the cut-point measurement (R-4.8 lesson)** — `c=0; n=$(git rev-list --count origin/main..HEAD) || c=$?; [ "$c" -eq 0 ] || STOP; [ "$n" -eq 0 ] || STOP; printf 'unpublished_commits_in_lineage=%s\n' "$n" > "$EVID/cutpoint.txt"`.
 - [ ] **Step 4: baseline build + baseline discover census** — `b=0; cmake --preset ci-macos > "$EVID/configure-0.log" 2>&1 || b=$?; [ "$b" -eq 0 ] || STOP; b=0; cmake --build --preset ci-macos > "$EVID/build-0.log" 2>&1 || b=$?; [ "$b" -eq 0 ] || STOP`; `t=0; ./build/ci-macos/biv_tests -w UnmatchedTestSpec "Claude adapter discovers CLAUDE_CONFIG_DIR as an env-tier store" > "$EVID/existing-discover-0.log" 2>&1 || t=$?; [ "$t" -eq 0 ] || STOP` (the existing case, "env exists / default absent", unchanged by this act). Record the three fenced files' sha256 at the base: `shasum -a 256 src/adapters/claude_code/claude_code.cpp src/adapters/codex/codex.cpp tests/test_adapter_claude_collect.cpp > "$EVID/base-hashes.txt"; [ -s "$EVID/base-hashes.txt" ] || STOP` (codex's must be IDENTICAL at C, Task 5).
@@ -298,40 +447,6 @@ TEST_CASE("Claude adapter discovery returns every store found: env and default b
 
 - [ ] **Step 3: run it RED at the base bytes — FAIL-CLOSED (F1)** — three separately proven stages, none masked: (i) the build: `b=0; cmake --build --preset ci-macos > "$EVID/red-build.log" 2>&1 || b=$?; printf 'red_build_rc=%s\n' "$b" > "$EVID/red-build.rc"; [ "$b" -eq 0 ] || STOP`; (ii) the run, status CAPTURED and REQUIRED NONZERO, `-w UnmatchedTestSpec` so an unmatched name is an explicit nonzero exit (VALIDATED 2026-09-06 on the built Catch2 v3.7.1 binary: a non-matching name → rc 3 with the flag, rc 2 without it, both printing "No test cases matched"; the existing discover case with the flag → rc 0; `NoTests` is NOT a recognised warning in this Catch2 — rc 1 "Unrecognised warning option" — caught by executing the written form): `t=0; "${OBS_ENV[@]}" ./build/ci-macos/biv_tests -w UnmatchedTestSpec "Claude adapter discovery returns every store found: env and default both searched with codex parity (c1 §7)" -r xml > "$EVID/witness-red.xml" 2> "$EVID/witness-red.stderr" || t=$?; printf 'red_test_rc=%s\n' "$t" > "$EVID/witness-red.rc"; [ "$t" -ne 0 ] || STOP; [ -s "$EVID/witness-red.xml" ] || STOP`; (iii) the PARSE of the retained XML — ROW 1 and ROW 5 the ONLY red leaves, ROWS 2–4 green, all five present exactly once, the TestCase name exact: `p=0; python3 "$EVID/witness.py" "$EVID/witness-red.xml" red > "$EVID/witness-red.verdict" || p=$?; [ "$p" -eq 0 ] && [ -s "$EVID/witness-red.verdict" ] || STOP`. EXPECTED CAUSES: ROW 1 fails at `stores->size() == 2` (today's early return yields 1); ROW 5 fails at `REQUIRE_FALSE(refused.has_value())` (today only the env store is collected, so pack succeeds). Any OTHER red leaf, a green ROW 1 or ROW 5, a missing leaf, or a parser exit ≠ 0 = STOP: a fixture/model defect is fixed in the TEST and Step 3 re-runs from (i); a product-behaviour cause outside the discover body → STOP UP (S-CP-4).
 
-```python
-#!/usr/bin/env python3
-# usage: witness.py <catch2-xml> red|green   — exit 0 iff the five ROW leaves have exactly the expected outcome
-import sys, xml.etree.ElementTree as ET
-xml_path, mode = sys.argv[1], sys.argv[2]
-NAME = "Claude adapter discovery returns every store found: env and default both searched with codex parity (c1 §7)"
-RED_ROWS = {"ROW 1", "ROW 5"} if mode == "red" else set()
-root = ET.parse(xml_path).getroot()
-cases = [tc for tc in root.iter("TestCase") if tc.get("name") == NAME]
-if len(cases) != 1:
-    sys.exit(2)  # the named case must appear exactly once
-seen = {}
-for section in cases[0].findall("Section"):
-    label = section.get("name", "").split(":")[0].strip()  # "ROW n"
-    if not label.startswith("ROW "):
-        continue
-    results = section.find("OverallResults")
-    if results is None or label in seen:
-        sys.exit(3)  # every leaf carries one OverallResults; a leaf appears once
-    seen[label] = int(results.get("failures", "-1"))
-if set(seen) != {"ROW 1", "ROW 2", "ROW 3", "ROW 4", "ROW 5"}:
-    sys.exit(4)  # all five leaves present
-for label, failures in sorted(seen.items()):
-    expected_red = label in RED_ROWS
-    if failures < 0 or (failures > 0) != expected_red:
-        sys.exit(5)  # a leaf's outcome differs from the mode's expectation
-    print(f"{label} failures={failures} expected={'red' if expected_red else 'green'} ok")
-overall = cases[0].find("OverallResult")
-if overall is None or (overall.get("success") == "true") != (mode == "green"):
-    sys.exit(6)  # the case verdict must agree with the mode
-print(f"{mode} verdict ok")
-```
-
-Write this block to `$EVID/witness.py` VERBATIM from the plan (the pair Planner extracted and RAN it 2026-09-06 against synthetic Catch2 XML in the shape the binary emits: red-mode YES case ROW 1 + ROW 5 failing → 0; all-green in red mode → 5; ROW 2 failing in red mode → 5; a missing ROW 4 → 4; a duplicated leaf → 3; the wrong case name → 2; green-mode with the all-green XML → 0).
 - [ ] **Step 4: the discover body — the reference shape** (replace `claude_code.cpp:570-596` exactly; everything before :570 and after :596 byte-identical):
 
 ```cpp
@@ -367,60 +482,15 @@ Write this block to `$EVID/witness.py` VERBATIM from the plan (the pair Planner 
 - [ ] **Step 5: GREEN — under the observer environment (F2)** — (i) `b=0; cmake --build --preset ci-macos > "$EVID/green-build.log" 2>&1 || b=$?; [ "$b" -eq 0 ] || STOP`; (ii) the new case, status captured and REQUIRED ZERO, XML parsed in green mode: `t=0; "${OBS_ENV[@]}" ./build/ci-macos/biv_tests -w UnmatchedTestSpec "Claude adapter discovery returns every store found: env and default both searched with codex parity (c1 §7)" -r xml > "$EVID/witness-green.xml" 2> "$EVID/witness-green.stderr" || t=$?; printf 'green_test_rc=%s\n' "$t" > "$EVID/witness-green.rc"; [ "$t" -eq 0 ] && [ -s "$EVID/witness-green.xml" ] || STOP; p=0; python3 "$EVID/witness.py" "$EVID/witness-green.xml" green > "$EVID/witness-green.verdict" || p=$?; [ "$p" -eq 0 ] || STOP`; (iii) the existing discover case: `t=0; "${OBS_ENV[@]}" ./build/ci-macos/biv_tests -w UnmatchedTestSpec "Claude adapter discovers CLAUDE_CONFIG_DIR as an env-tier store" > "$EVID/existing-discover-1.log" 2>&1 || t=$?; [ "$t" -eq 0 ] || STOP`; (iv) the FULL macOS suite exactly as the workflow does, UNDER THE ENVIRONMENT (acceptance criterion 4's first half): `r=0; "${OBS_ENV[@]}" ctest --preset ci-macos -E '^safety-hardening$' --output-on-failure > "$EVID/ctest-macos-P.log" 2>&1 || r=$?; printf 'ctest_macos_P_rc=%s\n' "$r" > "$EVID/ctest-macos-P.rc"; [ "$r" -eq 0 ] || STOP` (a red here is a FINDING routed UP with the log — never a further `env -u`, never an exclusion; the ambient arm-1 run of Task 0 Step 5 is the control, not the acceptance run).
 - [ ] **Step 6: fence self-check before the provisional commit (materialized, statuses kept — F4)** — `s=0; git status --porcelain > "$EVID/status-pre-P.txt" || s=$?; [ "$s" -eq 0 ] && [ -s "$EVID/status-pre-P.txt" ] || STOP`; the file must name EXACTLY ` M src/adapters/claude_code/claude_code.cpp` and ` M tests/test_adapter_claude_collect.cpp` (two lines; `build/` is ignored): `printf ' M src/adapters/claude_code/claude_code.cpp\n M tests/test_adapter_claude_collect.cpp\n' > "$EVID/status-pre-P.expected"; d=0; diff "$EVID/status-pre-P.expected" "$EVID/status-pre-P.txt" > "$EVID/status-pre-P.delta" || d=$?; [ "$d" -eq 0 ] || STOP` (1 = an unexpected path → V-CP-1/3/5 STOP; 2+ = diff error STOP). The hunk range: `r=0; git diff -U0 -- src/adapters/claude_code/claude_code.cpp > "$EVID/claude-P.diff" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/claude-P.diff" ] || STOP; g=0; grep -E '^@@' "$EVID/claude-P.diff" > "$EVID/claude-P.hunks" || g=$?; [ "$g" -eq 0 ] && [ -s "$EVID/claude-P.hunks" ] || STOP` (at least one hunk MUST exist → `g` must be 0); `h=0; python3 "$EVID/hunks.py" "$EVID/claude-P.hunks" 570 596 > "$EVID/claude-P.hunks.verdict" || h=$?; [ "$h" -eq 0 ] || STOP`. Codex untouched: `r=0; git diff --numstat -- src/adapters/codex/ > "$EVID/codex-P.numstat" || r=$?; [ "$r" -eq 0 ] && [ ! -s "$EVID/codex-P.numstat" ] || STOP` (empty is the expected content, checked after the status).
 
-```python
-#!/usr/bin/env python3
-# usage: hunks.py <hunk-headers-file> <lo> <hi>  — exit 0 iff every @@ -a,b +c,d @@ old-range lies within [lo, hi]
-import re, sys
-lo, hi = int(sys.argv[2]), int(sys.argv[3])
-headers = [line for line in open(sys.argv[1], encoding="utf-8").read().split("\n") if line.startswith("@@")]
-if not headers:
-    sys.exit(2)
-for header in headers:
-    m = re.match(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', header)
-    if m is None:
-        sys.exit(3)
-    start = int(m.group(1)); count = int(m.group(2)) if m.group(2) is not None else 1
-    end = start + count - 1 if count > 0 else start
-    if start < lo or end > hi:
-        print(f"OUTSIDE {header}")
-        sys.exit(4)
-    print(f"inside {header}")
-```
-
-Write this block to `$EVID/hunks.py` VERBATIM (the pair Planner RAN it 2026-09-06: a header `@@ -570,27 +570,29 @@` with bounds 570 596 → 0; `@@ -569,2 +569,2 @@` → 4; `@@ -590,10 +590,10 @@` → 4; an empty file → 2; a malformed header → 3).
 - [ ] **Step 7: the PROVISIONAL commit P — BOUND here (CG-R7.7), no tag (F3)** — `git add src/adapters/claude_code/claude_code.cpp tests/test_adapter_claude_collect.cpp && git commit -q -F "$EVID/message-P.txt"` where `message-P.txt` = `adapters(claude): discover returns every store found (env + default), codex parity — PROVISIONAL, cells not yet transcribed` + a body naming the design pin and plan pin + the trailer line. `P=$(git rev-parse HEAD)`; `printf '%s\n' "$P" > "$EVID/P.txt"; [ -s "$EVID/P.txt" ] || STOP`; `e=0; git cat-file -e "${P}^{commit}" || e=$?; [ "$e" -eq 0 ] || STOP`; `printf '%s\n' "$(git rev-parse "${P}^{tree}")" > "$EVID/P.tree"`. P is retained by this recorded object id: the branch reflog holds it after the amend (`git reflog show intg/r450-discover-parity` lists it); every later use re-reads `$EVID/P.txt` and re-proves `git cat-file -e "${P}^{commit}"` first. NO tag, NO extra ref (VALIDATED 2026-09-06 in bash AND zsh: `git cat-file -e "${sha}^{commit}"` → 0 for a real commit, 128 for a bogus sha (any nonzero STOPs); no `:` modifier can fire in `"${P}^{commit}"`).
 
 ### Task 2 — observation at P on BOTH targets (the SOURCE of the literals; CG-R7.3/7.7, T-1)
 
 **Files:** none modified. Execute `PL-intg-countgate-20260830.md` Task 1 Steps 3(d)–(g) and 4 (the PROVEN instrument — the five `-r xml` runs per target under `"${OBS_ENV[@]}"` (derived in Task 0 Step 5; NOT re-derived), the inverted-selection scout (e), the R-OBS-5 token scan (f) over the concatenated logs (`cat` stage status-proved, then the zero-match-aware `grep -c`), the run identity (g); the four-phase Linux container: Phase H / R / T / S at `git show 990ba3b:docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-substep1-20260827.md` Task 5 Step 3 :757-763 with R-OBS-6's in-container name-free proof) VERBATIM with these retargets ONLY: (a) the run head is `P` (`$(cat "$EVID/P.txt")`, `git cat-file -e "${P}^{commit}"` re-proved first), the working tree is the r450 worktree, and Phase T clones the BRANCH `intg/r450-discover-parity` from `/repo-ro` with the receipt `rev-parse HEAD == P`; (b) XMLs land in `$EVID/P/<binary>-<target>.xml` and tuples in `$EVID/P/tuples-<target>.txt` (each XML `[ -s ]`-checked; each sha256 recorded); (c) the ancestry proofs are `a=0; git merge-base --is-ancestor bbf297e36a38a1fab8c2675f945098a0633f9f8b "$P" || a=$?` (REQUIRE 0) and `a2=0; git merge-base --is-ancestor b065de1107161bb5df9543c09b50091365338c1c "$P" || a2=$?` (REQUIRE 0 — the count-gate repair is in the lineage), both recorded.
 
-- [ ] **Step 1: macOS observation at P** — the five `-r xml` runs under `"${OBS_ENV[@]}"` (each `x=0; "${OBS_ENV[@]}" ./build/ci-macos/<binary> -r xml > "$EVID/P/<binary>-macos.xml" 2> "$EVID/P/<binary>-macos.stderr" || x=$?; printf '%s\n' "$x" > "$EVID/P/<binary>-macos.rc"; [ -s "$EVID/P/<binary>-macos.xml" ] || STOP` — the rc is DATA here: a binary with failures exits nonzero and its tuple still transcribes; a MISSING or empty XML is the STOP), then `tuples.py` (below) over each XML → `$EVID/P/tuples-macos.txt` (five lines `binary target successes failures expectedFailures skips xml_sha256` + one `expected_skips_observed macos n=… <names>` line); REQUIRE the `biv_tests` skipped-name set == B's `expected_skips` names for macOS from `$EVID/B-cells.txt` (a difference = the V-CG-5 routed FINDING, STOP UP — never an edit). The scout (e) and token scan (f) as in the countgate plan (both under `"${OBS_ENV[@]}"`, statuses captured, `hits=0` REQUIRED).
+- [ ] **Step 1: macOS observation at P** — the five `-r xml` runs under `"${OBS_ENV[@]}"` (each `x=0; "${OBS_ENV[@]}" ./build/ci-macos/<binary> -r xml > "$EVID/P/<binary>-macos.xml" 2> "$EVID/P/<binary>-macos.stderr" || x=$?; printf '%s\n' "$x" > "$EVID/P/<binary>-macos.rc"; [ -s "$EVID/P/<binary>-macos.xml" ] || STOP` — the rc is DATA here: a binary with failures exits nonzero and its tuple still transcribes; a MISSING or empty XML is the STOP), then `u=0; python3 "$EVID/tuples.py" macos "$EVID"/P/biv_subprocess_tests-macos.xml "$EVID"/P/biv_repo_git_tests-macos.xml "$EVID"/P/biv_repo_engine_tests-macos.xml "$EVID"/P/biv_tests-macos.xml "$EVID"/P/biv_probe_tests-macos.xml > "$EVID/P/tuples-macos.txt" || u=$?; [ "$u" -eq 0 ] && [ -s "$EVID/P/tuples-macos.txt" ] || STOP` → `$EVID/P/tuples-macos.txt` (five lines `binary target successes failures expectedFailures skips xml_sha256` + one `expected_skips_observed macos n=… <names>` line); the per-SECTION green proof on the full-suite XML (acceptance criterion 2): `p=0; python3 "$EVID/witness.py" "$EVID/P/biv_tests-macos.xml" green > "$EVID/P/witness-green-macos.verdict" || p=$?; [ "$p" -eq 0 ] && [ -s "$EVID/P/witness-green-macos.verdict" ] || STOP` (the helper selects the named case inside the full run — VALIDATED 2026-09-06 on a synthetic full-suite XML with other cases present → 0); REQUIRE the `biv_tests` skipped-name set == B's `expected_skips` names for macOS from `$EVID/B-cells.txt` (a difference = the V-CG-5 routed FINDING, STOP UP — never an edit). The scout (e) and token scan (f) as in the countgate plan (both under `"${OBS_ENV[@]}"`, statuses captured, `hits=0` REQUIRED).
 
-```python
-#!/usr/bin/env python3
-# usage: tuples.py <target> <xml>...  — one line per XML: binary target successes failures expectedFailures skips xml_sha256; then the biv_tests skip set
-import hashlib, os, sys, xml.etree.ElementTree as ET
-target = sys.argv[1]
-skips = None
-for xml_path in sys.argv[2:]:
-    binary = os.path.basename(xml_path).split("-")[0]
-    data = open(xml_path, "rb").read()
-    if not data:
-        sys.exit(2)
-    cases = ET.fromstring(data).find("OverallResultsCases")
-    if cases is None:
-        sys.exit(3)
-    tuple_ = " ".join(f"{k}={cases.get(k, '0')}" for k in ("successes", "failures", "expectedFailures", "skips"))
-    print(f"{binary} {target} {tuple_} xml_sha256={hashlib.sha256(data).hexdigest()}")
-    if binary == "biv_tests":
-        skips = sorted(tc.get("name") for tc in ET.fromstring(data).iter("TestCase") if tc.find("Skip") is not None)
-if skips is None:
-    sys.exit(4)
-print(f"expected_skips_observed {target} n={len(skips)} " + " | ".join(skips))
-```
-
-Write this block to `$EVID/tuples.py` VERBATIM (the pair Planner RAN it 2026-09-06 on a synthetic five-XML set in the binary's shape: five tuple lines + the skip line with n=3; an empty XML → 2; an XML without `OverallResultsCases` → 3; a set without a `biv_tests` XML → 4).
-- [ ] **Step 2: Linux observation at P** — the four-phase container (ubuntu:24.04 `--platform linux/amd64` `--init`; `nofile` soft raised to hard inside the runuser drop; R-OBS-6 name-free proof by name inside the container before the measurement stage; `cmake --preset ci` + build + the five `-r xml` runs + the workflow-equivalent `ctest --preset ci` run, each stage's rc in the ledger), XMLs + per-stage rc ledger copied out to `$EVID/P/`, then `tuples.py linux` over them → `$EVID/P/tuples-linux.txt`; REQUIRE the Linux `biv_tests` observed skip COUNT == B's Linux `skips` cell (1) — the Linux job has no `expected_skips` identity block; the observed skipped NAME(s) are recorded in the tuples file and the report (a count difference = FINDING, STOP UP).
+- [ ] **Step 2: Linux observation at P** — the four-phase container (ubuntu:24.04 `--platform linux/amd64` `--init`; `nofile` soft raised to hard inside the runuser drop; R-OBS-6 name-free proof by name inside the container before the measurement stage; `cmake --preset ci` + build + the five `-r xml` runs + the workflow-equivalent `ctest --preset ci` run, each stage's rc in the ledger), XMLs + per-stage rc ledger copied out to `$EVID/P/`, then the same `tuples.py linux` invocation over the five copied-out XMLs with `u=0; … || u=$?; [ "$u" -eq 0 ] && [ -s "$EVID/P/tuples-linux.txt" ] || STOP` → `$EVID/P/tuples-linux.txt`; the per-SECTION green proof on the copied-out Linux XML: `p=0; python3 "$EVID/witness.py" "$EVID/P/biv_tests-linux.xml" green > "$EVID/P/witness-green-linux.verdict" || p=$?; [ "$p" -eq 0 ] && [ -s "$EVID/P/witness-green-linux.verdict" ] || STOP`; REQUIRE the Linux `biv_tests` observed skip COUNT == B's Linux `skips` cell (1) — the Linux job has no `expected_skips` identity block; the observed skipped NAME(s) are recorded in the tuples file and the report (a count difference = FINDING, STOP UP).
 - [ ] **Step 3: ENTRY + the consistency CHECK (CG-R7.1/7.3, T-4) — observed trigger, syntactic predictor** — (i) ENTRY: compare P's `biv_tests` tuples (both targets) with B's cells from `$EVID/B-cells.txt`: a DIFFERENCE in `successes` on both targets = census-changing act → Task 3 transcribes; EQUAL on either target = zero-delta on that target, which contradicts the predictor → FINDING, STOP UP (no transcription, no commit); `failures` and `expectedFailures` MUST be 0 and `skips` MUST equal B's on both targets; the other four binaries' tuples MUST equal B's cells (any difference = FINDING, STOP UP). (ii) the PREDICTOR, materialized: `r=0; git diff bbf297e36a38a1fab8c2675f945098a0633f9f8b "$P" -- tests > "$EVID/tests-P.diff" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/tests-P.diff" ] || STOP; g=0; added=$(grep -c '^+TEST_CASE(' "$EVID/tests-P.diff") || g=$?; [ "$g" -le 1 ] || STOP; g2=0; removed=$(grep -c '^-TEST_CASE(' "$EVID/tests-P.diff") || g2=$?; [ "$g2" -le 1 ] || STOP; printf 'added=%s removed=%s\n' "$added" "$removed" > "$EVID/predictor.txt"` (zero matches exit 1 = VALID; 2+ = STOP); REQUIRE `added=1 removed=0`; (iii) the check: `observed_P(successes) − old_B(successes)` per target must equal `added − removed` = 1 — a CHECK on the record, never a source (the literal written in Task 3 is the XML value); any mismatch in either direction = FINDING routed UP (never a quiet re-observation, never an exclusion). Write `$EVID/bpc-table.txt` NOW with the old(B)/observed(P) columns (new(C) filled at Task 3 Step 3), values copied from `B-cells.txt` and `tuples-*.txt`.
 - [ ] **Step 4: no-mutation proof** — `s=0; git status --porcelain > "$EVID/status-post-P-obs.txt" || s=$?; [ "$s" -eq 0 ] && [ ! -s "$EVID/status-post-P-obs.txt" ] || STOP` (the worktree is EMPTY after observation; the evidence lives under `$EVID`; build dirs are ignored); main-repo status vs `status-initial.txt`: `s=0; git -C /Users/jack/Programming/bivpak status --porcelain > "$EVID/status-main-post-P.txt" || s=$?; [ "$s" -eq 0 ] || STOP; d=0; diff "$EVID/status-initial.txt" "$EVID/status-main-post-P.txt" > "$EVID/status-main-post-P.delta" || d=$?; [ "$d" -eq 0 ] || STOP`.
 
@@ -430,66 +500,17 @@ Write this block to `$EVID/tuples.py` VERBATIM (the pair Planner RAN it 2026-09-
 
 - [ ] **Step 1: the transcription script — reads the XML, writes the literal, refuses anything else** (VALIDATED 2026-09-06 at the pair Planner's seat on a scratch copy of the workflow with two synthetic XMLs: correct block lines → the two literals replaced, all other bytes identical; a wrong anchor line → exit 3 with no write; a missing `OverallResultsCases` → exit 2 with no write):
 
-```python
-#!/usr/bin/env python3
-# usage: transcribe.py <workflow> <macos-biv_tests.xml> <linux-biv_tests.xml>
-# Writes the observed biv_tests "successes" cells into lines 85 and 326 of the workflow.
-# No arithmetic: the value written IS the XML's OverallResultsCases successes attribute.
-import sys, re, xml.etree.ElementTree as ET
-workflow, macos_xml, linux_xml = sys.argv[1], sys.argv[2], sys.argv[3]
-def observed(path):
-    cases = ET.parse(path).getroot().find("OverallResultsCases")
-    if cases is None or cases.get("successes") is None:
-        sys.exit(2)
-    return cases.get("successes")
-targets = {85: observed(macos_xml), 326: observed(linux_xml)}
-lines = open(workflow, encoding="utf-8").read().split("\n")
-for lineno in targets:
-    if lines[lineno - 2].strip() != '"biv_tests": {':
-        sys.exit(3)  # the anchor line above each cell must be the biv_tests block opener
-    m = re.fullmatch(r'(\s+"successes": )(\d+)(,)', lines[lineno - 1])
-    if m is None:
-        sys.exit(3)
-    lines[lineno - 1] = f"{m.group(1)}{targets[lineno]}{m.group(3)}"
-open(workflow, "w", encoding="utf-8").write("\n".join(lines))
-print("transcribed", targets)
-```
 
 Run: `x=0; python3 "$EVID/transcribe.py" .github/workflows/s2-harness.yml "$EVID/P/biv_tests-macos.xml" "$EVID/P/biv_tests-linux.xml" > "$EVID/transcribe.out" || x=$?; [ "$x" -eq 0 ] || STOP`.
-- [ ] **Step 2: prove the workflow hunk is EXACTLY the two literals (CG-R7.4 (α); materialized — F4)** — `r=0; git diff --numstat -- .github/workflows/s2-harness.yml > "$EVID/workflow.numstat" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/workflow.numstat" ] || STOP; printf '2\t2\t.github/workflows/s2-harness.yml\n' > "$EVID/workflow.numstat.expected"; d=0; diff "$EVID/workflow.numstat.expected" "$EVID/workflow.numstat" > "$EVID/workflow.numstat.delta" || d=$?; [ "$d" -eq 0 ] || STOP`; `r=0; git diff -U0 -- .github/workflows/s2-harness.yml > "$EVID/workflow.diff" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/workflow.diff" ] || STOP; g=0; grep -E '^[-+][^-+]' "$EVID/workflow.diff" > "$EVID/workflow-hunk.txt" || g=$?; [ "$g" -eq 0 ] && [ -s "$EVID/workflow-hunk.txt" ] || STOP` (changed lines MUST exist → `g` 0); `n=$(wc -l < "$EVID/workflow-hunk.txt" | tr -d ' '); [ "$n" -eq 4 ] || STOP`; `g=0; m=$(grep -c -E '^[-+][[:space:]]+"successes": [0-9]+,$' "$EVID/workflow-hunk.txt") || g=$?; [ "$g" -le 1 ] || STOP; [ "$m" -eq 4 ] || STOP` (all four changed lines are `successes` literals); the status names ONLY the workflow: `s=0; git status --porcelain > "$EVID/status-pre-C.txt" || s=$?; [ "$s" -eq 0 ] || STOP; printf ' M .github/workflows/s2-harness.yml\n' > "$EVID/status-pre-C.expected"; d=0; diff "$EVID/status-pre-C.expected" "$EVID/status-pre-C.txt" > "$EVID/status-pre-C.delta" || d=$?; [ "$d" -eq 0 ] || STOP`. Anything else = STOP to m-3.planner (through the pair Planner). (VALIDATED 2026-09-06 in bash AND zsh on the scratch transcription: numstat `2 2`, hunk 4 lines, `m=4`.)
-- [ ] **Step 3: the ONE commit C = amend P; C BOUND here** — `git add .github/workflows/s2-harness.yml && git commit -q --amend -F "$EVID/message-C.txt"`. `message-C.txt`: subject `adapters(claude): discover returns every store found (env + default), codex parity; count-gate cells transcribed`; body: `Design pin: m2-r450-discover-fence-rev2-20260903 sha256 f2216ee606a03b0b5b0b7f4562fed52a7349219c28990e6ee3e89b0cc25e8c6f`; `Plan pin: intg-r450-discover-parity-plan-20260906 sha256 <this artifact's approved hash>`; `B=bbf297e36a38a1fab8c2675f945098a0633f9f8b (baseline; workflow values inherited) observed_head=P=<sha from P.txt> (provisional; source of the literals; reachable by object id / branch reflog; no tag) — C is this commit (its own sha cannot appear here; the tracked report binds it)`; `Observed cells at P (no arithmetic):` then the TEN `binary=… target=… run_id=… successes=… failures=… expectedFailures=… skips=… xml_sha256=…` lines from `$EVID/P/tuples-*.txt` exactly in `b065de1`'s form; the old(B)/observed(P) table from `bpc-table.txt`; the macOS and Linux run-identity + observer blocks (names only); the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Then: `C=$(git rev-parse HEAD)`; `printf '%s\n' "$C" > "$EVID/C.txt"; [ -s "$EVID/C.txt" ] || STOP`; fill the new(C) column of `$EVID/bpc-table.txt` from the literals READ BACK from the committed workflow (`git show "${C}:.github/workflows/s2-harness.yml" > "$EVID/C-workflow.yml"` status-checked, then `cells.py` on it → `$EVID/C-cells.txt`).
+- [ ] **Step 2: prove the workflow hunk is EXACTLY the two literals (CG-R7.4 (α); materialized — F4)** — `r=0; git diff --numstat -- .github/workflows/s2-harness.yml > "$EVID/workflow.numstat" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/workflow.numstat" ] || STOP; printf '2\t2\t.github/workflows/s2-harness.yml\n' > "$EVID/workflow.numstat.expected"; d=0; diff "$EVID/workflow.numstat.expected" "$EVID/workflow.numstat" > "$EVID/workflow.numstat.delta" || d=$?; [ "$d" -eq 0 ] || STOP`; `r=0; git diff -U0 -- .github/workflows/s2-harness.yml > "$EVID/workflow.diff" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/workflow.diff" ] || STOP; g=0; grep -E '^[-+][^-+]' "$EVID/workflow.diff" > "$EVID/workflow-hunk.txt" || g=$?; [ "$g" -eq 0 ] && [ -s "$EVID/workflow-hunk.txt" ] || STOP` (changed lines MUST exist → `g` 0); `a=0; n=$(awk 'END { print NR }' "$EVID/workflow-hunk.txt") || a=$?; [ "$a" -eq 0 ] && [ "$n" -eq 4 ] || STOP` (a single-stage line count with its own status — no pipeline; VALIDATED 2026-09-06 in bash AND zsh: 4-line file → n=4 a=0; missing file → a=2); `g=0; m=$(grep -c -E '^[-+][[:space:]]+"successes": [0-9]+,$' "$EVID/workflow-hunk.txt") || g=$?; [ "$g" -le 1 ] || STOP; [ "$m" -eq 4 ] || STOP` (all four changed lines are `successes` literals); the status names ONLY the workflow: `s=0; git status --porcelain > "$EVID/status-pre-C.txt" || s=$?; [ "$s" -eq 0 ] || STOP; printf ' M .github/workflows/s2-harness.yml\n' > "$EVID/status-pre-C.expected"; d=0; diff "$EVID/status-pre-C.expected" "$EVID/status-pre-C.txt" > "$EVID/status-pre-C.delta" || d=$?; [ "$d" -eq 0 ] || STOP`. Anything else = STOP to m-3.planner (through the pair Planner). (VALIDATED 2026-09-06 in bash AND zsh on the scratch transcription: numstat `2 2`, hunk 4 lines, `m=4`.)
+- [ ] **Step 3: the ONE commit C = amend P; C BOUND here** — `git add .github/workflows/s2-harness.yml && git commit -q --amend -F "$EVID/message-C.txt"`. `message-C.txt`: subject `adapters(claude): discover returns every store found (env + default), codex parity; count-gate cells transcribed`; body: `Design pin: m2-r450-discover-fence-rev2-20260903 sha256 f2216ee606a03b0b5b0b7f4562fed52a7349219c28990e6ee3e89b0cc25e8c6f`; `Plan pin: intg-r450-discover-parity-plan-20260906 sha256 <this artifact's approved hash>`; `B=bbf297e36a38a1fab8c2675f945098a0633f9f8b (baseline; workflow values inherited) observed_head=P=<sha from P.txt> (provisional; source of the literals; reachable by object id / branch reflog; no tag) — C is this commit (its own sha cannot appear here; the tracked report binds it)`; `Observed cells at P (no arithmetic):` then the TEN `binary=… target=… run_id=… successes=… failures=… expectedFailures=… skips=… xml_sha256=…` lines from `$EVID/P/tuples-*.txt` exactly in `b065de1`'s form; the old(B)/observed(P) table from `bpc-table.txt`; the macOS and Linux run-identity + observer blocks (names only); the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Then: `C=$(git rev-parse HEAD)`; `printf '%s\n' "$C" > "$EVID/C.txt"; [ -s "$EVID/C.txt" ] || STOP`; fill the new(C) column of `$EVID/bpc-table.txt` from the literals READ BACK from the committed workflow (`git show "${C}:.github/workflows/s2-harness.yml" > "$EVID/C-workflow.yml"` status-checked, then `c=0; python3 "$EVID/cells.py" "$EVID/C-workflow.yml" > "$EVID/C-cells.txt" || c=$?; [ "$c" -eq 0 ] && [ -s "$EVID/C-cells.txt" ] || STOP`).
 - [ ] **Step 4: prove P → C (materialized; the `:(exclude)` pathspec VALIDATED 2026-09-06 in bash AND zsh on real commits: a workflow-only commit → rc 0; a product merge → rc 1)** — `P=$(cat "$EVID/P.txt"); C=$(cat "$EVID/C.txt"); e=0; git cat-file -e "${P}^{commit}" || e=$?; [ "$e" -eq 0 ] || STOP`; `r=0; git diff --numstat "$P" "$C" > "$EVID/p-to-c.numstat" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/p-to-c.numstat" ] || STOP; d=0; diff "$EVID/workflow.numstat.expected" "$EVID/p-to-c.numstat" > "$EVID/p-to-c.numstat.delta" || d=$?; [ "$d" -eq 0 ] || STOP`; `q=0; git diff --quiet "$P" "$C" -- . ':(exclude).github/workflows/s2-harness.yml' || q=$?; [ "$q" -eq 0 ] || STOP` (1 = a non-workflow byte moved between P and C; 2+ = error; both STOP); `[ "$(git rev-parse "${C}^")" = bbf297e36a38a1fab8c2675f945098a0633f9f8b ] || STOP`; `c=0; n=$(git rev-list --count "origin/main..${C}^") || c=$?; [ "$c" -eq 0 ] && [ "$n" -eq 0 ] || STOP` (the cut-point measure). Record all in `$EVID/p-to-c-proof.txt`.
 
 ### Task 4 — RE-OBSERVATION OF RECORD at C, both targets (the runs the tracked report and IMPL return carry)
 
-- [ ] **Step 1:** repeat Task 2 Steps 1–2 with the run head `C` (`$(cat "$EVID/C.txt")`; `git cat-file -e "${C}^{commit}"` proved) → `$EVID/C/…` (ten tuples via `tuples.py`, XML sha256, run identities, R-OBS discriminator arms re-run (R-OBS-3 at the resumed head) + token scan, in-container name-free proof) PLUS the workflow-equivalent full macOS suite under the environment at C (acceptance criterion 4's second half): `r=0; "${OBS_ENV[@]}" ctest --preset ci-macos -E '^safety-hardening$' --output-on-failure > "$EVID/C/ctest-macos-C.log" 2>&1 || r=$?; printf 'ctest_macos_C_rc=%s\n' "$r" > "$EVID/C/ctest-macos-C.rc"; [ "$r" -eq 0 ] || STOP`; the Linux leg's `ctest --preset ci` stage rc 0 in the ledger.
-- [ ] **Step 2: the gate's own semantics, locally (CG-R7.7: C's observations == P's observations == C's literals)** — `python3 "$EVID/gate.py" "$EVID/C-cells.txt" "$EVID/P/tuples-macos.txt" "$EVID/P/tuples-linux.txt" "$EVID/C/tuples-macos.txt" "$EVID/C/tuples-linux.txt" > "$EVID/C/gate-equality.txt"` (rc REQUIRED 0; `[ -s ]`): for each of the ten cells one line `binary target literal_C observed_P observed_C equal=yes|no`; ANY `no` = FINDING, STOP UP (no re-transcription, no amend — the plan returns to the pair Planner); the `biv_tests` skipped-name set at C == B's macOS `expected_skips` names, and the Linux skip count == B's Linux `skips` cell.
+- [ ] **Step 1:** repeat Task 2 Steps 1–2 with the run head `C` (`$(cat "$EVID/C.txt")`; `git cat-file -e "${C}^{commit}"` proved) → `$EVID/C/…` (ten tuples via the two status-captured `tuples.py` invocations exactly as Task 2, XML sha256, run identities, R-OBS discriminator arms re-run (R-OBS-3 at the resumed head) + token scan, in-container name-free proof, and the two per-SECTION green proofs `p=0; python3 "$EVID/witness.py" "$EVID/C/biv_tests-macos.xml" green > "$EVID/C/witness-green-macos.verdict" || p=$?; [ "$p" -eq 0 ] && [ -s "$EVID/C/witness-green-macos.verdict" ] || STOP` and the same for `$EVID/C/biv_tests-linux.xml` → `$EVID/C/witness-green-linux.verdict`) PLUS the workflow-equivalent full macOS suite under the environment at C (acceptance criterion 4's second half): `r=0; "${OBS_ENV[@]}" ctest --preset ci-macos -E '^safety-hardening$' --output-on-failure > "$EVID/C/ctest-macos-C.log" 2>&1 || r=$?; printf 'ctest_macos_C_rc=%s\n' "$r" > "$EVID/C/ctest-macos-C.rc"; [ "$r" -eq 0 ] || STOP`; the Linux leg's `ctest --preset ci` stage rc 0 in the ledger.
+- [ ] **Step 2: the gate's own semantics, locally (CG-R7.7: C's observations == P's observations == C's literals)** — `q=0; python3 "$EVID/gate.py" "$EVID/C-cells.txt" "$EVID/P/tuples-macos.txt" "$EVID/P/tuples-linux.txt" "$EVID/C/tuples-macos.txt" "$EVID/C/tuples-linux.txt" > "$EVID/C/gate-equality.txt" || q=$?; printf 'gate_rc=%s\n' "$q" > "$EVID/C/gate.rc"; [ "$q" -eq 0 ] && [ -s "$EVID/C/gate-equality.txt" ] || STOP` (the STATUS is the gate — an `equal=no` run prints ten lines and exits 5: VALIDATED 2026-09-06, the altered-C mutant → q=5, output non-empty, STOP reached): for each of the ten cells one line `binary target literal_C observed_P observed_C equal=yes|no`; ANY `no` = FINDING, STOP UP (no re-transcription, no amend — the plan returns to the pair Planner); the `biv_tests` skipped-name set at C == B's macOS `expected_skips` names, and the Linux skip count == B's Linux `skips` cell.
 
-```python
-#!/usr/bin/env python3
-# usage: gate.py <C-cells.txt> <P-macos> <P-linux> <C-macos> <C-linux>  — exit 0 iff every cell agrees across literal(C), observed(P), observed(C)
-import sys
-def read(path):
-    rows = {}
-    for line in open(path, encoding="utf-8"):
-        parts = line.split()
-        if len(parts) >= 6 and parts[0].startswith("biv_") and parts[2].startswith("successes="):
-            rows[(parts[0], parts[1])] = tuple(p.split("=", 1)[1] for p in parts[2:6])
-    return rows
-literals = read(sys.argv[1])
-observed_p = {**read(sys.argv[2]), **read(sys.argv[3])}
-observed_c = {**read(sys.argv[4]), **read(sys.argv[5])}
-if len(literals) != 10 or set(literals) != set(observed_p) or set(literals) != set(observed_c):
-    sys.exit(2)
-bad = 0
-for key in sorted(literals):
-    ok = literals[key] == observed_p[key] == observed_c[key]
-    bad += 0 if ok else 1
-    print(f"{key[0]} {key[1]} literal_C={literals[key]} observed_P={observed_p[key]} observed_C={observed_c[key]} equal={'yes' if ok else 'no'}")
-sys.exit(0 if bad == 0 else 5)
-```
-
-Write this block to `$EVID/gate.py` VERBATIM (the pair Planner RAN it 2026-09-06 on synthetic inputs: all ten agreeing → 0 with ten `equal=yes` lines; one C tuple altered → 5 with one `equal=no`; a missing cell → 2).
 - [ ] **Step 3: no-mutation proof** as Task 2 Step 4 (files `status-post-C-obs.txt`, `status-main-post-C.*`).
 
 ### Task 5 — fence proofs at C, census of record at the branch head, IMPL return (no push yet)
@@ -500,7 +521,7 @@ Write this block to `$EVID/gate.py` VERBATIM (the pair Planner RAN it 2026-09-06
 
 ### Task 6 — the vehicle (after the pair Planner's verification + m-2's fenced review + m-3's hunk review return through master with no red): push the branch, open the PR
 
-- [ ] **Step 1: pre-push gate (the first-push discipline, retargeted to ONE remote BRANCH ref)** — `C=$(cat "$EVID/C.txt")`; `[ "$(git rev-parse HEAD)" = "$C" ] || STOP`; `u=0; git remote get-url --push --all origin > "$EVID/push-url.txt" || u=$?; [ "$u" -eq 0 ] && [ "$(wc -l < "$EVID/push-url.txt" | tr -d ' ')" -eq 1 ] || STOP`; `l=0; git ls-remote --heads origin intg/r450-discover-parity > "$EVID/remote-branch-before.txt" || l=$?; [ "$l" -eq 0 ] && [ ! -s "$EVID/remote-branch-before.txt" ] || STOP` (the ref must not pre-exist; non-empty = STOP UP); `v=0; gh repo view --json visibility -q .visibility > "$EVID/visibility.txt" || v=$?; [ "$v" -eq 0 ] && [ "$(cat "$EVID/visibility.txt")" = PRIVATE ] || STOP`; `[ ! -x "$(git rev-parse --git-path hooks/pre-push)" ] || STOP`; the census (Task 5 Step 2) re-asserted at C (the same files, both deltas empty); shell recorded (`printf '%s %s\n' "$0" "${ZSH_VERSION:-${BASH_VERSION:-unknown}}" > "$EVID/shell.txt"`).
+- [ ] **Step 1: pre-push gate (the first-push discipline, retargeted to ONE remote BRANCH ref)** — `C=$(cat "$EVID/C.txt")`; `[ "$(git rev-parse HEAD)" = "$C" ] || STOP`; `u=0; git remote get-url --push --all origin > "$EVID/push-url.txt" || u=$?; [ "$u" -eq 0 ] && [ -s "$EVID/push-url.txt" ] || STOP; a=0; n=$(awk 'END { print NR }' "$EVID/push-url.txt") || a=$?; [ "$a" -eq 0 ] && [ "$n" -eq 1 ] || STOP`; `l=0; git ls-remote --heads origin intg/r450-discover-parity > "$EVID/remote-branch-before.txt" || l=$?; [ "$l" -eq 0 ] && [ ! -s "$EVID/remote-branch-before.txt" ] || STOP` (the ref must not pre-exist; non-empty = STOP UP); `v=0; gh repo view --json visibility -q .visibility > "$EVID/visibility.txt" || v=$?; [ "$v" -eq 0 ] && [ "$(cat "$EVID/visibility.txt")" = PRIVATE ] || STOP`; `[ ! -x "$(git rev-parse --git-path hooks/pre-push)" ] || STOP`; the census (Task 5 Step 2) re-asserted at C (the same files, both deltas empty); shell recorded (`printf '%s %s\n' "$0" "${ZSH_VERSION:-${BASH_VERSION:-unknown}}" > "$EVID/shell.txt"`).
 - [ ] **Step 2: dry-run, then the push — LITERAL names, no refspec variable** — `y=0; git push --dry-run --no-tags origin intg/r450-discover-parity > "$EVID/push-dry.txt" 2>&1 || y=$?; [ "$y" -eq 0 ] || STOP`; the output must name `[new branch]      intg/r450-discover-parity -> intg/r450-discover-parity` (`g=0; k=$(grep -c -F 'intg/r450-discover-parity -> intg/r450-discover-parity' "$EVID/push-dry.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP`); then THE VERY NEXT COMMAND: `p=0; git push --no-tags origin intg/r450-discover-parity > "$EVID/push-stdout.txt" 2> "$EVID/push-stderr.txt" || p=$?; printf 'push_rc=%s\n' "$p" > "$EVID/push-rc.txt"`; outcome probe ALWAYS: `o=0; git ls-remote --heads origin intg/r450-discover-parity > "$EVID/remote-branch-after.txt" || o=$?; remote_after=$(cut -f1 "$EVID/remote-branch-after.txt")`; `if [ "$o" -ne 0 ]; then class=d; elif [ "$p" -eq 0 ] && [ "$remote_after" = "$C" ]; then class=a; elif [ "$p" -eq 0 ]; then class=e; elif [ "$remote_after" = "$C" ]; then class=c; elif [ -z "$remote_after" ]; then class=b; else class=e; fi; printf 'class=%s\n' "$class" > "$EVID/push-class.txt"`; ONE attempt per token, nothing retried in-lane; class ≠ a = STOP UP with the files.
 - [ ] **Step 3: the PR** — `gh pr create --base main --head intg/r450-discover-parity --title "adapters(claude): discover returns every store found (env + default), codex parity; count-gate cells transcribed" --body-file "$EVID/pr-body.md" > "$EVID/pr.txt" 2>&1` (rc captured; REQUIRED 0; `[ -s "$EVID/pr.txt" ]`) where `pr-body.md` names: the design pin, the plan pin, B/P/C, the three-path numstat, the ten C tuples, the two owner-review relays, and the sentence "This PR is the vehicle under R-4.51 clause (2); the evidence of record is the local suites, the Docker parity leg, the owner byte reviews, and the operator's condition-4 token — a red remote CI is cited nowhere. Merge is local under the operator's token; the landing push of main follows the merge under the R-4.52 landing rule as the merge packet's own step." No label, no reviewer request, no auto-merge, no `gh pr ready`/draft toggling, no comment. (The route authorizes the PR as the vehicle; if `gh pr create` asks anything interactive → abort, STOP UP.)
 - [ ] **Step 4: SITREP UP** with the push class, the PR URL, and the receipt files. This plan ENDS here. The MERGE-GATE packet (`results/intg-r450-discover-parity-merge-gate.md`, four conditions) follows from the pair Planner; the local merge (`git merge --no-ff` of C into lane-local `main`, §8-style receipt) happens ONLY under the operator's condition-4 token; the LANDING PUSH of `main` (R-4.52 rule: ONE fast-forward push, pinned sha, census at `main`'s head both arms against written expectations, dry-run, one attempt, class, receipt) is the merge packet's own step in the first-push shape — not this token's.
@@ -510,7 +531,7 @@ Write this block to `$EVID/gate.py` VERBATIM (the pair Planner RAN it 2026-09-06
 ## Acceptance criteria (each measured, none inferred)
 
 1. At C: `touched.paths.sorted` == the three expected paths; the workflow row `2 2` with the four changed lines all `"successes": <int>,`; `claude_code.cpp` hunks within :570-596 (`hunks.py` rc 0); codex.cpp sha unchanged; no harness/CMake/fixture/docs byte on the branch.
-2. RED proven fail-closed at the base (build rc 0; test rc ≠ 0 under `-w UnmatchedTestSpec`; `witness.py red` rc 0: ROW 1 + ROW 5 red, ROWS 2–4 green; XML retained) and GREEN proven at P and C (`witness.py green` rc 0) on both targets; the existing discover case unchanged and green.
+2. RED proven fail-closed at the base (build rc 0; test rc ≠ 0 under `-w UnmatchedTestSpec`; `witness.py red` rc 0: ROW 1 + ROW 5 red, ROWS 2–4 green; XML retained — Task 1 Step 3) and GREEN proven by `witness.py green` rc 0 with a non-empty verdict file at FIVE producing steps: the targeted macOS run at P (Task 1 Step 5), the full-suite `biv_tests` XML at P/macOS and P/Linux (Task 2 Steps 1–2), and at C/macOS and C/Linux (Task 4 Step 1); the existing discover case unchanged and green.
 3. B/P/C bound in order with recorded identities (B before implementation; P before its observation; C before its observation); ten P tuples and ten C tuples observed under CG-R2 + R-OBS; ENTRY fired (P's `biv_tests` successes ≠ B's on both targets; every other cell equal; skips equal; the macOS skip set equal to B's names; the Linux skip count equal to B's cell); `gate.py` rc 0 (every cell: literal(C) == observed(P) == observed(C)); the P→C tree delta = the two literals; no arithmetic in any evidence.
 4. The workflow-equivalent macOS ctest (`-E '^safety-hardening$'`) rc 0 under `"${OBS_ENV[@]}"` at P AND at C; the Linux parity leg reaches ctest with rc 0 at P and at C; the R-OBS discriminator predicate PASS/PASS at Task 0 and Task 4.
 5. Census of record at C both arms == the written expectations (both deltas empty).
@@ -528,8 +549,10 @@ Dedupe/provenance semantics (S-CP-5 HELD); any collect byte; any codex byte; any
 - The literals are written by the script from the XML; a hand-typed literal, or a literal equal to "old + 1" without an XML, is V-CG-2 red.
 - B, P and C are bound at their steps and never rewritten (anti-retrospection); P and C both observed; equality proven by `gate.py`; P reachable by object id (no tag).
 - No evidence-producing pipeline anywhere: every producer's status recorded, every input proven non-empty (or proven empty where empty is the claim).
+- Every helper is written at Task 0 Step 0b and compiled before use; every helper INVOCATION captures its status — a helper's printed output is never the gate, its exit is.
 
 ## Revision history
 
 - **rev1** `3931edab6a4b6f39c1d7fc60d4c29bbd8954f7ddc261a6dee9b76081a19f9bee` — FILED 2026-09-06 (`intg-r450-discover-parity-plan-1`, `010428`); MUST-REVISE by the implementer `065859` (F1 RED fail-open via `|| true`; F2 ambient macOS suite before the R-OBS correction; F3 ungranted local tag; F4 producer-masking pipelines). DEAD.
-- **rev2** — this artifact (`intg-r450-discover-parity-plan-2`): all four findings folded across the whole document; CG-R7 rev5 (B/P/C, observed trigger) and the R-4.52 landing rule folded; every new command executed from the WRITTEN bytes before filing (see the VALIDATED notes beside each).
+- **rev2** `9b889d045f46054c59fbe4502ede80e5d450fd4c83aee76fa8d2de7c65bd006f` — FILED 2026-09-06 (`intg-r450-discover-parity-plan-2`, `154309`); MUST-REVISE by the implementer `161925` (F1 five helpers invoked before creation; F2 `cells.py`/`gate.py` statuses uncaptured and two wc-to-tr line-count pipelines; F3 acceptance 2 promised green parses no step produced). DEAD.
+- **rev3** — this artifact (`intg-r450-discover-parity-plan-3`): the three `161925` findings folded across the whole document (helpers materialized at Task 0 Step 0b; every helper status-captured; awk single-stage counts; five scheduled `witness.py green` proofs); helper bytes unchanged; every changed span executed from the WRITTEN bytes before filing.
