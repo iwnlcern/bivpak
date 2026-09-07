@@ -1,0 +1,14 @@
+EVID=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-ZOaCK9
+helpers-compiled
+scratch-ready
+task1-iv-ok harness-selftest
+done: Step 0: preconditions, the WALK 
+done: Step 1: the three edits
+done: Step 2: L1 fidelity at the H stu
+done: Step 3: fence proofs on the work
+done: Step 4: the targeted selftest at
+done: step5 H=f21ea3f2e1dc035bf97abf3b2714739594f28622
+done: step6
+done: task6 step3 10 lines
+done: task6 step4 greps
+REHEARSAL-COMPLETE shell=/tmp/r450-rehearse.sh EVID=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-ZOaCK9 S=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-rehearse-MnrO6b
