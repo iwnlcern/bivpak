@@ -569,27 +569,26 @@ class ClaudeCodeAdapter final : public AgentAdapter {
 
   expected<std::vector<Store>> discover(const Env& env) const override {
     std::vector<Store> stores;
+    auto append_store = [&](const fs::path& root, DiscoveryTier tier) {
+      stores.push_back(Store{.root = root,
+                             .locators = {StoreLocator{.kind = "sessions_root", .path = root / "projects"}},
+                             .tier = tier,
+                             .archived = false});
+    };
     std::error_code ec;
+    std::optional<fs::path> env_root;
     if (env.getenv) {
       auto configured = env.getenv("CLAUDE_CONFIG_DIR");
       if (configured.has_value() && fs::exists(*configured, ec)) {
-        const fs::path root{*configured};
-        stores.push_back(Store{.root = root,
-                               .locators = {StoreLocator{.kind = "sessions_root", .path = root / "projects"}},
-                               .tier = DiscoveryTier::env,
-                               .archived = false});
-        return stores;
+        env_root = fs::path{*configured};
+        append_store(*env_root, DiscoveryTier::env);
       }
     }
 
     const auto root = env.home / ".claude";
-    if (fs::exists(root, ec)) {
-      stores.push_back(
-          Store{.root = root,
-                .locators = {StoreLocator{.kind = "sessions_root",
-                                          .path = root / "projects"}},
-                .tier = DiscoveryTier::defaults,
-                .archived = false});
+    if (fs::exists(root, ec) &&
+        (!env_root.has_value() || root.lexically_normal() != env_root->lexically_normal())) {
+      append_store(root, DiscoveryTier::defaults);
     }
     return stores;
   }
