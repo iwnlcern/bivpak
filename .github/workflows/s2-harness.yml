@@ -82,7 +82,7 @@ jobs:
                   "skips": 0,
               },
               "biv_tests": {
-                  "successes": 418,
+                  "successes": 419,
                   "failures": 0,
                   "expectedFailures": 0,
                   "skips": 3,
@@ -323,7 +323,7 @@ jobs:
                   "skips": 0,
               },
               "biv_tests": {
-                  "successes": 420,
+                  "successes": 421,
                   "failures": 0,
                   "expectedFailures": 0,
                   "skips": 1,
