@@ -1,0 +1,168 @@
+R-4.35 executed discriminator at BASE B=bbf297e36a38a1fab8c2675f945098a0633f9f8b — 2026-09-09 16:00:43–16:02:37, pair-planner seat
+instrument: docker run --rm --init --platform linux/amd64 ubuntu:24.04; non-root runuser 'suite'; nofile soft raised to hard; python3 -m venv + pip -r harness/requirements.lock; cmake --preset ci; ctest --preset ci -R '^harness-selftest$' --output-on-failure; scratch clone at B outside the repository (read-only mount)
+note: no clang-tidy assets (configure without BIVHARNESS_REQUIRE_CLANG_TIDY); the harness-selftest row does not build biv
+
+=== disc.sh (sha256 ccb633d19dea5f90ad3bef514dedc6352aec4047bd038c11fb7af560bf44872a)
+#!/usr/bin/env bash
+set -u
+OUT=/work/out; L="$OUT/ledger.txt"; : > "$L"
+r=0; apt-get update > "$OUT/apt.log" 2>&1 && apt-get install -y --no-install-recommends ca-certificates git g++ make cmake python3 python3-venv python3-pip libsqlite3-dev binutils zstd openssh-client >> "$OUT/apt.log" 2>&1 || r=$?; echo "apt_rc=$r" >> "$L"; [ "$r" -eq 0 ] || exit 1
+groupadd -g 1001 suite && useradd -m -u 1001 -g 1001 suite || { echo "user_rc=1" >> "$L"; exit 1; }
+git config --global --add safe.directory /repo-ro; r=0; git clone -q --no-hardlinks /repo-ro /work/repo || r=$?; echo "clone_rc=$r head=$(git -C /work/repo rev-parse HEAD)" >> "$L"; [ "$r" -eq 0 ] || exit 1
+chown -R 1001:1001 /work/repo "$OUT"; mkdir -p /mnt/c/tmp && chown -R 1001:1001 /mnt/c
+runuser -u suite -- bash -c '
+set -u; OUT=/work/out; L="$OUT/ledger.txt"; cd /work/repo || exit 1
+HARD=$(ulimit -Hn); ulimit -Sn "$HARD"; echo "nofile soft=$(ulimit -Sn) hard=$HARD" >> "$L"
+r=0; python3 -m venv .venv-harness > "$OUT/venv.log" 2>&1 || r=$?; echo "venv_rc=$r" >> "$L"
+r=0; .venv-harness/bin/python -m pip install -r harness/requirements.lock > "$OUT/pip.log" 2>&1 || r=$?; echo "pip_rc=$r" >> "$L"
+r=0; cmake --preset ci > "$OUT/configure.log" 2>&1 || r=$?; echo "configure_rc=$r" >> "$L"
+r=0; ctest --preset ci -R "^harness-selftest$" --output-on-failure > "$OUT/ctest-harness-selftest-B.log" 2>&1 || r=$?; echo "ctest_harness_selftest_rc=$r" >> "$L"
+grep -E "^FAILED |[0-9]+ passed" "$OUT/ctest-harness-selftest-B.log" >> "$L"
+'
+echo "done" >> "$L"
+
+=== ledger.txt
+apt_rc=0
+clone_rc=0 head=bbf297e36a38a1fab8c2675f945098a0633f9f8b
+nofile soft=1048576 hard=1048576
+venv_rc=0
+pip_rc=0
+configure_rc=0
+ctest_harness_selftest_rc=8
+FAILED selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite
+FAILED selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop
+================== 2 failed, 1008 passed, 3 skipped in 29.96s ==================
+done
+container_rc=0
+
+=== ctest-harness-selftest-B.log (sha256 8dbcf887a1c9dc6da32832adad4c28868de8a432f64c9aa37c9f8095b3cd9f67)
+Test project /work/repo/build/ci
+    Start 13: harness-selftest
+1/1 Test #13: harness-selftest .................***Failed   30.24 sec
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0
+rootdir: /work/repo/harness
+collected 1013 items
+
+selftest/test_artifact.py ....                                           [  0%]
+selftest/test_cli.py .......                                             [  1%]
+selftest/test_cmake.py ......                                            [  1%]
+selftest/test_compare.py ...............................                 [  4%]
+selftest/test_e3_asserts.py ..........................F................. [  9%]
+.....................................F.................................. [ 16%]
+........................................................................ [ 23%]
+........................................................................ [ 30%]
+........................................................................ [ 37%]
+........................................................................ [ 44%]
+........................................................................ [ 51%]
+........................................................................ [ 58%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 80%]
+.................................................................ss...s. [ 87%]
+...................                                                      [ 89%]
+selftest/test_envelope.py ......                                         [ 89%]
+selftest/test_fixtures.py ............                                   [ 90%]
+selftest/test_host2_credentials.py ................................      [ 94%]
+selftest/test_manifest.py ..........                                     [ 95%]
+selftest/test_precheck.py ....                                           [ 95%]
+selftest/test_probe_isolation.py .....                                   [ 95%]
+selftest/test_report.py ......                                           [ 96%]
+selftest/test_run_clang_tidy.py ....                                     [ 96%]
+selftest/test_scenario.py ...............                                [ 98%]
+selftest/test_scenario_env.py ..                                         [ 98%]
+selftest/test_specs.py ...                                               [ 98%]
+selftest/test_store_isolation.py ...........                             [100%]
+
+=================================== FAILURES ===================================
+_______ test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd69ca40>
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_file_reader_rejects_same_0')
+
+    def test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite(
+        monkeypatch, tmp_path
+    ):
+        padding = "x" * (host2_credentials._READ_CHUNK * 2)
+        raw = json.dumps(
+            {"tokens": {"access_token": "fixture"}, "padding": padding},
+            separators=(",", ":"),
+        ).encode()
+        src = tmp_path / "auth.json"
+        dest = tmp_path / "dest" / "auth.json"
+        src.write_bytes(raw)
+        mutation_offset = host2_credentials._READ_CHUNK + 100
+        assert raw[mutation_offset : mutation_offset + 1] == b"x"
+        real_read = host2_credentials.os.read
+        mutated = []
+    
+        def mutate_after_first_chunk(fd, size):
+            piece = real_read(fd, size)
+            if piece and not mutated:
+                rewrite_fd = os.open(src, os.O_WRONLY)
+                try:
+                    os.pwrite(rewrite_fd, b"y", mutation_offset)
+                finally:
+                    os.close(rewrite_fd)
+                mutated.append(True)
+            return piece
+    
+        monkeypatch.setattr(host2_credentials.os, "read", mutate_after_first_chunk)
+    
+        result = host2_credentials.materialize_file_credential(
+            src,
+            dest,
+            max_bytes=len(raw) + 1,
+            shape_ok=host2_credentials.codex_shape_ok,
+        )
+    
+        assert mutated == [True]
+>       assert result.status is host2_credentials.CredentialStatus.SOURCE_UNREADABLE
+E       AssertionError: assert <CredentialStatus.OK: 'ok'> is <CredentialStatus.SOURCE_UNREADABLE: 'source-unreadable'>
+E        +  where <CredentialStatus.OK: 'ok'> = CredentialResult(status=<CredentialStatus.OK: 'ok'>, dest=PosixPath('/tmp/pytest-of-suite/pytest-0/test_file_reader_re...rceIdentity(dev=64, ino=242434, size=32818, digest='53f6b8d14c3f876e2ac3f9e643c4b22d7c3716ccb5ddde8704894471b9c23db6')).status
+E        +  and   <CredentialStatus.SOURCE_UNREADABLE: 'source-unreadable'> = <enum 'CredentialStatus'>.SOURCE_UNREADABLE
+E        +    where <enum 'CredentialStatus'> = host2_credentials.CredentialStatus
+
+selftest/test_e3_asserts.py:613: AssertionError
+______ test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6ab620>
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_c1_zero_session_control_r0')
+
+    def test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop(
+        monkeypatch, tmp_path
+    ):
+        profile_root = tmp_path / "profiles"
+        sessions = profile_root / "codex" / "sessions"
+        sessions.mkdir(parents=True)
+        (profile_root / "claude-code").mkdir(parents=True)
+        mutation = _insert_session_when_scandir_stops(monkeypatch, sessions)
+    
+        failures = e3._c1_zero_session_failures(
+            profile_root,
+            _valid_two_agent_spec(),
+        )
+    
+        assert mutation["inserted"]
+>       assert any("changed during enumeration" in failure for failure in failures)
+E       assert False
+E        +  where False = any(<generator object test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop.<locals>.<genexpr> at 0x7ffffd86a190>)
+
+selftest/test_e3_asserts.py:1727: AssertionError
+=========================== short test summary info ============================
+FAILED selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite
+FAILED selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop
+================== 2 failed, 1008 passed, 3 skipped in 29.96s ==================
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+harness     =  30.24 sec*proc (1 test)
+selftest    =  30.24 sec*proc (1 test)
+
+Total Test time (real) =  30.27 sec
+
+The following tests FAILED:
+	 13 - harness-selftest (Failed)
+Errors while running CTest
