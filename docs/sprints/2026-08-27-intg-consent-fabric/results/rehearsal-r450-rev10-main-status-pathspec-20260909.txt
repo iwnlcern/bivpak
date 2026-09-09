@@ -1,0 +1,27 @@
+rev10 written-span validation 2026-09-09 (artifact 1a07c5648201bd0e1fb013fa22b684b7c511a0311ee5313dd05a697e3980c802)
+spans extracted from the artifact bytes:
+SPAN_A='s0=0; git -C /Users/jack/Programming/bivpak status --porcelain -- . '\'':(exclude).relays'\'' '\'':(exclude)docs/sprints'\'' > "$EVID/status-initial.txt" || s0=$?; [ "$s0" -eq 0 ] || STOP'
+SPAN_B='s=0; git -C /Users/jack/Programming/bivpak status --porcelain -- . '\'':(exclude).relays'\'' '\'':(exclude)docs/sprints'\'' > "$EVID/status-main-post-P.txt" || s=$?; [ "$s" -eq 0 ] || STOP; d=0; diff "$EVID/status-initial.txt" "$EVID/status-main-post-P.txt" > "$EVID/status-main-post-P.delta" || d=$?; [ "$d" -eq 0 ] || STOP'
+
+== bash real checkout (span A then B)
+A ok lines=1
+?? relay-draft-intg-task4-stop.md
+B PASS delta-bytes=0
+== bash scratch clone, mutations
+clean -> PASS ()
+roadmap-modified -> PASS ()
+relay-untracked -> PASS ()
+sibling-sprint-doc-untracked -> PASS ()
+STOP product-modified -> FAIL (0a1|>  M src/adapters/claude_code/claude_code.cpp|)
+STOP product-untracked -> FAIL (0a1,2|>  M src/adapters/claude_code/claude_code.cpp|> ?? harness/newfile.py|)
+== zsh real checkout (span A then B)
+A ok lines=1
+?? relay-draft-intg-task4-stop.md
+B PASS delta-bytes=0
+== zsh scratch clone, mutations
+clean -> PASS ()
+roadmap-modified -> PASS ()
+relay-untracked -> PASS ()
+sibling-sprint-doc-untracked -> PASS ()
+STOP product-modified -> FAIL (0a1|>  M src/adapters/claude_code/claude_code.cpp|)
+STOP product-untracked -> FAIL (0a1,2|>  M src/adapters/claude_code/claude_code.cpp|> ?? harness/newfile.py|)
