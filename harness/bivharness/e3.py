@@ -72,7 +72,7 @@ VERSION_FLOOR_MIRROR = {
 _ADAPTER_SOURCE_ANCHORS = {
     "claude_adapter_file": (
         "src/adapters/claude_code/claude_code.cpp",
-        "cd1f8bc8f7ab87cf15251d84ad7e59c618a22f3c19b9633ff193350782800851",
+        "4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51",
     ),
     "codex_adapter_file": (
         "src/adapters/codex/codex.cpp",
