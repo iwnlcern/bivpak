@@ -107,7 +107,7 @@ def test_poisoned_inherited_stores_are_replaced_by_scenario_stores(
     _assert_hermetic_discovery(entries, poison, work)
 
 
-def test_home_restore_exposes_only_the_reachable_codex_canary(
+def test_home_restore_exposes_both_home_default_canaries(
     monkeypatch, tmp_path, poison
 ):
     # NAMED MUTANT: HOME restored to the poison root ⇒ RED here (the HOME-default canaries surface).
@@ -117,7 +117,7 @@ def test_home_restore_exposes_only_the_reachable_codex_canary(
     assert scenario.POISON_SESSION_IDS["HOME:codex"] in "\n".join(
         path for _, _, path in entries
     )
-    assert scenario.POISON_SESSION_IDS["HOME:claude"] not in "\n".join(
+    assert scenario.POISON_SESSION_IDS["HOME:claude"] in "\n".join(
         path for _, _, path in entries
     )
 
