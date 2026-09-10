@@ -1,0 +1,11 @@
+binary target old_B_successes observed_P_successes delta new_C_successes
+biv_subprocess_tests macos 12 12 0 12
+biv_repo_git_tests macos 6 6 0 6
+biv_repo_engine_tests macos 60 60 0 60
+biv_tests macos 418 419 1 419
+biv_probe_tests macos 25 25 0 25
+biv_subprocess_tests linux 12 12 0 12
+biv_repo_git_tests linux 6 6 0 6
+biv_repo_engine_tests linux 60 60 0 60
+biv_tests linux 420 421 1 421
+biv_probe_tests linux 25 25 0 25

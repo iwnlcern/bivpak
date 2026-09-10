@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Catch2TestRun name="biv_repo_engine_tests" rng-seed="1946399884" xml-format-version="3" catch2-version="3.7.1">
+  <TestCase name="git invoke options value-initialize extension members" filename="/work/repo/tests/test_repo_engine.cpp" line="279">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="network endpoint carrier fails closed before resolution or spawn" filename="/work/repo/tests/test_repo_engine.cpp" line="287">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="URL comparator implements only the sealed equivalence set" filename="/work/repo/tests/test_repo_engine.cpp" line="317">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="network divergence refuses without a hook before network spawn" filename="/work/repo/tests/test_repo_engine.cpp" line="359">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="consent decision memo prompts and discloses once per triple" filename="/work/repo/tests/test_repo_engine.cpp" line="388">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git a eligibility refuses a repo-local rewrite" filename="/work/repo/tests/test_repo_engine.cpp" line="425">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git b restore ref proof refusal is entry-fatal" filename="/work/repo/tests/test_repo_engine.cpp" line="452">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git c unchanged endpoint stays silent" filename="/work/repo/tests/test_repo_engine.cpp" line="504">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git e sealed equivalent forms stay silent" filename="/work/repo/tests/test_repo_engine.cpp" line="519">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 veto-7 real-git multi-slash rewrite diverges" filename="/work/repo/tests/test_repo_engine.cpp" line="545">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git f scheme change alone diverges" filename="/work/repo/tests/test_repo_engine.cpp" line="565">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git g absent hook is fail-safe" filename="/work/repo/tests/test_repo_engine.cpp" line="582">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git h resolution uses the network call cwd" filename="/work/repo/tests/test_repo_engine.cpp" line="599">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git i root overlay proof fetch refuses" filename="/work/repo/tests/test_repo_engine.cpp" line="621">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git j overlay clone is gated and full clone is not" filename="/work/repo/tests/test_repo_engine.cpp" line="655">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git k endpoint carrier refuses zero and many" filename="/work/repo/tests/test_repo_engine.cpp" line="718">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git l absolute scp rewrite stays silent" filename="/work/repo/tests/test_repo_engine.cpp" line="744">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git m relative scp rewrite diverges" filename="/work/repo/tests/test_repo_engine.cpp" line="757">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git n implicit and explicit SSH ports diverge" filename="/work/repo/tests/test_repo_engine.cpp" line="772">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-URL-1 real git o HTTP default port stays silent" filename="/work/repo/tests/test_repo_engine.cpp" line="802">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="repo discovery preserves prune ordering and records nested boundaries" filename="/work/repo/tests/test_repo_engine.cpp" line="815">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification orders zero-ref and any-ref unborn before dirt" filename="/work/repo/tests/test_repo_engine.cpp" line="842">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification fences discovery shape, dirt, and unmerged paths" filename="/work/repo/tests/test_repo_engine.cpp" line="874">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification neutralizes repo-local clean filter commands" filename="/work/repo/tests/test_repo_engine.cpp" line="894">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification neutralizes clean filters from local includes" filename="/work/repo/tests/test_repo_engine.cpp" line="935">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification neutralizes clean filters from worktree config" filename="/work/repo/tests/test_repo_engine.cpp" line="971">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification treats disabled worktree config as empty in linked worktrees" filename="/work/repo/tests/test_repo_engine.cpp" line="1008">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification detects gitlinks from the parent index" filename="/work/repo/tests/test_repo_engine.cpp" line="1025">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification reports each unmerged path before the dirt gate" filename="/work/repo/tests/test_repo_engine.cpp" line="1046">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification records head, branch, refs, remotes, and promisor policy" filename="/work/repo/tests/test_repo_engine.cpp" line="1070">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification records shallow promisor source without a bundle" filename="/work/repo/tests/test_repo_engine.cpp" line="1093">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification records a zero-ref shallow unborn source as payload-only" filename="/work/repo/tests/test_repo_engine.cpp" line="1122">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification suppresses refs for a shallow unborn source" filename="/work/repo/tests/test_repo_engine.cpp" line="1149">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification lets shallowness dominate dirt for a born source" filename="/work/repo/tests/test_repo_engine.cpp" line="1175">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classification lets shallowness dominate dirt for an unborn source" filename="/work/repo/tests/test_repo_engine.cpp" line="1200">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="eligibility proves HEAD from one advertisement snapshot" filename="/work/repo/tests/test_repo_engine.cpp" line="1225">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="eligibility forces full capture for an unpushed HEAD" filename="/work/repo/tests/test_repo_engine.cpp" line="1251">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="eligibility distinguishes absent and unreachable remotes" filename="/work/repo/tests/test_repo_engine.cpp" line="1273">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="eligibility leaves an advertised unknown tip unmodified and honest" filename="/work/repo/tests/test_repo_engine.cpp" line="1299">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="promisor policy is carried and traced across every later git call" filename="/work/repo/tests/test_repo_engine.cpp" line="1333">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="git exec distinguishes a call budget expiry from git failure" filename="/work/repo/tests/test_repo_engine.cpp" line="1380">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="eligibility selects the remote whose advertisement proves HEAD" filename="/work/repo/tests/test_repo_engine.cpp" line="1408">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="eligibility bounds an oversized advertisement explicitly" filename="/work/repo/tests/test_repo_engine.cpp" line="1436">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="capture writes and verifies a full bundle plus a hostile-ref note" filename="/work/repo/tests/test_repo_engine.cpp" line="1459">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="capture writes a thin local-ref bundle from advertisement bases" filename="/work/repo/tests/test_repo_engine.cpp" line="1492">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="capture discloses stash-only unborn refs without carrying the ref name" filename="/work/repo/tests/test_repo_engine.cpp" line="1539">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="capture oracle reports penumbra loss and contamination" filename="/work/repo/tests/test_repo_engine.cpp" line="1563">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="capture failures retain ref and promisor engine kinds" filename="/work/repo/tests/test_repo_engine.cpp" line="1594">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="capture maps bundle process failures to git invocation failure" filename="/work/repo/tests/test_repo_engine.cpp" line="1646">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="non-carried-ref writer obeys eligible bounds and sentinel semantics" filename="/work/repo/tests/test_repo_engine.cpp" line="1667">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore dispatch leaves zero-ref and shallow payload trees untouched" filename="/work/repo/tests/test_repo_engine.cpp" line="1711">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore imports unborn object closure without source refs" filename="/work/repo/tests/test_repo_engine.cpp" line="1755">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore full mode skips exact refs, updates missing refs, and corrects HEAD" filename="/work/repo/tests/test_repo_engine.cpp" line="1807">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore rejects manifest paths before any filesystem or git effect" filename="/work/repo/tests/test_repo_engine.cpp" line="1850">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore rejects invalid object and ref names before spawning git" filename="/work/repo/tests/test_repo_engine.cpp" line="1888">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore returns per-ref failures and repo verification divergence" filename="/work/repo/tests/test_repo_engine.cpp" line="1917">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore overlay is total with zero captured artifacts" filename="/work/repo/tests/test_repo_engine.cpp" line="1948">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore preserves a detached HEAD" filename="/work/repo/tests/test_repo_engine.cpp" line="1978">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore materializes a root repo beside the live stage directory" filename="/work/repo/tests/test_repo_engine.cpp" line="2008">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="restore failures retain the typed engine mapping seam" filename="/work/repo/tests/test_repo_engine.cpp" line="2039">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <OverallResults successes="452" failures="0" expectedFailures="0" skips="0"/>
+  <OverallResultsCases successes="60" failures="0" expectedFailures="0" skips="0"/>
+</Catch2TestRun>

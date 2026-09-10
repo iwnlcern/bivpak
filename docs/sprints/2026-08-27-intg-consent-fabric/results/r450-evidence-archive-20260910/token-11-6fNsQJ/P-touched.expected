@@ -1,0 +1,2 @@
+12	13	src/adapters/claude_code/claude_code.cpp
+183	0	tests/test_adapter_claude_collect.cpp

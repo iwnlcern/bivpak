@@ -1,0 +1,8 @@
+block_1_count=1 sha256=cfe41051b6cd1bc4ee1e4e884277cf3567a7ef93805516ea64d4d82480201147
+block_2_count=1 sha256=335bbbc1c4622e5a8ce6ba4b2ad6b020ff7f1bdaefb562041d6e0852bfa3aac4
+block_3_count=1 sha256=442078966115860ecbbe7b4559155d6a0140ddf86a1aaf5d346baddadc9abc7e
+include_count=1 literal=#include "adapters/codex/codex.hpp"
+include_count=1 literal=#include "core/pack/pack.hpp"
+include_count=1 literal=#include "core/support/error.hpp"
+test_sha256=90615eeb414c1cdcabeff124f95aafa6f729764860c9782f023f401a35d7a8e9
+source_sha256=4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51

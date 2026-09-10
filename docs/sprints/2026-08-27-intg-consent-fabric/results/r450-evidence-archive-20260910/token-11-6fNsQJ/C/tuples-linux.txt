@@ -1,0 +1,6 @@
+biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=a4acc77a2ac28662b33c1daa031bf7a2127586854e2efed52f001cf5dffc8b41
+biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=04e9778f3ff2b95566d8023b5f69ba7a774c00b3f07b9f0bad3a7291ea32adac
+biv_repo_engine_tests linux successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=e103d0f61db9818acfc0a2d2a1397469510edcb6508ec9c605ad39eaab23e93a
+biv_tests linux successes=421 failures=0 expectedFailures=0 skips=1 xml_sha256=7da70088baad52e6623d814902cc28d7c737b7feb09f45eace9e42280b9a5da9
+biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=2d44bdccf1ec818edee0944454e63374250684133e83342f6b8ffb9193e43dba
+expected_skips_observed linux n=1 threshold-parity per-agent distribution self-activates at R-4.29

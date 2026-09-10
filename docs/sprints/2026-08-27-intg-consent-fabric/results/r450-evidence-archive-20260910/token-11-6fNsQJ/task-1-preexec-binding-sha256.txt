@@ -1,0 +1,7 @@
+0060cfb6c089a06c6b1f73dbb29d21ae405c8c0aae2a1b446fa23338692e69e9  task-1-runner.sh
+ef23ca6f5794399be7153e39653a60b1616e34b15d4a9cc9e9669a28a9af0b13  task-1-proof.jsonl
+661733f049508ae1fc69fb4477a9d5dda857a27d28d11b429ee7924f26d21d0e  message-P.txt
+be1b1e13fb957954e229ae44ff0cb2aeaffc07e6df8c0610c6e6a64d8d8ef912  task-1-candidate-check.py
+cfe41051b6cd1bc4ee1e4e884277cf3567a7ef93805516ea64d4d82480201147  task-1-cpp-block-1.txt
+335bbbc1c4622e5a8ce6ba4b2ad6b020ff7f1bdaefb562041d6e0852bfa3aac4  task-1-cpp-block-2.txt
+442078966115860ecbbe7b4559155d6a0140ddf86a1aaf5d346baddadc9abc7e  task-1-cpp-block-3.txt

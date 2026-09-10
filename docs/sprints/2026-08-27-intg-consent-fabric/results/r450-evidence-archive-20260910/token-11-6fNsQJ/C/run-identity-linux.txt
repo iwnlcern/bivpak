@@ -1,0 +1,53 @@
+run_id=C-linux-961b1ccd0ba488f909357d4cac1abab8c77d2fa8
+platform=ubuntu:24.04 linux/amd64 --init
+C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8
+expected=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 observed=961b1ccd0ba488f909357d4cac1abab8c77d2fa8
+phase_R_base_provision_rc=0
+phase_R_asset_provision_rc=0
+phase_T_transition_fixture_rc=0
+phase_S_suite_rc=0
+nofile_hard_read_rc=0
+nofile_raise_rc=0
+nofile_soft_read_rc=0
+nofile_soft_equals_hard_rc=0
+nofile_receipt_write_rc=0
+venv_rc=0
+requirements_rc=0
+configure_rc=0
+build_rc=0
+observer_name_proof_create_rc=0
+observer_name_input_nonempty_rc=0
+observer_name_present_rc=0
+observer_name_proof_write_rc=0
+observer_name_proof_nonempty_rc=0
+biv_subprocess_tests_producer_rc=0
+biv_subprocess_tests_xml_nonempty_rc=0
+biv_repo_git_tests_producer_rc=0
+biv_repo_git_tests_xml_nonempty_rc=0
+biv_repo_engine_tests_producer_rc=0
+biv_repo_engine_tests_xml_nonempty_rc=0
+biv_tests_producer_rc=0
+biv_tests_xml_nonempty_rc=0
+biv_probe_tests_producer_rc=0
+biv_probe_tests_xml_nonempty_rc=0
+ctest_C_producer_rc=8
+ctest_C_log_nonempty_rc=0
+ctest_C_receipt_write_rc=0
+suite_aggregate_rc=0 ledger_write_failed=0
+soft=1048576 hard=1048576
+ANTHROPIC_API_KEY absent
+OPENAI_API_KEY absent
+CODEX_ACCESS_TOKEN absent
+baseline_linux_skips=1 observed_linux_skips=1
+biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=a4acc77a2ac28662b33c1daa031bf7a2127586854e2efed52f001cf5dffc8b41
+biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=04e9778f3ff2b95566d8023b5f69ba7a774c00b3f07b9f0bad3a7291ea32adac
+biv_repo_engine_tests linux successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=e103d0f61db9818acfc0a2d2a1397469510edcb6508ec9c605ad39eaab23e93a
+biv_tests linux successes=421 failures=0 expectedFailures=0 skips=1 xml_sha256=7da70088baad52e6623d814902cc28d7c737b7feb09f45eace9e42280b9a5da9
+biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=2d44bdccf1ec818edee0944454e63374250684133e83342f6b8ffb9193e43dba
+expected_skips_observed linux n=1 threshold-parity per-agent distribution self-activates at R-4.29
+2d44bdccf1ec818edee0944454e63374250684133e83342f6b8ffb9193e43dba  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/C/biv_probe_tests-linux.xml
+e103d0f61db9818acfc0a2d2a1397469510edcb6508ec9c605ad39eaab23e93a  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/C/biv_repo_engine_tests-linux.xml
+04e9778f3ff2b95566d8023b5f69ba7a774c00b3f07b9f0bad3a7291ea32adac  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/C/biv_repo_git_tests-linux.xml
+a4acc77a2ac28662b33c1daa031bf7a2127586854e2efed52f001cf5dffc8b41  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/C/biv_subprocess_tests-linux.xml
+7da70088baad52e6623d814902cc28d7c737b7feb09f45eace9e42280b9a5da9  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/C/biv_tests-linux.xml
+pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0

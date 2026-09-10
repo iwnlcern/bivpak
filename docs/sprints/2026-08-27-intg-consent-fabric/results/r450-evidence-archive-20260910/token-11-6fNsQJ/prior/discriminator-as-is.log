@@ -1,0 +1,17 @@
+Test project /Users/jack/Programming/bivpak-intg-r450-discover-parity/build/ci-macos
+    Start 13: harness-selftest
+1/1 Test #13: harness-selftest .................***Failed   20.96 sec
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+harness     =  20.96 sec*proc (1 test)
+selftest    =  20.96 sec*proc (1 test)
+
+Total Test time (real) =  20.96 sec
+
+The following tests FAILED:
+	 13 - harness-selftest (Failed)                         harness selftest
+Errors while running CTest
+Output from these tests are in: /Users/jack/Programming/bivpak-intg-r450-discover-parity/build/ci-macos/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.

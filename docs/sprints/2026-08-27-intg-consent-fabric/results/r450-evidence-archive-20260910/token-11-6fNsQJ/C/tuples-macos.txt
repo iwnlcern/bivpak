@@ -1,0 +1,6 @@
+biv_subprocess_tests macos successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=612e805717ce44cca7cd69d8851026450059426a221ad9d6cec3b74333a0c757
+biv_repo_git_tests macos successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=73da8540c1bb9ab091cce0a99e41850bb3b0688ce882f087f1ee726eb988e39e
+biv_repo_engine_tests macos successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=ded695a7528cfcf49d0cc402f9daafc0be73bc7488b3afc8319f29920ff00528
+biv_tests macos successes=419 failures=0 expectedFailures=0 skips=3 xml_sha256=638e165d3113f9d4197550a674c1e67f199a163213422c7fb90c8b0a92082051
+biv_probe_tests macos successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=da0d9f23541f9a295124da03e804c8b2f5aeb7f5356f32c7aeb6aa61fe6cc41d
+expected_skips_observed macos n=3 pack computes foreign-flavor session relpaths without host path parsing | pack derives relpath from slash-form Windows extended paths | threshold-parity per-agent distribution self-activates at R-4.29

@@ -1,0 +1,10 @@
+diff --git a/.github/workflows/s2-harness.yml b/.github/workflows/s2-harness.yml
+index 848d734..d364bf1 100644
+--- a/.github/workflows/s2-harness.yml
++++ b/.github/workflows/s2-harness.yml
+@@ -85 +85 @@ jobs:
+-                  "successes": 418,
++                  "successes": 419,
+@@ -326 +326 @@ jobs:
+-                  "successes": 420,
++                  "successes": 421,

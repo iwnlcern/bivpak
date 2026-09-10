@@ -1,0 +1,2 @@
+entry=PASS predictor=PASS added=1 removed=0
+observed_delta_macos=1 observed_delta_linux=1

@@ -1,0 +1,53 @@
+// Test-local environment scope for ROW 5's in-process pack call (mirrors tests/test_pack.cpp's ScopedEnv).
+class ScopedEnvVar {
+ public:
+  ScopedEnvVar(std::string name, std::optional<std::string> value) : name_{std::move(name)} {
+    if (const char* old = std::getenv(name_.c_str()); old != nullptr) {
+      old_value_ = std::string{old};
+    }
+    if (value.has_value()) {
+      setenv(name_.c_str(), value->c_str(), 1);
+    } else {
+      unsetenv(name_.c_str());
+    }
+  }
+  ~ScopedEnvVar() {
+    if (old_value_.has_value()) {
+      setenv(name_.c_str(), old_value_->c_str(), 1);
+    } else {
+      unsetenv(name_.c_str());
+    }
+  }
+  ScopedEnvVar(const ScopedEnvVar&) = delete;
+  ScopedEnvVar& operator=(const ScopedEnvVar&) = delete;
+  ScopedEnvVar(ScopedEnvVar&&) = delete;
+  ScopedEnvVar& operator=(ScopedEnvVar&&) = delete;
+
+ private:
+  std::string name_;
+  std::optional<std::string> old_value_;
+};
+
+biv::adapters::Env discovery_env(const fs::path& home,
+                                 std::optional<std::string> claude_value,
+                                 std::optional<std::string> codex_value) {
+  return biv::adapters::Env{
+      .getenv = [claude_value, codex_value](const std::string_view name) -> std::optional<std::string> {
+        if (name == "CLAUDE_CONFIG_DIR") {
+          return claude_value;
+        }
+        if (name == "CODEX_HOME") {
+          return codex_value;
+        }
+        return std::nullopt;
+      },
+      .home = home};
+}
+
+std::vector<biv::adapters::DiscoveryTier> tiers(const std::vector<biv::adapters::Store>& stores) {
+  std::vector<biv::adapters::DiscoveryTier> out;
+  for (const auto& store : stores) {
+    out.push_back(store.tier);
+  }
+  return out;
+}

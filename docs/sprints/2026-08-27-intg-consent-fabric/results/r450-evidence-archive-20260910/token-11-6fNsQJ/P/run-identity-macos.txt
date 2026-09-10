@@ -1,0 +1,29 @@
+run_id=P-macos-54954281b30cae113f399055fff106963a37a443
+platform=macos
+P=54954281b30cae113f399055fff106963a37a443
+ProductName:		macOS
+ProductVersion:		26.5.1
+BuildVersion:		25F80
+arm64
+P=54954281b30cae113f399055fff106963a37a443 ancestor_bbf297e_rc=0 ancestor_b065de1_rc=0
+observer_unset_names:
+ANTHROPIC_API_KEY
+OPENAI_API_KEY
+CODEX_ACCESS_TOKEN
+observer_host_presence_names_only:
+ANTHROPIC_API_KEY present
+OPENAI_API_KEY absent
+CODEX_ACCESS_TOKEN absent
+present_count=1
+biv_subprocess_tests macos successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=f10c7b1f659e2de174de24ba536f25b0927a15d6c37511c4533d0b90fc803d5c
+biv_repo_git_tests macos successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=d2ed668399ee917aab67c291494b02fb4727f18a9394795fd536bd547506d9eb
+biv_repo_engine_tests macos successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=1fe0a19852b1c2b755066a67a608dccfa49375d3979c3ed742274bcb9ef2df99
+biv_tests macos successes=419 failures=0 expectedFailures=0 skips=3 xml_sha256=0ee04afd612db3726af9871f79723bde9eb7b275e1a3be66f0dc7b133e644528
+biv_probe_tests macos successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=4ff63649c75743360a1f4cbd05babec4adb746b87dc4ba5179d817ade6d80c83
+expected_skips_observed macos n=3 pack computes foreign-flavor session relpaths without host path parsing | pack derives relpath from slash-form Windows extended paths | threshold-parity per-agent distribution self-activates at R-4.29
+4ff63649c75743360a1f4cbd05babec4adb746b87dc4ba5179d817ade6d80c83  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/P/biv_probe_tests-macos.xml
+1fe0a19852b1c2b755066a67a608dccfa49375d3979c3ed742274bcb9ef2df99  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/P/biv_repo_engine_tests-macos.xml
+d2ed668399ee917aab67c291494b02fb4727f18a9394795fd536bd547506d9eb  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/P/biv_repo_git_tests-macos.xml
+f10c7b1f659e2de174de24ba536f25b0927a15d6c37511c4533d0b90fc803d5c  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/P/biv_subprocess_tests-macos.xml
+0ee04afd612db3726af9871f79723bde9eb7b275e1a3be66f0dc7b133e644528  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/P/biv_tests-macos.xml
+pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0

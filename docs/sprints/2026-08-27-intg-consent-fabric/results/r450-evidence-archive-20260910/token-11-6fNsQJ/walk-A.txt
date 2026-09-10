@@ -1,0 +1,11 @@
+harness/bivharness/e3.py:73:    "claude_adapter_file": (
+harness/bivharness/e3.py:74:        "src/adapters/claude_code/claude_code.cpp",
+harness/selftest/test_e3_asserts.py:1891:            "src/adapters/claude_code/claude_code.cpp",
+harness/selftest/test_e3_asserts.py:1894:            "claude_adapter_file",
+harness/selftest/test_e3_asserts.py:1905:            "src/adapters/claude_code/claude_code.cpp",
+harness/selftest/test_e3_asserts.py:1908:            "claude_adapter_file",
+harness/selftest/test_e3_asserts.py:1926:            "src/adapters/claude_code/claude_code.cpp",
+harness/selftest/test_e3_asserts.py:1937:            "claude_adapter_file",
+harness/selftest/test_e3_asserts.py:2015:            "src/adapters/claude_code/claude_code.cpp",
+harness/selftest/test_e3_asserts.py:2017:            "claude_adapter_file",
+harness/selftest/test_e3_asserts.py:2184:    source = repo / "src/adapters/claude_code/claude_code.cpp"

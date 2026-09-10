@@ -1,0 +1,7 @@
+diff --git a/harness/bivharness/e3.py b/harness/bivharness/e3.py
+index 5701a0b..f90d0c8 100644
+--- a/harness/bivharness/e3.py
++++ b/harness/bivharness/e3.py
+@@ -75 +75 @@ _ADAPTER_SOURCE_ANCHORS = {
+-        "cd1f8bc8f7ab87cf15251d84ad7e59c618a22f3c19b9633ff193350782800851",
++        "4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51",
