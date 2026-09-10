@@ -1,0 +1,80 @@
+################ bash
+V1 proved on-path: RANn rc=0
+V1 off-path: STOP-task-7-invoked-off-path /tmp/r450-o rc=0
+V1 unproved: STOP-task-7-unproved rc=1
+V1 bytes differ: STOP-task-7-bytes-differ rc=1
+V2 iii body rc=0 head=8509157c rederive-C: MAC=419 k85=1 LIN=421 k326=1 rederive-H: harness/selftest/stub_biv.py diff_rc=0 harness/selftest/test_store_isolation.py diff_rc=0 harness/bivharness/e3.py diff_rc=0 rederive_mismatch=0  P.txt=54954281 C.txt=961b1ccd H.txt=8509157c hashes-deltas=0
+V3 cutpoint rc=0 unpublished_commits_in_lineage=2 expected=2 resume_state=iii
+bash: line 21: resume_state: unbound variable
+cat: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-vlWOhA/claude-P.hunks.verdict: No such file or directory
+bash: line 21: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-vlWOhA/codex-P.numstat: No such file or directory
+V4 t1s6 rc=1 verdict= codex=
+bash: line 22: resume_state: unbound variable
+bash: line 22: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-vlWOhA/status-post-P.txt: No such file or directory
+V4 t1s7 rc=1 P.txt=54954281 P.tree=f1eb8aec status-post-P=
+V5 t2 rc=0 tuples=6/6 skipset=skipset_P_macos_rc=0 predictor=added=1 removed=0
+V5 t3 rc=0 C-cells=12 proof=P=54954281b30cae113f399055fff106963a37a443 C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 p_to_c_numstat=2 2 .gith
+cwd-after=repo
+V7 t5s0 prefix rc=0
+V7 t5s1 rc=0
+V7 t5s3 rc=0 numstat-delta=0 inventory=markers=7 tests=11
+V7 t5s5 rc=0
+V8 token11-log: rc=0 rcL=8 k0_rc=0 failed=4 foreign= population=1013 c1_rc=0 bar=pass-r435-family
+sed: docs/sprints/2026-08-27-intg-consent-fabric/results/r450-r435-discriminator-at-B-20260909.txt: No such file or directory
+STOP(1) at bar
+V8 base-log: rc=1 rcL=8 k0_rc=1 failed=0 foreign= population=0 c1_rc=0 bar=fail
+STOP(1) at bar
+V8 synthetic-5: rc=1 rcL=8 k0_rc=0 failed=5 foreign=test_extra_fifth, population=1013 c1_rc=0 bar=fail
+STOP(1) at bar
+V8 synthetic-foreign: rc=1 rcL=8 k0_rc=0 failed=4 foreign=test_some_other_name, population=1013 c1_rc=0 bar=fail
+V8 rcL0: rc=0 rcL=0 k0_rc=0 failed=4 foreign= population=1013 c1_rc=0 bar=pass-green
+STOP-rederive-mismatch-reset-to-P
+V2b arm(b) mutated-helper rc=1 head-after=54954281 (P=54954281) rederive-H: harness/selftest/stub_biv.py diff_rc=0 harness/selftest/test_store_isolation.py diff_rc=0 harness/bivharness/e3.py diff_rc=1 rederive_mismatch=1  retained: C=961b1ccd0ba488f909357d4cac1abab8c77d2f H-still-present=yes
+real worktree after: HEAD=8509157c status=0
+################ zsh
+V1 proved on-path: RANn rc=0
+V1 off-path: STOP-task-7-invoked-off-path /tmp/r450-o rc=0
+V1 unproved: STOP-task-7-unproved rc=1
+V1 bytes differ: STOP-task-7-bytes-differ rc=1
+V2 iii body rc=0 head=8509157c rederive-C: MAC=419 k85=1 LIN=421 k326=1 rederive-H: harness/selftest/stub_biv.py diff_rc=0 harness/selftest/test_store_isolation.py diff_rc=0 harness/bivharness/e3.py diff_rc=0 rederive_mismatch=0  P.txt=54954281 C.txt=961b1ccd H.txt=8509157c hashes-deltas=0
+V3 cutpoint rc=0 unpublished_commits_in_lineage=2 expected=2 resume_state=iii
+zsh: resume_state: parameter not set
+cat: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-MLD9uo/claude-P.hunks.verdict: No such file or directory
+zsh: no such file or directory: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-MLD9uo/codex-P.numstat
+V4 t1s6 rc=1 verdict= codex=
+zsh: resume_state: parameter not set
+zsh: no such file or directory: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-MLD9uo/status-post-P.txt
+V4 t1s7 rc=1 P.txt=54954281 P.tree=f1eb8aec status-post-P=
+V5 t2 rc=0 tuples=6/6 skipset=skipset_P_macos_rc=0 predictor=added=1 removed=0
+V5 t3 rc=0 C-cells=12 proof=P=54954281b30cae113f399055fff106963a37a443 C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 p_to_c_numstat=2 2 .gith
+cwd-after=repo
+V7 t5s0 prefix rc=0
+V7 t5s1 rc=0
+V7 t5s3 rc=0 numstat-delta=0 inventory=markers=7 tests=11
+V7 t5s5 rc=0
+V8 token11-log: rc=0 rcL=8 k0_rc=0 failed=4 foreign= population=1013 c1_rc=0 bar=pass-r435-family
+sed: docs/sprints/2026-08-27-intg-consent-fabric/results/r450-r435-discriminator-at-B-20260909.txt: No such file or directory
+STOP(1) at ?
+V8 base-log: rc=1 rcL=8 k0_rc=1 failed=0 foreign= population=0 c1_rc=0 bar=fail
+STOP(1) at ?
+V8 synthetic-5: rc=1 rcL=8 k0_rc=0 failed=5 foreign=test_extra_fifth, population=1013 c1_rc=0 bar=fail
+STOP(1) at ?
+V8 synthetic-foreign: rc=1 rcL=8 k0_rc=0 failed=4 foreign=test_some_other_name, population=1013 c1_rc=0 bar=fail
+V8 rcL0: rc=0 rcL=0 k0_rc=0 failed=4 foreign= population=1013 c1_rc=0 bar=pass-green
+STOP-rederive-mismatch-reset-to-P
+V2b arm(b) mutated-helper rc=1 head-after=54954281 (P=54954281) rederive-H: harness/selftest/stub_biv.py diff_rc=0 harness/selftest/test_store_isolation.py diff_rc=0 harness/bivharness/e3.py diff_rc=1 rederive_mismatch=1  retained: C=961b1ccd0ba488f909357d4cac1abab8c77d2f H-still-present=yes
+real worktree after: HEAD=8509157c status=0
+################ bash — re-runs (V1 rc capture; V4 with the step's receipt-read span; V8 base log by absolute path)
+V1 off-path: rc=1 STOP-task-7-invoked-off-path /tmp/
+V1 on-path proved: rc=0 RANn
+V4 t1s6 (iii): rc=0 verdict=inside @@ -571,0 +572,6 @@ class ClaudeCodeAdapter final : public Agen codex-numstat-bytes=0 status-pre-P-bytes=0
+V4 t1s7 (iii)+binding: rc=0 P.txt=54954281 P.tree=f1eb8aec status-post-P-bytes=0
+V8 base-log: rc=0 rcL=8 k0_rc=0 failed=2 foreign= population=1013 c1_rc=0 bar=pass-r435-family
+real worktree after: HEAD=8509157c status=0
+################ zsh — re-runs (V1 rc capture; V4 with the step's receipt-read span; V8 base log by absolute path)
+V1 off-path: rc=1 STOP-task-7-invoked-off-path /tmp/
+V1 on-path proved: rc=0 RANn
+V4 t1s6 (iii): rc=0 verdict=inside @@ -571,0 +572,6 @@ class ClaudeCodeAdapter final : public Agen codex-numstat-bytes=0 status-pre-P-bytes=0
+V4 t1s7 (iii)+binding: rc=0 P.txt=54954281 P.tree=f1eb8aec status-post-P-bytes=0
+V8 base-log: rc=0 rcL=8 k0_rc=0 failed=2 foreign= population=1013 c1_rc=0 bar=pass-r435-family
+real worktree after: HEAD=8509157c status=0
