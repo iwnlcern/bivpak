@@ -1,0 +1,109 @@
+# sealed impl-2 evidence home MUTATED — measured 2026-09-10 04:16:53 at the pair-planner seat (read-only)
+home: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-16Y21z (the intg-r450-discover-parity-impl-2 execution's evidence home; the plan's Task 0 Step 0 PRIOR)
+dir mtime now: Sep 10 03:35:13 2026; preexisting-ci-macos mtime: Sep 10 03:35:13 2026
+
+## the 17 files Task 0 Step 0 copies — present now?
+witness-red.xml                  MISSING
+witness-red.rc                   present f80e333f239ac4c4 Sep  6 20:04:01 2026
+witness-red.verdict              MISSING
+witness-red.stderr               present e3b0c44298fc1c14 Sep  6 20:04:01 2026
+witness-red-parse.rc             present 0f21dbdec2142474 Sep  6 20:04:01 2026
+red-build.rc                     present 14a0a5a5a9e7db44 Sep  6 20:04:01 2026
+witness-green.xml                MISSING
+witness-green.rc                 MISSING
+witness-green.verdict            MISSING
+witness-green-parse.rc           MISSING
+discriminator-predicate.txt      MISSING
+discriminator-as-is.log          present 497548bd97914a59 Sep  6 20:01:12 2026
+discriminator-unset.log          present 170431275bf777e3 Sep  6 20:01:26 2026
+observer-unset-names.txt         present e12d5d0af265ea8f Sep  6 20:00:51 2026
+ctest-macos-P.log                MISSING
+ctest-macos-P.rc                 MISSING
+B-cells.txt                      present 4adb2dc83cdbde9c Sep  6 19:56:45 2026
+
+## every r450-evidence-*/prior copy under /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T (each Task-0 run copied the 17 files; every copy lost the SAME nine at 03:35:07–03:35:18)
+r450-evidence-14QvMy     files= 8 mtime=Sep 10 03:35:10 2026
+r450-evidence-1afmCB     files= 8 mtime=Sep 10 03:35:07 2026
+r450-evidence-6fNsQJ     files= 8 mtime=Sep 10 03:35:09 2026
+r450-evidence-7vqsX4     files= 8 mtime=Sep 10 03:35:14 2026
+r450-evidence-8oqZqb     files= 8 mtime=Sep 10 03:35:18 2026
+r450-evidence-9j8DvG     files= 8 mtime=Sep 10 03:35:11 2026
+r450-evidence-agGMLA     files= 8 mtime=Sep 10 03:35:10 2026
+r450-evidence-AU3m8d     files= 8 mtime=Sep 10 03:35:11 2026
+r450-evidence-bkLbwN     files= 8 mtime=Sep 10 03:35:18 2026
+r450-evidence-cynqvh     files= 8 mtime=Sep 10 03:35:08 2026
+r450-evidence-D72Xjp     files= 8 mtime=Sep 10 03:35:09 2026
+r450-evidence-ev3i13     files= 8 mtime=Sep 10 03:35:07 2026
+r450-evidence-gude2P     files= 8 mtime=Sep 10 03:35:09 2026
+r450-evidence-L12yBp     files= 8 mtime=Sep 10 04:14:12 2026
+r450-evidence-NGojX3     files= 8 mtime=Sep 10 03:35:11 2026
+r450-evidence-Oeci03     files= 8 mtime=Sep 10 03:35:11 2026
+r450-evidence-oHB5MU     files= 8 mtime=Sep 10 03:35:08 2026
+r450-evidence-rW8Kqi     files= 8 mtime=Sep 10 03:35:14 2026
+r450-evidence-sZXkao     files= 7 mtime=Sep 10 03:35:17 2026
+r450-evidence-UGKZ9h     files= 8 mtime=Sep 10 03:35:11 2026
+r450-evidence-X2iwY1     files= 8 mtime=Sep 10 03:35:17 2026
+r450-evidence-xIufJY     files= 8 mtime=Sep 10 03:35:07 2026
+r450-evidence-Z1pnuj     files= 8 mtime=Sep 10 03:35:17 2026
+
+## the surviving digest records of the 17 (sha256 path)
+### /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ/prior-hashes.txt (token 11, 2026-09-09)
+4adb2dc83cdbde9cc0ec0af6e95e243b59bb14107e39bc77a44373de1fedddcb  B-cells.txt
+9ae1b6ab14ec417403cd29eea2d58ca6a4bdf66e413e6e8616245607094a465b  ctest-macos-P.log
+b5402e7bd2c6c4a44ca1a256dd592db09e238ded64b41c0e593b96e4e58c1cdd  ctest-macos-P.rc
+497548bd97914a59ff7bec5833f55a32b7f03e712f38ed4c54d71f1dc399f6da  discriminator-as-is.log
+58706a6d7818b70f3ee9689c9f250c0ba1f657a0042b01479eddd8b132f8f5ef  discriminator-predicate.txt
+170431275bf777e377e9c615b9fd27606f02f6b7f0dce1e0803a373474e655b0  discriminator-unset.log
+e12d5d0af265ea8faf41dadc1e3af02610365ac25c40a228714b0e72f2a612f3  observer-unset-names.txt
+14a0a5a5a9e7db4405fd9ce42de31169daa28757a4eaab56d113c927819eaea3  red-build.rc
+487451e3ea905916e6abe11b541e082d466d48b59c2fad47792596973a1464b7  witness-green-parse.rc
+9560e2555d8274eddf5e1208241c9a6e1a8d2ec883f904ecf5320e1b4cfedb46  witness-green.rc
+58069bd4bad980cb57e43aa9e4fa992fa31643983cbf1025a956267a58d6dbf8  witness-green.verdict
+a8871e65f7d6187a38f7f10bfd8340b508af34af7a4393379add84ee169c3bee  witness-green.xml
+0f21dbdec2142474a8ab7b3df0aca622647c2fdc3562bb80299d8b18759c4f65  witness-red-parse.rc
+f80e333f239ac4c41c166fefedba538a30ad1211f0fb64d56ce49fcc837d7d61  witness-red.rc
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  witness-red.stderr
+79de05d42f7957fd10440e2119230e5a69995b8719aae7f64339789dc9c418ff  witness-red.verdict
+11ae796125959b27ae19863bb100ed6084f6c43034f8dce4531b843c7b2a138a  witness-red.xml
+### /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-X2iwY1/prior-hashes.txt (rev14 flow, 2026-09-10 01:49)
+4adb2dc83cdbde9cc0ec0af6e95e243b59bb14107e39bc77a44373de1fedddcb  B-cells.txt
+9ae1b6ab14ec417403cd29eea2d58ca6a4bdf66e413e6e8616245607094a465b  ctest-macos-P.log
+b5402e7bd2c6c4a44ca1a256dd592db09e238ded64b41c0e593b96e4e58c1cdd  ctest-macos-P.rc
+497548bd97914a59ff7bec5833f55a32b7f03e712f38ed4c54d71f1dc399f6da  discriminator-as-is.log
+58706a6d7818b70f3ee9689c9f250c0ba1f657a0042b01479eddd8b132f8f5ef  discriminator-predicate.txt
+170431275bf777e377e9c615b9fd27606f02f6b7f0dce1e0803a373474e655b0  discriminator-unset.log
+e12d5d0af265ea8faf41dadc1e3af02610365ac25c40a228714b0e72f2a612f3  observer-unset-names.txt
+14a0a5a5a9e7db4405fd9ce42de31169daa28757a4eaab56d113c927819eaea3  red-build.rc
+487451e3ea905916e6abe11b541e082d466d48b59c2fad47792596973a1464b7  witness-green-parse.rc
+9560e2555d8274eddf5e1208241c9a6e1a8d2ec883f904ecf5320e1b4cfedb46  witness-green.rc
+58069bd4bad980cb57e43aa9e4fa992fa31643983cbf1025a956267a58d6dbf8  witness-green.verdict
+a8871e65f7d6187a38f7f10bfd8340b508af34af7a4393379add84ee169c3bee  witness-green.xml
+0f21dbdec2142474a8ab7b3df0aca622647c2fdc3562bb80299d8b18759c4f65  witness-red-parse.rc
+f80e333f239ac4c41c166fefedba538a30ad1211f0fb64d56ce49fcc837d7d61  witness-red.rc
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  witness-red.stderr
+79de05d42f7957fd10440e2119230e5a69995b8719aae7f64339789dc9c418ff  witness-red.verdict
+11ae796125959b27ae19863bb100ed6084f6c43034f8dce4531b843c7b2a138a  witness-red.xml
+digest lists identical: yes
+
+## the token-11 home root (/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-6fNsQJ) — intact except its prior/ subdirectory: files=180; P/*.xml=11; ctest-macos-P.log sha=6c118504da50e843 (the token-11 P-state log, 6c118504…)
+
+## local APFS snapshots (recovery candidates; not restored — the sealed home is not this seat's to write)
+Snapshots for volume group containing disk /:
+com.apple.os.update-E2B907687F6E1FAEE3A5D851583E93889C7EB2F52BCA2DC58E168DB32EF8CDA294AD894DE4C21432A61A0B72D49806FE
+com.apple.os.update-E665088689556947ADF621B0053B4CA1662AEB6729590B5A5D43C3166FC1CE8F
+com.apple.os.update-MSUPrepareUpdate
+
+## the rev15 mechanics flow that exposed it (Task 0 Step 0 cp of the 17 → STOP at runner line 23)
+04:14:09 scratch=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow14-B9aGQz
+04:14:10 wt HEAD=8509157c41c5ef66595d655f39eee5107081bd32 branch=intg/r450-discover-parity origin/main=bbf297e36a38a1fab8c2675f945098a0633f9f8b status=0
+04:14:11 plan copy sha=27f144907f3be3fd substitutions=20
+04:14:11 bootstrap (0) done: RUNNERS=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-runners-nKZFCG blocks=28
+04:14:11 run-task.sh 0 START
+04:14:12 run-task.sh 0 exit=1 proof_tail=rc=0 task_exit=rc=1
+04:14:12 STOP at task 0 — see /private/tmp/r450-rev14/flow/task-0.out
+cp: /var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-16Y21z/discriminator-predicate.txt: No such file or directory
+cp: /var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-16Y21z/ctest-macos-P.log: No such file or directory
+cp: /var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-16Y21z/ctest-macos-P.rc: No such file or directory
+STOP-task-0 line=23
+task-0 exited 1 — STOP; the token ends here
+FLOW-STOPPED

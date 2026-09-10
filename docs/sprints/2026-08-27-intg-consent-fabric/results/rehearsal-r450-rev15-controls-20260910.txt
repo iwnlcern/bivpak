@@ -1,0 +1,79 @@
+# rev15 validation controls — 2026-09-10, pair-planner seat; plan draft sha256 14941de7bdd9fd8b2de689921bf730582b7a55b0832f4fdce1ab9cfa5d4ee2b3
+
+## census (plan_blocks.py list)
+plan_blocks.py 9744c28df5429fa2d04d3235de15655796576b690e0c1df39dbf1584f4821745 172
+run-task.sh 6adde06bd46795eeeefe48285d77d6fec154c238f21903aac5021c247767f861 30
+cells.py 9d1e3ec7323fcaf1fdf260f852563e8f6a6798a5ef1ee8308edd28c3fdff3709 22
+witness.py e8c79a1670bd42aa8542259de99048afaa87505647fd658b000a1404311759b9 30
+hunks.py 04619a36721fcd565215b8df5b5c1cf85076d92a4e676cbe80ccb26f6e8f832c 17
+tuples.py 506c69ce567ec509d2640c4b0ff33927d00e5954c783c271a95532cdf9a110ee 20
+transcribe.py 954ceecf6b86b5136d03dfb140fcb032da3a53f1888425e70873609e4b786a79 22
+gate.py 48a40cb1a1c096e77b5a9f08ab7bde2f255b91a732256351d8ea145ba827895a 21
+skipset.py ca0136bfc0b7601c827c505a7d339c0be287c9916837c781def694c382e508cf 20
+entry.py 4e4e21a368a0dc17926458571c52cd94c202d228d4fcb52cd7daeab4615fc5a0 33
+h_stub.py f8b93dbb19fe6f58fcf50e41c3a483390c046437c40189c47909848e2af535fc 34
+h_test.py a2b71f94d1008650c32c2cfed7facb0af74a2e176845c37f8efb8af2c5363764 29
+h_e3pin.py fcfa04394027e74a4661e93411f83061468823200dd30348ba09522de24af951 22
+h_fidelity.py a3a3d1814f866ce333f9f16b72fcf10af0a3f6b7cf7eda4da3bdb6ea7e2ec536 39
+rp_mutants.py 0fb1bdaecc0a85ecf9f35ea5b71f990691a37a8b3647a8b8898276b6e359b45f 27
+walk-A.expected c175ec6d30a84df29b836387f0b4bd9bd554f4a37dc51e850a724ded9870acc3 11
+walk-B.expected 327352f55d13e4879ce021f3f5e6e9bc155daafc8fa9f42848d28d7e75405ef3 47
+linux-container.sh 9fb1822301ab5d6f4dc2b3d071dcf3480a3273a58a9fec1602b3553e8e815f08 104
+linux-suite.sh d1a38a2131456a6657f67a67d0a1c6342a622412ce6782c8dd5d8d326d807fbd 132
+task-0 03c4e7903ad1f9960422f5b0deda11769b6df0c1c1fdf0b57f09fe2a384316ed 70 run-blocks=9
+task-1 c456108d585648b0530b95ae3b0184dc68485cfa30d86c01f4526d3a41e7c0df 38 run-blocks=4
+task-2 bc44797f37f20fc8505c3007e6d0f65cfff9aa974e289de4e069c07867273a96 54 run-blocks=7
+task-3 a401e120fd00431c8187ad6e07bdb55d302bfccb6db1f8c54bb9547df2ae7cfa 40 run-blocks=7
+task-4 e2708b1d58656a2bf434e5fea2cf3b07b4fa83e19ad7e331e336d71d05945521 53 run-blocks=5
+task-5 a113e999a6594609978c9e89188c3522c089208365f4ee6b4685ac909274f9f7 49 run-blocks=8
+task-6 4ed67ea9eadef57d43060414a0e2c55253d231cb27f6da61a76b1b8caebed802 58 run-blocks=7
+task-7 2c56f89914b7ed706d24a86c9b59143907bd647cd89e2963e7c57b670f836ea2 39 run-blocks=3
+task-8 db4e5020394771aea01d5259d557e6c2f8844b1d31922b4c18207746667eb6e3 36 run-blocks=4
+
+## derived runners == the rev14 task blocks (the bytes the rev14 flow executed, after its path substitution was reversed)
+task-0 derived sha 03c4e7903ad1f996  rev14-block sha 03c4e7903ad1f996  EQUAL
+task-1 derived sha c456108d585648b0  rev14-block sha c456108d585648b0  EQUAL
+task-2 derived sha bc44797f37f20fc8  rev14-block sha bc44797f37f20fc8  EQUAL
+task-3 derived sha a401e120fd00431c  rev14-block sha a401e120fd00431c  EQUAL
+task-4 derived sha e2708b1d58656a2b  rev14-block sha e2708b1d58656a2b  EQUAL
+task-5 derived sha a113e999a6594609  rev14-block sha a113e999a6594609  EQUAL
+task-6 derived sha 4ed67ea9eadef57d  rev14-block sha 4ed67ea9eadef57d  EQUAL
+task-7 derived sha 2c56f89914b7ed70  rev14-block sha 2c56f89914b7ed70  EQUAL
+task-8 derived sha db4e5020394771ae  rev14-block sha db4e5020394771ae  EQUAL
+
+## check, all nine derived runners
+task 0: bytes=equal run_blocks=9 prologue=ok lines=70 spans=240 gates=40 omitted=0 out_of_order=0 rc=0 
+task 1: bytes=equal run_blocks=4 prologue=ok lines=38 spans=104 gates=17 omitted=0 out_of_order=0 rc=0 
+task 2: bytes=equal run_blocks=7 prologue=ok lines=54 spans=94 gates=29 omitted=0 out_of_order=0 rc=0 
+task 3: bytes=equal run_blocks=7 prologue=ok lines=40 spans=41 gates=18 omitted=0 out_of_order=0 rc=0 
+task 4: bytes=equal run_blocks=5 prologue=ok lines=53 spans=57 gates=28 omitted=0 out_of_order=0 rc=0 
+task 5: bytes=equal run_blocks=8 prologue=ok lines=49 spans=102 gates=24 omitted=0 out_of_order=0 rc=0 
+task 6: bytes=equal run_blocks=7 prologue=ok lines=58 spans=141 gates=30 omitted=0 out_of_order=0 rc=0 
+task 7: bytes=equal run_blocks=3 prologue=ok lines=39 spans=87 gates=18 omitted=0 out_of_order=0 rc=0 
+task 8: bytes=equal run_blocks=4 prologue=ok lines=36 spans=29 gates=12 omitted=0 out_of_order=0 rc=0 
+
+## runner-side controls on task-0 (each must exit 5)
+NON-GATE producer line dropped (printf B=): BYTES-DIFFER at runner line 38 (runner 70 lines, derived 71 lines) rc=5 
+one executable line repeated (multiplicity): BYTES-DIFFER at runner line 39 (runner 72 lines, derived 71 lines) rc=5 
+gate-only runner: BYTES-DIFFER at runner line 1 (runner 50 lines, derived 71 lines) rc=5 
+off-plan line + # glue: BYTES-DIFFER at runner line 71 (runner 72 lines, derived 71 lines) rc=5 
+two lines swapped: BYTES-DIFFER at runner line 32 (runner 71 lines, derived 71 lines) rc=5 
+prologue edited: BYTES-DIFFER at runner line 3 (runner 71 lines, derived 71 lines) rc=5 
+
+## plan-side controls (a scratch plan copy; the runner file left as derived from the real plan)
+RUN-block line DUPLICATED in the plan (runner has it once): BYTES-DIFFER at runner line 39 (runner 71 lines, derived 72 lines) | bytes=differ run_blocks=9 prologue=ok lines=71 spans=240 gates=40 omitted=0 out_of_order=0 | rc=5
+RUN-block line DELETED from the plan (runner still has it): BYTES-DIFFER at runner line 38 (runner 71 lines, derived 70 lines) | bytes=differ run_blocks=9 prologue=ok lines=69 spans=240 gates=40 omitted=0 out_of_order=0 | rc=5
+a task-0 RUN block moved into Task 1 section: BYTES-DIFFER at runner line 10 (runner 71 lines, derived 71 lines) | RUN-BLOCK-OUTSIDE-SECTION: RUN task-0 at line 1154 is outside Task 0's section | bytes=differ run_blocks=8 prologue=ok lines=70 spans=240 gates=40 omitted=0 out_of_order=0 | rc=5
+a prose GATE span edited (narrative tether): bytes=equal run_blocks=9 prologue=ok lines=70 spans=240 gates=39 omitted=0 out_of_order=0 | rc=0
+
+## controller controls on a scratch RUNNERS dir bootstrapped by the (0) lines
+EXTRACTOR edited after bootstrap (emits a harmless task-0, check prints rc=0): STOP-controller-task-0-extractor-not-the-plan-bytes
+   task-0.sh materialized: no; task-0.done: no; bypass marker: absent
+CONTROLLER edited after bootstrap (a comment appended): STOP-controller-task-0-not-the-plan-bytes
+plan-lock.txt differs from the plan on disk: STOP-controller-task-0 line=11
+task 3 without task-2.done: STOP-controller-task-3 line=16
+controller copied to other.sh: STOP-controller-invoked-off-path /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctl-rup9vK/other.sh
+task 1 a second time: STOP-controller-task-1 line=17
+
+## (0) bootstrap lines in zsh (from the plan's bytes)
+zsh 5.9: bootstrap OK, 28 census lines; both instruments read by the fixed reader; extractor self-extraction cmp-equal
