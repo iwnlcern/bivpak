@@ -1,0 +1,46 @@
+validation-harness note: scratch clone with the main repository's .git/info/exclude entries; candidate-worktree path substituted by the scratch clone's; protocol handshake files as placeholders; the plan's stated conditions around Step 3b's create branch and Step 4's stale-cache mv materialized as glue; prose spans (bare word=word records, package pins) excluded. Everything else is the artifact's spans verbatim, in document order.
+################ bash 191221
+FLOW rc=0 191439
+EVID=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-AU3m8d
+  resume-state.txt: resume_state=iii head=8509157c41c5ef66595d655f39eee5107081bd32 
+  cutpoint.txt: unpublished_commits_in_lineage=2 expected=2 resume_state=iii 
+  rederive-C.txt: MAC=419 k85=1 LIN=421 k326=1 
+  rederive-H.txt: harness/selftest/stub_biv.py diff_rc=0 harness/selftest/test_store_isolation.py diff_rc=0 harness/bivharness/e3.py diff_
+  venv-branch.txt: venv_branch=create 
+  venv-python.txt: Python 3.12.12 
+  cache-proof.txt: cache_after_k=1 
+  observer-present-count.txt: present_count=1 
+  witness-green.rc: green_test_rc=0 
+  existing-discover-1.log: Filters: "Claude adapter discovers CLAUDE_CONFIG_DIR as an env-tier store" Randomness seeded to: 1247737160 ============
+  ctest-macos-P.rc: ctest_macos_P_rc=8 
+  ctest-macos-P.failed-names: harness-selftest 
+  P.txt: 54954281b30cae113f399055fff106963a37a443 
+  P.tree: f1eb8aec36601a02312a5d34a18ea0a6238833a1 
+  C.txt: 961b1ccd0ba488f909357d4cac1abab8c77d2fa8 
+  H.txt: 8509157c41c5ef66595d655f39eee5107081bd32 
+  task-2-iii.txt: task-2 under iii: the P observation of record is the sealed token-11 home (hash SET verified at Task 0 Step 2); tuples r
+  predictor.txt: added=1 removed=0 
+real worktree: HEAD=8509157c status=0
+################ zsh 191440
+FLOW rc=0 191658
+EVID=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-14QvMy
+  resume-state.txt: resume_state=iii head=8509157c41c5ef66595d655f39eee5107081bd32 
+  cutpoint.txt: unpublished_commits_in_lineage=2 expected=2 resume_state=iii 
+  rederive-C.txt: MAC=419 k85=1 LIN=421 k326=1 
+  rederive-H.txt: harness/selftest/stub_biv.py diff_rc=0 harness/selftest/test_store_isolation.py diff_rc=0 harness/bivharness/e3.py diff_
+  venv-branch.txt: venv_branch=create 
+  venv-python.txt: Python 3.12.12 
+  cache-proof.txt: cache_after_k=1 
+  observer-present-count.txt: present_count=1 
+  witness-green.rc: green_test_rc=0 
+  existing-discover-1.log: Filters: "Claude adapter discovers CLAUDE_CONFIG_DIR as an env-tier store" Randomness seeded to: 2955048742 ============
+  ctest-macos-P.rc: ctest_macos_P_rc=8 
+  ctest-macos-P.failed-names: harness-selftest 
+  P.txt: 54954281b30cae113f399055fff106963a37a443 
+  P.tree: f1eb8aec36601a02312a5d34a18ea0a6238833a1 
+  C.txt: 961b1ccd0ba488f909357d4cac1abab8c77d2fa8 
+  H.txt: 8509157c41c5ef66595d655f39eee5107081bd32 
+  task-2-iii.txt: task-2 under iii: the P observation of record is the sealed token-11 home (hash SET verified at Task 0 Step 2); tuples r
+  predictor.txt: added=1 removed=0 
+real worktree: HEAD=8509157c status=0
+DONE 191659
