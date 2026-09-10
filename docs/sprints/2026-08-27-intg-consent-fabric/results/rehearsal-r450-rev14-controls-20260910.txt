@@ -1,0 +1,140 @@
+# rev14 validation controls — 2026-09-10, pair-planner seat; plan draft sha256 6a39f57369fca6e2972c0232e02bf482d9a5a4c91c9bf904f4102c6d9587c299 (blocks byte-identical to the filed artifact's; the census below)
+
+## block census (plan_blocks.py list)
+plan_blocks.py c6887e60cc966182dc707429637a884ab38cb099b8a908737b9f83b4e0487be0 136
+run-task.sh ff8bf3ad7fdbbd9c7d3724a70e247fe2d5ba35a66428c0b439846ace9a4ec6d2 28
+cells.py 9d1e3ec7323fcaf1fdf260f852563e8f6a6798a5ef1ee8308edd28c3fdff3709 22
+witness.py e8c79a1670bd42aa8542259de99048afaa87505647fd658b000a1404311759b9 30
+hunks.py 04619a36721fcd565215b8df5b5c1cf85076d92a4e676cbe80ccb26f6e8f832c 17
+tuples.py 506c69ce567ec509d2640c4b0ff33927d00e5954c783c271a95532cdf9a110ee 20
+transcribe.py 954ceecf6b86b5136d03dfb140fcb032da3a53f1888425e70873609e4b786a79 22
+gate.py 48a40cb1a1c096e77b5a9f08ab7bde2f255b91a732256351d8ea145ba827895a 21
+skipset.py ca0136bfc0b7601c827c505a7d339c0be287c9916837c781def694c382e508cf 20
+entry.py 4e4e21a368a0dc17926458571c52cd94c202d228d4fcb52cd7daeab4615fc5a0 33
+h_stub.py f8b93dbb19fe6f58fcf50e41c3a483390c046437c40189c47909848e2af535fc 34
+h_test.py a2b71f94d1008650c32c2cfed7facb0af74a2e176845c37f8efb8af2c5363764 29
+h_e3pin.py fcfa04394027e74a4661e93411f83061468823200dd30348ba09522de24af951 22
+h_fidelity.py a3a3d1814f866ce333f9f16b72fcf10af0a3f6b7cf7eda4da3bdb6ea7e2ec536 39
+rp_mutants.py 0fb1bdaecc0a85ecf9f35ea5b71f990691a37a8b3647a8b8898276b6e359b45f 27
+walk-A.expected c175ec6d30a84df29b836387f0b4bd9bd554f4a37dc51e850a724ded9870acc3 11
+walk-B.expected 327352f55d13e4879ce021f3f5e6e9bc155daafc8fa9f42848d28d7e75405ef3 47
+linux-container.sh 9fb1822301ab5d6f4dc2b3d071dcf3480a3273a58a9fec1602b3553e8e815f08 104
+linux-suite.sh d1a38a2131456a6657f67a67d0a1c6342a622412ce6782c8dd5d8d326d807fbd 132
+task-0 03c4e7903ad1f9960422f5b0deda11769b6df0c1c1fdf0b57f09fe2a384316ed 70
+task-1 c456108d585648b0530b95ae3b0184dc68485cfa30d86c01f4526d3a41e7c0df 38
+task-2 bc44797f37f20fc8505c3007e6d0f65cfff9aa974e289de4e069c07867273a96 54
+task-3 a401e120fd00431c8187ad6e07bdb55d302bfccb6db1f8c54bb9547df2ae7cfa 40
+task-4 e2708b1d58656a2bf434e5fea2cf3b07b4fa83e19ad7e331e336d71d05945521 53
+task-5 a113e999a6594609978c9e89188c3522c089208365f4ee6b4685ac909274f9f7 49
+task-6 4ed67ea9eadef57d43060414a0e2c55253d231cb27f6da61a76b1b8caebed802 58
+task-7 2c56f89914b7ed706d24a86c9b59143907bd647cd89e2963e7c57b670f836ea2 39
+task-8 db4e5020394771aea01d5259d557e6c2f8844b1d31922b4c18207746667eb6e3 36
+
+## plan_blocks.py check, all nine task blocks (extract -> check)
+task 0: bytes=equal prologue=ok lines=70 spans=249 gates=43 foreign=0 omitted=0 out_of_order=0 rc=0 
+task 1: bytes=equal prologue=ok lines=38 spans=113 gates=20 foreign=0 omitted=0 out_of_order=0 rc=0 
+task 2: bytes=equal prologue=ok lines=54 spans=104 gates=32 foreign=0 omitted=0 out_of_order=0 rc=0 
+task 3: bytes=equal prologue=ok lines=40 spans=48 gates=20 foreign=0 omitted=0 out_of_order=0 rc=0 
+task 4: bytes=equal prologue=ok lines=53 spans=68 gates=32 foreign=0 omitted=0 out_of_order=0 rc=0 
+task 5: bytes=equal prologue=ok lines=49 spans=111 gates=27 foreign=0 omitted=0 out_of_order=0 rc=0 
+task 6: bytes=equal prologue=ok lines=58 spans=149 gates=33 foreign=0 omitted=0 out_of_order=0 rc=0 
+task 7: bytes=equal prologue=ok lines=39 spans=94 gates=20 foreign=0 omitted=0 out_of_order=0 rc=0 
+task 8: bytes=equal prologue=ok lines=36 spans=36 gates=14 foreign=0 omitted=0 out_of_order=0 rc=0 
+
+## checker controls — runner-side mutations of task-3 (each must exit 5)
+gate-only runner:        bytes=differ prologue=ok lines=40 spans=48 gates=20 foreign=0 omitted=0 out_of_order=0 rc=5 
+off-plan line + # glue:  BYTES-DIFFER at runner line 41 (runner 42 lines, block 41 lines) rc=5 
+two lines swapped:       BYTES-DIFFER at runner line 20 (runner 41 lines, block 41 lines) rc=5 
+one gate line dropped:   BYTES-DIFFER at runner line 19 (runner 40 lines, block 41 lines) rc=5 
+prologue edited:         BYTES-DIFFER at runner line 3 (runner 41 lines, block 41 lines) rc=5 
+
+## checker controls — plan-side mutations (runner unchanged; each must exit 5)
+the amend span REMOVED from the Steps: FOREIGN line 30: git add .github/workflows/s2-harness.yml && git commit -q --amend -F "$EV | rc=5
+the amend span EDITED in the Steps (--no-verify added): FOREIGN line 30: git add .github/workflows/s2-harness.yml && git commit -q --amend -F "$EV | OMITTED gate span: git add .github/workflows/s2-harness.yml && git commit -q --amend --no- | rc=5
+
+## controller (run-task.sh) refusal controls on a scratch RUNNERS dir (resolved path, as (0) makes it)
+task 3 without task-2.done:      STOP-controller-task-3 line=14
+plan-lock.txt differs from disk: STOP-controller-task-0 line=13
+controller copied to other.sh:   STOP-controller-invoked-off-path /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctl-txMFcT/other.sh
+controller bytes edited:         STOP-controller-task-0 line=10
+N outside 0..8:                  usage: run-task.sh N (0..8)
+task 1 a second time:            STOP-controller-task-1 line=15
+
+## runner prologue controls (task-3 materialized, proof faked to rc=0)
+a copy invoked off-path:         STOP-task-3-invoked-off-path /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctl-txMFcT/copy-3.sh
+proof ending rc=5:               STOP-task-3-unproved
+one byte changed after proof:    STOP-task-3-bytes-differ
+
+## (0) bootstrap lines executed in zsh (from the plan's bytes)
+zsh 5.9: bootstrap OK, 28 blocks, plan_blocks.py self-extraction cmp-equal
+
+## Phase-S fault matrix (linux-suite.sh in a bare ubuntu:24.04 container with PATH shims; the Task-6 ledger gate line applied to every ledger)
+case happy8             exit=0 ledger_lines=28
+case happy0             exit=0 ledger_lines=28
+case configure1         exit=1 ledger_lines=28
+case build1             exit=1 ledger_lines=28
+case producer-rc1       exit=1 ledger_lines=28
+case producer-empty     exit=1 ledger_lines=28
+case observer-present   exit=1 ledger_lines=28
+case labelC             exit=0 ledger_lines=28
+== ledger gate (the exact task-6 line) on each ledger
+gate happy8             PASS
+gate happy0             PASS
+gate configure1         STOP line=53
+gate build1             STOP line=53
+gate producer-rc1       STOP line=53
+gate producer-empty     STOP line=53
+gate observer-present   STOP line=53
+== mutations of the happy8 ledger
+gate dup-for-missing    STOP line=53
+gate foreign-row        STOP line=53
+gate configure-1        STOP line=53
+gate receipt-mismatch   STOP line=53
+gate no-ctest-key       STOP line=53
+gate aggregate-1        STOP line=53
+== the sealed token-11 H ledger
+gate token11-as-recorded STOP line=53
+gate token11-reaggregated PASS
+== happy8 ledger
+nofile_hard_read_rc=0
+nofile_raise_rc=0
+nofile_soft_read_rc=0
+nofile_soft_equals_hard_rc=0
+nofile_receipt_write_rc=0
+venv_rc=0
+requirements_rc=0
+configure_rc=0
+build_rc=0
+observer_name_proof_create_rc=0
+observer_name_input_nonempty_rc=0
+observer_name_present_rc=0
+observer_name_proof_write_rc=0
+observer_name_proof_nonempty_rc=0
+biv_subprocess_tests_producer_rc=0
+biv_subprocess_tests_xml_nonempty_rc=0
+biv_repo_git_tests_producer_rc=0
+biv_repo_git_tests_xml_nonempty_rc=0
+biv_repo_engine_tests_producer_rc=0
+biv_repo_engine_tests_xml_nonempty_rc=0
+biv_tests_producer_rc=0
+biv_tests_xml_nonempty_rc=0
+biv_probe_tests_producer_rc=0
+biv_probe_tests_xml_nonempty_rc=0
+ctest_H_producer_rc=8
+ctest_H_log_nonempty_rc=0
+ctest_H_receipt_write_rc=0
+suite_aggregate_rc=0 ledger_write_failed=0
+ctest rc: 8
+FAULT-MATRIX-COMPLETE
+
+## container controls (linux-container.sh, real ubuntu:24.04 + apt-get; Phase R red / non-writable evidence dir)
+control A (empty /llvm-mirror -> Phase R assets red): container_rc=1 payload=container_payload_rc=1 copyout=copy_out_rc=0 payload_receipt_rc=0 ledger=phase_R_base_provision_rc=0 phase_R_asset_provision_rc=18 
+control B (read-only /evidence/H -> copy-out red): container_rc=1 files_in_H=0 tail=STOP-linux-container-H line=30 
+CONTAINER-CONTROLS-COMPLETE
+
+## container control C — finalize_container with a copy-out failure (the trap's own branch)
+cp: cannot create regular file '/evidence/H/x.txt': Read-only file system
+cp: cannot create regular file '/evidence/H/container-copy-out.rc': Read-only file system
+control C exit= (expected 1: payload 0 but cp into a read-only /evidence/H fails -> exit 1)
+       0
+control C re-run with the status captured directly: docker exit=1 (expected 1: payload rc 0, cp into the read-only /evidence/H fails, the trap exits 1; no 'unreachable' line); files in H: 0; log: cp: cannot create regular file '/evidence/H/container-payload.rc': Read-only file system cp: cannot create regular file '/evidence/H/x.txt': Read-only file system cp: cannot create regular file '/evid

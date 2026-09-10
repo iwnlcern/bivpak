@@ -1,0 +1,214 @@
+# rev14 whole-protocol flow — 2026-09-10, pair-planner seat
+# plan copy = the assembled draft with ONE substitution (the candidate worktree path -> the scratch --shared clone at H; 29 sites); Task 8 against a scratch bare remote + a gh shim (repo view -> PRIVATE; pr create -> a scratch line). PRIOR / PRIOR11 sealed homes, the MAIN repository, Docker and gh release download REAL.
+# plan copy sha256 6dc373f2b8fb349aa0a7b0b592ab679f6d40623113317bf4db91c98681018f2c; all 28 blocks byte-equal to the draft's blocks after reversing the substitution (0 differ)
+
+## flow.log
+01:49:01 scratch=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow14-GOkr2t
+01:49:01 wt HEAD=8509157c41c5ef66595d655f39eee5107081bd32 branch=intg/r450-discover-parity origin/main=bbf297e36a38a1fab8c2675f945098a0633f9f8b status=0
+01:49:02 plan copy sha=6dc373f2b8fb349a substitutions=29
+01:49:03 bootstrap (0) done: RUNNERS=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-runners-St8EbJ blocks=28
+01:49:03 run-task.sh 0 START
+01:51:13 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:51:13 run-task.sh 1 START
+01:51:15 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:51:15 run-task.sh 2 START
+01:51:16 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:51:16 run-task.sh 3 START
+01:51:16 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:51:16 run-task.sh 4 START
+02:32:38 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+02:32:38 run-task.sh 5 START
+02:32:53 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+02:32:53 run-task.sh 6 START
+03:12:22 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+03:12:22 run-task.sh 7 START
+03:13:01 run-task.sh 7 exit=0 proof_tail=rc=0 task_exit=rc=0
+03:13:01 run-task.sh 8 START (scratch remote /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow14-GOkr2t/remote.git; gh shim)
+03:13:02 run-task.sh 8 exit=0 proof_tail=rc=0 task_exit=rc=0 remote_head=8509157c41c5ef66595d655f39eee5107081bd32
+03:13:02 EVID=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-X2iwY1
+03:13:02 real worktree untouched: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status=0
+FLOW-COMPLETE
+
+## per-task proofs (last two lines)
+task-0: bytes=equal prologue=ok lines=70 spans=249 gates=43 foreign=0 omitted=0 out_of_order=0 rc=0 
+task-1: bytes=equal prologue=ok lines=38 spans=113 gates=20 foreign=0 omitted=0 out_of_order=0 rc=0 
+task-2: bytes=equal prologue=ok lines=54 spans=104 gates=32 foreign=0 omitted=0 out_of_order=0 rc=0 
+task-3: bytes=equal prologue=ok lines=40 spans=48 gates=20 foreign=0 omitted=0 out_of_order=0 rc=0 
+task-4: bytes=equal prologue=ok lines=53 spans=68 gates=32 foreign=0 omitted=0 out_of_order=0 rc=0 
+task-5: bytes=equal prologue=ok lines=49 spans=111 gates=27 foreign=0 omitted=0 out_of_order=0 rc=0 
+task-6: bytes=equal prologue=ok lines=58 spans=149 gates=33 foreign=0 omitted=0 out_of_order=0 rc=0 
+task-7: bytes=equal prologue=ok lines=39 spans=94 gates=20 foreign=0 omitted=0 out_of_order=0 rc=0 
+task-8: bytes=equal prologue=ok lines=36 spans=36 gates=14 foreign=0 omitted=0 out_of_order=0 rc=0 
+
+## controller receipts
+task-0 exit=rc=0 done=rc=0 sha=fef810ec9306ed14
+task-1 exit=rc=0 done=rc=0 sha=8da7f6ba18b2a0dd
+task-2 exit=rc=0 done=rc=0 sha=a0c6cfaaaf9fbfae
+task-3 exit=rc=0 done=rc=0 sha=263e4b4fca9691f6
+task-4 exit=rc=0 done=rc=0 sha=afe90d59afb869da
+task-5 exit=rc=0 done=rc=0 sha=b1ce649a5650ecf9
+task-6 exit=rc=0 done=rc=0 sha=92dea6be1d1c0227
+task-7 exit=rc=0 done=rc=0 sha=2bfc8ad7dacaffdb
+task-8 exit=rc=0 done=rc=0 sha=fcba58c4e4002f2c
+
+## key receipts
+resume-state.txt                 resume_state=iii head=8509157c41c5ef66595d655f39eee5107081bd32 
+cutpoint.txt                     unpublished_commits_in_lineage=2 expected=2 resume_state=iii 
+rederive-C.txt                   MAC=419 k85=1 LIN=421 k326=1 
+rederive-H.txt                   harness/selftest/stub_biv.py diff_rc=0 harness/selftest/test_store_isolation.py diff_rc=0 harness/bivharness/e3.py diff_rc=0 rederive_mismatch=0 
+venv-branch.txt                  venv_branch=create 
+venv-python.txt                  Python 3.12.12 
+cache-proof.txt                  cache_after_k=1 
+observer-present-count.txt       present_count=1 
+witness-green.rc                 green_test_rc=0 
+ctest-macos-P.rc                 ctest_macos_P_rc=8 
+ctest-macos-P.failed-names       harness-selftest 
+task-2-iii.txt                   task-2 under iii: the P observation of record is the sealed token-11 home (hash SET verified at Task 0 Step 2); tuples re-derived here; no run executed 
+task-3-iii.txt                   task-3 under iii: C = 961b1ccd0ba488f909357d4cac1abab8c77d2fa8 exists (re-derived equal at Task 0 Step 2); no transcription, no amend executed 
+predictor.txt                    added=1 removed=0 
+p-to-c-proof.txt                 P=54954281b30cae113f399055fff106963a37a443 C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 p_to_c_numstat=2 2 .github/workflows/s2-harness.yml exclude_workflow_quiet_rc=0 C_parent_is_B=yes cutpoint_Cparent
+C-tree.txt                       /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctree-9OksqR/repo 
+fidelity-pre-H.rc                fidelity_pre_rc=5 
+fidelity-H.rc                    fidelity_rc=0 
+pytest-store-isolation-H.rc      pytest_si_rc=0 
+pytest-selftest-H.rc             pytest_selftest_rc=0 
+inventory-H.txt                  markers=7 tests=11 
+c-to-h-proof.txt                 C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 H=8509157c41c5ef66595d655f39eee5107081bd32 c_to_h_numstat_delta_rc=0 exclude_harness_quiet_rc=0 H_grandparent_is_B=yes cutpoint_H=2 
+push-class.txt                   class=a 
+push-rc.txt                      push_rc=0 
+pr.rc                            pr_rc=0 
+pr.txt                           https://github.com/iwnlcern/bivpak/pull/SCRATCH (gh shim; no remote act) args: pr create --base main --head intg/r450-discover-parity --title adapters(claude): discover returns every store found (env 
+shell.txt                        /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-runners-St8EbJ/task-8.sh 3.2.57(1)-release 
+llvm-manifest == sealed token-11 manifest: yes
+helpers.sha256 lines: 17; blocks census == controller's: yes
+
+## C (Task 4)
+ctest-macos-C.rc                 ctest_macos_C_rc=8 
+ctest-macos-C.failed-names       harness-selftest 
+scout-macos.failed-names         harness-selftest safety-hardening 
+linux-container.rc               0 
+container-payload.rc             container_payload_rc=0 
+container-copy-out.rc            copy_out_rc=0 payload_receipt_rc=0 
+linux-ledger.txt                 phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 
+ctest-linux-C.rc                 8 
+ctest-linux-C.failed-names       harness-selftest 
+gate.rc                          gate_rc=0 
+skipset-macos.rc                 skipset_C_macos_rc=0 
+skips-linux-proof.txt            baseline_linux_skips=1 observed_linux_skips=1 
+token-scan-macos.txt             pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0 
+token-scan-linux.txt             pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0 
+linux-run-head-receipt.txt       expected=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 observed=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 
+suite ledger (28 lines):
+nofile_hard_read_rc=0
+nofile_raise_rc=0
+nofile_soft_read_rc=0
+nofile_soft_equals_hard_rc=0
+nofile_receipt_write_rc=0
+venv_rc=0
+requirements_rc=0
+configure_rc=0
+build_rc=0
+observer_name_proof_create_rc=0
+observer_name_input_nonempty_rc=0
+observer_name_present_rc=0
+observer_name_proof_write_rc=0
+observer_name_proof_nonempty_rc=0
+biv_subprocess_tests_producer_rc=0
+biv_subprocess_tests_xml_nonempty_rc=0
+biv_repo_git_tests_producer_rc=0
+biv_repo_git_tests_xml_nonempty_rc=0
+biv_repo_engine_tests_producer_rc=0
+biv_repo_engine_tests_xml_nonempty_rc=0
+biv_tests_producer_rc=0
+biv_tests_xml_nonempty_rc=0
+biv_probe_tests_producer_rc=0
+biv_probe_tests_xml_nonempty_rc=0
+ctest_C_producer_rc=8
+ctest_C_log_nonempty_rc=0
+ctest_C_receipt_write_rc=0
+suite_aggregate_rc=0 ledger_write_failed=0
+tripwire cause lines macOS/Linux: 33 / 33
+biv_probe_tests linux literal_C=('25', '0', '0', '0') observed_P=('25', '0', '0', '0') observed_C=('25', '0', '0', '0') equal=yes
+biv_probe_tests macos literal_C=('25', '0', '0', '0') observed_P=('25', '0', '0', '0') observed_C=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_C=('60', '0', '0', '0') observed_P=('60', '0', '0', '0') observed_C=('60', '0', '0', '0') equal=yes
+biv_repo_engine_tests macos literal_C=('60', '0', '0', '0') observed_P=('60', '0', '0', '0') observed_C=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_C=('6', '0', '0', '0') observed_P=('6', '0', '0', '0') observed_C=('6', '0', '0', '0') equal=yes
+biv_repo_git_tests macos literal_C=('6', '0', '0', '0') observed_P=('6', '0', '0', '0') observed_C=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_C=('12', '0', '0', '0') observed_P=('12', '0', '0', '0') observed_C=('12', '0', '0', '0') equal=yes
+biv_subprocess_tests macos literal_C=('12', '0', '0', '0') observed_P=('12', '0', '0', '0') observed_C=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_C=('421', '0', '0', '1') observed_P=('421', '0', '0', '1') observed_C=('421', '0', '0', '1') equal=yes
+biv_tests macos literal_C=('419', '0', '0', '3') observed_P=('419', '0', '0', '3') observed_C=('419', '0', '0', '3') equal=yes
+
+## H (Task 6)
+build-H.log                      [  1%] Built target biv_support [  2%] Built target simdjson [  6%] Built target biv_adapters [ 23%] Built target libzstd_static [ 34%] Built target bivcore [ 36%] Built target biv [ 83%] Built target Catch2 [ 84%] Built target Catch2WithMain [ 85%] Built target biv_subprocess_tests [ 86%] Built tar
+discriminator-predicate.txt      rc1=8 rc2=0 present_count=1 iff=PASS hygiene=PASS 
+ctest-macos-H.rc                 ctest_macos_H_rc=0 
+scout-macos.failed-names         safety-hardening 
+linux-container.rc               0 
+container-payload.rc             container_payload_rc=0 
+container-copy-out.rc            copy_out_rc=0 payload_receipt_rc=0 
+linux-ledger.txt                 phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 
+ctest-linux-H.rc                 8 
+linux-selftest-bar.txt           rcL=8 a_rows_rc=0 b_c_failed=3 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_failed=2 e_base_foreign= population_H=1013 population_B=1013 bar=pass-r435-disclosed-registered-red 
+linux-selftest-failed.names      test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop test_credential_scanner_detects_entry_added_after_directory_enumeration 
+base-failed.names                test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop 
+gate-H.rc                        gate_H_rc=0 
+rp/rp.rc                         rp_rc=0 
+skips-linux-proof.txt            baseline_linux_skips=1 observed_linux_skips=1 
+token-scan-macos.txt             pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0 
+token-scan-linux.txt             pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0 
+linux-run-head-receipt.txt       expected=8509157c41c5ef66595d655f39eee5107081bd32 observed=8509157c41c5ef66595d655f39eee5107081bd32 
+xml-sha256-macos.txt             2e346e0d4c511948511b341e1f6deed733f98d950eb29974bfba83b2b32f0efd  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-X2iwY1/H/biv_probe_tests-macos.xml a46d95e76f4e944b1aee2bf13121ca82cb76734126f37fd01217a0df38257f7b  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-
+xml-sha256-linux.txt             77027de558716f80d9c2a3e1f6f33035863f401dd4280f9769e4341f60c6b6f1  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-X2iwY1/H/biv_probe_tests-linux.xml 185f7b90428baf250d3f6c9daa7e8440f3c7d028e429c41f65a5ab44ed7ca5f1  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-
+suite ledger (28 lines):
+nofile_hard_read_rc=0
+nofile_raise_rc=0
+nofile_soft_read_rc=0
+nofile_soft_equals_hard_rc=0
+nofile_receipt_write_rc=0
+venv_rc=0
+requirements_rc=0
+configure_rc=0
+build_rc=0
+observer_name_proof_create_rc=0
+observer_name_input_nonempty_rc=0
+observer_name_present_rc=0
+observer_name_proof_write_rc=0
+observer_name_proof_nonempty_rc=0
+biv_subprocess_tests_producer_rc=0
+biv_subprocess_tests_xml_nonempty_rc=0
+biv_repo_git_tests_producer_rc=0
+biv_repo_git_tests_xml_nonempty_rc=0
+biv_repo_engine_tests_producer_rc=0
+biv_repo_engine_tests_xml_nonempty_rc=0
+biv_tests_producer_rc=0
+biv_tests_xml_nonempty_rc=0
+biv_probe_tests_producer_rc=0
+biv_probe_tests_xml_nonempty_rc=0
+ctest_H_producer_rc=8
+ctest_H_log_nonempty_rc=0
+ctest_H_receipt_write_rc=0
+suite_aggregate_rc=0 ledger_write_failed=0
+biv_probe_tests linux literal_C=('25', '0', '0', '0') observed_P=('25', '0', '0', '0') observed_C=('25', '0', '0', '0') equal=yes
+biv_probe_tests macos literal_C=('25', '0', '0', '0') observed_P=('25', '0', '0', '0') observed_C=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_C=('60', '0', '0', '0') observed_P=('60', '0', '0', '0') observed_C=('60', '0', '0', '0') equal=yes
+biv_repo_engine_tests macos literal_C=('60', '0', '0', '0') observed_P=('60', '0', '0', '0') observed_C=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_C=('6', '0', '0', '0') observed_P=('6', '0', '0', '0') observed_C=('6', '0', '0', '0') equal=yes
+biv_repo_git_tests macos literal_C=('6', '0', '0', '0') observed_P=('6', '0', '0', '0') observed_C=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_C=('12', '0', '0', '0') observed_P=('12', '0', '0', '0') observed_C=('12', '0', '0', '0') equal=yes
+biv_subprocess_tests macos literal_C=('12', '0', '0', '0') observed_P=('12', '0', '0', '0') observed_C=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_C=('421', '0', '0', '1') observed_P=('421', '0', '0', '1') observed_C=('421', '0', '0', '1') equal=yes
+biv_tests macos literal_C=('419', '0', '0', '3') observed_P=('419', '0', '0', '3') observed_C=('419', '0', '0', '3') equal=yes
+ALL FOUR MUTANTS RED ON EXACTLY THEIR OWN LOCATOR
+isolation-leak HOME: agents[claude-code].image_session_id=0d15ea5e-0002-4000-8000-0000000c1a0d
+isolation-leak HOME: agents[codex].image_session_id=0d15ea5e-0001-4000-8000-00000000c0de
+isolation-leak HOME: warnings[1] kind=SessionLiveAtPack path=0d15ea5e-0001-4000-8000-00000000c0de
+MUTANT HOME: status=fail leak_tags=['HOME']
+R-4.36 sample (this validation run at H, Linux): test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop test_credential_scanner_detects_entry_added_after_directory_enumeration  — 3 failed 1007 passed 3 skipped 
+
+## Task 7 census
+       0 census-tree.delta
+       0 census-history.delta
+
+## the real worktree
+HEAD 8509157c41c5ef66595d655f39eee5107081bd32 status lines 0

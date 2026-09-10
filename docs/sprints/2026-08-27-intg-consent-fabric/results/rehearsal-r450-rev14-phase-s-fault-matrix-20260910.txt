@@ -1,0 +1,57 @@
+case happy8             exit=0 ledger_lines=28
+case happy0             exit=0 ledger_lines=28
+case configure1         exit=1 ledger_lines=28
+case build1             exit=1 ledger_lines=28
+case producer-rc1       exit=1 ledger_lines=28
+case producer-empty     exit=1 ledger_lines=28
+case observer-present   exit=1 ledger_lines=28
+case labelC             exit=0 ledger_lines=28
+== ledger gate (the exact task-6 line) on each ledger
+gate happy8             PASS
+gate happy0             PASS
+gate configure1         STOP line=53
+gate build1             STOP line=53
+gate producer-rc1       STOP line=53
+gate producer-empty     STOP line=53
+gate observer-present   STOP line=53
+== mutations of the happy8 ledger
+gate dup-for-missing    STOP line=53
+gate foreign-row        STOP line=53
+gate configure-1        STOP line=53
+gate receipt-mismatch   STOP line=53
+gate no-ctest-key       STOP line=53
+gate aggregate-1        STOP line=53
+== the sealed token-11 H ledger
+gate token11-as-recorded STOP line=53
+gate token11-reaggregated PASS
+== happy8 ledger
+nofile_hard_read_rc=0
+nofile_raise_rc=0
+nofile_soft_read_rc=0
+nofile_soft_equals_hard_rc=0
+nofile_receipt_write_rc=0
+venv_rc=0
+requirements_rc=0
+configure_rc=0
+build_rc=0
+observer_name_proof_create_rc=0
+observer_name_input_nonempty_rc=0
+observer_name_present_rc=0
+observer_name_proof_write_rc=0
+observer_name_proof_nonempty_rc=0
+biv_subprocess_tests_producer_rc=0
+biv_subprocess_tests_xml_nonempty_rc=0
+biv_repo_git_tests_producer_rc=0
+biv_repo_git_tests_xml_nonempty_rc=0
+biv_repo_engine_tests_producer_rc=0
+biv_repo_engine_tests_xml_nonempty_rc=0
+biv_tests_producer_rc=0
+biv_tests_xml_nonempty_rc=0
+biv_probe_tests_producer_rc=0
+biv_probe_tests_xml_nonempty_rc=0
+ctest_H_producer_rc=8
+ctest_H_log_nonempty_rc=0
+ctest_H_receipt_write_rc=0
+suite_aggregate_rc=0 ledger_write_failed=0
+ctest rc: 8
+FAULT-MATRIX-COMPLETE
