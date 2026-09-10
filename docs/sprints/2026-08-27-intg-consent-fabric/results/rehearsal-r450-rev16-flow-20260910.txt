@@ -1,0 +1,170 @@
+rev16 FLOW rehearsals — 2026-09-10 — the plan's (0) bootstrap lines then run-task.sh 0..8, on a plan COPY whose only substitution is the candidate worktree path -> a scratch --shared clone at H (state iii); Task 8 against a scratch bare remote with a gh shim (repo view -> PRIVATE, pr create -> a scratch URL). REAL: the MAIN repository (read-only), Docker (ubuntu:24.04 --platform linux/amd64 --init), gh release download (Phase H), the durable evidence root $HOME/Programming/bivpak-evidence (runners + home), the tracked results copy (written into the docs lane as results/r450-<flow token>/ and REMOVED after the rehearsal — its counts and verification are recorded below). Harness: /tmp/r450-rev14/flow/run-flow.sh.
+
+== RUN 1 (FLOWTAG -rev16; token intg-r450-discover-parity-impl-flow16; artifact = the assembled rev16 BEFORE the Task 7/8 tracked-copy fixes) — Tasks 0-7 rc 0; Task 8 STOP at Step 4: cp -p over the 0500 runner copies Task 7 had made -> Permission denied; and Task 7's manifest listed its own SHA256SUMS.unsorted (shasum -c: 1 listed file could not be read). Both fixed (explicit receipt list; manifest excludes SHA256SUMS*, LC_ALL=C sort, shasum -c gate).
+11:59:46 scratch=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev16-4aGU2i
+11:59:46 wt HEAD=8509157c41c5ef66595d655f39eee5107081bd32 branch=intg/r450-discover-parity origin/main=bbf297e36a38a1fab8c2675f945098a0633f9f8b status=0
+11:59:48 plan copy sha=ea4a03da5b734629 substitutions=23
+11:59:48 bootstrap (0) done: RUNNERS=/Users/jack/Programming/bivpak-evidence/r450-runners-cH0Zjv blocks=28
+11:59:48 run-task.sh 0 START
+12:02:02 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+12:02:02 run-task.sh 1 START
+12:16:58 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+12:16:58 run-task.sh 2 START
+12:48:23 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+12:48:23 run-task.sh 3 START
+12:48:23 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+12:48:23 run-task.sh 4 START
+13:31:55 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+13:31:55 run-task.sh 5 START
+13:32:13 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+13:32:13 run-task.sh 6 START
+14:15:07 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+14:15:07 run-task.sh 7 START
+14:15:49 run-task.sh 7 exit=0 proof_tail=rc=0 task_exit=rc=0
+14:15:49 run-task.sh 8 START (scratch remote /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev16-4aGU2i/remote.git; gh shim)
+14:15:50 run-task.sh 8 exit=1 proof_tail=rc=0 task_exit=rc=1 remote_head=8509157c41c5ef66595d655f39eee5107081bd32
+FLOW-STOPPED
+
+run-1 task-8.out tail:
+cp: /Users/jack/Programming/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-flow16/runners/task-7.sh: Permission denied
+STOP-task-8 line=37
+task-8 exited 1 — STOP; the token ends here
+
+== RUN 2 (FLOWTAG -rev16b; token intg-r450-discover-parity-impl-flow16b; artifact = the FINAL rev16 bytes: the plan copy un-substituted cmp-IDENTICAL to plan.md @ sha256 43ca7e6f0e7e451d084973fa9f1df1c65abbd7bface9cbbf4ca4ce1e12f72ab7 before the four validation placeholders were filled) — every task rc 0
+14:18:21 scratch=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev16b-tGFedn
+14:18:22 wt HEAD=8509157c41c5ef66595d655f39eee5107081bd32 branch=intg/r450-discover-parity origin/main=bbf297e36a38a1fab8c2675f945098a0633f9f8b status=0
+14:18:23 plan copy sha=f792d58970190e39 substitutions=23
+14:18:23 bootstrap (0) done: RUNNERS=/Users/jack/Programming/bivpak-evidence/r450-runners-RQq6LN blocks=28
+14:18:23 run-task.sh 0 START
+14:20:40 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+14:20:40 run-task.sh 1 START
+14:35:57 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+14:35:57 run-task.sh 2 START
+15:06:14 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:06:14 run-task.sh 3 START
+15:06:14 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:06:14 run-task.sh 4 START
+15:49:22 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:49:22 run-task.sh 5 START
+15:49:39 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:49:39 run-task.sh 6 START
+16:30:56 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+16:30:56 run-task.sh 7 START
+16:31:40 run-task.sh 7 exit=0 proof_tail=rc=0 task_exit=rc=0
+16:31:40 run-task.sh 8 START (scratch remote /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev16b-tGFedn/remote.git; gh shim)
+16:31:41 run-task.sh 8 exit=0 proof_tail=rc=0 task_exit=rc=0 remote_head=8509157c41c5ef66595d655f39eee5107081bd32
+16:31:41 EVID=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-flow16b-3y5Q9V
+16:31:41 real worktree untouched: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status=0
+FLOW-COMPLETE
+
+== RUN 2 receipts (read from the evidence home)
+--- token.txt
+token=intg-r450-discover-parity-impl-flow16b
+evid=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-flow16b-3y5Q9V
+--- resume-state.txt
+resume_state=iii
+head=8509157c41c5ef66595d655f39eee5107081bd32
+--- B-tree.txt
+/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-btree-XAB61V/repo
+--- P-tree.txt
+/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-iDiWMu/repo
+--- btree-test.sha256
+90615eeb414c1cdcabeff124f95aafa6f729764860c9782f023f401a35d7a8e9  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-btree-XAB61V/repo/tests/test_adapter_claude_collect.cpp
+--- btree-claude.sha256
+cd1f8bc8f7ab87cf15251d84ad7e59c618a22f3c19b9633ff193350782800851  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-btree-XAB61V/repo/src/adapters/claude_code/claude_code.cpp
+--- red-build.rc
+red_build_rc=0
+--- witness-red.rc
+red_test_rc=42
+--- witness-red.verdict
+ROW 1 failures=1 expected=red ok
+ROW 2 failures=0 expected=green ok
+ROW 3 failures=0 expected=green ok
+ROW 4 failures=0 expected=green ok
+ROW 5 failures=1 expected=red ok
+red verdict ok
+--- discriminator-predicate-B.txt
+rc1=8 rc2=0 present_count=1 iff=PASS hygiene=PASS
+--- witness-green.rc
+green_test_rc=0
+--- witness-green.verdict
+ROW 1 failures=0 expected=green ok
+ROW 2 failures=0 expected=green ok
+ROW 3 failures=0 expected=green ok
+ROW 4 failures=0 expected=green ok
+ROW 5 failures=0 expected=green ok
+green verdict ok
+--- ctest-macos-P.rc
+ctest_macos_P_rc=8
+--- ctest-macos-P.failed-names
+harness-selftest
+--- rederive-C.txt
+MAC=419 k85=1 LIN=421 k326=1
+--- rederive-H.txt
+harness/selftest/stub_biv.py diff_rc=0
+harness/selftest/test_store_isolation.py diff_rc=0
+harness/bivharness/e3.py diff_rc=0
+rederive_mismatch=0
+--- task-3-iii.txt
+task-3 under iii: C = 961b1ccd0ba488f909357d4cac1abab8c77d2fa8 exists; its two literals REPRODUCED by the fresh P observation of this token (MAC=419 k85=1 LIN=421 k326=1); no transcription, no amend executed
+--- P/ctest-linux-P.rc
+8
+--- P/ctest-linux-P.failed-names
+harness-selftest
+--- P/entry.rc
+entry_rc=0
+--- P/tuples-macos.txt
+biv_subprocess_tests macos successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=9b9c6676d545cd56e5826900526e3931e56a3d148ace0b1c2a4445640a1ea486
+biv_repo_git_tests macos successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=8f257547dac9b73a07e7a9e8337e39303e322e5378c289dd70fc81550dcec331
+biv_repo_engine_tests macos successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=f3b1dab1e26aef9a25543fba87312249256f550f4405c392c0c91fdb9c68b19c
+biv_tests macos successes=419 failures=0 expectedFailures=0 skips=3 xml_sha256=ba4fa561d4b5c5b09639c32788b792f73cf1c6a7f62c15e5d6470ac605f6018d
+biv_probe_tests macos successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=3c4ee4109202327a5518d314b3badfc71eb46b2c4323cca8c77c75ed3dbad0f0
+expected_skips_observed macos n=3 pack computes foreign-flavor session relpaths without host path parsing | pack derives relpath from slash-form Windows extended paths | threshold-parity per-agent distribution self-activates at R-4.29
+--- P/tuples-linux.txt
+biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=59edcddb0d00a2a5c4f1b2e17efd83577571bee739fa7a126bc3dfd3ac1eb926
+biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=d389711c70a3588f5d2e3fc3194d17d83be672fcaaaa863adbf49a1f1b1a28a9
+biv_repo_engine_tests linux successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=d3cfbc27c28a50b93ee89d22580656aecf34501a03d01e346985095502557412
+biv_tests linux successes=421 failures=0 expectedFailures=0 skips=1 xml_sha256=1659d12e11fe2ea792313fd29be7a66a190bd8ec6aef24e44f1f3ed43c262160
+biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=f3610f2895ece73e45c114962b6908b4f55298bceae6f61300281f35775225f1
+expected_skips_observed linux n=1 threshold-parity per-agent distribution self-activates at R-4.29
+--- C/gate.rc
+gate_rc=0
+--- C/gate-equality.txt
+biv_probe_tests linux literal_C=('25', '0', '0', '0') observed_P=('25', '0', '0', '0') observed_C=('25', '0', '0', '0') equal=yes
+biv_probe_tests macos literal_C=('25', '0', '0', '0') observed_P=('25', '0', '0', '0') observed_C=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_C=('60', '0', '0', '0') observed_P=('60', '0', '0', '0') observed_C=('60', '0', '0', '0') equal=yes
+biv_repo_engine_tests macos literal_C=('60', '0', '0', '0') observed_P=('60', '0', '0', '0') observed_C=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_C=('6', '0', '0', '0') observed_P=('6', '0', '0', '0') observed_C=('6', '0', '0', '0') equal=yes
+biv_repo_git_tests macos literal_C=('6', '0', '0', '0') observed_P=('6', '0', '0', '0') observed_C=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_C=('12', '0', '0', '0') observed_P=('12', '0', '0', '0') observed_C=('12', '0', '0', '0') equal=yes
+biv_subprocess_tests macos literal_C=('12', '0', '0', '0') observed_P=('12', '0', '0', '0') observed_C=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_C=('421', '0', '0', '1') observed_P=('421', '0', '0', '1') observed_C=('421', '0', '0', '1') equal=yes
+biv_tests macos literal_C=('419', '0', '0', '3') observed_P=('419', '0', '0', '3') observed_C=('419', '0', '0', '3') equal=yes
+--- H/gate-H.rc
+gate_H_rc=0
+--- H/ctest-macos-H.rc
+ctest_macos_H_rc=0
+--- H/discriminator-predicate.txt
+rc1=8 rc2=0 present_count=1 iff=PASS hygiene=PASS
+--- H/linux-selftest-bar.txt
+rcL=8 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_failed=2 e_base_foreign= population_H=1013 population_B=1013 bar=pass-r435-disclosed-registered-red
+--- H/linux-selftest-failed.names
+test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite
+test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop
+test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open
+test_credential_scanner_detects_entry_added_after_directory_enumeration
+--- H/rp/rp.rc
+rp_rc=0
+--- results-copy.txt
+results_dir=/Users/jack/Programming/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-flow16b files=234 verify_rc=0
+--- results-copy-8.txt
+results_dir=/Users/jack/Programming/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-flow16b files=255 verify_rc=0
+--- push-class.txt
+class=a
+--- pr.rc
+pr_rc=0
+--- tracked copy at the end of Task 8: files=256 manifest_lines=255 shasum -c: ALL-OK
+--- tracked copy top-level listing:
+anchors-at-C.txt B-cells.txt B-tree.txt B.txt blocks.txt bpc-table.txt btree-claude.sha256 btree-test.sha256 C C-cells.txt c-to-h-proof.txt C-tree.txt C.txt census-history.delta census-history.txt census-tree.delta census-tree.txt ctest-macos-P.failed-names ctest-macos-P.failed.delta ctest-macos-P.log ctest-macos-P.rc cutpoint.txt discriminator-B-as-is.log discriminator-B-unset.log discriminator-predicate-B.txt e3-H.diff fidelity-H.rc fidelity-H.txt fidelity-pre-H.rc fidelity-pre-H.txt H H.txt helpers.sha256 inventory-H.txt observer-host-presence.txt observer-present-count.txt observer-unset-names.txt P p-to-c-proof.txt P-tree.txt P.tree P.txt pr-body.md pr.rc pr.txt predictor.txt push-class.txt push-dry.txt push-rc.txt push-stderr.txt push-stdout.txt push-url.txt pytest-selftest-H.rc pytest-store-isolation-H.rc red-build.rc rederive-C.txt rederive-H.out rederive-H.txt remote-branch-after.txt remote-branch-before.txt resume-state.txt runners SHA256SUMS shell.txt task-3-iii.txt token.txt touched-H.numstat touched.numstat visibility.txt walk-A.delta walk-B.delta witness-green.rc witness-green.verdict witness-green.xml witness-red-parse.rc witness-red.rc witness-red.verdict witness-red.xml 
+--- runners/ in the tracked copy: 75 files
+--- candidate worktree after both runs: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status_lines=0

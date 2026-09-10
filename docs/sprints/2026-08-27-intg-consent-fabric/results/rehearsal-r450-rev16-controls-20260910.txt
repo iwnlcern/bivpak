@@ -1,0 +1,50 @@
+rev16 controls — 2026-09-10 — the NEW gate lines of rev16 executed from the DERIVED runner bytes (plan_blocks.py extract of the assembled artifact) in bash AND zsh; script /tmp/r450-rev14/controls16.sh; artifact bytes at run time = the assembled rev16 before the Task 7/8 tracked-copy fixes (those lines are validated by the standalone executions and the second flow below).
+
+
+== C1 temp-root refusal (task-0 line 22) — EVID under /var/folders, /tmp, /private/tmp → STOP-evid-in-temp-root rc 1; under $HOME/Programming/bivpak-evidence → rc 0
+  EVID=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctl16-WunH6k bash rc=1 out=STOP-evid-in-temp-root
+  EVID=/tmp/x bash rc=1 out=STOP-evid-in-temp-root
+  EVID=/private/tmp/x bash rc=1 out=STOP-evid-in-temp-root
+  EVID=/var/folders/hq/x bash rc=1 out=STOP-evid-in-temp-root
+  EVID=/Users/jack/Programming/bivpak-evidence/r450-ctl-x bash rc=0 out=
+  EVID=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctl16-WunH6k zsh rc=1 out=STOP-evid-in-temp-root
+  EVID=/tmp/x zsh rc=1 out=STOP-evid-in-temp-root
+  EVID=/private/tmp/x zsh rc=1 out=STOP-evid-in-temp-root
+  EVID=/var/folders/hq/x zsh rc=1 out=STOP-evid-in-temp-root
+  EVID=/Users/jack/Programming/bivpak-evidence/r450-ctl-x zsh rc=0 out=
+
+== C2 resolved == created (task-0 lines 19-21 with a SYMLINKED root) — mktemp under a symlink to the durable root → pwd -P differs → STOP; under the real root → rc 0
+  symlinked root: bash rc=1 out=STOP line=0
+  real root:      bash rc=0 out=passed
+  symlinked root: zsh rc=1 out=STOP line=0
+  real root:      zsh rc=0 out=passed
+
+== C3 Task 3 (iii) verification (task-3 line 17) — fresh P tuples 419/421 → passes to exit 0 with rederive-C k85=1 k326=1; a fresh P of 418/421 → STOP, k85=0 (the FINDING route)
+  bash MAC=419: bash rc=0 out=
+     rederive-C.txt: MAC=419 k85=1 LIN=421 k326=1 | task-3-iii.txt: task-3 under iii: C = 961b1ccd0ba488f909357d4cac1abab8c77d2f
+  bash MAC=418: bash rc=1 out=STOP line=0
+     rederive-C.txt: MAC=418 k85=0 LIN=421 k326=1 | task-3-iii.txt: 
+  zsh MAC=419: zsh rc=0 out=
+     rederive-C.txt: MAC=419 k85=1 LIN=421 k326=1 | task-3-iii.txt: task-3 under iii: C = 961b1ccd0ba488f909357d4cac1abab8c77d2f
+  zsh MAC=418: zsh rc=1 out=STOP line=0
+     rederive-C.txt: MAC=418 k85=0 LIN=421 k326=1 | task-3-iii.txt: 
+
+== C4 results-dir collision (task-7 line 40) — an existing results/r450-<token>/ → STOP; absent → created + results-dir.txt written (then removed)
+  bash absent:   bash rc=0 out=created|C H P runners 
+  bash existing: bash rc=1 out=STOP line=0
+  zsh absent:   zsh rc=0 out=created|C H P runners 
+  zsh existing: zsh rc=1 out=STOP line=0
+
+== C5 Task 1 Step 0 test-file routing (task-1 lines 20-22) under state i (dirty pin: the two paths from P in the working tree) and state ii (HEAD == P) on scratch shared clones — the B-tree test digest 90615eeb… REQUIRED, claude_code.cpp at the BASE digest cd1f8bc8…
+  bash state i  (status 2): bash rc=0 out=passed|90615eeb414c1cdc cd1f8bc8f7ab87cf 
+  bash state ii (HEAD 5495428): bash rc=0 out=passed|90615eeb414c1cdc cd1f8bc8f7ab87cf 
+  bash NEGATIVE (HEAD == B, so the routed test file is the BASE file): bash rc=1 out=STOP line=0
+  zsh state i  (status 2): zsh rc=0 out=passed|90615eeb414c1cdc cd1f8bc8f7ab87cf 
+  zsh state ii (HEAD 5495428): zsh rc=0 out=passed|90615eeb414c1cdc cd1f8bc8f7ab87cf 
+  zsh NEGATIVE (HEAD == B, so the routed test file is the BASE file): zsh rc=1 out=STOP line=0
+
+== scratch=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctl16-WunH6k (btree clones under $TMPDIR)
+
+== C6 (after flow #1) the fixed tracked-copy lines executed standalone against the flow-16 results copy in its Task-7 end state, bash AND zsh
+  task-7 L47 (manifest excludes SHA256SUMS*, LC_ALL=C sort, shasum -c gate): ok results files=255 verify_rc=0 (both shells)
+  task-8 L37-38 (explicit receipt list, manifest regenerated + verified): ok results files=255 verify_rc=0 (both shells); the FIRST form (cp -p runners/* over the 0500 copies) had STOPped flow #1 at Task 8 with "Permission denied"; the first manifest form had listed its own SHA256SUMS.unsorted (shasum -c: 1 listed file could not be read)
