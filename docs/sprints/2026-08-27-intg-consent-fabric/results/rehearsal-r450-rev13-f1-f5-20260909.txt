@@ -1,0 +1,156 @@
+################ bash
+F5 helper compiles
+F5 manifest 0: rc=0 records=204 gates=37 templates=4
+F5 manifest 1: rc=0 records=101 gates=18 templates=2
+F5 manifest 2: rc=0 records=74 gates=10 templates=4
+F5 manifest 3: rc=0 records=43 gates=14 templates=4
+F5 manifest 4: rc=0 records=44 gates=10 templates=1
+F5 manifest 5: rc=0 records=102 gates=29 templates=5
+F5 manifest 6: rc=0 records=116 gates=14 templates=5
+F5 manifest 7: rc=0 records=76 gates=16 templates=1
+F5 manifest 8: rc=0 records=26 gates=8 templates=0
+F5 complete: rc=5 records=43 gates=14 matched=13 rc=5 
+F5 dropped gate: rc=5 2 omitted; rc=5
+F5 foreign line: rc=5 1 foreign
+F5 swapped: rc=5 1 out-of-order
+F5 template expansion: foreign=0 (0 = matched) records=74 gates=10 matched=0
+F5 implementer's real rev11 task-2 runner (info): rc=5 foreign=406 omitted=4
+F4 iii body: rc=0 MAC=419 k85=1 LIN=421 k326=1 rederive_mismatch=0 tuple-lines=2 head=8509157c
+k_cause=33
+F1 t1s5(iv) iii: rc=0 rc-file=ctest_macos_P_rc=8 names=harness-selftest delta-bytes=0
+grep: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-I7DlPm/P/tuples-linux.txt: No such file or directory
+STOP(1)
+F4 t3 iii: rc=0 P=54954281b30cae113f399055fff106963a37a443 C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 p_to_c_numstat=2 2 .github/workflo
+rcL=s=0 a_rows_rc= b_c_failed= foreign= d_tripwire_lines= d_family_files_rc= e_base_failed= e_base_foreign= population_H= population_B= bar=
+bash: line 28: 8: command not found
+F4 bar: rc=0 
+F2 ledger re-aggregated: rc=0 required=26 nonzero=0
+STOP(1)
+F2 ledger build_rc=1: rc=0 nonzero=1
+STOP(1)
+F2 ledger as recorded (aggregate 1): rc=0
+real worktree: HEAD=8509157c status=0
+################ zsh
+F5 helper compiles
+F5 manifest 0: rc=0 records=204 gates=37 templates=4
+F5 manifest 1: rc=0 records=101 gates=18 templates=2
+F5 manifest 2: rc=0 records=74 gates=10 templates=4
+F5 manifest 3: rc=0 records=43 gates=14 templates=4
+F5 manifest 4: rc=0 records=44 gates=10 templates=1
+F5 manifest 5: rc=0 records=102 gates=29 templates=5
+F5 manifest 6: rc=0 records=116 gates=14 templates=5
+F5 manifest 7: rc=0 records=76 gates=16 templates=1
+F5 manifest 8: rc=0 records=26 gates=8 templates=0
+F5 complete: rc=5 records=43 gates=14 matched=13 rc=5 
+F5 dropped gate: rc=5 2 omitted; rc=5
+F5 foreign line: rc=5 1 foreign
+F5 swapped: rc=5 1 out-of-order
+F5 template expansion: foreign=0 (0 = matched) records=74 gates=10 matched=0
+F5 implementer's real rev11 task-2 runner (info): rc=5 foreign=406 omitted=4
+F4 iii body: rc=0 MAC=419 k85=1 LIN=421 k326=1 rederive_mismatch=0 tuple-lines=2 head=8509157c
+k_cause=33
+F1 t1s5(iv) iii: rc=0 rc-file=ctest_macos_P_rc=8 names=harness-selftest delta-bytes=0
+grep: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-evidence-aaWE5q/P/tuples-linux.txt: No such file or directory
+STOP(1)
+F4 t3 iii: rc=0 P=54954281b30cae113f399055fff106963a37a443 C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 p_to_c_numstat=2 2 .github/workflo
+rcL=s=0 a_rows_rc= b_c_failed= foreign= d_tripwire_lines= d_family_files_rc= e_base_failed= e_base_foreign= population_H= population_B= bar=
+zsh: command not found: 8
+F4 bar: rc=0 
+F2 ledger re-aggregated: rc=0 required=26 nonzero=0
+STOP(1)
+F2 ledger build_rc=1: rc=0 nonzero=1
+STOP(1)
+F2 ledger as recorded (aggregate 1): rc=0
+real worktree: HEAD=8509157c status=0
+################ bash — re-runs after the placeholder-pattern and printf fixes
+F5 helper compiles
+F5 manifest 0: records=204 gates=37 templates=3
+F5 manifest 1: records=101 gates=18 templates=2
+F5 manifest 2: records=74 gates=10 templates=4
+F5 manifest 3: records=43 gates=14 templates=3
+F5 manifest 4: records=44 gates=10 templates=1
+F5 manifest 5: records=102 gates=29 templates=5
+F5 manifest 6: records=116 gates=14 templates=4
+F5 manifest 7: records=76 gates=16 templates=0
+F5 manifest 8: records=26 gates=8 templates=0
+F5 template records (all tasks):
+   T: $EVID/<name>.py
+   T: [ -s "$EVID/<name>.py" ] || STOP; k=0; python3 -m py_compile "$EVID/<name>.py" || k=$?; [ "$k" -eq 0
+   T: "${OBS_ENV[@]}" <command>
+   T: biv::pack::pack(const fs::path&) -> expected<PackReport>
+   T: <optional>
+   T: $EVID/P/<binary>-<target>.xml
+   T: $EVID/P/tuples-<target>.txt
+   T: x=0; "${OBS_ENV[@]}" ./build/ci-macos/<binary> -r xml > "$EVID/P/<binary>-macos.xml" 2> "$EVID/P/<bi
+   T: expected_skips_observed macos n=… <names>
+   T: Plan pin: intg-r450-discover-parity-plan-20260906 sha256 <this artifact's approved hash>
+   T: B=bbf297e36a38a1fab8c2675f945098a0633f9f8b (baseline; workflow values inherited) observed_head=P=<sh
+   T: Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+   T: x=0; "${OBS_ENV[@]}" ./build/ci-macos/<binary> -r xml > "$EVID/C/<binary>-macos.xml" 2> "$EVID/C/<bi
+   T: for a in '.globs = {"projects/*/*.jsonl"}' '.path = root / "projects"' '    std::vector<Store> store
+   T: Plan pin: intg-r450-discover-parity-plan-20260906 sha256 <this artifact's approved hash>
+   T: Parent C=<sha from C.txt> (the R-4.50 candidate; product bytes fixed)
+   T: claude_adapter_file anchor: old cd1f8bc8f7ab87cf15251d84ad7e59c618a22f3c19b9633ff193350782800851 -> 
+   T: Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+   T: x=0; "${OBS_ENV[@]}" ./build/ci-macos/<binary> -r xml > "$EVID/H/<binary>-macos.xml" 2> "$EVID/H/<bi
+   T: <name>=<rc>
+   T: <binary>_producer_rc
+   T: <binary>_xml_nonempty_rc
+F5 complete (Task 3, all gates in order): rc=0 records=43 gates=14 matched=14 rc=0 
+F5 dropped gate: rc=5 1 omitted
+F5 foreign line: rc=5 1 foreign
+F5 swapped: rc=5 1 out-of-order
+F5 template expansion (biv_tests): lines=3 foreign=0 records=74 gates=10 matched=1
+iii body: rc=0
+t2 iii: rc=0 tuples-linux-lines=6
+t3 iii (after t2): rc=0 P=54954281b30cae113f399055fff106963a37a443 C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 p_to_c_numstat
+bar token11: rc=0 rcL=8 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_failed=2 e_base_foreign= population_H=1013 population_B=1013 bar=pass-r435-disclosed-registered-red
+STOP(0)
+bar pop-1012: rc=1 fail-single-draw-inadmissible-arm-ii-series-required
+real worktree: HEAD=8509157c status=0
+################ zsh — re-runs after the placeholder-pattern and printf fixes
+F5 helper compiles
+F5 manifest 0: records=204 gates=37 templates=3
+F5 manifest 1: records=101 gates=18 templates=2
+F5 manifest 2: records=74 gates=10 templates=4
+F5 manifest 3: records=43 gates=14 templates=3
+F5 manifest 4: records=44 gates=10 templates=1
+F5 manifest 5: records=102 gates=29 templates=5
+F5 manifest 6: records=116 gates=14 templates=4
+F5 manifest 7: records=76 gates=16 templates=0
+F5 manifest 8: records=26 gates=8 templates=0
+F5 template records (all tasks):
+   T: $EVID/<name>.py
+   T: [ -s "$EVID/<name>.py" ] || STOP; k=0; python3 -m py_compile "$EVID/<name>.py" || k=$?; [ "$k" -eq 0
+   T: "${OBS_ENV[@]}" <command>
+   T: biv::pack::pack(const fs::path&) -> expected<PackReport>
+   T: <optional>
+   T: $EVID/P/<binary>-<target>.xml
+   T: $EVID/P/tuples-<target>.txt
+   T: x=0; "${OBS_ENV[@]}" ./build/ci-macos/<binary> -r xml > "$EVID/P/<binary>-macos.xml" 2> "$EVID/P/<bi
+   T: expected_skips_observed macos n=… <names>
+   T: Plan pin: intg-r450-discover-parity-plan-20260906 sha256 <this artifact's approved hash>
+   T: B=bbf297e36a38a1fab8c2675f945098a0633f9f8b (baseline; workflow values inherited) observed_head=P=<sh
+   T: Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+   T: x=0; "${OBS_ENV[@]}" ./build/ci-macos/<binary> -r xml > "$EVID/C/<binary>-macos.xml" 2> "$EVID/C/<bi
+   T: for a in '.globs = {"projects/*/*.jsonl"}' '.path = root / "projects"' '    std::vector<Store> store
+   T: Plan pin: intg-r450-discover-parity-plan-20260906 sha256 <this artifact's approved hash>
+   T: Parent C=<sha from C.txt> (the R-4.50 candidate; product bytes fixed)
+   T: claude_adapter_file anchor: old cd1f8bc8f7ab87cf15251d84ad7e59c618a22f3c19b9633ff193350782800851 -> 
+   T: Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+   T: x=0; "${OBS_ENV[@]}" ./build/ci-macos/<binary> -r xml > "$EVID/H/<binary>-macos.xml" 2> "$EVID/H/<bi
+   T: <name>=<rc>
+   T: <binary>_producer_rc
+   T: <binary>_xml_nonempty_rc
+F5 complete (Task 3, all gates in order): rc=0 records=43 gates=14 matched=14 rc=0 
+F5 dropped gate: rc=5 1 omitted
+F5 foreign line: rc=5 1 foreign
+F5 swapped: rc=5 1 out-of-order
+F5 template expansion (biv_tests): lines=3 foreign=0 records=74 gates=10 matched=1
+iii body: rc=0
+t2 iii: rc=0 tuples-linux-lines=6
+t3 iii (after t2): rc=0 P=54954281b30cae113f399055fff106963a37a443 C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 p_to_c_numstat
+bar token11: rc=0 rcL=8 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_failed=2 e_base_foreign= population_H=1013 population_B=1013 bar=pass-r435-disclosed-registered-red
+STOP(0)
+bar pop-1012: rc=1 fail-single-draw-inadmissible-arm-ii-series-required
+real worktree: HEAD=8509157c status=0
