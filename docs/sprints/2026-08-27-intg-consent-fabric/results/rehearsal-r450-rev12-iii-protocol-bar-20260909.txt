@@ -102,3 +102,31 @@ V8 C-state-log-tripwire: rc=1 rcL=8 a_rows_rc=0 b_c_failed=56 foreign=test_e3_pa
 STOP(1)
 V8 rcL3: rc=1 rcL=3 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_failed=2 e_base_foreign= population_H=1013 population_B=1013 bar=fail
 worktree: HEAD=8509157c status=0
+################ bash — the bar with named fallback receipts (7 cases)
+V8 token11-log: rc=0 bar=pass-r435-disclosed-registered-red [rcL=8 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_fail]
+STOP(0)
+V8 synthetic-5: rc=1 bar=fail-fresh-finding-K1-K2-stop-up-to-m3-m4 [rcL=8 a_rows_rc=0 b_c_failed=5 foreign=test_extra_fifth, d_tripwire_lines=0 d_family_files]
+STOP(0)
+V8 synthetic-foreign: rc=1 bar=fail-fresh-finding-K1-K2-stop-up-to-m3-m4 [rcL=8 a_rows_rc=0 b_c_failed=4 foreign=test_some_other_name, d_tripwire_lines=0 d_family_f]
+V8 rcL0: rc=0 bar=pass-green [rcL=0 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_fail]
+STOP(0)
+V8 C-state-log-tripwire: rc=1 bar=fail-fresh-finding-K1-K2-stop-up-to-m3-m4 [rcL=8 a_rows_rc=0 b_c_failed=56 foreign=test_e3_pack_warning_cannot_spoof_version_floor_ev]
+STOP(0)
+V8 synthetic-population-1012: rc=1 bar=fail-single-draw-inadmissible-arm-ii-series-required [rcL=8 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_fail]
+STOP(0)
+V8 rcL3: rc=1 bar=fail-not-the-one-row [rcL=3 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_fail]
+worktree: HEAD=8509157c status=0
+################ zsh — the bar with named fallback receipts (7 cases)
+V8 token11-log: rc=0 bar=pass-r435-disclosed-registered-red [rcL=8 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_fail]
+STOP(0)
+V8 synthetic-5: rc=1 bar=fail-fresh-finding-K1-K2-stop-up-to-m3-m4 [rcL=8 a_rows_rc=0 b_c_failed=5 foreign=test_extra_fifth, d_tripwire_lines=0 d_family_files]
+STOP(0)
+V8 synthetic-foreign: rc=1 bar=fail-fresh-finding-K1-K2-stop-up-to-m3-m4 [rcL=8 a_rows_rc=0 b_c_failed=4 foreign=test_some_other_name, d_tripwire_lines=0 d_family_f]
+V8 rcL0: rc=0 bar=pass-green [rcL=0 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_fail]
+STOP(0)
+V8 C-state-log-tripwire: rc=1 bar=fail-fresh-finding-K1-K2-stop-up-to-m3-m4 [rcL=8 a_rows_rc=0 b_c_failed=56 foreign=test_e3_pack_warning_cannot_spoof_version_floor_ev]
+STOP(0)
+V8 synthetic-population-1012: rc=1 bar=fail-single-draw-inadmissible-arm-ii-series-required [rcL=8 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_fail]
+STOP(0)
+V8 rcL3: rc=1 bar=fail-not-the-one-row [rcL=3 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_fail]
+worktree: HEAD=8509157c status=0
