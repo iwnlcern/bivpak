@@ -1,0 +1,29 @@
+rev18 F-BAR fixtures — 2026-09-11 — iso rev13 (f72919d9) "BAR FIXTURES (F-BAR)": the Task 6 Step 2 classifier (derived task-6 lines 44..49 of the assembled artifact; selftest_summary.py extracted from the plan) run BEFORE any token, bash AND zsh, against the ARCHIVED B log results/r450-r435-discriminator-at-B-20260909.txt (sha256 bcae4d3a…) wrapped in-memory into the JUnit shape the classifier reads and mutated as rev13 prescribes, and against the rev18 rehearsal's REAL H and in-token B JUnits. F-BAR-5 (an incomplete sample inside arm (ii)) is demonstrated as the SAME per-sample validity predicate applied to the F-BAR-2 sample; the series itself is m-3/m-4's instrument, not this plan's. Script /tmp/r450-rev14/fbar18.sh.
+
+archived B log sha256: bcae4d3a0b1d67dda1f240e43938ca60b0331a1a6029fe4a57fea450ee076b5d
+archived section: 130 lines; FAILED lines 2; summary: ================== 2 failed, 1008 passed, 3 skipped in 29.96s ==================
+F-BAR-1 intact archived B (bcae4d3a) + real H  bash expected=pass-r435-disclosed-registered-red             got=pass-r435-disclosed-registered-red             rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+F-BAR-1 intact archived B (bcae4d3a) + real H  zsh  expected=pass-r435-disclosed-registered-red             got=pass-r435-disclosed-registered-red             rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+F-BAR-2 mutant: FAILED lines 1 (distinct names 1), summary unchanged
+F-BAR-2 one base FAILED name dropped, summary 2 bash expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=1 
+F-BAR-2 one base FAILED name dropped, summary 2 zsh  expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=1 
+F-BAR-3 empty base capture, N=2                bash expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=0 
+F-BAR-3 empty base capture, N=2                zsh  expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=0 
+F-BAR-4 valid green base                       bash expected=stop-inconclusive-base-green-arm-ii-required   got=stop-inconclusive-base-green-arm-ii-required   rc=1 OK
+    B.kv: status=run summary=parsed failed=0 passed=1010 skipped=3 population=1013 names_count=0 
+F-BAR-4 valid green base                       zsh  expected=stop-inconclusive-base-green-arm-ii-required   got=stop-inconclusive-base-green-arm-ii-required   rc=1 OK
+    B.kv: status=run summary=parsed failed=0 passed=1010 skipped=3 population=1013 names_count=0 
+F-BAR-5 F-BAR-2 sample as a series sample      bash expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=1 
+F-BAR-5 F-BAR-2 sample as a series sample      zsh  expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=1 
+intact real H + the rehearsal's real in-token B bash expected=pass-r435-disclosed-registered-red             got=pass-r435-disclosed-registered-red             rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+intact real H + the rehearsal's real in-token B zsh  expected=pass-r435-disclosed-registered-red             got=pass-r435-disclosed-registered-red             rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
