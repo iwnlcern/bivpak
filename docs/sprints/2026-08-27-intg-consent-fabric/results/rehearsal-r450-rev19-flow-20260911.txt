@@ -1,0 +1,60 @@
+rev19 FLOW rehearsal — 2026-09-11 13:51 → 16:24 — the plan's (0) bootstrap lines then run-task.sh 0..9 on a plan COPY of the rev19 artifact (777f8c20d1f19566bdd9096c40b70c0ce3b5136d865b6cf7eca70cb260ffbda7) whose only substitution is the candidate worktree path -> a scratch --shared clone at H (state iii); Task 8 against a scratch bare remote + gh shim; everything else real (MAIN repo, Docker, gh release download, the durable evidence root, the tracked results copy — removed after the rehearsal). The rev19 runner differs from rev18 only in linux-suite.sh's ctest line (--test-output-size-passed/-failed 50000000); every task-N runner byte-identical. FLOWTOKEN intg-r450-discover-parity-impl-flow19.
+
+13:51:47 scratch=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev19-lFBy2C
+13:51:47 wt HEAD=8509157c41c5ef66595d655f39eee5107081bd32 branch=intg/r450-discover-parity origin/main=bbf297e36a38a1fab8c2675f945098a0633f9f8b status=0
+13:51:49 plan copy sha=c3ce5b79171a0cfc substitutions=24
+13:51:49 bootstrap (0) done: RUNNERS=/Users/jack/Programming/bivpak-evidence/r450-runners-FCUCAx blocks=31
+13:51:49 run-task.sh 0 START
+13:54:13 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+13:54:13 run-task.sh 1 START
+14:09:48 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+14:09:48 run-task.sh 2 START
+14:42:21 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+14:42:21 run-task.sh 3 START
+14:42:22 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+14:42:22 run-task.sh 4 START
+15:26:50 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:26:50 run-task.sh 5 START
+15:27:09 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:27:09 run-task.sh 6 START
+16:23:30 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+16:23:30 run-task.sh 7 START
+16:24:13 run-task.sh 7 exit=0 proof_tail=rc=0 task_exit=rc=0
+16:24:13 run-task.sh 8 START (scratch remote /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev19-lFBy2C/remote.git; gh shim)
+16:24:14 run-task.sh 8 exit=0 proof_tail=rc=0 task_exit=rc=0 remote_head=8509157c41c5ef66595d655f39eee5107081bd32
+16:24:14 run-task.sh 9 START (the finalizer; writes the REAL results/r450-<flow token>/ in the docs lane — removed after the rehearsal)
+16:24:19 run-task.sh 9 exit=0 proof_tail=rc=0 task_exit=rc=0 final=results_dir=/Users/jack/Programming/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-flow19 set=696 finalize_check_rc=0 shasum_c_rc=0 verdict=set=696 tree=696 manifest=696 equal=yes digests=ok copies=ok
+16:24:19 EVID=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-flow19-xVQvna
+16:24:19 real worktree untouched: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status=0
+FLOW-COMPLETE
+
+== bar receipt (H/linux-selftest-bar.txt)
+rcL=8 a_rows_rc=0 summary_H=parsed failed_H=2 names_H=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open, foreign_H= d_tripwire_lines=0 d_family_files_rc=0 population_H=1013 rcB=8 base_rows=1 base_rows_rc=0 summary_B=parsed failed_B=4 names_B=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration,selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite,selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open, foreign_B= population_B=1013 bar=pass-r435-disclosed-registered-red
+
+== pytest facts (selftest-H.kv / selftest-B.kv)
+status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+status=fail summary=parsed failed=4 passed=1006 skipped=3 population=1013 names_count=4 
+
+== ctest rc and failed rows per tree
+P rc=8 failed_rows=1
+C rc=8 failed_rows=1
+H rc=8 failed_rows=1
+B rc=8 failed_rows=1
+
+== the ctest size flags in effect: per JUnit — testcases / testcases with system-out > 1024 bytes / CTest truncation markers ("was removed since it exceeds the threshold") / harness-selftest (status, system-out bytes)
+P testcases 19 out>1024 1 truncation-markers 0 harness-selftest ('fail', 163814)
+C testcases 19 out>1024 1 truncation-markers 0 harness-selftest ('fail', 161354)
+H testcases 19 out>1024 1 truncation-markers 0 harness-selftest ('fail', 6933)
+B testcases 19 out>1024 1 truncation-markers 0 harness-selftest ('fail', 11152)
+reading: no truncation marker in any of the four JUnits; the only testcase over 1024 bytes in each is the FAILED harness-selftest; every PASSED testcase's output was under the default threshold in these runs, so the flags' positive effect (a passed test's output kept whole) is demonstrated by the real green macOS run3 (results/r450-fbar-real-green-20260911/), and these runs show the flags changed nothing else.
+
+== the ctest line as executed (from the evidence copy of linux-suite.sh)
+105:  ctest --preset ci --output-junit "$OUT/ctest-linux-$LABEL.junit.xml" --output-on-failure --test-output-size-passed 50000000 --test-output-size-failed 50000000 > "$OUT/ctest-linux-$LABEL.log" 2>&1 || ctest_rc=$?
+
+== finalizer (proof-9.txt)
+bytes=equal run_blocks=5 prologue=ok lines=31 spans=77 gates=10 omitted=0 out_of_order=0
+rc=0
+
+== tracked results copy written by Task 9 (removed after this rehearsal): files=697 SHA256SUMS lines=696 shasum -c rc=0
+
+== worktree after: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status_lines=0
