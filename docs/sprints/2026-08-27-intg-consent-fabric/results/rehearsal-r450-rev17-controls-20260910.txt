@@ -1,0 +1,78 @@
+rev17 controls — 2026-09-10 — finalize.py (extracted from the assembled artifact) negative controls on a scratch copy of the flow16b evidence set (649 files + finalize.py; three scratch directories planted and EXCLUDED by the set), the Task 9 Step 2-4 lines executed from the DERIVED runner bytes in bash AND zsh; controller re-controls on the 0..9 instruments. Script /tmp/r450-rev14/controls17.sh.
+
+finalize.py extracted from the plan, compiles: 642bd9b1ebc9885d
+scratch home: set files=649 + finalize.py; three scratch dirs planted (must be EXCLUDED by the set)
+
+== [bash] F-positive: Task 9 Steps 2-4 lines from the derived runner on the flow16b home -> a fresh tree; expect equal=yes digests=ok copies=ok
+results_dir=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctl17-eNp2U8/res-bash set=650 finalize_check_rc=0 shasum_c_rc=0
+set=650 tree=650 manifest=650 equal=yes digests=ok copies=ok
+
+== [bash] N1 one set file REMOVED from the tree after the manifest (P/tuples-macos.txt)
+   finalize rc=5 (set=650 tree=649 manifest=650 equal=no digests=bad copies=bad) | stale shasum -c rc=1
+   set-vs-tree: only in first: P/tuples-macos.txt
+   digest: missing in tree P/tuples-macos.txt
+
+== [bash] N2 one file ADDED to the tree after the manifest (H/extra.txt) — stale shasum -c is BLIND to it
+   finalize rc=5 (set=650 tree=651 manifest=650 equal=no digests=ok copies=ok) | stale shasum -c rc=0
+   set-vs-tree: only in second: H/extra.txt
+   set=650 tree=651 manifest=650 equal=no digests=ok copies=ok
+
+== [bash] N3 one tracked byte ALTERED (H/gate-H.rc) after the manifest
+   finalize rc=5 (set=650 tree=650 manifest=650 equal=yes digests=bad copies=bad) | stale shasum -c rc=1
+   digest: MISMATCH manifest-vs-tree H/gate-H.rc
+   copy: home-vs-tree differs or missing H/gate-H.rc
+
+== [bash] N4 one manifest ROW deleted (the row for B.txt) — stale shasum -c still reads clean
+   finalize rc=5 (set=650 tree=650 manifest=649 equal=no digests=ok copies=ok) | stale shasum -c rc=0
+   set-vs-manifest: only in first: B.txt
+   set=650 tree=650 manifest=649 equal=no digests=ok copies=ok
+
+== [bash] N5 a file added to the HOME after enumeration (a home twin the tree lacks) — the set grows, the tree does not
+   finalize rc=5 (set=651 tree=650 manifest=650 equal=no digests=ok copies=bad) | stale shasum -c rc=0
+   set-vs-tree: only in first: late-file.txt
+   set-vs-manifest: only in first: late-file.txt
+
+== [bash] positive again after the reverts
+   finalize rc=0 (set=650 tree=650 manifest=650 equal=yes digests=ok copies=ok) | stale shasum -c rc=0
+   set=650 tree=650 manifest=650 equal=yes digests=ok copies=ok
+
+== [zsh] F-positive: Task 9 Steps 2-4 lines from the derived runner on the flow16b home -> a fresh tree; expect equal=yes digests=ok copies=ok
+results_dir=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctl17-eNp2U8/res-zsh set=650 finalize_check_rc=0 shasum_c_rc=0
+set=650 tree=650 manifest=650 equal=yes digests=ok copies=ok
+
+== [zsh] N1 one set file REMOVED from the tree after the manifest (P/tuples-macos.txt)
+   finalize rc=5 (set=650 tree=649 manifest=650 equal=no digests=bad copies=bad) | stale shasum -c rc=1
+   set-vs-tree: only in first: P/tuples-macos.txt
+   digest: missing in tree P/tuples-macos.txt
+
+== [zsh] N2 one file ADDED to the tree after the manifest (H/extra.txt) — stale shasum -c is BLIND to it
+   finalize rc=5 (set=650 tree=651 manifest=650 equal=no digests=ok copies=ok) | stale shasum -c rc=0
+   set-vs-tree: only in second: H/extra.txt
+   set=650 tree=651 manifest=650 equal=no digests=ok copies=ok
+
+== [zsh] N3 one tracked byte ALTERED (H/gate-H.rc) after the manifest
+   finalize rc=5 (set=650 tree=650 manifest=650 equal=yes digests=bad copies=bad) | stale shasum -c rc=1
+   digest: MISMATCH manifest-vs-tree H/gate-H.rc
+   copy: home-vs-tree differs or missing H/gate-H.rc
+
+== [zsh] N4 one manifest ROW deleted (the row for B.txt) — stale shasum -c still reads clean
+   finalize rc=5 (set=650 tree=650 manifest=649 equal=no digests=ok copies=ok) | stale shasum -c rc=0
+   set-vs-manifest: only in first: B.txt
+   set=650 tree=650 manifest=649 equal=no digests=ok copies=ok
+
+== [zsh] N5 a file added to the HOME after enumeration (a home twin the tree lacks) — the set grows, the tree does not
+   finalize rc=5 (set=651 tree=650 manifest=650 equal=no digests=ok copies=bad) | stale shasum -c rc=0
+   set-vs-tree: only in first: late-file.txt
+   set-vs-manifest: only in first: late-file.txt
+
+== [zsh] positive again after the reverts
+   finalize rc=0 (set=650 tree=650 manifest=650 equal=yes digests=ok copies=ok) | stale shasum -c rc=0
+   set=650 tree=650 manifest=650 equal=yes digests=ok copies=ok
+
+== controller re-controls on the 0..9 instruments (a scratch RUNNERS bootstrapped by the plan's fixed reader from plan.md)
+  usage N=10: usage: run-task.sh N (0..9)
+ rc=2
+  task 9 without task-8.done: STOP-controller-task-9 line=16
+  extractor edited: STOP-controller-task-0-extractor-not-the-plan-bytes
+  controller edited: STOP-controller-task-0-not-the-plan-bytes
+  task-0.sh/.done absent after the refusals: absent absent

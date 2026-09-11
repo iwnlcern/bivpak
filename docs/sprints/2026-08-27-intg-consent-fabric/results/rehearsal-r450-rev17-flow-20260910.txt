@@ -1,0 +1,125 @@
+rev17 FLOW rehearsal — started 2026-09-10 21:46, complete 2026-09-11 00:09 — the plan's (0) bootstrap lines then run-task.sh 0..9 on a plan COPY whose only substitution is the candidate worktree path -> a scratch --shared clone at H (state iii); Task 8 against a scratch bare remote with a gh shim; Task 9 (the FINALIZER) writes the REAL results/r450-<flow token>/ in the docs lane (removed after the rehearsal; its counts and proofs recorded here). REAL: the MAIN repository (read-only), Docker, gh release download, the durable evidence root. Artifact = the FINAL rev17 bytes before the two validation placeholders were filled: the plan copy un-substituted cmp-IDENTICAL to plan.md @ sha256 cf5133fa005f1cc9c7ed0ed6c00f9a7c80766c0485e98bd33fade63618fb1191.
+
+21:46:52 scratch=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev17-abnrDe
+21:46:53 wt HEAD=8509157c41c5ef66595d655f39eee5107081bd32 branch=intg/r450-discover-parity origin/main=bbf297e36a38a1fab8c2675f945098a0633f9f8b status=0
+21:46:54 plan copy sha=e62a994430faa755 substitutions=24
+21:46:54 bootstrap (0) done: RUNNERS=/Users/jack/Programming/bivpak-evidence/r450-runners-yhmie9 blocks=30
+21:46:54 run-task.sh 0 START
+21:49:13 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+21:49:13 run-task.sh 1 START
+22:04:25 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+22:04:25 run-task.sh 2 START
+22:36:00 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+22:36:00 run-task.sh 3 START
+22:36:01 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+22:36:01 run-task.sh 4 START
+23:18:24 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+23:18:24 run-task.sh 5 START
+23:18:40 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+23:18:40 run-task.sh 6 START
+00:09:08 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:09:08 run-task.sh 7 START
+00:09:49 run-task.sh 7 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:09:49 run-task.sh 8 START (scratch remote /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev17-abnrDe/remote.git; gh shim)
+00:09:50 run-task.sh 8 exit=0 proof_tail=rc=0 task_exit=rc=0 remote_head=8509157c41c5ef66595d655f39eee5107081bd32
+00:09:50 run-task.sh 9 START (the finalizer; writes the REAL results/r450-<flow token>/ in the docs lane — removed after the rehearsal)
+00:09:54 run-task.sh 9 exit=0 proof_tail=rc=0 task_exit=rc=0 final=results_dir=/Users/jack/Programming/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-flow17 set=650 finalize_check_rc=0 shasum_c_rc=0 verdict=set=650 tree=650 manifest=650 equal=yes digests=ok copies=ok
+00:09:54 EVID=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-flow17-ccPvWW
+00:09:54 real worktree untouched: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status=0
+FLOW-COMPLETE
+
+== receipts (read from the evidence home / runners)
+--- token.txt
+token=intg-r450-discover-parity-impl-flow17
+evid=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-flow17-ccPvWW
+--- resume-state.txt
+resume_state=iii
+head=8509157c41c5ef66595d655f39eee5107081bd32
+--- B-tree.txt
+/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-btree-cCZkU1/repo
+--- P-tree.txt
+/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-VURlxF/repo
+--- btree-test.sha256
+90615eeb414c1cdcabeff124f95aafa6f729764860c9782f023f401a35d7a8e9  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-btree-cCZkU1/repo/tests/test_adapter_claude_collect.cpp
+--- btree-claude.sha256
+cd1f8bc8f7ab87cf15251d84ad7e59c618a22f3c19b9633ff193350782800851  /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-btree-cCZkU1/repo/src/adapters/claude_code/claude_code.cpp
+--- red-build.rc
+red_build_rc=0
+--- witness-red.rc
+red_test_rc=42
+--- witness-red.verdict
+ROW 1 failures=1 expected=red ok
+ROW 2 failures=0 expected=green ok
+ROW 3 failures=0 expected=green ok
+ROW 4 failures=0 expected=green ok
+ROW 5 failures=1 expected=red ok
+red verdict ok
+--- discriminator-predicate-B.txt
+rc1=8 rc2=0 present_count=1 iff=PASS hygiene=PASS
+--- witness-green.rc
+green_test_rc=0
+--- witness-green.verdict
+ROW 1 failures=0 expected=green ok
+ROW 2 failures=0 expected=green ok
+ROW 3 failures=0 expected=green ok
+ROW 4 failures=0 expected=green ok
+ROW 5 failures=0 expected=green ok
+green verdict ok
+--- ctest-macos-P.rc
+ctest_macos_P_rc=8
+--- ctest-macos-P.failed-names
+harness-selftest
+--- rederive-C.txt
+MAC=419 k85=1 LIN=421 k326=1
+--- rederive-H.txt
+harness/selftest/stub_biv.py diff_rc=0
+harness/selftest/test_store_isolation.py diff_rc=0
+harness/bivharness/e3.py diff_rc=0
+rederive_mismatch=0
+--- task-3-iii.txt
+task-3 under iii: C = 961b1ccd0ba488f909357d4cac1abab8c77d2fa8 exists; its two literals REPRODUCED by the fresh P observation of this token (MAC=419 k85=1 LIN=421 k326=1); no transcription, no amend executed
+--- P/ctest-linux-P.rc
+8
+--- P/entry.rc
+entry_rc=0
+--- P/tuples-macos.txt
+biv_subprocess_tests macos successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=1978b73b9b106346ad23abc862f6cb31bf4368aa43aae2a402f96bb70f476d61
+biv_repo_git_tests macos successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=a2d6f5df7537b4501a5eb7f66453b1e74351103144672d92184e9200140b4fc0
+biv_repo_engine_tests macos successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=b7b79bfc23b1ddef5fc66245c5a747e756101d2aed5d35a79309bcedbd5ac8e7
+biv_tests macos successes=419 failures=0 expectedFailures=0 skips=3 xml_sha256=5dbb56c0711cb0b9decb753c08f3d285d0121e3676ce6535d0c1040acec8bee4
+biv_probe_tests macos successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=0f356642024dcf9df70787b22ffee37b1cccbfa2ab9f76f6d027e1c75a841398
+expected_skips_observed macos n=3 pack computes foreign-flavor session relpaths without host path parsing | pack derives relpath from slash-form Windows extended paths | threshold-parity per-agent distribution self-activates at R-4.29
+--- P/tuples-linux.txt
+biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=953975d34bae6f483dce5d096fc841e7146f5fbf7c68591eb488682958b4a17d
+biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=34b0dc18fde66dabbe052ce5bd25ee758bdfcaa294b0853df2425fa5c9ecb8f5
+biv_repo_engine_tests linux successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=f3645fce7294021ebbcdc713a23f1b7c1243711b3ec66906fe849b4442c56783
+biv_tests linux successes=421 failures=0 expectedFailures=0 skips=1 xml_sha256=977bf17139fcb154dd8d259d011f5b0c803b60bd1d300c44b104916a3d865531
+biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=eb8c95c72fe54ee5cedd1fd76ee4387cd22ab529577fc440da75dbf45032b2c6
+expected_skips_observed linux n=1 threshold-parity per-agent distribution self-activates at R-4.29
+--- C/gate.rc
+gate_rc=0
+--- H/gate-H.rc
+gate_H_rc=0
+--- H/ctest-macos-H.rc
+ctest_macos_H_rc=0
+--- H/discriminator-predicate.txt
+rc1=8 rc2=0 present_count=1 iff=PASS hygiene=PASS
+--- H/linux-selftest-bar.txt
+rcL=8 a_rows_rc=0 b_c_failed=4 foreign= d_tripwire_lines=0 d_family_files_rc=0 e_base_failed=2 e_base_foreign= population_H=1013 population_B=1013 bar=pass-r435-disclosed-registered-red
+--- H/rp/rp.rc
+rp_rc=0
+--- push-class.txt
+class=a
+--- pr.rc
+pr_rc=0
+--- RUNNERS/final-record.txt
+results_dir=/Users/jack/Programming/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-flow17 set=650 finalize_check_rc=0 shasum_c_rc=0
+--- RUNNERS/final-verdict.txt
+set=650 tree=650 manifest=650 equal=yes digests=ok copies=ok
+--- RUNNERS/final-verdict.rc
+finalize_check_rc=0
+--- RUNNERS/final-shasum-c.rc
+shasum_c_rc=0
+--- final-set.txt: 650 lines; runners/ entries in the set: 83; task-8 controller receipts in the set: 4; task-9 entries in the set: runners/proof-9.txt runners/task-9.invocation.txt runners/task-9.sh runners/task-9.sha256  (prologue set only, by construction)
+--- tracked tree at the end: files=651 (incl. SHA256SUMS) manifest_lines=650; independent finalize.py check after the run: set=654 tree=650 manifest=650 equal=no digests=ok copies=bad; shasum -c: ALL-OK
+--- candidate worktree after the run: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status_lines=0; main repo product paths changed: 0
