@@ -1,0 +1,46 @@
+rev19 F-BAR fixtures — 2026-09-11 — iso rev13 (f72919d9 @ 2b24e40, approved 133947) "BAR FIXTURES (F-BAR)" F-BAR-1..5 + intact H, and the REAL green-log cases R1-R3 (master 133405/134545; Master Reviewer 133947): the Task 6 Step 2 classifier (derived task-6 lines 44..49 of the assembled rev19 artifact 777f8c20d1f19566bdd9096c40b70c0ce3b5136d865b6cf7eca70cb260ffbda7) in bash AND zsh
+
+archived B log sha256: bcae4d3a0b1d67dda1f240e43938ca60b0331a1a6029fe4a57fea450ee076b5d
+archived section: 130 lines; FAILED lines 2; summary: ================== 2 failed, 1008 passed, 3 skipped in 29.96s ==================
+F-BAR-1 intact archived B (bcae4d3a) + real H  bash expected=pass-r435-disclosed-registered-red             got=pass-r435-disclosed-registered-red             rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+F-BAR-1 intact archived B (bcae4d3a) + real H  zsh  expected=pass-r435-disclosed-registered-red             got=pass-r435-disclosed-registered-red             rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+F-BAR-2 mutant: FAILED lines 1 (distinct names 1), summary unchanged
+F-BAR-2 one base FAILED name dropped, summary 2 bash expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=1 
+F-BAR-2 one base FAILED name dropped, summary 2 zsh  expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=1 
+F-BAR-3 empty base capture, N=2                bash expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=0 
+F-BAR-3 empty base capture, N=2                zsh  expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=0 
+F-BAR-4 valid green base                       bash expected=stop-inconclusive-base-green-arm-ii-required   got=stop-inconclusive-base-green-arm-ii-required   rc=1 OK
+    B.kv: status=run summary=parsed failed=0 passed=1010 skipped=3 population=1013 names_count=0 
+F-BAR-4 valid green base                       zsh  expected=stop-inconclusive-base-green-arm-ii-required   got=stop-inconclusive-base-green-arm-ii-required   rc=1 OK
+    B.kv: status=run summary=parsed failed=0 passed=1010 skipped=3 population=1013 names_count=0 
+F-BAR-5 F-BAR-2 sample as a series sample      bash expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=1 
+F-BAR-5 F-BAR-2 sample as a series sample      zsh  expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=1 
+intact real H + the rehearsal's real in-token B bash expected=pass-r435-disclosed-registered-red             got=pass-r435-disclosed-registered-red             rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+intact real H + the rehearsal's real in-token B zsh  expected=pass-r435-disclosed-registered-red             got=pass-r435-disclosed-registered-red             rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+real green: run2 (default threshold) junit sha256 61fafb6638dff0c62231695fa8c77384e3f3a39ef9b4ac00d4551794823d00fa; run3 (size flags) junit sha256 1110f1b013ef321a71c35169779f95de4319486207b72a196497ea36ffa32259
+helper on run2: status=run summary=absent failed=0 passed=0 skipped=0 population=0 names_count=0 
+helper on run3: status=run summary=parsed failed=0 passed=1014 skipped=0 population=1014 names_count=0 
+R1 REAL green (run3) as candidate + real B     bash expected=pass-green                                     got=pass-green                                     rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+R1 REAL green (run3) as candidate + real B     zsh  expected=pass-green                                     got=pass-green                                     rc=0 OK
+    B.kv: status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+R2 REAL green run2 (default 1024B threshold) as base bash expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=run summary=absent failed=0 passed=0 skipped=0 population=0 names_count=0 
+R2 REAL green run2 (default 1024B threshold) as base zsh  expected=stop-invalid-base-draw                         got=stop-invalid-base-draw                         rc=1 OK
+    B.kv: status=run summary=absent failed=0 passed=0 skipped=0 population=0 names_count=0 
+R3 REAL green run3 (size flags) as base vs Linux H bash expected=stop-single-draw-inadmissible-arm-ii-required  got=stop-single-draw-inadmissible-arm-ii-required  rc=1 OK
+    B.kv: status=run summary=parsed failed=0 passed=1014 skipped=0 population=1014 names_count=0 
+R3 REAL green run3 (size flags) as base vs Linux H zsh  expected=stop-single-draw-inadmissible-arm-ii-required  got=stop-single-draw-inadmissible-arm-ii-required  rc=1 OK
+    B.kv: status=run summary=parsed failed=0 passed=1014 skipped=0 population=1014 names_count=0 
+cat: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-fbar18-8rJGii/r3-zsh-bash/H/linux-selftest-bar.txt: No such file or directory
+R3 receipt: 

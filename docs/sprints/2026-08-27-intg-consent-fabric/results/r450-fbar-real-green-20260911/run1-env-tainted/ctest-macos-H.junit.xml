@@ -1,0 +1,4049 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="1"
+	failures="1"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="18"
+	timestamp="2026-09-11T13:36:40"
+	>
+	<testcase name="harness-selftest" classname="harness-selftest" time="18.1777" status="fail">
+		<failure message="Failed"/>
+		<properties>
+			<property name="cmake_labels" value="harness;selftest"/>
+		</properties>
+		<system-out>============================= test session starts ==============================
+platform darwin -- Python 3.12.12, pytest-8.4.2, pluggy-1.6.0
+rootdir: /Users/jack/Programming/bivpak-intg-r450-discover-parity/harness
+collected 1014 items
+
+selftest/test_artifact.py ....                                           [  0%]
+selftest/test_cli.py .......                                             [  1%]
+selftest/test_cmake.py ......                                            [  1%]
+selftest/test_compare.py ...............................                 [  4%]
+selftest/test_e3_asserts.py ...............................FFFFFFFFFFFFF [  9%]
+FFFFFFFFFFFFF.FFFFFFFFFFFFFFFFFFF.............................FFFFF...FF [ 16%]
+.....F.................................................................. [ 23%]
+.............FFFFFFFF.FFF............................................... [ 30%]
+........................................................................ [ 37%]
+FFFFFFF.....FFFFFFFFFF........................................F......... [ 44%]
+........F.............F.............F.............F.........F........... [ 51%]
+..F..................................................................... [ 58%]
+........................................................................ [ 65%]
+.......................................................................F [ 72%]
+..FFFFFF..........................................................FFFFFF [ 80%]
+FFFFFFFFF.FFFFFFFFF..................................................... [ 87%]
+....................                                                     [ 89%]
+selftest/test_envelope.py ......                                         [ 89%]
+selftest/test_fixtures.py ............                                   [ 90%]
+selftest/test_host2_credentials.py ................................      [ 94%]
+selftest/test_manifest.py ..........                                     [ 95%]
+selftest/test_precheck.py ....                                           [ 95%]
+selftest/test_probe_isolation.py .....                                   [ 95%]
+selftest/test_report.py ......                                           [ 96%]
+selftest/test_run_clang_tidy.py ....                                     [ 96%]
+selftest/test_scenario.py ...............                                [ 98%]
+selftest/test_scenario_env.py ..                                         [ 98%]
+selftest/test_specs.py ...                                               [ 98%]
+selftest/test_store_isolation.py ...........                             [100%]
+
+=================================== FAILURES ===================================
+___________ test_e3_pack_warning_cannot_spoof_version_floor_evidence ___________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x107f8d8e0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_pack_warning_cannot_sp0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_pack_warning_cannot_sp0')
+
+    def test_e3_pack_warning_cannot_spoof_version_floor_evidence(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        spoof = (
+            "version-floor-evidence:live:codex:version=0.300.0;"
+            "newer_than_surveyed=true"
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=[spoof]),
+        )
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:876: AssertionError
+__________ test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces __________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080a6600&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_pack_exit2_with_warnin0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_pack_exit2_with_warnin0')
+
+    def test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        packed = SimpleNamespace(
+            returncode=2,
+            stdout=_envelope(
+                "pack",
+                2,
+                ok=True,
+                warnings=["CodexDbEnrichmentSkipped"],
+                result={},
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=packed,
+        )
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:904: AssertionError
+____________ test_e3_pack_ok_false_at_exit2_returns_report_refusal _____________
+report-refusal-shape-mismatch
+__________________ test_e3_pack_failure_detail_from_envelope ___________________
+report-refusal-shape-mismatch
+____________________ test_e3_pack_exit_code_mismatch_fails _____________________
+report-refusal-shape-mismatch
+__________________ test_e3_pack_ok_true_bad_exit_is_violation __________________
+report-refusal-shape-mismatch
+_____________________ test_e3_pack_boolean_exit_code_fails _____________________
+report-refusal-shape-mismatch
+____________________ test_e3_pack_non_object_envelope_fails ____________________
+report-refusal-shape-mismatch
+___________________ test_e3_pack_unparseable_envelope_fails ____________________
+report-refusal-shape-mismatch
+________________________ test_e3_pack_non_bool_ok_fails ________________________
+report-refusal-shape-mismatch
+__________________ test_e3_pack_malformed_warnings_fail_loud ___________________
+report-refusal-shape-mismatch
+______________ test_e3_warned_pack_then_open_failure_retains_both ______________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x107facb30&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_warned_pack_then_open_0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_warned_pack_then_open_0')
+
+    def test_e3_warned_pack_then_open_failure_retains_both(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        opened = SimpleNamespace(
+            returncode=3,
+            stdout=_envelope(
+                "open",
+                3,
+                ok=False,
+                error={"kind": "SessionInstallFailed", "message": "install boom"},
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1080: AssertionError
+______ test_e3_warned_pack_then_handled_exception_returns_report_refusal _______
+report-refusal-shape-mismatch
+__________________ test_e3_open_exit2_with_warnings_proceeds ___________________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x107fac710&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_exit2_with_warnin0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_exit2_with_warnin0')
+
+    def test_e3_open_exit2_with_warnings_proceeds(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        def warned_open(restored_workspace):
+            return _open_process_result(
+                restored_workspace,
+                returncode=2,
+                warnings=[
+                    {
+                        "kind": "UnknownAgentSkipped",
+                        "path": "sessions/unknown.jsonl",
+                    }
+                ],
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=warned_open,
+        )
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:1127: AssertionError
+__________________ test_e3_open_failure_detail_from_envelope ___________________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815cb90&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_failure_detail_fr0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_failure_detail_fr0')
+
+    def test_e3_open_failure_detail_from_envelope(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        opened = SimpleNamespace(
+            returncode=3,
+            stdout=_envelope(
+                "open",
+                3,
+                ok=False,
+                error={"kind": "SessionInstallFailed", "message": "open boom"},
+            ),
+            stderr="wrong source",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1155: AssertionError
+______________ test_e3_open_non_object_result_fails_loudly[null] _______________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080a7a10&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_non_object_result0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_non_object_result0')
+result_payload = None
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (None, "bad", []),
+        ids=("null", "string", "list"),
+    )
+    def test_e3_open_non_object_result_fails_loudly(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1182: AssertionError
+_____________ test_e3_open_non_object_result_fails_loudly[string] ______________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080a7740&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_non_object_result1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_non_object_result1')
+result_payload = 'bad'
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (None, "bad", []),
+        ids=("null", "string", "list"),
+    )
+    def test_e3_open_non_object_result_fails_loudly(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1182: AssertionError
+______________ test_e3_open_non_object_result_fails_loudly[list] _______________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815d250&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_non_object_result2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_non_object_result2')
+result_payload = []
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (None, "bad", []),
+        ids=("null", "string", "list"),
+    )
+    def test_e3_open_non_object_result_fails_loudly(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1182: AssertionError
+__ test_e3_open_invalid_output_dir_fails_before_path_resolution[empty-result] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815c170&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_invalid_output_di0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_invalid_output_di0')
+result_payload = {}
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (
+            {},
+            {"sessions": _valid_sessions_payload()},
+            {"output_dir": ""},
+            {"output_dir": 42},
+        ),
+        ids=("empty-result", "missing", "empty", "non-string"),
+    )
+    def test_e3_open_invalid_output_dir_fails_before_path_resolution(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1214: AssertionError
+____ test_e3_open_invalid_output_dir_fails_before_path_resolution[missing] _____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815c290&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_invalid_output_di1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_invalid_output_di1')
+result_payload = {'sessions': {'agents': [{'agent': 'codex', 'sessions': [{'installed_session_id': 'codex-session', 'outcome': 'installed'}]}, {'agent': 'claude-code', 'sessions': [{'installed_session_id': 'claude-code-session', 'outcome': 'installed'}]}]}}
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (
+            {},
+            {"sessions": _valid_sessions_payload()},
+            {"output_dir": ""},
+            {"output_dir": 42},
+        ),
+        ids=("empty-result", "missing", "empty", "non-string"),
+    )
+    def test_e3_open_invalid_output_dir_fails_before_path_resolution(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1214: AssertionError
+_____ test_e3_open_invalid_output_dir_fails_before_path_resolution[empty] ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815e300&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_invalid_output_di2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_invalid_output_di2')
+result_payload = {'output_dir': ''}
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (
+            {},
+            {"sessions": _valid_sessions_payload()},
+            {"output_dir": ""},
+            {"output_dir": 42},
+        ),
+        ids=("empty-result", "missing", "empty", "non-string"),
+    )
+    def test_e3_open_invalid_output_dir_fails_before_path_resolution(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1214: AssertionError
+___ test_e3_open_invalid_output_dir_fails_before_path_resolution[non-string] ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815e150&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_invalid_output_di3')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_invalid_output_di3')
+result_payload = {'output_dir': 42}
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (
+            {},
+            {"sessions": _valid_sessions_payload()},
+            {"output_dir": ""},
+            {"output_dir": 42},
+        ),
+        ids=("empty-result", "missing", "empty", "non-string"),
+    )
+    def test_e3_open_invalid_output_dir_fails_before_path_resolution(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1214: AssertionError
+_____ test_e3_open_relative_output_dir_fails_before_workspace_binding[dot] _____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1081545c0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_relative_output_d0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_relative_output_d0')
+output_dir = '.'
+
+    @pytest.mark.parametrize(
+        "output_dir",
+        (".", "..", "relative/path"),
+        ids=("dot", "dotdot", "nested-relative"),
+    )
+    def test_e3_open_relative_output_dir_fails_before_workspace_binding(
+        monkeypatch, tmp_path, stable_test_root, output_dir
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": output_dir,
+                    "sessions": _valid_sessions_payload(),
+                },
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1248: AssertionError
+___ test_e3_open_relative_output_dir_fails_before_workspace_binding[dotdot] ____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108154770&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_relative_output_d1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_relative_output_d1')
+output_dir = '..'
+
+    @pytest.mark.parametrize(
+        "output_dir",
+        (".", "..", "relative/path"),
+        ids=("dot", "dotdot", "nested-relative"),
+    )
+    def test_e3_open_relative_output_dir_fails_before_workspace_binding(
+        monkeypatch, tmp_path, stable_test_root, output_dir
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": output_dir,
+                    "sessions": _valid_sessions_payload(),
+                },
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1248: AssertionError
+_ test_e3_open_relative_output_dir_fails_before_workspace_binding[nested-relative] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080a64e0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_relative_output_d2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_relative_output_d2')
+output_dir = 'relative/path'
+
+    @pytest.mark.parametrize(
+        "output_dir",
+        (".", "..", "relative/path"),
+        ids=("dot", "dotdot", "nested-relative"),
+    )
+    def test_e3_open_relative_output_dir_fails_before_workspace_binding(
+        monkeypatch, tmp_path, stable_test_root, output_dir
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": output_dir,
+                    "sessions": _valid_sessions_payload(),
+                },
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1248: AssertionError
+___ test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815ff80&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_off_tree_absolute0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_off_tree_absolute0')
+
+    def test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        off_tree = tmp_path / "off-tree"
+        off_tree.mkdir()
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": str(off_tree),
+                    "sessions": _valid_sessions_payload(),
+                },
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1281: AssertionError
+__ test_e3_open_malformed_sessions_fail_before_consumer_access[sessions-null] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x107facaa0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session0')
+case = 'sessions-null', sessions_payload = None, detail_member = 'sessions'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: sessions-null
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+__ test_e3_open_malformed_sessions_fail_before_consumer_access[sessions-list] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108155a30&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session1')
+case = 'sessions-list', sessions_payload = [], detail_member = 'sessions'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: sessions-list
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+___ test_e3_open_malformed_sessions_fail_before_consumer_access[agents-null] ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080a6840&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session2')
+case = 'agents-null', sessions_payload = {'agents': None}
+detail_member = 'sessions.agents'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: agents-null
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+__ test_e3_open_malformed_sessions_fail_before_consumer_access[group-scalar] ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815fd70&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session3')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session3')
+case = 'group-scalar', sessions_payload = {'agents': [1]}
+detail_member = 'sessions.agents[0]'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: group-scalar
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[group-agent-missing] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108155a00&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session4')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session4')
+case = 'group-agent-missing', sessions_payload = {'agents': [{'sessions': []}]}
+detail_member = 'sessions.agents[0].agent'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: group-agent-missing
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[group-sessions-null] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815fce0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session5')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session5')
+case = 'group-sessions-null'
+sessions_payload = {'agents': [{'agent': 'codex', 'sessions': None}]}
+detail_member = 'sessions.agents[0].sessions'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: group-sessions-null
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[session-scalar] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815d2e0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session6')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session6')
+case = 'session-scalar'
+sessions_payload = {'agents': [{'agent': 'codex', 'sessions': [1]}]}
+detail_member = 'sessions.agents[0].sessions[0]'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: session-scalar
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[session-outcome-missing] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108156ea0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session7')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session7')
+case = 'session-outcome-missing'
+sessions_payload = {'agents': [{'agent': 'codex', 'sessions': [{}]}]}
+detail_member = 'sessions.agents[0].sessions[0].outcome'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: session-outcome-missing
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[installed-id-non-string] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815d310&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_malformed_session8')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_malformed_session8')
+case = 'installed-id-non-string'
+sessions_payload = {'agents': [{'agent': 'codex', 'sessions': [{'installed_session_id': 42, 'outcome': 'installed'}]}, {'agent': 'claude-code', 'sessions': [{'installed_session_id': 'claude-code-session', 'outcome': 'installed'}]}]}
+detail_member = 'sessions.agents[0].sessions[0].installed_session_id'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: installed-id-non-string
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+_____ test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080fc260&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_installed_agent_i0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_installed_agent_i0')
+
+    def test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        def mismatched_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            sessions["agents"][1]["agent"] = "bogus-agent"
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=mismatched_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1426: AssertionError
+_ test_e3_open_installed_agent_multiset_must_match_spec[duplicate-actual_agents0] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815cef0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_installed_agent_m0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_installed_agent_m0')
+case = 'duplicate', actual_agents = ['claude-code', 'codex', 'codex']
+
+    @pytest.mark.parametrize(
+        ("case", "actual_agents"),
+        (
+            ("duplicate", ["claude-code", "codex", "codex"]),
+            ("missing", ["codex"]),
+            ("extra", ["claude-code", "codex", "extra-agent"]),
+        ),
+    )
+    def test_e3_open_installed_agent_multiset_must_match_spec(
+        monkeypatch, tmp_path, stable_test_root, case, actual_agents
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            if case == "duplicate":
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "codex-duplicate-session",
+                            }
+                        ],
+                    }
+                )
+            elif case == "missing":
+                sessions["agents"].pop()
+            else:
+                sessions["agents"].append(
+                    {
+                        "agent": "extra-agent",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "extra-agent-session",
+                            }
+                        ],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1496: AssertionError
+_ test_e3_open_installed_agent_multiset_must_match_spec[missing-actual_agents1] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815d550&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_installed_agent_m1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_installed_agent_m1')
+case = 'missing', actual_agents = ['codex']
+
+    @pytest.mark.parametrize(
+        ("case", "actual_agents"),
+        (
+            ("duplicate", ["claude-code", "codex", "codex"]),
+            ("missing", ["codex"]),
+            ("extra", ["claude-code", "codex", "extra-agent"]),
+        ),
+    )
+    def test_e3_open_installed_agent_multiset_must_match_spec(
+        monkeypatch, tmp_path, stable_test_root, case, actual_agents
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            if case == "duplicate":
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "codex-duplicate-session",
+                            }
+                        ],
+                    }
+                )
+            elif case == "missing":
+                sessions["agents"].pop()
+            else:
+                sessions["agents"].append(
+                    {
+                        "agent": "extra-agent",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "extra-agent-session",
+                            }
+                        ],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1496: AssertionError
+_ test_e3_open_installed_agent_multiset_must_match_spec[extra-actual_agents2] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080a70b0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_installed_agent_m2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_installed_agent_m2')
+case = 'extra', actual_agents = ['claude-code', 'codex', 'extra-agent']
+
+    @pytest.mark.parametrize(
+        ("case", "actual_agents"),
+        (
+            ("duplicate", ["claude-code", "codex", "codex"]),
+            ("missing", ["codex"]),
+            ("extra", ["claude-code", "codex", "extra-agent"]),
+        ),
+    )
+    def test_e3_open_installed_agent_multiset_must_match_spec(
+        monkeypatch, tmp_path, stable_test_root, case, actual_agents
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            if case == "duplicate":
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "codex-duplicate-session",
+                            }
+                        ],
+                    }
+                )
+            elif case == "missing":
+                sessions["agents"].pop()
+            else:
+                sessions["agents"].append(
+                    {
+                        "agent": "extra-agent",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "extra-agent-session",
+                            }
+                        ],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1496: AssertionError
+_ test_e3_open_each_raw_group_requires_exactly_one_installed_row[mixed-over-2] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1081573b0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_each_raw_group_re0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_each_raw_group_re0')
+case = 'mixed-over', installed_count = 2
+
+    @pytest.mark.parametrize(
+        ("case", "installed_count"),
+        (
+            ("mixed-over", 2),
+            ("mixed-under", 0),
+            ("sole-over", 2),
+            ("sole-under", 0),
+        ),
+    )
+    def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+        monkeypatch, tmp_path, stable_test_root, case, installed_count
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            codex_group = sessions["agents"][0]
+            original_row = codex_group["sessions"][0]
+            if installed_count == 2:
+                codex_group["sessions"].append(
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": "codex-second-session",
+                    }
+                )
+            else:
+                codex_group["sessions"] = [{"outcome": "skipped"}]
+            if case.startswith("mixed"):
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [original_row],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1559: AssertionError
+_ test_e3_open_each_raw_group_requires_exactly_one_installed_row[mixed-under-0] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080fd550&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_each_raw_group_re1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_each_raw_group_re1')
+case = 'mixed-under', installed_count = 0
+
+    @pytest.mark.parametrize(
+        ("case", "installed_count"),
+        (
+            ("mixed-over", 2),
+            ("mixed-under", 0),
+            ("sole-over", 2),
+            ("sole-under", 0),
+        ),
+    )
+    def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+        monkeypatch, tmp_path, stable_test_root, case, installed_count
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            codex_group = sessions["agents"][0]
+            original_row = codex_group["sessions"][0]
+            if installed_count == 2:
+                codex_group["sessions"].append(
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": "codex-second-session",
+                    }
+                )
+            else:
+                codex_group["sessions"] = [{"outcome": "skipped"}]
+            if case.startswith("mixed"):
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [original_row],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1559: AssertionError
+_ test_e3_open_each_raw_group_requires_exactly_one_installed_row[sole-over-2] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815c0b0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_each_raw_group_re2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_each_raw_group_re2')
+case = 'sole-over', installed_count = 2
+
+    @pytest.mark.parametrize(
+        ("case", "installed_count"),
+        (
+            ("mixed-over", 2),
+            ("mixed-under", 0),
+            ("sole-over", 2),
+            ("sole-under", 0),
+        ),
+    )
+    def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+        monkeypatch, tmp_path, stable_test_root, case, installed_count
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            codex_group = sessions["agents"][0]
+            original_row = codex_group["sessions"][0]
+            if installed_count == 2:
+                codex_group["sessions"].append(
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": "codex-second-session",
+                    }
+                )
+            else:
+                codex_group["sessions"] = [{"outcome": "skipped"}]
+            if case.startswith("mixed"):
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [original_row],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1559: AssertionError
+_ test_e3_open_each_raw_group_requires_exactly_one_installed_row[sole-under-0] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108157f50&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_open_each_raw_group_re3')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_open_each_raw_group_re3')
+case = 'sole-under', installed_count = 0
+
+    @pytest.mark.parametrize(
+        ("case", "installed_count"),
+        (
+            ("mixed-over", 2),
+            ("mixed-under", 0),
+            ("sole-over", 2),
+            ("sole-under", 0),
+        ),
+    )
+    def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+        monkeypatch, tmp_path, stable_test_root, case, installed_count
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            codex_group = sessions["agents"][0]
+            original_row = codex_group["sessions"][0]
+            if installed_count == 2:
+                codex_group["sessions"].append(
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": "codex-second-session",
+                    }
+                )
+            else:
+                codex_group["sessions"] = [{"outcome": "skipped"}]
+            if case.startswith("mixed"):
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [original_row],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1559: AssertionError
+________ test_e3_warned_pack_then_malformed_open_result_retains_warning ________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108156ff0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_warned_pack_then_malfo0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_warned_pack_then_malfo0')
+
+    def test_e3_warned_pack_then_malformed_open_result_retains_warning(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=None),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1584: AssertionError
+_________ test_cli_persists_failed_e3_report_for_malformed_open_result _________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080fd700&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_cli_persists_failed_e3_re0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_cli_persists_failed_e3_re0')
+
+    def test_cli_persists_failed_e3_report_for_malformed_open_result(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=None),
+            stderr="",
+        )
+        spec_path, seen = _configure_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+        report_path = stable_test_root / "report.json"
+    
+        exit_code = cli.main(
+            [
+                "--biv",
+                str(tmp_path / "biv"),
+                "--e3",
+                str(spec_path),
+                "--report",
+                str(report_path),
+            ]
+        )
+    
+        assert exit_code != 0
+&gt;       assert seen == ["pack", "open"]
+E       AssertionError: assert [] == ['pack', 'open']
+E         
+E         Right contains 2 more items, first extra item: 'pack'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1619: AssertionError
+______ test_run_e3_liveness_without_persistence_flag_reds_c1_before_open _______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080feae0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_liveness_without_p0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_liveness_without_p0')
+
+    def test_run_e3_liveness_without_persistence_flag_reds_c1_before_open(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        spec = _valid_two_agent_spec()
+        spec["agents"][0]["env"] = {"CODEX_HOME": "{profile}"}
+        spec["agents"][1]["env"] = {"CLAUDE_CONFIG_DIR": "{profile}"}
+        spec["host2_profile_root"] = "host2/profiles"
+        spec_path = tmp_path / "e3.json"
+        spec_path.write_text(json.dumps(spec), encoding="utf-8")
+        open_calls = []
+    
+        real_materialize = e3.materialize_run_tokens
+    
+        def mutate_after_validation(value):
+            materialized = real_materialize(value)
+            claude = next(agent for agent in materialized["agents"] if agent["id"] == "claude-code")
+            claude["liveness_command"].remove("--no-session-persistence")
+            return materialized
+    
+        def fake_seed(*args, **kwargs):
+            return None
+    
+        def fake_spawn(command, cwd, env):
+            command = list(command)
+            if len(command) &gt; 1 and command[1] == "pack":
+                return _successful_pack()
+            if len(command) &gt; 1 and command[1] == "open":
+                open_calls.append(command)
+                raise AssertionError("biv open must not run after C1 RED")
+            if command[1:] == ["--version"]:
+                version = "2.1.210" if _agent_basename(command) == "claude" else "0.144.1"
+                return SimpleNamespace(returncode=0, stdout=version, stderr="")
+            if command[1:] in (["auth", "status"], ["login", "status"]):
+                return SimpleNamespace(returncode=0, stdout="authenticated", stderr="")
+            if "-p" in command:
+                projects = Path(env["CLAUDE_CONFIG_DIR"]) / "projects" / "liveness"
+                projects.mkdir(parents=True, exist_ok=True)
+                (projects / "transcript.jsonl").write_bytes(b"liveness")
+                return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+            return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+    
+        monkeypatch.setattr(e3, "materialize_run_tokens", mutate_after_validation)
+        monkeypatch.setattr(e3, "_seed_agent", fake_seed)
+        monkeypatch.setattr(e3, "_spawn", fake_spawn)
+        monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
+    
+        result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+    
+        assert result.status is Status.INVALID
+&gt;       assert result.detail == "e3-post-materialization-invalid"
+E       AssertionError: assert 'credential-e...ROPIC_API_KEY' == 'e3-post-mate...ation-invalid'
+E         
+E         - e3-post-materialization-invalid
+E         + credential-env:ANTHROPIC_API_KEY
+
+selftest/test_e3_asserts.py:2098: AssertionError
+_______ test_run_e3_origin_session_isolation_mutation_stops_before_open ________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108108140&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_origin_session_iso0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_origin_session_iso0')
+
+    def test_run_e3_origin_session_isolation_mutation_stops_before_open(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        real_snapshot_store = e3.snapshot_store
+        spec_path, seen = _configure_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            pack_result=_successful_pack(),
+        )
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
+        spec["host2_profile_root"] = "host2/profiles"
+        spec_path.write_text(json.dumps(spec), encoding="utf-8")
+        origin = tmp_path / "origin-session.jsonl"
+        origin.write_bytes(b"origin-session")
+    
+        def expose_origin_session(value, host2, profile_root, resolved_binaries, spawn, *_args):
+            claude_project = profile_root / "claude-code" / "projects" / "origin"
+            claude_project.mkdir(parents=True)
+            os.link(origin, claude_project / "session.jsonl")
+            (profile_root / "codex").mkdir()
+            return {agent["id"]: {} for agent in value["agents"]}
+    
+        monkeypatch.setattr(e3, "snapshot_store", real_snapshot_store)
+        monkeypatch.setattr(e3, "setup_host2_credentials", expose_origin_session)
+    
+        result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+    
+        assert result.status is Status.INVALID
+&gt;       assert result.detail == "e3-post-materialization-invalid"
+E       AssertionError: assert 'credential-e...ROPIC_API_KEY' == 'e3-post-mate...ation-invalid'
+E         
+E         - e3-post-materialization-invalid
+E         + credential-env:ANTHROPIC_API_KEY
+
+selftest/test_e3_asserts.py:2130: AssertionError
+_______ test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open _______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108155730&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_session_inserted_a0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_session_inserted_a0')
+
+    def test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        spec_path, seen = _configure_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            pack_result=_successful_pack(),
+        )
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
+        spec["host2_profile_root"] = "host2/profiles"
+        spec_path.write_text(json.dumps(spec), encoding="utf-8")
+        profile_root = stable_test_root / "scratch" / "host2/profiles"
+        sessions = profile_root / "codex" / "sessions"
+        mutation = _insert_session_when_scandir_stops(monkeypatch, sessions)
+    
+        def create_isolated_session_directories(value, *_args):
+            for agent in value["agents"]:
+                store = profile_root / agent["id"]
+                store.mkdir(parents=True)
+                for location in e3.SESSION_LOCATIONS[agent["id"]]:
+                    path = store / location
+                    if location == "session_index.jsonl":
+                        path.write_bytes(b"")
+                    else:
+                        path.mkdir()
+            return {agent["id"]: {} for agent in value["agents"]}
+    
+        monkeypatch.setattr(
+            e3,
+            "setup_host2_credentials",
+            create_isolated_session_directories,
+        )
+    
+        result = e3.run_e3(
+            spec_path,
+            Path("biv"),
+            stable_test_root / "scratch",
+        )
+    
+&gt;       assert mutation["inserted"]
+E       assert False
+
+selftest/test_e3_asserts.py:2173: AssertionError
+__________________ test_run_e3_tripwire_red_stops_before_open __________________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10815d220&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_tripwire_red_stops0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_tripwire_red_stops0')
+
+    def test_run_e3_tripwire_red_stops_before_open(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+        source = repo / "src/adapters/claude_code/claude_code.cpp"
+        text = source.read_text(encoding="utf-8")
+        old = '.globs = {"projects/*/*.jsonl"}'
+        new = '.globs = {"projects/*/*.jsonl", "drift/**"}'
+        assert text.count(old) == 1
+        source.write_text(text.replace(old, new, 1), encoding="utf-8")
+    
+        spec_path, seen = _configure_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            pack_result=_successful_pack(),
+        )
+        monkeypatch.setattr(e3, "_c1_default_repo_root", lambda: repo)
+    
+        result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+    
+        assert result.status is Status.INVALID
+&gt;       assert result.detail == "e3-post-materialization-invalid"
+E       AssertionError: assert 'credential-e...ROPIC_API_KEY' == 'e3-post-mate...ation-invalid'
+E         
+E         - e3-post-materialization-invalid
+E         + credential-env:ANTHROPIC_API_KEY
+
+selftest/test_e3_asserts.py:2201: AssertionError
+__________ test_run_e3_c1_is_final_operation_immediately_before_open ___________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080ff830&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_c1_is_final_operat0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_c1_is_final_operat0')
+
+    def test_run_e3_c1_is_final_operation_immediately_before_open(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        spec_path, _ = _configure_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            pack_result=_successful_pack(),
+        )
+        events = []
+        configured_spawn = e3._spawn
+    
+        def record_snapshot(*args):
+            events.append("snapshot")
+            return {}
+    
+        def record_tripwire():
+            events.append("tripwire")
+            return []
+    
+        def record_zero_session(*args):
+            events.append("zero-session")
+            return []
+    
+        def record_spawn(command, cwd, env):
+            if len(command) &gt; 1 and command[1] == "open":
+                events.append("open")
+            return configured_spawn(command, cwd, env)
+    
+        monkeypatch.setattr(e3, "snapshot_store", record_snapshot)
+        monkeypatch.setattr(e3, "_c1_drift_tripwire_failures", record_tripwire)
+        monkeypatch.setattr(e3, "_c1_zero_session_failures", record_zero_session)
+        monkeypatch.setattr(e3, "_spawn", record_spawn)
+    
+        result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:2240: AssertionError
+__________ test_live_codex_auth_probe_runs_ambient_no_store_override ___________
+report-refusal-shape-mismatch
+__________ test_live_claude_auth_probe_runs_ambient_no_store_override __________
+report-refusal-shape-mismatch
+_________ test_live_seed_boundary_receives_ambient_env_for_both_agents _________
+report-refusal-shape-mismatch
+_________ test_e3_adversarial_seed_is_airtight_before_runtime_sentinel _________
+adversarial-seed-sentinel-count-mismatch
+_____ test_e3_adversarial_scan_captures_exact_multi_member_hits_value_free _____
+adversarial-scan-hit-set-mismatch
+________ test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up _________
+report-refusal-shape-mismatch
+_ test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_image _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080ec8f0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_decoys_planted_after_s0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_decoys_planted_after_s0')
+capsys = &lt;_pytest.capture.CaptureFixture object at 0x1080ee090&gt;
+
+    def test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_image(
+        monkeypatch, tmp_path, stable_test_root, capsys
+    ):
+        configured = "BIV_E3_CREDENTIAL_SENTINEL_MUST_NOT_APPEAR"
+        sentinel = "bive3-sentinel-" + "d" * 64
+        source_scenario = (
+            Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+        )
+        spec = json.loads(source_scenario.read_text(encoding="utf-8"))
+        spec["credential_scan_sentinel_count"] = 1
+        scenario = tmp_path / "credential-fixture-order.json"
+        scenario.write_text(json.dumps(spec), encoding="utf-8")
+        scratch = stable_test_root / "scratch"
+        stub_biv = Path(__file__).with_name("stub_biv.py")
+    
+        reached = []
+        seen = []
+        captured_reads = []
+        captured_members = []
+        captured_hits = []
+        pack_time = {}
+        generated_counts = []
+    
+        def fake_seed(
+            agent,
+            live_profile,
+            seed_workspace,
+            spec,
+            env,
+            spawn,
+            capture_candidates,
+            owned_paths,
+            resolved_binary=None,
+        ):
+            reached.append(f"seed:{agent['id']}")
+            blob = "".join(
+                path.read_text(errors="ignore")
+                for path in sorted(seed_workspace.rglob("*"))
+                if path.is_file()
+            )
+            captured_reads.append(blob)
+            transcript = seed_workspace / f"seen-{agent['id']}.jsonl"
+            transcript.write_text(json.dumps({"content": blob}), encoding="utf-8")
+            owned_paths.append(transcript)
+    
+        real_scan = e3.scan_image_secret_values
+    
+        def capturing_scan(image, secret_values):
+            reached.append("scan")
+            captured_members[:] = e3.list_members(image)
+            captured_hits[:] = real_scan(image, secret_values)
+            return captured_hits
+    
+        real_spawn = e3._spawn
+        fake_agent_spawn = _credential_order_fake_spawn(seen)
+    
+        def fake_spawn(command, cwd, env):
+            if len(command) &gt; 1 and command[0] == str(stub_biv) and command[1] == "pack":
+                seen.append(tuple(command))
+                seed_workspace = Path(command[2])
+                decoy_root = seed_workspace / e3.CREDENTIAL_DECOY_ROOT
+                pack_time["decoys"] = decoy_root.is_dir() and {
+                    path.name for path in decoy_root.iterdir()
+                } == set(e3.CREDENTIAL_DECOY_NAMES)
+                pack_time["bivignore"] = e3.CREDENTIAL_DECOY_ROOT + "/" in (
+                    seed_workspace / ".bivignore"
+                ).read_text(encoding="utf-8").splitlines()
+                reached.append("pack")
+                return real_spawn([sys.executable, *command], cwd, env)
+            return fake_agent_spawn(command, cwd, env)
+    
+        def stop_after_scan(*args):
+            reached.append("terminal")
+            scanner = args[5]
+            _assert_fixed(scanner.scan_text(sentinel), "decoy-order-sentinel-not-active")
+            _assert_fixed(
+                not scanner.scan_text(configured),
+                "decoy-order-configured-value-active",
+            )
+            _assert_fixed(
+                not (
+                    scratch
+                    / "seed-ws"
+                    / spec["workspace_name"]
+                    / e3.CREDENTIAL_DECOY_ROOT
+                ).exists(),
+                "decoy-order-root-not-removed",
+            )
+            raise ValueError("stop after credential scan")
+    
+        monkeypatch.setenv("STUB_BIV_MODE", "ok")
+    
+        def controlled_runtime_sentinels(count):
+            generated_counts.append(count)
+            if count != 1:
+                pytest.fail("decoy-order-sentinel-count-mismatch", pytrace=False)
+            return [sentinel]
+    
+        monkeypatch.setattr(
+            e3,
+            "_runtime_credential_sentinels",
+            controlled_runtime_sentinels,
+        )
+        monkeypatch.setattr(e3, "_spawn", fake_spawn)
+        monkeypatch.setattr(e3, "_seed_agent", fake_seed)
+        monkeypatch.setattr(e3, "scan_image_secret_values", capturing_scan)
+        monkeypatch.setattr(e3, "setup_host2_credentials", stop_after_scan)
+    
+        result = e3.run_e3(
+            scenario,
+            stub_biv,
+            scratch,
+        )
+        captured_console = capsys.readouterr()
+        serialized = serialize_report([result])
+    
+        assert result.status is Status.INVALID
+&gt;       assert result.detail == "e3-post-materialization-invalid"
+E       AssertionError: assert 'credential-e...ROPIC_API_KEY' == 'e3-post-mate...ation-invalid'
+E         
+E         - e3-post-materialization-invalid
+E         + credential-env:ANTHROPIC_API_KEY
+
+selftest/test_e3_asserts.py:4276: AssertionError
+_ test_e3_controlled_sentinel_image_hit_stops_before_credential_materialization _
+report-refusal-shape-mismatch
+________ test_e3_pack_warning_before_sentinel_population_is_not_written ________
+report-refusal-shape-mismatch
+____ test_e3_decoy_removal_error_stops_before_scanner_activation_and_setup _____
+report-refusal-shape-mismatch
+________ test_e3_open_uses_fresh_work_directory_below_host2_state_root _________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108128da0&gt;
+
+    def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
+        scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+        scratch = Path.home() / ".cache" / f"biv-e3-open-dest-{os.getpid()}"
+        shutil.rmtree(scratch, ignore_errors=True)
+        opened = []
+        restored_workspaces = []
+    
+        monkeypatch.setattr(e3, "_seed_agent", lambda *args, **kwargs: None)
+        monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
+        real_class_j_failures = e3.class_j_failures
+    
+        def capture_class_j(seed_workspace, restored_workspace, app_state_paths):
+            restored_workspaces.append(restored_workspace)
+            return real_class_j_failures(seed_workspace, restored_workspace, app_state_paths)
+    
+        monkeypatch.setattr(e3, "class_j_failures", capture_class_j)
+    
+        def fake_spawn(command, cwd, env):
+            if command[1:] == ["--version"]:
+                version = "2.1.207" if _agent_basename(command) == "claude" else "0.142.5"
+                return SimpleNamespace(returncode=0, stdout=version, stderr="")
+            if _agent_basename(command) == "claude" and command[1] == "--model":
+                return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+            if len(command) &gt; 1 and command[1] == "pack":
+                return _successful_pack()
+            if len(command) &gt; 1 and command[1] == "open":
+                dest = Path(command[command.index("--dest") + 1])
+                host2 = scratch / "host2"
+                assert dest == host2 / "work"
+                assert not dest.exists()
+                assert (host2 / "home").is_dir()
+                assert (host2 / "profiles" / "claude").is_dir()
+                assert (host2 / "profiles" / "codex").is_dir()
+                assert dest != scratch / "seed-ws" / "biv-e3-dual-resume"
+                assert cwd == host2
+                assert env["HOME"] == str(host2 / "home")
+                assert env["CLAUDE_CONFIG_DIR"] == str(host2 / "profiles" / "claude")
+                assert env["CODEX_HOME"] == str(host2 / "profiles" / "codex")
+                dest.mkdir()
+                assert dest.is_dir()
+                opened.append(dest)
+                result = {
+                    "output_dir": str(dest),
+                    "sessions": {"agents": []},
+                }
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout=_envelope("open", 0, ok=True, result=result),
+                    stderr="",
+                )
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+    
+        monkeypatch.setattr(e3, "_spawn", fake_spawn)
+        try:
+            result = e3.run_e3(scenario, Path("biv"), scratch)
+            expected = scratch / "host2" / "work"
+&gt;           assert result.status is Status.FAIL
+E           AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E            +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='e3-dual-resume', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E            +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:4472: AssertionError
+___ test_e3_rejects_preexisting_run_trees_without_deleting_them[seed-parent] ___
+report-refusal-shape-mismatch
+_ test_e3_rejects_preexisting_run_trees_without_deleting_them[seed-workspace] __
+report-refusal-shape-mismatch
+______ test_e3_rejects_preexisting_run_trees_without_deleting_them[host2] ______
+report-refusal-shape-mismatch
+__________ test_prerun_version_gate_enforces_the_floor[0.142.5-True] ___________
+report-refusal-shape-mismatch
+__________ test_prerun_version_gate_enforces_the_floor[0.144.1-True] ___________
+report-refusal-shape-mismatch
+__________ test_prerun_version_gate_enforces_the_floor[0.143.0-True] ___________
+report-refusal-shape-mismatch
+__________ test_prerun_version_gate_enforces_the_floor[0.145.0-True] ___________
+report-refusal-shape-mismatch
+__________ test_prerun_version_gate_enforces_the_floor[0.61.0-False] ___________
+report-refusal-shape-mismatch
+_ test_prerun_version_gate_rejects_ambiguous_multi_token_output[codex-cli 0.145.0\nsandbox-runtime 0.142.9\n] _
+report-refusal-shape-mismatch
+_ test_prerun_version_gate_rejects_ambiguous_multi_token_output[sandbox-runtime 0.142.9\ncodex-cli 0.145.0\n] _
+report-refusal-shape-mismatch
+_______ test_e3_preflight_filesystem_errors_are_invalid[scratch_overlap] _______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080ee6c0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_preflight_filesystem_e0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_preflight_filesystem_e0')
+failing_check = 'scratch_overlap'
+
+    @pytest.mark.parametrize(
+        "failing_check",
+        ("scratch_overlap", "probe", "profile_root_failures"),
+    )
+    def test_e3_preflight_filesystem_errors_are_invalid(
+        monkeypatch, tmp_path, stable_test_root, failing_check
+    ):
+        def raise_filesystem_error(*args):
+            raise OSError("injected preflight filesystem error")
+    
+        if failing_check == "scratch_overlap":
+            monkeypatch.setattr(e3, "_scratch_overlap_failures", raise_filesystem_error)
+        elif failing_check == "probe":
+            monkeypatch.setattr(e3, "probe", raise_filesystem_error)
+        else:
+            monkeypatch.setattr(e3, "probe", lambda scratch: [])
+            monkeypatch.setattr(e3, "profile_root_failures", raise_filesystem_error)
+        scenario = tmp_path / "e3.json"
+        scenario.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+    
+        result = e3.run_e3(
+            scenario,
+            tmp_path / "biv",
+            stable_test_root / "scratch",
+            dry_run=True,
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "pre-run filesystem check failed" in result.detail
+E       AssertionError: assert 'pre-run filesystem check failed' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6725: AssertionError
+____________ test_e3_preflight_filesystem_errors_are_invalid[probe] ____________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080ef1a0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_preflight_filesystem_e1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_preflight_filesystem_e1')
+failing_check = 'probe'
+
+    @pytest.mark.parametrize(
+        "failing_check",
+        ("scratch_overlap", "probe", "profile_root_failures"),
+    )
+    def test_e3_preflight_filesystem_errors_are_invalid(
+        monkeypatch, tmp_path, stable_test_root, failing_check
+    ):
+        def raise_filesystem_error(*args):
+            raise OSError("injected preflight filesystem error")
+    
+        if failing_check == "scratch_overlap":
+            monkeypatch.setattr(e3, "_scratch_overlap_failures", raise_filesystem_error)
+        elif failing_check == "probe":
+            monkeypatch.setattr(e3, "probe", raise_filesystem_error)
+        else:
+            monkeypatch.setattr(e3, "probe", lambda scratch: [])
+            monkeypatch.setattr(e3, "profile_root_failures", raise_filesystem_error)
+        scenario = tmp_path / "e3.json"
+        scenario.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+    
+        result = e3.run_e3(
+            scenario,
+            tmp_path / "biv",
+            stable_test_root / "scratch",
+            dry_run=True,
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "pre-run filesystem check failed" in result.detail
+E       AssertionError: assert 'pre-run filesystem check failed' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6725: AssertionError
+____ test_e3_preflight_filesystem_errors_are_invalid[profile_root_failures] ____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x108108b60&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_preflight_filesystem_e2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_preflight_filesystem_e2')
+failing_check = 'profile_root_failures'
+
+    @pytest.mark.parametrize(
+        "failing_check",
+        ("scratch_overlap", "probe", "profile_root_failures"),
+    )
+    def test_e3_preflight_filesystem_errors_are_invalid(
+        monkeypatch, tmp_path, stable_test_root, failing_check
+    ):
+        def raise_filesystem_error(*args):
+            raise OSError("injected preflight filesystem error")
+    
+        if failing_check == "scratch_overlap":
+            monkeypatch.setattr(e3, "_scratch_overlap_failures", raise_filesystem_error)
+        elif failing_check == "probe":
+            monkeypatch.setattr(e3, "probe", raise_filesystem_error)
+        else:
+            monkeypatch.setattr(e3, "probe", lambda scratch: [])
+            monkeypatch.setattr(e3, "profile_root_failures", raise_filesystem_error)
+        scenario = tmp_path / "e3.json"
+        scenario.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+    
+        result = e3.run_e3(
+            scenario,
+            tmp_path / "biv",
+            stable_test_root / "scratch",
+            dry_run=True,
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "pre-run filesystem check failed" in result.detail
+E       AssertionError: assert 'pre-run filesystem check failed' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6725: AssertionError
+________________ test_e3_poison_mode_probe_directory_is_invalid ________________
+
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_poison_mode_probe_dire0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_poison_mode_probe_dire0')
+
+    def test_e3_poison_mode_probe_directory_is_invalid(
+        tmp_path, stable_test_root
+    ):
+        scratch = stable_test_root / "scratch"
+        poison = scratch / ".bivharness-mode-probe"
+        poison.mkdir(parents=True)
+        scenario = tmp_path / "e3.json"
+        scenario.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+    
+        result = e3.run_e3(scenario, tmp_path / "biv", scratch, dry_run=True)
+    
+        assert result.status is Status.INVALID
+&gt;       assert "pre-run filesystem check failed" in result.detail
+E       AssertionError: assert 'pre-run filesystem check failed' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6741: AssertionError
+_ test_e3_refuses_scratch_overlap_with_live_roots_before_probe[same-live_profile] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080ec1a0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_refuses_scratch_overla0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_refuses_scratch_overla0')
+field = 'live_profile', relation = 'same'
+
+    @pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+    @pytest.mark.parametrize("relation", ("same", "scratch-inside-live", "live-inside-scratch"))
+    def test_e3_refuses_scratch_overlap_with_live_roots_before_probe(
+        monkeypatch, tmp_path, stable_test_root, field, relation
+    ):
+        if relation == "same":
+            scratch = stable_test_root / "scratch"
+            live_root = scratch
+        elif relation == "scratch-inside-live":
+            live_root = stable_test_root / "live-root"
+            scratch = live_root / "scratch"
+        else:
+            scratch = stable_test_root / "scratch"
+            live_root = scratch / "live-root"
+        spec = _valid_two_agent_spec()
+        if field == "live_profile":
+            spec["agents"][0][field] = str(live_root)
+        else:
+            spec[field] = [str(live_root)]
+    
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "scratch overlaps" in result.detail
+E       AssertionError: assert 'scratch overlaps' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6775: AssertionError
+_ test_e3_refuses_scratch_overlap_with_live_roots_before_probe[same-live_store_roots] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1081090d0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_refuses_scratch_overla1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_refuses_scratch_overla1')
+field = 'live_store_roots', relation = 'same'
+
+    @pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+    @pytest.mark.parametrize("relation", ("same", "scratch-inside-live", "live-inside-scratch"))
+    def test_e3_refuses_scratch_overlap_with_live_roots_before_probe(
+        monkeypatch, tmp_path, stable_test_root, field, relation
+    ):
+        if relation == "same":
+            scratch = stable_test_root / "scratch"
+            live_root = scratch
+        elif relation == "scratch-inside-live":
+            live_root = stable_test_root / "live-root"
+            scratch = live_root / "scratch"
+        else:
+            scratch = stable_test_root / "scratch"
+            live_root = scratch / "live-root"
+        spec = _valid_two_agent_spec()
+        if field == "live_profile":
+            spec["agents"][0][field] = str(live_root)
+        else:
+            spec[field] = [str(live_root)]
+    
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "scratch overlaps" in result.detail
+E       AssertionError: assert 'scratch overlaps' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6775: AssertionError
+_ test_e3_refuses_scratch_overlap_with_live_roots_before_probe[scratch-inside-live-live_profile] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080ec680&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_refuses_scratch_overla2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_refuses_scratch_overla2')
+field = 'live_profile', relation = 'scratch-inside-live'
+
+    @pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+    @pytest.mark.parametrize("relation", ("same", "scratch-inside-live", "live-inside-scratch"))
+    def test_e3_refuses_scratch_overlap_with_live_roots_before_probe(
+        monkeypatch, tmp_path, stable_test_root, field, relation
+    ):
+        if relation == "same":
+            scratch = stable_test_root / "scratch"
+            live_root = scratch
+        elif relation == "scratch-inside-live":
+            live_root = stable_test_root / "live-root"
+            scratch = live_root / "scratch"
+        else:
+            scratch = stable_test_root / "scratch"
+            live_root = scratch / "live-root"
+        spec = _valid_two_agent_spec()
+        if field == "live_profile":
+            spec["agents"][0][field] = str(live_root)
+        else:
+            spec[field] = [str(live_root)]
+    
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "scratch overlaps" in result.detail
+E       AssertionError: assert 'scratch overlaps' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6775: AssertionError
+_ test_e3_refuses_scratch_overlap_with_live_roots_before_probe[scratch-inside-live-live_store_roots] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080f00b0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_refuses_scratch_overla3')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_refuses_scratch_overla3')
+field = 'live_store_roots', relation = 'scratch-inside-live'
+
+    @pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+    @pytest.mark.parametrize("relation", ("same", "scratch-inside-live", "live-inside-scratch"))
+    def test_e3_refuses_scratch_overlap_with_live_roots_before_probe(
+        monkeypatch, tmp_path, stable_test_root, field, relation
+    ):
+        if relation == "same":
+            scratch = stable_test_root / "scratch"
+            live_root = scratch
+        elif relation == "scratch-inside-live":
+            live_root = stable_test_root / "live-root"
+            scratch = live_root / "scratch"
+        else:
+            scratch = stable_test_root / "scratch"
+            live_root = scratch / "live-root"
+        spec = _valid_two_agent_spec()
+        if field == "live_profile":
+            spec["agents"][0][field] = str(live_root)
+        else:
+            spec[field] = [str(live_root)]
+    
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "scratch overlaps" in result.detail
+E       AssertionError: assert 'scratch overlaps' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6775: AssertionError
+_ test_e3_refuses_scratch_overlap_with_live_roots_before_probe[live-inside-scratch-live_profile] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080f0e00&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_refuses_scratch_overla4')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_refuses_scratch_overla4')
+field = 'live_profile', relation = 'live-inside-scratch'
+
+    @pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+    @pytest.mark.parametrize("relation", ("same", "scratch-inside-live", "live-inside-scratch"))
+    def test_e3_refuses_scratch_overlap_with_live_roots_before_probe(
+        monkeypatch, tmp_path, stable_test_root, field, relation
+    ):
+        if relation == "same":
+            scratch = stable_test_root / "scratch"
+            live_root = scratch
+        elif relation == "scratch-inside-live":
+            live_root = stable_test_root / "live-root"
+            scratch = live_root / "scratch"
+        else:
+            scratch = stable_test_root / "scratch"
+            live_root = scratch / "live-root"
+        spec = _valid_two_agent_spec()
+        if field == "live_profile":
+            spec["agents"][0][field] = str(live_root)
+        else:
+            spec[field] = [str(live_root)]
+    
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "scratch overlaps" in result.detail
+E       AssertionError: assert 'scratch overlaps' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6775: AssertionError
+_ test_e3_refuses_scratch_overlap_with_live_roots_before_probe[live-inside-scratch-live_store_roots] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1080f1520&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_e3_refuses_scratch_overla5')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_e3_refuses_scratch_overla5')
+field = 'live_store_roots', relation = 'live-inside-scratch'
+
+    @pytest.mark.parametrize("field", ("live_profile", "live_store_roots"))
+    @pytest.mark.parametrize("relation", ("same", "scratch-inside-live", "live-inside-scratch"))
+    def test_e3_refuses_scratch_overlap_with_live_roots_before_probe(
+        monkeypatch, tmp_path, stable_test_root, field, relation
+    ):
+        if relation == "same":
+            scratch = stable_test_root / "scratch"
+            live_root = scratch
+        elif relation == "scratch-inside-live":
+            live_root = stable_test_root / "live-root"
+            scratch = live_root / "scratch"
+        else:
+            scratch = stable_test_root / "scratch"
+            live_root = scratch / "live-root"
+        spec = _valid_two_agent_spec()
+        if field == "live_profile":
+            spec["agents"][0][field] = str(live_root)
+        else:
+            spec[field] = [str(live_root)]
+    
+        result = _run_refusal_without_side_effects(
+            monkeypatch,
+            tmp_path,
+            spec,
+            scratch,
+            watched_roots=(stable_test_root,),
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert "scratch overlaps" in result.detail
+E       AssertionError: assert 'scratch overlaps' in 'credential-env:ANTHROPIC_API_KEY'
+E        +  where 'credential-env:ANTHROPIC_API_KEY' = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).detail
+
+selftest/test_e3_asserts.py:6775: AssertionError
+_________ test_path_policy_matrix_at_runner_boundary[scratch-A-accept] _________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094e8170&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_path_policy_matrix_at_run0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_path_policy_matrix_at_run0')
+field = 'scratch', column = 'A', verdict = 'accept'
+
+    @pytest.mark.parametrize(
+        ("field", "column", "verdict"),
+        _path_matrix_cases(),
+        ids=lambda value: str(value),
+    )
+    def test_path_policy_matrix_at_runner_boundary(
+        monkeypatch, tmp_path, stable_test_root, field, column, verdict
+    ):
+        if verdict == "n/a":
+            return
+    
+        monkeypatch.chdir(stable_test_root)
+        spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+            _matrix_root_case(stable_test_root, tmp_path, field, column)
+        )
+        for target in absent_targets:
+            assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+                field,
+                column,
+                target,
+            )
+        if cycle_path is not None:
+            _inject_identity_resolve_for(monkeypatch, cycle_path)
+    
+        try:
+            if verdict == "accept":
+                result = _run_dry(tmp_path, spec, scratch)
+&gt;               assert result.status is Status.PASS, (field, column, result.detail)
+E               AssertionError: ('scratch', 'A', 'credential-env:ANTHROPIC_API_KEY')
+E               assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E                +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E                +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+/Users/jack/Programming/bivpak-intg-r450-discover-parity/harness/selftest/test_e3_asserts.py:7165: AssertionError
+___ test_path_policy_matrix_at_runner_boundary[host2_profile_root-E-accept] ____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094ea8a0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_path_policy_matrix_at_run18')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_path_policy_matrix_at_run18')
+field = 'host2_profile_root', column = 'E', verdict = 'accept'
+
+    @pytest.mark.parametrize(
+        ("field", "column", "verdict"),
+        _path_matrix_cases(),
+        ids=lambda value: str(value),
+    )
+    def test_path_policy_matrix_at_runner_boundary(
+        monkeypatch, tmp_path, stable_test_root, field, column, verdict
+    ):
+        if verdict == "n/a":
+            return
+    
+        monkeypatch.chdir(stable_test_root)
+        spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+            _matrix_root_case(stable_test_root, tmp_path, field, column)
+        )
+        for target in absent_targets:
+            assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+                field,
+                column,
+                target,
+            )
+        if cycle_path is not None:
+            _inject_identity_resolve_for(monkeypatch, cycle_path)
+    
+        try:
+            if verdict == "accept":
+                result = _run_dry(tmp_path, spec, scratch)
+&gt;               assert result.status is Status.PASS, (field, column, result.detail)
+E               AssertionError: ('host2_profile_root', 'E', 'credential-env:ANTHROPIC_API_KEY')
+E               assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E                +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E                +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+/Users/jack/Programming/bivpak-intg-r450-discover-parity/harness/selftest/test_e3_asserts.py:7165: AssertionError
+_____ test_path_policy_matrix_at_runner_boundary[workspace_name-E-accept] ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094698e0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_path_policy_matrix_at_run32')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_path_policy_matrix_at_run32')
+field = 'workspace_name', column = 'E', verdict = 'accept'
+
+    @pytest.mark.parametrize(
+        ("field", "column", "verdict"),
+        _path_matrix_cases(),
+        ids=lambda value: str(value),
+    )
+    def test_path_policy_matrix_at_runner_boundary(
+        monkeypatch, tmp_path, stable_test_root, field, column, verdict
+    ):
+        if verdict == "n/a":
+            return
+    
+        monkeypatch.chdir(stable_test_root)
+        spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+            _matrix_root_case(stable_test_root, tmp_path, field, column)
+        )
+        for target in absent_targets:
+            assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+                field,
+                column,
+                target,
+            )
+        if cycle_path is not None:
+            _inject_identity_resolve_for(monkeypatch, cycle_path)
+    
+        try:
+            if verdict == "accept":
+                result = _run_dry(tmp_path, spec, scratch)
+&gt;               assert result.status is Status.PASS, (field, column, result.detail)
+E               AssertionError: ('workspace_name', 'E', 'credential-env:ANTHROPIC_API_KEY')
+E               assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E                +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E                +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+/Users/jack/Programming/bivpak-intg-r450-discover-parity/harness/selftest/test_e3_asserts.py:7165: AssertionError
+______ test_path_policy_matrix_at_runner_boundary[host2_profile-E-accept] ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094fdbb0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_path_policy_matrix_at_run46')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_path_policy_matrix_at_run46')
+field = 'host2_profile', column = 'E', verdict = 'accept'
+
+    @pytest.mark.parametrize(
+        ("field", "column", "verdict"),
+        _path_matrix_cases(),
+        ids=lambda value: str(value),
+    )
+    def test_path_policy_matrix_at_runner_boundary(
+        monkeypatch, tmp_path, stable_test_root, field, column, verdict
+    ):
+        if verdict == "n/a":
+            return
+    
+        monkeypatch.chdir(stable_test_root)
+        spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+            _matrix_root_case(stable_test_root, tmp_path, field, column)
+        )
+        for target in absent_targets:
+            assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+                field,
+                column,
+                target,
+            )
+        if cycle_path is not None:
+            _inject_identity_resolve_for(monkeypatch, cycle_path)
+    
+        try:
+            if verdict == "accept":
+                result = _run_dry(tmp_path, spec, scratch)
+&gt;               assert result.status is Status.PASS, (field, column, result.detail)
+E               AssertionError: ('host2_profile', 'E', 'credential-env:ANTHROPIC_API_KEY')
+E               assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E                +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E                +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+/Users/jack/Programming/bivpak-intg-r450-discover-parity/harness/selftest/test_e3_asserts.py:7165: AssertionError
+_ test_path_policy_matrix_at_runner_boundary[forbidden_bivpak_state-E-accept] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10946aed0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_path_policy_matrix_at_run60')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_path_policy_matrix_at_run60')
+field = 'forbidden_bivpak_state', column = 'E', verdict = 'accept'
+
+    @pytest.mark.parametrize(
+        ("field", "column", "verdict"),
+        _path_matrix_cases(),
+        ids=lambda value: str(value),
+    )
+    def test_path_policy_matrix_at_runner_boundary(
+        monkeypatch, tmp_path, stable_test_root, field, column, verdict
+    ):
+        if verdict == "n/a":
+            return
+    
+        monkeypatch.chdir(stable_test_root)
+        spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+            _matrix_root_case(stable_test_root, tmp_path, field, column)
+        )
+        for target in absent_targets:
+            assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+                field,
+                column,
+                target,
+            )
+        if cycle_path is not None:
+            _inject_identity_resolve_for(monkeypatch, cycle_path)
+    
+        try:
+            if verdict == "accept":
+                result = _run_dry(tmp_path, spec, scratch)
+&gt;               assert result.status is Status.PASS, (field, column, result.detail)
+E               AssertionError: ('forbidden_bivpak_state', 'E', 'credential-env:ANTHROPIC_API_KEY')
+E               assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E                +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E                +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+/Users/jack/Programming/bivpak-intg-r450-discover-parity/harness/selftest/test_e3_asserts.py:7165: AssertionError
+______ test_path_policy_matrix_at_runner_boundary[live_profile-A-accept] _______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094ea510&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_path_policy_matrix_at_run70')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_path_policy_matrix_at_run70')
+field = 'live_profile', column = 'A', verdict = 'accept'
+
+    @pytest.mark.parametrize(
+        ("field", "column", "verdict"),
+        _path_matrix_cases(),
+        ids=lambda value: str(value),
+    )
+    def test_path_policy_matrix_at_runner_boundary(
+        monkeypatch, tmp_path, stable_test_root, field, column, verdict
+    ):
+        if verdict == "n/a":
+            return
+    
+        monkeypatch.chdir(stable_test_root)
+        spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+            _matrix_root_case(stable_test_root, tmp_path, field, column)
+        )
+        for target in absent_targets:
+            assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+                field,
+                column,
+                target,
+            )
+        if cycle_path is not None:
+            _inject_identity_resolve_for(monkeypatch, cycle_path)
+    
+        try:
+            if verdict == "accept":
+                result = _run_dry(tmp_path, spec, scratch)
+&gt;               assert result.status is Status.PASS, (field, column, result.detail)
+E               AssertionError: ('live_profile', 'A', 'credential-env:ANTHROPIC_API_KEY')
+E               assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E                +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E                +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+/Users/jack/Programming/bivpak-intg-r450-discover-parity/harness/selftest/test_e3_asserts.py:7165: AssertionError
+____ test_path_policy_matrix_at_runner_boundary[live_store_roots-A-accept] _____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094e8620&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_path_policy_matrix_at_run84')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_path_policy_matrix_at_run84')
+field = 'live_store_roots', column = 'A', verdict = 'accept'
+
+    @pytest.mark.parametrize(
+        ("field", "column", "verdict"),
+        _path_matrix_cases(),
+        ids=lambda value: str(value),
+    )
+    def test_path_policy_matrix_at_runner_boundary(
+        monkeypatch, tmp_path, stable_test_root, field, column, verdict
+    ):
+        if verdict == "n/a":
+            return
+    
+        monkeypatch.chdir(stable_test_root)
+        spec, scratch, absent_targets, cycle_links, cycle_path, cleanup_targets = (
+            _matrix_root_case(stable_test_root, tmp_path, field, column)
+        )
+        for target in absent_targets:
+            assert target.is_relative_to(stable_test_root) or target in cleanup_targets, (
+                field,
+                column,
+                target,
+            )
+        if cycle_path is not None:
+            _inject_identity_resolve_for(monkeypatch, cycle_path)
+    
+        try:
+            if verdict == "accept":
+                result = _run_dry(tmp_path, spec, scratch)
+&gt;               assert result.status is Status.PASS, (field, column, result.detail)
+E               AssertionError: ('live_store_roots', 'A', 'credential-env:ANTHROPIC_API_KEY')
+E               assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E                +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E                +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+/Users/jack/Programming/bivpak-intg-r450-discover-parity/harness/selftest/test_e3_asserts.py:7165: AssertionError
+___________________ test_realpath_stable_paths_are_accepted ____________________
+
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_realpath_stable_paths_are0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_realpath_stable_paths_are0')
+
+    def test_realpath_stable_paths_are_accepted(tmp_path, stable_test_root):
+        result = _run_dry(
+            tmp_path, _valid_two_agent_spec(), stable_test_root / "scratch"
+        )
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:7764: AssertionError
+_______________ test_runner_proceeds_past_tempdir_noise_to_pack ________________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094e85c0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_runner_proceeds_past_temp0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_runner_proceeds_past_temp0')
+
+    def test_runner_proceeds_past_tempdir_noise_to_pack(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        calls = []
+    
+        def fake_spawn(command, cwd, env):
+            calls.append(command)
+            if "--version" in command:
+                version = "claude 2.1.202" if _agent_basename(command) == "claude" else "codex-cli 0.144.1"
+                return SimpleNamespace(returncode=0, stdout=version, stderr="")
+            if command[:2] == ["biv", "pack"]:
+                return SimpleNamespace(returncode=1, stdout="", stderr="stop after negative control")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+    
+        def fake_seed_agent(
+            agent,
+            live_profile,
+            seed_workspace,
+            spec,
+            env,
+            spawn,
+            capture_candidates,
+            owned_paths,
+            resolved_binary=None,
+        ):
+            payload = (
+                b'{"output":"FileNotFoundError: No usable temporary directory found in '
+                b"['/var/folders/hq/x/T/', '/tmp', '/var/tmp', '/usr/tmp']\\n"
+                b'also /var/folders/hq/x/T/ws and /private/var/folders/hq/x/T/ws"}\n'
+                if agent["id"] == "codex"
+                else b'{"cwd":"/Users/jack/biv-e3/ws"}\n'
+            )
+            transcript = seed_workspace.parent / f"{agent['id']}-seed.jsonl"
+            transcript.write_bytes(payload)
+            owned_paths.append(transcript)
+            return transcript
+    
+        monkeypatch.setattr(e3, "_spawn", fake_spawn)
+        monkeypatch.setattr(e3, "_seed_agent", fake_seed_agent)
+        spec_path = tmp_path / "e3.json"
+        spec_path.write_text(json.dumps(_valid_two_agent_spec()), encoding="utf-8")
+    
+        result = e3.run_e3(spec_path, Path("biv"), stable_test_root / "scratch")
+    
+        assert "negative-control" not in (result.detail or "")
+&gt;       assert any(command[:2] == ["biv", "pack"] for command in calls)
+E       assert False
+E        +  where False = any(&lt;generator object test_runner_proceeds_past_tempdir_noise_to_pack.&lt;locals&gt;.&lt;genexpr&gt; at 0x108b079f0&gt;)
+
+selftest/test_e3_asserts.py:7838: AssertionError
+______ test_runner_voids_pre_pack_when_a_run_root_alias_spelling_appears _______
+report-refusal-shape-mismatch
+_ test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack[first-transcript-codex-first] _
+report-refusal-shape-mismatch
+_ test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack[first-transcript-claude-first] _
+report-refusal-shape-mismatch
+_ test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack[second-transcript-codex-first] _
+report-refusal-shape-mismatch
+_ test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack[second-transcript-claude-first] _
+report-refusal-shape-mismatch
+__________ test_all_host1_auth_and_version_gates_run_before_any_seed ___________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094c5070&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_all_host1_auth_and_versio0')
+
+    def test_all_host1_auth_and_version_gates_run_before_any_seed(monkeypatch, tmp_path):
+        calls = []
+        binaries = {"first": "/opt/first", "second": "/opt/second"}
+        monkeypatch.setattr(e3.shutil, "which", binaries.get)
+    
+        def fake_spawn(command, cwd, env):
+            calls.append(command)
+            if command[1] == "auth" and command[0] == binaries["second"]:
+                return SimpleNamespace(returncode=1, stdout="", stderr="not logged in")
+            return SimpleNamespace(returncode=0, stdout="tool 1.0.0", stderr="")
+    
+        spec = _valid_two_agent_spec()
+        spec["id"] = "auth-order"
+        for agent, command in zip(spec["agents"], ("first", "second")):
+            agent["auth_status"] = [command, "auth"]
+            agent["version_command"] = [command, "version"]
+            agent["version_floor"] = {
+                "min_line": "1.0", "surveyed_through": "1.0"
+            }
+        spec_path = tmp_path / "e3.json"
+        spec_path.write_text(json.dumps(spec), encoding="utf-8")
+        scratch = Path.home() / ".cache" / f"biv-e3-auth-order-{os.getpid()}"
+        shutil.rmtree(scratch, ignore_errors=True)
+        monkeypatch.setattr(e3, "_spawn", fake_spawn)
+        try:
+            result = e3.run_e3(spec_path, Path("biv"), scratch)
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+    
+        assert result.status is Status.INVALID
+&gt;       assert calls == [
+            [binaries["first"], "version"],
+            [binaries["second"], "version"],
+            [binaries["first"], "auth"],
+            [binaries["second"], "auth"],
+        ]
+E       AssertionError: assert [] == [['/opt/first...ond', 'auth']]
+E         
+E         Right contains 4 more items, first extra item: ['/opt/first', 'version']
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:8584: AssertionError
+_ test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_barrier _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094c6510&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_uses_one_absolute_0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_uses_one_absolute_0')
+
+    def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_barrier(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        (
+            result,
+            spec,
+            binaries,
+            ledger,
+            setup_calls,
+            scratch,
+            lifecycle_events,
+        ) = _run_argv_barrier_flow(
+            monkeypatch, tmp_path, stable_test_root
+        )
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:8914: AssertionError
+______ test_run_e3_post_gate_setup_failure_retains_host2_version_evidence ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094c5970&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_post_gate_setup_fa0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_post_gate_setup_fa0')
+
+    def test_run_e3_post_gate_setup_failure_retains_host2_version_evidence(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        result, _, _, _, _, _, lifecycle_events = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            post_gate_setup_failure=True,
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert _HOST2_VERSION_EVIDENCE &lt;= set(result.warnings)
+E       AssertionError: assert {'version-flo...rveyed=false'} &lt;= set()
+E         
+E         Extra items in the left set:
+E         'version-floor-evidence:host2:codex:version=0.144.1;newer_than_surveyed=false'
+E         'version-floor-evidence:host2:claude-code:version=2.1.210;newer_than_surveyed=false'
+
+selftest/test_e3_asserts.py:9039: AssertionError
+__________ test_run_e3_open_exception_retains_host2_version_evidence ___________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094c58e0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_open_exception_ret0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_open_exception_ret0')
+
+    def test_run_e3_open_exception_retains_host2_version_evidence(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        result, *_ = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            unexpected_phase="open",
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert _HOST2_VERSION_EVIDENCE &lt;= set(result.warnings)
+E       AssertionError: assert {'version-flo...rveyed=false'} &lt;= set()
+E         
+E         Extra items in the left set:
+E         'version-floor-evidence:host2:codex:version=0.144.1;newer_than_surveyed=false'
+E         'version-floor-evidence:host2:claude-code:version=2.1.210;newer_than_surveyed=false'
+
+selftest/test_e3_asserts.py:9058: AssertionError
+_____ test_run_e3_invalidates_each_post_materialization_output_leak[auth] ______
+post-materialization-output-leak-warning-missing
+___ test_run_e3_invalidates_each_post_materialization_output_leak[liveness] ____
+post-materialization-output-leak-warning-missing
+_____ test_run_e3_invalidates_each_post_materialization_output_leak[open] ______
+post-materialization-output-leak-warning-missing
+____ test_run_e3_invalidates_each_post_materialization_output_leak[resume] _____
+post-materialization-output-leak-warning-missing
+_ test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[auth] _
+exceptional-output-leak-warning-missing
+_ test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[liveness] _
+exceptional-output-leak-warning-missing
+_ test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[open] _
+exceptional-output-leak-warning-missing
+_ test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[resume] _
+exceptional-output-leak-warning-missing
+_ test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization _
+scratch-token-leak-warning-missing
+_ test_run_e3_invalidates_changed_credential_guard_after_materialization[missing] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x109473800&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_invalidates_change0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_invalidates_change0')
+mutation = 'missing'
+
+    @pytest.mark.parametrize("mutation", ("missing", "replaced"))
+    def test_run_e3_invalidates_changed_credential_guard_after_materialization(
+        monkeypatch, tmp_path, stable_test_root, mutation
+    ):
+        result, *_ = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            credential_guard_mutation=("codex", mutation),
+        )
+    
+        serialized = serialize_report([result])
+        assert result.status is Status.INVALID
+&gt;       assert "credential-exclusion-integrity-failed" in result.warnings
+E       AssertionError: assert 'credential-exclusion-integrity-failed' in []
+E        +  where [] = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).warnings
+
+selftest/test_e3_asserts.py:9164: AssertionError
+_ test_run_e3_invalidates_changed_credential_guard_after_materialization[replaced] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094c7680&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_invalidates_change1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_invalidates_change1')
+mutation = 'replaced'
+
+    @pytest.mark.parametrize("mutation", ("missing", "replaced"))
+    def test_run_e3_invalidates_changed_credential_guard_after_materialization(
+        monkeypatch, tmp_path, stable_test_root, mutation
+    ):
+        result, *_ = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            credential_guard_mutation=("codex", mutation),
+        )
+    
+        serialized = serialize_report([result])
+        assert result.status is Status.INVALID
+&gt;       assert "credential-exclusion-integrity-failed" in result.warnings
+E       AssertionError: assert 'credential-exclusion-integrity-failed' in []
+E        +  where [] = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).warnings
+
+selftest/test_e3_asserts.py:9164: AssertionError
+_____ test_run_e3_finalizes_exactly_once_for_each_execution_outcome[pass] ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1081c95b0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_finalizes_exactly_0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_finalizes_exactly_0')
+outcome = 'pass'
+
+    @pytest.mark.parametrize("outcome", ("pass", "resume-invalid", "runtime"))
+    def test_run_e3_finalizes_exactly_once_for_each_execution_outcome(
+        monkeypatch, tmp_path, stable_test_root, outcome
+    ):
+        calls = 0
+        real_finalize = e3._finalize_report
+    
+        def recording_finalize(result, scanner):
+            nonlocal calls
+            calls += 1
+            return real_finalize(result, scanner)
+    
+        monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+        kwargs = {}
+        if outcome == "resume-invalid":
+            kwargs["leak_phase"] = "resume"
+        elif outcome == "runtime":
+            kwargs["unexpected_phase"] = "open"
+        result, *_ = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            **kwargs,
+        )
+    
+&gt;       assert result.status is (Status.PASS if outcome == "pass" else Status.INVALID)
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='credential-env:ANTHROPIC_API_KEY', warnings=[]).status
+
+selftest/test_e3_asserts.py:9217: AssertionError
+_ test_run_e3_finalizes_exactly_once_for_each_execution_outcome[resume-invalid] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1081c8500&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_finalizes_exactly_1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_finalizes_exactly_1')
+outcome = 'resume-invalid'
+
+    @pytest.mark.parametrize("outcome", ("pass", "resume-invalid", "runtime"))
+    def test_run_e3_finalizes_exactly_once_for_each_execution_outcome(
+        monkeypatch, tmp_path, stable_test_root, outcome
+    ):
+        calls = 0
+        real_finalize = e3._finalize_report
+    
+        def recording_finalize(result, scanner):
+            nonlocal calls
+            calls += 1
+            return real_finalize(result, scanner)
+    
+        monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+        kwargs = {}
+        if outcome == "resume-invalid":
+            kwargs["leak_phase"] = "resume"
+        elif outcome == "runtime":
+            kwargs["unexpected_phase"] = "open"
+        result, *_ = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            **kwargs,
+        )
+    
+        assert result.status is (Status.PASS if outcome == "pass" else Status.INVALID)
+&gt;       assert calls == 1
+E       assert 0 == 1
+
+selftest/test_e3_asserts.py:9218: AssertionError
+____ test_run_e3_finalizes_exactly_once_for_each_execution_outcome[runtime] ____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094c65a0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_finalizes_exactly_2')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_finalizes_exactly_2')
+outcome = 'runtime'
+
+    @pytest.mark.parametrize("outcome", ("pass", "resume-invalid", "runtime"))
+    def test_run_e3_finalizes_exactly_once_for_each_execution_outcome(
+        monkeypatch, tmp_path, stable_test_root, outcome
+    ):
+        calls = 0
+        real_finalize = e3._finalize_report
+    
+        def recording_finalize(result, scanner):
+            nonlocal calls
+            calls += 1
+            return real_finalize(result, scanner)
+    
+        monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+        kwargs = {}
+        if outcome == "resume-invalid":
+            kwargs["leak_phase"] = "resume"
+        elif outcome == "runtime":
+            kwargs["unexpected_phase"] = "open"
+        result, *_ = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            **kwargs,
+        )
+    
+        assert result.status is (Status.PASS if outcome == "pass" else Status.INVALID)
+&gt;       assert calls == 1
+E       assert 0 == 1
+
+selftest/test_e3_asserts.py:9218: AssertionError
+__ test_run_e3_token_materialization_exception_is_finalized_and_dropped_once ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1081ca150&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_token_materializat0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_token_materializat0')
+
+    def test_run_e3_token_materialization_exception_is_finalized_and_dropped_once(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        spec_path, _ = _configure_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            pack_result=_successful_pack(),
+        )
+        scanners = []
+    
+        class RecordingScanner(e3._CredentialScanner):
+            def __init__(self):
+                super().__init__()
+                self.drop_calls = 0
+                scanners.append(self)
+    
+            def drop(self):
+                self.drop_calls += 1
+                return super().drop()
+    
+        finalize_calls = 0
+        real_finalize = e3._finalize_report
+    
+        def recording_finalize(result, scanner):
+            nonlocal finalize_calls
+            finalize_calls += 1
+            return real_finalize(result, scanner)
+    
+        monkeypatch.setattr(e3, "_CredentialScanner", RecordingScanner)
+        monkeypatch.setattr(
+            e3,
+            "materialize_run_tokens",
+            lambda _spec: (_ for _ in ()).throw(RuntimeError("token setup failed")),
+        )
+        monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+    
+        result = e3.run_e3(spec_path, Path("/fake/biv"), stable_test_root / "scratch")
+    
+        assert result.status is Status.INVALID
+&gt;       assert finalize_calls == 1
+E       assert 0 == 1
+
+selftest/test_e3_asserts.py:9260: AssertionError
+_ test_run_e3_post_materialization_baseexception_finalizes_and_removes_all_targets _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094c6b40&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_post_materializati0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_post_materializati0')
+
+    def test_run_e3_post_materialization_baseexception_finalizes_and_removes_all_targets(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        class SyntheticAbort(BaseException):
+            pass
+    
+        scanners = []
+    
+        class RecordingScanner(e3._CredentialScanner):
+            def __init__(self):
+                super().__init__()
+                self.drop_calls = 0
+                scanners.append(self)
+    
+            def drop(self):
+                self.drop_calls += 1
+                return super().drop()
+    
+        finalize_calls = 0
+        real_finalize = e3._finalize_report
+    
+        def recording_finalize(result, scanner):
+            nonlocal finalize_calls
+            finalize_calls += 1
+            return real_finalize(result, scanner)
+    
+        monkeypatch.setattr(e3, "_CredentialScanner", RecordingScanner)
+        monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+        result, spec, _, _, _, scratch, _ = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            post_materialization_base_exception=SyntheticAbort(
+                "synthetic post-materialization abort"
+            ),
+        )
+    
+        profile_root = scratch / "host2" / "profiles"
+        claude = next(agent for agent in spec["agents"] if agent["id"] == "claude-code")
+        codex = next(agent for agent in spec["agents"] if agent["id"] == "codex")
+        claude_dest = e3._agent_profile(claude, profile_root, live=False) / ".credentials.json"
+        codex_dest = e3._agent_profile(codex, profile_root, live=False) / "auth.json"
+        targets = (
+            claude_dest,
+            codex_dest,
+            profile_root,
+            scratch / "host2",
+            scratch / "seed-ws",
+        )
+        assert result.status is Status.INVALID
+&gt;       assert finalize_calls == 1
+E       assert 0 == 1
+
+selftest/test_e3_asserts.py:9315: AssertionError
+_ test_run_e3_wrong_agent_version_is_invalid_before_any_auth_or_setup[claude-code] _
+report-refusal-shape-mismatch
+__ test_run_e3_wrong_agent_version_is_invalid_before_any_auth_or_setup[codex] __
+report-refusal-shape-mismatch
+___ test_run_e3_wrong_host2_version_materializes_no_credentials[claude-code] ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1081cbbf0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_wrong_host2_versio0')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_wrong_host2_versio0')
+wrong_host2_version = 'claude-code'
+
+    @pytest.mark.parametrize("wrong_host2_version", ["claude-code", "codex"])
+    def test_run_e3_wrong_host2_version_materializes_no_credentials(
+        monkeypatch, tmp_path, stable_test_root, wrong_host2_version
+    ):
+        result, spec, _, _, setup_calls, scratch, lifecycle_events = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            wrong_host2_version=wrong_host2_version,
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert result.detail == "e3-post-materialization-invalid"
+E       AssertionError: assert 'credential-e...ROPIC_API_KEY' == 'e3-post-mate...ation-invalid'
+E         
+E         - e3-post-materialization-invalid
+E         + credential-env:ANTHROPIC_API_KEY
+
+selftest/test_e3_asserts.py:9349: AssertionError
+______ test_run_e3_wrong_host2_version_materializes_no_credentials[codex] ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1094606b0&gt;
+tmp_path = PosixPath('/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/pytest-of-jack/pytest-3720/test_run_e3_wrong_host2_versio1')
+stable_test_root = PosixPath('/Users/jack/.cache/bivharness-selftest/43145-test_run_e3_wrong_host2_versio1')
+wrong_host2_version = 'codex'
+
+    @pytest.mark.parametrize("wrong_host2_version", ["claude-code", "codex"])
+    def test_run_e3_wrong_host2_version_materializes_no_credentials(
+        monkeypatch, tmp_path, stable_test_root, wrong_host2_version
+    ):
+        result, spec, _, _, setup_calls, scratch, lifecycle_events = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            wrong_host2_version=wrong_host2_version,
+        )
+    
+        assert result.status is Status.INVALID
+&gt;       assert result.detail == "e3-post-materialization-invalid"
+E       AssertionError: assert 'credential-e...ROPIC_API_KEY' == 'e3-post-mate...ation-invalid'
+E         
+E         - e3-post-materialization-invalid
+E         + credential-env:ANTHROPIC_API_KEY
+
+selftest/test_e3_asserts.py:9349: AssertionError
+=========================== short test summary info ============================
+FAILED selftest/test_e3_asserts.py::test_e3_pack_warning_cannot_spoof_version_floor_evidence
+FAILED selftest/test_e3_asserts.py::test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces
+FAILED selftest/test_e3_asserts.py::test_e3_pack_ok_false_at_exit2_returns_report_refusal
+FAILED selftest/test_e3_asserts.py::test_e3_pack_failure_detail_from_envelope
+FAILED selftest/test_e3_asserts.py::test_e3_pack_exit_code_mismatch_fails - F...
+FAILED selftest/test_e3_asserts.py::test_e3_pack_ok_true_bad_exit_is_violation
+FAILED selftest/test_e3_asserts.py::test_e3_pack_boolean_exit_code_fails - Fa...
+FAILED selftest/test_e3_asserts.py::test_e3_pack_non_object_envelope_fails - ...
+FAILED selftest/test_e3_asserts.py::test_e3_pack_unparseable_envelope_fails
+FAILED selftest/test_e3_asserts.py::test_e3_pack_non_bool_ok_fails - Failed: ...
+FAILED selftest/test_e3_asserts.py::test_e3_pack_malformed_warnings_fail_loud
+FAILED selftest/test_e3_asserts.py::test_e3_warned_pack_then_open_failure_retains_both
+FAILED selftest/test_e3_asserts.py::test_e3_warned_pack_then_handled_exception_returns_report_refusal
+FAILED selftest/test_e3_asserts.py::test_e3_open_exit2_with_warnings_proceeds
+FAILED selftest/test_e3_asserts.py::test_e3_open_failure_detail_from_envelope
+FAILED selftest/test_e3_asserts.py::test_e3_open_non_object_result_fails_loudly[null]
+FAILED selftest/test_e3_asserts.py::test_e3_open_non_object_result_fails_loudly[string]
+FAILED selftest/test_e3_asserts.py::test_e3_open_non_object_result_fails_loudly[list]
+FAILED selftest/test_e3_asserts.py::test_e3_open_invalid_output_dir_fails_before_path_resolution[empty-result]
+FAILED selftest/test_e3_asserts.py::test_e3_open_invalid_output_dir_fails_before_path_resolution[missing]
+FAILED selftest/test_e3_asserts.py::test_e3_open_invalid_output_dir_fails_before_path_resolution[empty]
+FAILED selftest/test_e3_asserts.py::test_e3_open_invalid_output_dir_fails_before_path_resolution[non-string]
+FAILED selftest/test_e3_asserts.py::test_e3_open_relative_output_dir_fails_before_workspace_binding[dot]
+FAILED selftest/test_e3_asserts.py::test_e3_open_relative_output_dir_fails_before_workspace_binding[dotdot]
+FAILED selftest/test_e3_asserts.py::test_e3_open_relative_output_dir_fails_before_workspace_binding[nested-relative]
+FAILED selftest/test_e3_asserts.py::test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[sessions-null]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[sessions-list]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[agents-null]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[group-scalar]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[group-agent-missing]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[group-sessions-null]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[session-scalar]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[session-outcome-missing]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[installed-id-non-string]
+FAILED selftest/test_e3_asserts.py::test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning
+FAILED selftest/test_e3_asserts.py::test_e3_open_installed_agent_multiset_must_match_spec[duplicate-actual_agents0]
+FAILED selftest/test_e3_asserts.py::test_e3_open_installed_agent_multiset_must_match_spec[missing-actual_agents1]
+FAILED selftest/test_e3_asserts.py::test_e3_open_installed_agent_multiset_must_match_spec[extra-actual_agents2]
+FAILED selftest/test_e3_asserts.py::test_e3_open_each_raw_group_requires_exactly_one_installed_row[mixed-over-2]
+FAILED selftest/test_e3_asserts.py::test_e3_open_each_raw_group_requires_exactly_one_installed_row[mixed-under-0]
+FAILED selftest/test_e3_asserts.py::test_e3_open_each_raw_group_requires_exactly_one_installed_row[sole-over-2]
+FAILED selftest/test_e3_asserts.py::test_e3_open_each_raw_group_requires_exactly_one_installed_row[sole-under-0]
+FAILED selftest/test_e3_asserts.py::test_e3_warned_pack_then_malformed_open_result_retains_warning
+FAILED selftest/test_e3_asserts.py::test_cli_persists_failed_e3_report_for_malformed_open_result
+FAILED selftest/test_e3_asserts.py::test_run_e3_liveness_without_persistence_flag_reds_c1_before_open
+FAILED selftest/test_e3_asserts.py::test_run_e3_origin_session_isolation_mutation_stops_before_open
+FAILED selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open
+FAILED selftest/test_e3_asserts.py::test_run_e3_tripwire_red_stops_before_open
+FAILED selftest/test_e3_asserts.py::test_run_e3_c1_is_final_operation_immediately_before_open
+FAILED selftest/test_e3_asserts.py::test_live_codex_auth_probe_runs_ambient_no_store_override
+FAILED selftest/test_e3_asserts.py::test_live_claude_auth_probe_runs_ambient_no_store_override
+FAILED selftest/test_e3_asserts.py::test_live_seed_boundary_receives_ambient_env_for_both_agents
+FAILED selftest/test_e3_asserts.py::test_e3_adversarial_seed_is_airtight_before_runtime_sentinel
+FAILED selftest/test_e3_asserts.py::test_e3_adversarial_scan_captures_exact_multi_member_hits_value_free
+FAILED selftest/test_e3_asserts.py::test_e3_converts_decoy_plant_failure_to_invalid_and_cleans_up
+FAILED selftest/test_e3_asserts.py::test_e3_decoys_planted_after_seed_are_absent_from_session_and_excluded_from_image
+FAILED selftest/test_e3_asserts.py::test_e3_controlled_sentinel_image_hit_stops_before_credential_materialization
+FAILED selftest/test_e3_asserts.py::test_e3_pack_warning_before_sentinel_population_is_not_written
+FAILED selftest/test_e3_asserts.py::test_e3_decoy_removal_error_stops_before_scanner_activation_and_setup
+FAILED selftest/test_e3_asserts.py::test_e3_open_uses_fresh_work_directory_below_host2_state_root
+FAILED selftest/test_e3_asserts.py::test_e3_rejects_preexisting_run_trees_without_deleting_them[seed-parent]
+FAILED selftest/test_e3_asserts.py::test_e3_rejects_preexisting_run_trees_without_deleting_them[seed-workspace]
+FAILED selftest/test_e3_asserts.py::test_e3_rejects_preexisting_run_trees_without_deleting_them[host2]
+FAILED selftest/test_e3_asserts.py::test_prerun_version_gate_enforces_the_floor[0.142.5-True]
+FAILED selftest/test_e3_asserts.py::test_prerun_version_gate_enforces_the_floor[0.144.1-True]
+FAILED selftest/test_e3_asserts.py::test_prerun_version_gate_enforces_the_floor[0.143.0-True]
+FAILED selftest/test_e3_asserts.py::test_prerun_version_gate_enforces_the_floor[0.145.0-True]
+FAILED selftest/test_e3_asserts.py::test_prerun_version_gate_enforces_the_floor[0.61.0-False]
+FAILED selftest/test_e3_asserts.py::test_prerun_version_gate_rejects_ambiguous_multi_token_output[codex-cli 0.145.0\nsandbox-runtime 0.142.9\n]
+FAILED selftest/test_e3_asserts.py::test_prerun_version_gate_rejects_ambiguous_multi_token_output[sandbox-runtime 0.142.9\ncodex-cli 0.145.0\n]
+FAILED selftest/test_e3_asserts.py::test_e3_preflight_filesystem_errors_are_invalid[scratch_overlap]
+FAILED selftest/test_e3_asserts.py::test_e3_preflight_filesystem_errors_are_invalid[probe]
+FAILED selftest/test_e3_asserts.py::test_e3_preflight_filesystem_errors_are_invalid[profile_root_failures]
+FAILED selftest/test_e3_asserts.py::test_e3_poison_mode_probe_directory_is_invalid
+FAILED selftest/test_e3_asserts.py::test_e3_refuses_scratch_overlap_with_live_roots_before_probe[same-live_profile]
+FAILED selftest/test_e3_asserts.py::test_e3_refuses_scratch_overlap_with_live_roots_before_probe[same-live_store_roots]
+FAILED selftest/test_e3_asserts.py::test_e3_refuses_scratch_overlap_with_live_roots_before_probe[scratch-inside-live-live_profile]
+FAILED selftest/test_e3_asserts.py::test_e3_refuses_scratch_overlap_with_live_roots_before_probe[scratch-inside-live-live_store_roots]
+FAILED selftest/test_e3_asserts.py::test_e3_refuses_scratch_overlap_with_live_roots_before_probe[live-inside-scratch-live_profile]
+FAILED selftest/test_e3_asserts.py::test_e3_refuses_scratch_overlap_with_live_roots_before_probe[live-inside-scratch-live_store_roots]
+FAILED selftest/test_e3_asserts.py::test_path_policy_matrix_at_runner_boundary[scratch-A-accept]
+FAILED selftest/test_e3_asserts.py::test_path_policy_matrix_at_runner_boundary[host2_profile_root-E-accept]
+FAILED selftest/test_e3_asserts.py::test_path_policy_matrix_at_runner_boundary[workspace_name-E-accept]
+FAILED selftest/test_e3_asserts.py::test_path_policy_matrix_at_runner_boundary[host2_profile-E-accept]
+FAILED selftest/test_e3_asserts.py::test_path_policy_matrix_at_runner_boundary[forbidden_bivpak_state-E-accept]
+FAILED selftest/test_e3_asserts.py::test_path_policy_matrix_at_runner_boundary[live_profile-A-accept]
+FAILED selftest/test_e3_asserts.py::test_path_policy_matrix_at_runner_boundary[live_store_roots-A-accept]
+FAILED selftest/test_e3_asserts.py::test_realpath_stable_paths_are_accepted
+FAILED selftest/test_e3_asserts.py::test_runner_proceeds_past_tempdir_noise_to_pack
+FAILED selftest/test_e3_asserts.py::test_runner_voids_pre_pack_when_a_run_root_alias_spelling_appears
+FAILED selftest/test_e3_asserts.py::test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack[first-transcript-codex-first]
+FAILED selftest/test_e3_asserts.py::test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack[first-transcript-claude-first]
+FAILED selftest/test_e3_asserts.py::test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack[second-transcript-codex-first]
+FAILED selftest/test_e3_asserts.py::test_runner_checks_each_agent_transcript_for_double_slash_alias_before_pack[second-transcript-claude-first]
+FAILED selftest/test_e3_asserts.py::test_all_host1_auth_and_version_gates_run_before_any_seed
+FAILED selftest/test_e3_asserts.py::test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_barrier
+FAILED selftest/test_e3_asserts.py::test_run_e3_post_gate_setup_failure_retains_host2_version_evidence
+FAILED selftest/test_e3_asserts.py::test_run_e3_open_exception_retains_host2_version_evidence
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_post_materialization_output_leak[auth]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_post_materialization_output_leak[liveness]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_post_materialization_output_leak[open]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_post_materialization_output_leak[resume]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[auth]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[liveness]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[open]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[resume]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_changed_credential_guard_after_materialization[missing]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_changed_credential_guard_after_materialization[replaced]
+FAILED selftest/test_e3_asserts.py::test_run_e3_finalizes_exactly_once_for_each_execution_outcome[pass]
+FAILED selftest/test_e3_asserts.py::test_run_e3_finalizes_exactly_once_for_each_execution_outcome[resume-invalid]
+FAILED selftest/test_e3_asserts.py::test_run_e3_finalizes_exactly_once_for_each_execution_outcome[runtime]
+FAILED selftest/test_e3_asserts.py::test_run_e3_token_materialization_exception_is_finalized_and_dropped_once
+FAILED selftest/test_e3_asserts.py::test_run_e3_post_materialization_baseexception_finalizes_and_removes_all_targets
+FAILED selftest/test_e3_asserts.py::test_run_e3_wrong_agent_version_is_invalid_before_any_auth_or_setup[claude-code]
+FAILED selftest/test_e3_asserts.py::test_run_e3_wrong_agent_version_is_invalid_before_any_auth_or_setup[codex]
+FAILED selftest/test_e3_asserts.py::test_run_e3_wrong_host2_version_materializes_no_credentials[claude-code]
+FAILED selftest/test_e3_asserts.py::test_run_e3_wrong_host2_version_materializes_no_credentials[codex]
+======================= 119 failed, 895 passed in 17.78s =======================
+</system-out>
+	</testcase>
+</testsuite>

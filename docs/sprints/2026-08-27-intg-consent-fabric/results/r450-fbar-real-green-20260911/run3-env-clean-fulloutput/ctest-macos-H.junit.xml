@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="1"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="14"
+	timestamp="2026-09-11T13:39:57"
+	>
+	<testcase name="harness-selftest" classname="harness-selftest" time="14.2346" status="run">
+		<properties>
+			<property name="cmake_labels" value="harness;selftest"/>
+		</properties>
+		<system-out>============================= test session starts ==============================
+platform darwin -- Python 3.12.12, pytest-8.4.2, pluggy-1.6.0
+rootdir: /Users/jack/Programming/bivpak-intg-r450-discover-parity/harness
+collected 1014 items
+
+selftest/test_artifact.py ....                                           [  0%]
+selftest/test_cli.py .......                                             [  1%]
+selftest/test_cmake.py ......                                            [  1%]
+selftest/test_compare.py ...............................                 [  4%]
+selftest/test_e3_asserts.py ............................................ [  9%]
+........................................................................ [ 16%]
+........................................................................ [ 23%]
+........................................................................ [ 30%]
+........................................................................ [ 37%]
+........................................................................ [ 44%]
+........................................................................ [ 51%]
+........................................................................ [ 58%]
+........................................................................ [ 65%]
+........................................................................ [ 72%]
+........................................................................ [ 80%]
+........................................................................ [ 87%]
+....................                                                     [ 89%]
+selftest/test_envelope.py ......                                         [ 89%]
+selftest/test_fixtures.py ............                                   [ 90%]
+selftest/test_host2_credentials.py ................................      [ 94%]
+selftest/test_manifest.py ..........                                     [ 95%]
+selftest/test_precheck.py ....                                           [ 95%]
+selftest/test_probe_isolation.py .....                                   [ 95%]
+selftest/test_report.py ......                                           [ 96%]
+selftest/test_run_clang_tidy.py ....                                     [ 96%]
+selftest/test_scenario.py ...............                                [ 98%]
+selftest/test_scenario_env.py ..                                         [ 98%]
+selftest/test_specs.py ...                                               [ 98%]
+selftest/test_store_isolation.py ...........                             [100%]
+
+============================ 1014 passed in 14.04s =============================
+</system-out>
+	</testcase>
+</testsuite>

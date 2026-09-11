@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="1"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="17"
+	timestamp="2026-09-11T13:38:30"
+	>
+	<testcase name="harness-selftest" classname="harness-selftest" time="17.9082" status="run">
+		<properties>
+			<property name="cmake_labels" value="harness;selftest"/>
+		</properties>
+		<system-out>============================= test session starts ==============================
+platform darwin -- Python 3.12.12, pytest-8.4.2, pluggy-1.6.0
+rootdir: /Users/jack/Programming/bivpak-intg-r450-discover-parity/harness
+collected 1014 items
+
+selftest/test_artifact.py ....                                           [  0%]
+selftest/test_cli.py .......                                             [  1%]
+selftest/test_cmake.py ......                                            [  1%]
+selftest/test_compare.py ...............................                 [  4%]
+selftest/test_e3_asserts.py ............................................ [  9%]
+........................................................................ [ 16%]
+........................................................................ [ 23%]
+........................................................................ [ 30%]
+........................................................................ [ 37%]
+....................................................................
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+</testsuite>

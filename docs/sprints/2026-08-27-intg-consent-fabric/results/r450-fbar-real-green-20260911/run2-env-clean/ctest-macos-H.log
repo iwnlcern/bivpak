@@ -1,0 +1,11 @@
+Test project /Users/jack/Programming/bivpak-intg-r450-discover-parity/build/ci-macos
+    Start 13: harness-selftest
+1/1 Test #13: harness-selftest .................   Passed   17.91 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+harness     =  17.91 sec*proc (1 test)
+selftest    =  17.91 sec*proc (1 test)
+
+Total Test time (real) =  17.91 sec
