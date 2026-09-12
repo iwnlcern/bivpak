@@ -1,0 +1,6 @@
+.github/workflows/s2-harness.yml
+harness/bivharness/e3.py
+harness/selftest/stub_biv.py
+harness/selftest/test_store_isolation.py
+src/adapters/claude_code/claude_code.cpp
+tests/test_adapter_claude_collect.cpp

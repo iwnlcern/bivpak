@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Catch2TestRun name="biv_tests" rng-seed="3926709799" xml-format-version="3" catch2-version="3.7.1" filters="&quot;Claude adapter discovery returns every store found: env and default both searched with codex parity (c1 §7)&quot;">
+  <TestCase name="Claude adapter discovery returns every store found: env and default both searched with codex parity (c1 §7)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="176">
+    <Section name="ROW 1: env set, exists, differs; default exists -> TWO stores, env first" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="187">
+      <OverallResults successes="19" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ROW 2: env set and lexically equal to the default -> ONE store (env)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="217">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ROW 3: env unset, default exists -> ONE store (defaults)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="239">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ROW 4: neither -> ZERO stores" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="255">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ROW 5: (pinned interim, NOT c1 §7 dedupe/provenance compliance) one session id in both stores -> pack refuses" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="267">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <OverallResults successes="42" failures="0" expectedFailures="0" skips="0"/>
+  <OverallResultsCases successes="1" failures="0" expectedFailures="0" skips="0"/>
+</Catch2TestRun>

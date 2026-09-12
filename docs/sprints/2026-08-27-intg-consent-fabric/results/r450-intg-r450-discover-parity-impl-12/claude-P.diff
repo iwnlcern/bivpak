@@ -1,0 +1,33 @@
+diff --git a/src/adapters/claude_code/claude_code.cpp b/src/adapters/claude_code/claude_code.cpp
+index f4a8910..f51dc27 100644
+--- a/src/adapters/claude_code/claude_code.cpp
++++ b/src/adapters/claude_code/claude_code.cpp
+@@ -571,0 +572,6 @@ class ClaudeCodeAdapter final : public AgentAdapter {
++    auto append_store = [&](const fs::path& root, DiscoveryTier tier) {
++      stores.push_back(Store{.root = root,
++                             .locators = {StoreLocator{.kind = "sessions_root", .path = root / "projects"}},
++                             .tier = tier,
++                             .archived = false});
++    };
+@@ -572,0 +579 @@ class ClaudeCodeAdapter final : public AgentAdapter {
++    std::optional<fs::path> env_root;
+@@ -576,6 +583,2 @@ class ClaudeCodeAdapter final : public AgentAdapter {
+-        const fs::path root{*configured};
+-        stores.push_back(Store{.root = root,
+-                               .locators = {StoreLocator{.kind = "sessions_root", .path = root / "projects"}},
+-                               .tier = DiscoveryTier::env,
+-                               .archived = false});
+-        return stores;
++        env_root = fs::path{*configured};
++        append_store(*env_root, DiscoveryTier::env);
+@@ -586,7 +589,3 @@ class ClaudeCodeAdapter final : public AgentAdapter {
+-    if (fs::exists(root, ec)) {
+-      stores.push_back(
+-          Store{.root = root,
+-                .locators = {StoreLocator{.kind = "sessions_root",
+-                                          .path = root / "projects"}},
+-                .tier = DiscoveryTier::defaults,
+-                .archived = false});
++    if (fs::exists(root, ec) &&
++        (!env_root.has_value() || root.lexically_normal() != env_root->lexically_normal())) {
++      append_store(root, DiscoveryTier::defaults);

@@ -1,0 +1,1 @@
+venv_ignored_rc=0 build_ignored_rc=0 pycache_ignored_rc=0

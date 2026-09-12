@@ -1,0 +1,3572 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="19"
+	failures="1"
+	disabled="0"
+	skipped="2"
+	hostname=""
+	time="149"
+	timestamp="2026-09-12T01:39:21"
+	>
+	<testcase name="subprocess" classname="subprocess" time="0.447608" status="run">
+		<properties/>
+		<system-out>Randomness seeded to: 3288985721
+===============================================================================
+All tests passed (69 assertions in 12 test cases)
+
+</system-out>
+	</testcase>
+	<testcase name="repo_git" classname="repo_git" time="0.79902" status="run">
+		<properties/>
+		<system-out>Randomness seeded to: 899575801
+===============================================================================
+All tests passed (183 assertions in 6 test cases)
+
+</system-out>
+	</testcase>
+	<testcase name="repo_engine" classname="repo_engine" time="29.8018" status="run">
+		<properties/>
+		<system-out>Randomness seeded to: 2958619602
+===============================================================================
+All tests passed (452 assertions in 60 test cases)
+
+</system-out>
+	</testcase>
+	<testcase name="biv_tests" classname="biv_tests" time="7.66501" status="run">
+		<properties/>
+		<system-out>Randomness seeded to: 2414200443
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+biv_tests is a Catch2 v3.7.1 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+threshold-parity per-agent distribution self-activates at R-4.29
+-------------------------------------------------------------------------------
+/work/repo/tests/test_sessions.cpp:1745
+...............................................................................
+
+/work/repo/tests/test_sessions.cpp:1749: SKIPPED:
+explicitly with message:
+  configured-deferred until R-4.29 makes the supported and parse ceilings equal
+
+================================================================================
+test cases:   422 |   421 passed | 1 skipped
+assertions: 16013 | 16013 passed
+
+</system-out>
+	</testcase>
+	<testcase name="probe" classname="probe" time="8.45774" status="run">
+		<properties/>
+		<system-out>Randomness seeded to: 1550621739
+===============================================================================
+All tests passed (298 assertions in 25 test cases)
+
+</system-out>
+	</testcase>
+	<testcase name="open_no_rewrite_gate" classname="open_no_rewrite_gate" time="0.0526758" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="core_adapter_purity_selftest" classname="core_adapter_purity_selftest" time="0.105302" status="run">
+		<properties/>
+		<system-out>core-adapter-purity-selftest: OK
+</system-out>
+	</testcase>
+	<testcase name="version_floor_mirror" classname="version_floor_mirror" time="0.116995" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="errno_table_gate" classname="errno_table_gate" time="3.44824" status="run">
+		<properties/>
+		<system-out>errno gate selftest: all eight fixtures behaved as specified
+errno gate: switch matches the target-derived mapping exactly (131 entries)
+</system-out>
+	</testcase>
+	<testcase name="probe_envelope_schema" classname="probe_envelope_schema" time="0.210931" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="generated_envelope_conforms" classname="generated_envelope_conforms" time="0.180078" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="generated_envelope_reset" classname="generated_envelope_reset" time="0.0552949" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="harness-selftest" classname="harness-selftest" time="29.8697" status="fail">
+		<failure message="Failed"/>
+		<properties>
+			<property name="cmake_labels" value="harness;selftest"/>
+		</properties>
+		<system-out>============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0
+rootdir: /work/repo/harness
+collected 1013 items
+
+selftest/test_artifact.py ....                                           [  0%]
+selftest/test_cli.py .......                                             [  1%]
+selftest/test_cmake.py ......                                            [  1%]
+selftest/test_compare.py ...............................                 [  4%]
+selftest/test_e3_asserts.py ..........................F....FF.........F. [  9%]
+FFFFFFFFFFFFF.FFFFFFFFFFFFFFFFFFF.................FFFFFFFF.F............ [ 16%]
+........................................................................ [ 23%]
+....................F............................................F...... [ 30%]
+........................................................................ [ 37%]
+........................................................................ [ 44%]
+........................................................................ [ 51%]
+........................................................................ [ 58%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+...................................................................F.... [ 80%]
+FF..FFF...F..........................................F...........ss...s. [ 87%]
+...................                                                      [ 89%]
+selftest/test_envelope.py ......                                         [ 89%]
+selftest/test_fixtures.py ............                                   [ 90%]
+selftest/test_host2_credentials.py ................................      [ 94%]
+selftest/test_manifest.py ..........                                     [ 95%]
+selftest/test_precheck.py ....                                           [ 95%]
+selftest/test_probe_isolation.py .....                                   [ 95%]
+selftest/test_report.py ......                                           [ 96%]
+selftest/test_run_clang_tidy.py ....                                     [ 96%]
+selftest/test_scenario.py ...............                                [ 98%]
+selftest/test_scenario_env.py ..                                         [ 98%]
+selftest/test_specs.py ...                                               [ 98%]
+selftest/test_store_isolation.py ...........                             [100%]
+
+=================================== FAILURES ===================================
+_______ test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite ________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6884d0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_file_reader_rejects_same_0')
+
+    def test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite(
+        monkeypatch, tmp_path
+    ):
+        padding = "x" * (host2_credentials._READ_CHUNK * 2)
+        raw = json.dumps(
+            {"tokens": {"access_token": "fixture"}, "padding": padding},
+            separators=(",", ":"),
+        ).encode()
+        src = tmp_path / "auth.json"
+        dest = tmp_path / "dest" / "auth.json"
+        src.write_bytes(raw)
+        mutation_offset = host2_credentials._READ_CHUNK + 100
+        assert raw[mutation_offset : mutation_offset + 1] == b"x"
+        real_read = host2_credentials.os.read
+        mutated = []
+    
+        def mutate_after_first_chunk(fd, size):
+            piece = real_read(fd, size)
+            if piece and not mutated:
+                rewrite_fd = os.open(src, os.O_WRONLY)
+                try:
+                    os.pwrite(rewrite_fd, b"y", mutation_offset)
+                finally:
+                    os.close(rewrite_fd)
+                mutated.append(True)
+            return piece
+    
+        monkeypatch.setattr(host2_credentials.os, "read", mutate_after_first_chunk)
+    
+        result = host2_credentials.materialize_file_credential(
+            src,
+            dest,
+            max_bytes=len(raw) + 1,
+            shape_ok=host2_credentials.codex_shape_ok,
+        )
+    
+        assert mutated == [True]
+&gt;       assert result.status is host2_credentials.CredentialStatus.SOURCE_UNREADABLE
+E       AssertionError: assert &lt;CredentialStatus.OK: 'ok'&gt; is &lt;CredentialStatus.SOURCE_UNREADABLE: 'source-unreadable'&gt;
+E        +  where &lt;CredentialStatus.OK: 'ok'&gt; = CredentialResult(status=&lt;CredentialStatus.OK: 'ok'&gt;, dest=PosixPath('/tmp/pytest-of-suite/pytest-0/test_file_reader_re...rceIdentity(dev=64, ino=250495, size=32818, digest='53f6b8d14c3f876e2ac3f9e643c4b22d7c3716ccb5ddde8704894471b9c23db6')).status
+E        +  and   &lt;CredentialStatus.SOURCE_UNREADABLE: 'source-unreadable'&gt; = &lt;enum 'CredentialStatus'&gt;.SOURCE_UNREADABLE
+E        +    where &lt;enum 'CredentialStatus'&gt; = host2_credentials.CredentialStatus
+
+selftest/test_e3_asserts.py:613: AssertionError
+___________ test_e3_pack_warning_cannot_spoof_version_floor_evidence ___________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6931a0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_pack_warning_cannot_sp0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_warning_cannot_sp0')
+
+    def test_e3_pack_warning_cannot_spoof_version_floor_evidence(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        spoof = (
+            "version-floor-evidence:live:codex:version=0.300.0;"
+            "newer_than_surveyed=true"
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=[spoof]),
+        )
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:876: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_warning_cannot_sp0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_warning_cannot_sp0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_warning_cannot_sp0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_warning_cannot_sp0/scratch/seed-ws/codex-seed.jsonl
+__________ test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces __________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6882c0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_pack_exit2_with_warnin0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_exit2_with_warnin0')
+
+    def test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        packed = SimpleNamespace(
+            returncode=2,
+            stdout=_envelope(
+                "pack",
+                2,
+                ok=True,
+                warnings=["CodexDbEnrichmentSkipped"],
+                result={},
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=packed,
+        )
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:904: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_exit2_with_warnin0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_exit2_with_warnin0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_exit2_with_warnin0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_pack_exit2_with_warnin0/scratch/seed-ws/codex-seed.jsonl
+______________ test_e3_warned_pack_then_open_failure_retains_both ______________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a1d00&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_warned_pack_then_open_0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_open_0')
+
+    def test_e3_warned_pack_then_open_failure_retains_both(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        opened = SimpleNamespace(
+            returncode=3,
+            stdout=_envelope(
+                "open",
+                3,
+                ok=False,
+                error={"kind": "SessionInstallFailed", "message": "install boom"},
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1080: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_open_0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_open_0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_open_0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_open_0/scratch/seed-ws/codex-seed.jsonl
+__________________ test_e3_open_exit2_with_warnings_proceeds ___________________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a4860&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_exit2_with_warnin0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_exit2_with_warnin0')
+
+    def test_e3_open_exit2_with_warnings_proceeds(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        def warned_open(restored_workspace):
+            return _open_process_result(
+                restored_workspace,
+                returncode=2,
+                warnings=[
+                    {
+                        "kind": "UnknownAgentSkipped",
+                        "path": "sessions/unknown.jsonl",
+                    }
+                ],
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=warned_open,
+        )
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:1127: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_exit2_with_warnin0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_exit2_with_warnin0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_exit2_with_warnin0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_exit2_with_warnin0/scratch/seed-ws/codex-seed.jsonl
+__________________ test_e3_open_failure_detail_from_envelope ___________________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a1ca0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_failure_detail_fr0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_failure_detail_fr0')
+
+    def test_e3_open_failure_detail_from_envelope(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        opened = SimpleNamespace(
+            returncode=3,
+            stdout=_envelope(
+                "open",
+                3,
+                ok=False,
+                error={"kind": "SessionInstallFailed", "message": "open boom"},
+            ),
+            stderr="wrong source",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1155: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_failure_detail_fr0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_failure_detail_fr0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_failure_detail_fr0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_failure_detail_fr0/scratch/seed-ws/codex-seed.jsonl
+______________ test_e3_open_non_object_result_fails_loudly[null] _______________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6934a0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_non_object_result0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result0')
+result_payload = None
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (None, "bad", []),
+        ids=("null", "string", "list"),
+    )
+    def test_e3_open_non_object_result_fails_loudly(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1182: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result0/scratch/seed-ws/codex-seed.jsonl
+_____________ test_e3_open_non_object_result_fails_loudly[string] ______________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd688950&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_non_object_result1')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result1')
+result_payload = 'bad'
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (None, "bad", []),
+        ids=("null", "string", "list"),
+    )
+    def test_e3_open_non_object_result_fails_loudly(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1182: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result1/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result1/scratch/seed-ws/codex-seed.jsonl
+______________ test_e3_open_non_object_result_fails_loudly[list] _______________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a6fc0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_non_object_result2')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result2')
+result_payload = []
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (None, "bad", []),
+        ids=("null", "string", "list"),
+    )
+    def test_e3_open_non_object_result_fails_loudly(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1182: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result2/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_non_object_result2/scratch/seed-ws/codex-seed.jsonl
+__ test_e3_open_invalid_output_dir_fails_before_path_resolution[empty-result] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd687200&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_invalid_output_di0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di0')
+result_payload = {}
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (
+            {},
+            {"sessions": _valid_sessions_payload()},
+            {"output_dir": ""},
+            {"output_dir": 42},
+        ),
+        ids=("empty-result", "missing", "empty", "non-string"),
+    )
+    def test_e3_open_invalid_output_dir_fails_before_path_resolution(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1214: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di0/scratch/seed-ws/codex-seed.jsonl
+____ test_e3_open_invalid_output_dir_fails_before_path_resolution[missing] _____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a70b0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_invalid_output_di1')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di1')
+result_payload = {'sessions': {'agents': [{'agent': 'codex', 'sessions': [{'installed_session_id': 'codex-session', 'outcome': 'installed'}]}, {'agent': 'claude-code', 'sessions': [{'installed_session_id': 'claude-code-session', 'outcome': 'installed'}]}]}}
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (
+            {},
+            {"sessions": _valid_sessions_payload()},
+            {"output_dir": ""},
+            {"output_dir": 42},
+        ),
+        ids=("empty-result", "missing", "empty", "non-string"),
+    )
+    def test_e3_open_invalid_output_dir_fails_before_path_resolution(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1214: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di1/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di1/scratch/seed-ws/codex-seed.jsonl
+_____ test_e3_open_invalid_output_dir_fails_before_path_resolution[empty] ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a8920&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_invalid_output_di2')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di2')
+result_payload = {'output_dir': ''}
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (
+            {},
+            {"sessions": _valid_sessions_payload()},
+            {"output_dir": ""},
+            {"output_dir": 42},
+        ),
+        ids=("empty-result", "missing", "empty", "non-string"),
+    )
+    def test_e3_open_invalid_output_dir_fails_before_path_resolution(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1214: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di2/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di2/scratch/seed-ws/codex-seed.jsonl
+___ test_e3_open_invalid_output_dir_fails_before_path_resolution[non-string] ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a3260&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_invalid_output_di3')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di3')
+result_payload = {'output_dir': 42}
+
+    @pytest.mark.parametrize(
+        "result_payload",
+        (
+            {},
+            {"sessions": _valid_sessions_payload()},
+            {"output_dir": ""},
+            {"output_dir": 42},
+        ),
+        ids=("empty-result", "missing", "empty", "non-string"),
+    )
+    def test_e3_open_invalid_output_dir_fails_before_path_resolution(
+        monkeypatch, tmp_path, stable_test_root, result_payload
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=result_payload),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1214: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di3/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di3/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di3/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_invalid_output_di3/scratch/seed-ws/codex-seed.jsonl
+_____ test_e3_open_relative_output_dir_fails_before_workspace_binding[dot] _____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a53d0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_relative_output_d0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d0')
+output_dir = '.'
+
+    @pytest.mark.parametrize(
+        "output_dir",
+        (".", "..", "relative/path"),
+        ids=("dot", "dotdot", "nested-relative"),
+    )
+    def test_e3_open_relative_output_dir_fails_before_workspace_binding(
+        monkeypatch, tmp_path, stable_test_root, output_dir
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": output_dir,
+                    "sessions": _valid_sessions_payload(),
+                },
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1248: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d0/scratch/seed-ws/codex-seed.jsonl
+___ test_e3_open_relative_output_dir_fails_before_workspace_binding[dotdot] ____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a96a0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_relative_output_d1')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d1')
+output_dir = '..'
+
+    @pytest.mark.parametrize(
+        "output_dir",
+        (".", "..", "relative/path"),
+        ids=("dot", "dotdot", "nested-relative"),
+    )
+    def test_e3_open_relative_output_dir_fails_before_workspace_binding(
+        monkeypatch, tmp_path, stable_test_root, output_dir
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": output_dir,
+                    "sessions": _valid_sessions_payload(),
+                },
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1248: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d1/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d1/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_relative_output_dir_fails_before_workspace_binding[nested-relative] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a0ce0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_relative_output_d2')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d2')
+output_dir = 'relative/path'
+
+    @pytest.mark.parametrize(
+        "output_dir",
+        (".", "..", "relative/path"),
+        ids=("dot", "dotdot", "nested-relative"),
+    )
+    def test_e3_open_relative_output_dir_fails_before_workspace_binding(
+        monkeypatch, tmp_path, stable_test_root, output_dir
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": output_dir,
+                    "sessions": _valid_sessions_payload(),
+                },
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1248: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d2/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_relative_output_d2/scratch/seed-ws/codex-seed.jsonl
+___ test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a8ad0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_off_tree_absolute0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_off_tree_absolute0')
+
+    def test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        off_tree = tmp_path / "off-tree"
+        off_tree.mkdir()
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope(
+                "open",
+                0,
+                ok=True,
+                result={
+                    "output_dir": str(off_tree),
+                    "sessions": _valid_sessions_payload(),
+                },
+            ),
+            stderr="",
+        )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1281: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_off_tree_absolute0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_off_tree_absolute0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_off_tree_absolute0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_off_tree_absolute0/scratch/seed-ws/codex-seed.jsonl
+__ test_e3_open_malformed_sessions_fail_before_consumer_access[sessions-null] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd686ba0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session0')
+case = 'sessions-null', sessions_payload = None, detail_member = 'sessions'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: sessions-null
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session0/scratch/seed-ws/codex-seed.jsonl
+__ test_e3_open_malformed_sessions_fail_before_consumer_access[sessions-list] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6aa7e0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session1')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session1')
+case = 'sessions-list', sessions_payload = [], detail_member = 'sessions'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: sessions-list
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session1/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session1/scratch/seed-ws/codex-seed.jsonl
+___ test_e3_open_malformed_sessions_fail_before_consumer_access[agents-null] ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a5e50&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session2')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session2')
+case = 'agents-null', sessions_payload = {'agents': None}
+detail_member = 'sessions.agents'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: agents-null
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session2/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session2/scratch/seed-ws/codex-seed.jsonl
+__ test_e3_open_malformed_sessions_fail_before_consumer_access[group-scalar] ___
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a1d60&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session3')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session3')
+case = 'group-scalar', sessions_payload = {'agents': [1]}
+detail_member = 'sessions.agents[0]'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: group-scalar
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session3/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session3/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session3/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session3/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[group-agent-missing] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6ab020&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session4')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session4')
+case = 'group-agent-missing', sessions_payload = {'agents': [{'sessions': []}]}
+detail_member = 'sessions.agents[0].agent'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: group-agent-missing
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session4/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session4/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session4/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session4/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[group-sessions-null] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a5ac0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session5')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session5')
+case = 'group-sessions-null'
+sessions_payload = {'agents': [{'agent': 'codex', 'sessions': None}]}
+detail_member = 'sessions.agents[0].sessions'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: group-sessions-null
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session5/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session5/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session5/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session5/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[session-scalar] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a2600&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session6')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session6')
+case = 'session-scalar'
+sessions_payload = {'agents': [{'agent': 'codex', 'sessions': [1]}]}
+detail_member = 'sessions.agents[0].sessions[0]'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: session-scalar
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session6/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session6/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session6/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session6/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[session-outcome-missing] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a4ad0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session7')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session7')
+case = 'session-outcome-missing'
+sessions_payload = {'agents': [{'agent': 'codex', 'sessions': [{}]}]}
+detail_member = 'sessions.agents[0].sessions[0].outcome'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: session-outcome-missing
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session7/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session7/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session7/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session7/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_malformed_sessions_fail_before_consumer_access[installed-id-non-string] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6aadb0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_malformed_session8')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session8')
+case = 'installed-id-non-string'
+sessions_payload = {'agents': [{'agent': 'codex', 'sessions': [{'installed_session_id': 42, 'outcome': 'installed'}]}, {'agent': 'claude-code', 'sessions': [{'installed_session_id': 'claude-code-session', 'outcome': 'installed'}]}]}
+detail_member = 'sessions.agents[0].sessions[0].installed_session_id'
+
+    @pytest.mark.parametrize(
+        ("case", "sessions_payload", "detail_member"),
+        (
+            ("sessions-null", None, "sessions"),
+            ("sessions-list", [], "sessions"),
+            ("agents-null", {"agents": None}, "sessions.agents"),
+            ("group-scalar", {"agents": [1]}, "sessions.agents[0]"),
+            (
+                "group-agent-missing",
+                {"agents": [{"sessions": []}]},
+                "sessions.agents[0].agent",
+            ),
+            (
+                "group-sessions-null",
+                {"agents": [{"agent": "codex", "sessions": None}]},
+                "sessions.agents[0].sessions",
+            ),
+            (
+                "session-scalar",
+                {"agents": [{"agent": "codex", "sessions": [1]}]},
+                "sessions.agents[0].sessions[0]",
+            ),
+            (
+                "session-outcome-missing",
+                {"agents": [{"agent": "codex", "sessions": [{}]}]},
+                "sessions.agents[0].sessions[0].outcome",
+            ),
+            (
+                "installed-id-non-string",
+                {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "sessions": [
+                                {"outcome": "installed", "installed_session_id": 42}
+                            ],
+                        },
+                        {
+                            "agent": "claude-code",
+                            "sessions": [
+                                {
+                                    "outcome": "installed",
+                                    "installed_session_id": "claude-code-session",
+                                }
+                            ],
+                        },
+                    ]
+                },
+                "sessions.agents[0].sessions[0].installed_session_id",
+            ),
+        ),
+        ids=(
+            "sessions-null",
+            "sessions-list",
+            "agents-null",
+            "group-scalar",
+            "group-agent-missing",
+            "group-sessions-null",
+            "session-scalar",
+            "session-outcome-missing",
+            "installed-id-non-string",
+        ),
+    )
+    def test_e3_open_malformed_sessions_fail_before_consumer_access(
+        monkeypatch,
+        tmp_path,
+        stable_test_root,
+        case,
+        sessions_payload,
+        detail_member,
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            payload = {
+                "output_dir": str(restored_workspace),
+                "sessions": sessions_payload,
+            }
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope("open", 0, ok=True, result=payload),
+                stderr="",
+            )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL, case
+E       AssertionError: installed-id-non-string
+E       assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1393: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session8/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session8/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session8/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_malformed_session8/scratch/seed-ws/codex-seed.jsonl
+_____ test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd4523c0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_installed_agent_i0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_i0')
+
+    def test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        def mismatched_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            sessions["agents"][1]["agent"] = "bogus-agent"
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=mismatched_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1426: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_i0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_i0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_i0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_i0/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_installed_agent_multiset_must_match_spec[duplicate-actual_agents0] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a75c0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_installed_agent_m0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m0')
+case = 'duplicate', actual_agents = ['claude-code', 'codex', 'codex']
+
+    @pytest.mark.parametrize(
+        ("case", "actual_agents"),
+        (
+            ("duplicate", ["claude-code", "codex", "codex"]),
+            ("missing", ["codex"]),
+            ("extra", ["claude-code", "codex", "extra-agent"]),
+        ),
+    )
+    def test_e3_open_installed_agent_multiset_must_match_spec(
+        monkeypatch, tmp_path, stable_test_root, case, actual_agents
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            if case == "duplicate":
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "codex-duplicate-session",
+                            }
+                        ],
+                    }
+                )
+            elif case == "missing":
+                sessions["agents"].pop()
+            else:
+                sessions["agents"].append(
+                    {
+                        "agent": "extra-agent",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "extra-agent-session",
+                            }
+                        ],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1496: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m0/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_installed_agent_multiset_must_match_spec[missing-actual_agents1] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd453140&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_installed_agent_m1')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m1')
+case = 'missing', actual_agents = ['codex']
+
+    @pytest.mark.parametrize(
+        ("case", "actual_agents"),
+        (
+            ("duplicate", ["claude-code", "codex", "codex"]),
+            ("missing", ["codex"]),
+            ("extra", ["claude-code", "codex", "extra-agent"]),
+        ),
+    )
+    def test_e3_open_installed_agent_multiset_must_match_spec(
+        monkeypatch, tmp_path, stable_test_root, case, actual_agents
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            if case == "duplicate":
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "codex-duplicate-session",
+                            }
+                        ],
+                    }
+                )
+            elif case == "missing":
+                sessions["agents"].pop()
+            else:
+                sessions["agents"].append(
+                    {
+                        "agent": "extra-agent",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "extra-agent-session",
+                            }
+                        ],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1496: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m1/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m1/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_installed_agent_multiset_must_match_spec[extra-actual_agents2] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6724b0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_installed_agent_m2')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m2')
+case = 'extra', actual_agents = ['claude-code', 'codex', 'extra-agent']
+
+    @pytest.mark.parametrize(
+        ("case", "actual_agents"),
+        (
+            ("duplicate", ["claude-code", "codex", "codex"]),
+            ("missing", ["codex"]),
+            ("extra", ["claude-code", "codex", "extra-agent"]),
+        ),
+    )
+    def test_e3_open_installed_agent_multiset_must_match_spec(
+        monkeypatch, tmp_path, stable_test_root, case, actual_agents
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            if case == "duplicate":
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "codex-duplicate-session",
+                            }
+                        ],
+                    }
+                )
+            elif case == "missing":
+                sessions["agents"].pop()
+            else:
+                sessions["agents"].append(
+                    {
+                        "agent": "extra-agent",
+                        "sessions": [
+                            {
+                                "outcome": "installed",
+                                "installed_session_id": "extra-agent-session",
+                            }
+                        ],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1496: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m2/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_installed_agent_m2/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_each_raw_group_requires_exactly_one_installed_row[mixed-over-2] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a7320&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_each_raw_group_re0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re0')
+case = 'mixed-over', installed_count = 2
+
+    @pytest.mark.parametrize(
+        ("case", "installed_count"),
+        (
+            ("mixed-over", 2),
+            ("mixed-under", 0),
+            ("sole-over", 2),
+            ("sole-under", 0),
+        ),
+    )
+    def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+        monkeypatch, tmp_path, stable_test_root, case, installed_count
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            codex_group = sessions["agents"][0]
+            original_row = codex_group["sessions"][0]
+            if installed_count == 2:
+                codex_group["sessions"].append(
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": "codex-second-session",
+                    }
+                )
+            else:
+                codex_group["sessions"] = [{"outcome": "skipped"}]
+            if case.startswith("mixed"):
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [original_row],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1559: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re0/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_each_raw_group_requires_exactly_one_installed_row[mixed-under-0] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd693aa0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_each_raw_group_re1')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re1')
+case = 'mixed-under', installed_count = 0
+
+    @pytest.mark.parametrize(
+        ("case", "installed_count"),
+        (
+            ("mixed-over", 2),
+            ("mixed-under", 0),
+            ("sole-over", 2),
+            ("sole-under", 0),
+        ),
+    )
+    def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+        monkeypatch, tmp_path, stable_test_root, case, installed_count
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            codex_group = sessions["agents"][0]
+            original_row = codex_group["sessions"][0]
+            if installed_count == 2:
+                codex_group["sessions"].append(
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": "codex-second-session",
+                    }
+                )
+            else:
+                codex_group["sessions"] = [{"outcome": "skipped"}]
+            if case.startswith("mixed"):
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [original_row],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1559: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re1/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re1/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re1/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_each_raw_group_requires_exactly_one_installed_row[sole-over-2] __
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a10d0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_each_raw_group_re2')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re2')
+case = 'sole-over', installed_count = 2
+
+    @pytest.mark.parametrize(
+        ("case", "installed_count"),
+        (
+            ("mixed-over", 2),
+            ("mixed-under", 0),
+            ("sole-over", 2),
+            ("sole-under", 0),
+        ),
+    )
+    def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+        monkeypatch, tmp_path, stable_test_root, case, installed_count
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            codex_group = sessions["agents"][0]
+            original_row = codex_group["sessions"][0]
+            if installed_count == 2:
+                codex_group["sessions"].append(
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": "codex-second-session",
+                    }
+                )
+            else:
+                codex_group["sessions"] = [{"outcome": "skipped"}]
+            if case.startswith("mixed"):
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [original_row],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1559: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re2/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re2/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re2/scratch/seed-ws/codex-seed.jsonl
+_ test_e3_open_each_raw_group_requires_exactly_one_installed_row[sole-under-0] _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a63c0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_open_each_raw_group_re3')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re3')
+case = 'sole-under', installed_count = 0
+
+    @pytest.mark.parametrize(
+        ("case", "installed_count"),
+        (
+            ("mixed-over", 2),
+            ("mixed-under", 0),
+            ("sole-over", 2),
+            ("sole-under", 0),
+        ),
+    )
+    def test_e3_open_each_raw_group_requires_exactly_one_installed_row(
+        monkeypatch, tmp_path, stable_test_root, case, installed_count
+    ):
+        def malformed_open(restored_workspace):
+            restored_workspace.mkdir(exist_ok=True)
+            sessions = _valid_sessions_payload()
+            codex_group = sessions["agents"][0]
+            original_row = codex_group["sessions"][0]
+            if installed_count == 2:
+                codex_group["sessions"].append(
+                    {
+                        "outcome": "installed",
+                        "installed_session_id": "codex-second-session",
+                    }
+                )
+            else:
+                codex_group["sessions"] = [{"outcome": "skipped"}]
+            if case.startswith("mixed"):
+                sessions["agents"].append(
+                    {
+                        "agent": "codex",
+                        "sessions": [original_row],
+                    }
+                )
+            return SimpleNamespace(
+                returncode=0,
+                stdout=_envelope(
+                    "open",
+                    0,
+                    ok=True,
+                    result={
+                        "output_dir": str(restored_workspace),
+                        "sessions": sessions,
+                    },
+                ),
+                stderr="",
+            )
+    
+        result, seen = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=malformed_open,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1559: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re3/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re3/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re3/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_open_each_raw_group_re3/scratch/seed-ws/codex-seed.jsonl
+________ test_e3_warned_pack_then_malformed_open_result_retains_warning ________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd672870&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_e3_warned_pack_then_malfo0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_malfo0')
+
+    def test_e3_warned_pack_then_malformed_open_result_retains_warning(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=None),
+            stderr="",
+        )
+    
+        result, _ = _run_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+    
+&gt;       assert result.status is Status.FAIL
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...144.1;newer_than_surveyed=false', 'version-floor-evidence:live:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:1584: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_malfo0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_malfo0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_malfo0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_e3_warned_pack_then_malfo0/scratch/seed-ws/codex-seed.jsonl
+_________ test_cli_persists_failed_e3_report_for_malformed_open_result _________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a1a00&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_cli_persists_failed_e3_re0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_cli_persists_failed_e3_re0')
+
+    def test_cli_persists_failed_e3_report_for_malformed_open_result(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        opened = SimpleNamespace(
+            returncode=0,
+            stdout=_envelope("open", 0, ok=True, result=None),
+            stderr="",
+        )
+        spec_path, seen = _configure_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            pack_result=_successful_pack(warnings=["CodexDbEnrichmentSkipped"]),
+            open_result=opened,
+        )
+        report_path = stable_test_root / "report.json"
+    
+        exit_code = cli.main(
+            [
+                "--biv",
+                str(tmp_path / "biv"),
+                "--e3",
+                str(spec_path),
+                "--report",
+                str(report_path),
+            ]
+        )
+    
+        assert exit_code != 0
+&gt;       assert seen == ["pack", "open"]
+E       AssertionError: assert ['pack'] == ['pack', 'open']
+E         
+E         Right contains one more item: 'open'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1619: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_cli_persists_failed_e3_re0/.bivharness-scratch-l0fkocnf/e3-exit-contract/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_cli_persists_failed_e3_re0/.bivharness-scratch-l0fkocnf/e3-exit-contract/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_cli_persists_failed_e3_re0/.bivharness-scratch-l0fkocnf/e3-exit-contract/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_cli_persists_failed_e3_re0/.bivharness-scratch-l0fkocnf/e3-exit-contract/seed-ws/codex-seed.jsonl
+________________ test_drift_tripwire_is_green_at_pinned_source _________________
+
+    def test_drift_tripwire_is_green_at_pinned_source():
+&gt;       assert e3._c1_drift_tripwire_failures() == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1884: AssertionError
+___ test_drift_tripwire_reds_each_adapter_read_side_change[claude-inventory] ___
+
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_drift_tripwire_reds_each_0')
+rel = 'src/adapters/claude_code/claude_code.cpp'
+anchor_old = '.globs = {"projects/*/*.jsonl"}'
+anchor_new = '.globs = {"projects/*/*.jsonl", "x/**"}'
+key = 'claude_adapter_file'
+
+    @pytest.mark.parametrize(
+        ("rel", "anchor_old", "anchor_new", "key"),
+        (
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.globs = {"projects/*/*.jsonl"}',
+                '.globs = {"projects/*/*.jsonl", "x/**"}',
+                "claude_adapter_file",
+                id="claude-inventory",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.globs = {"sessions/**/rollout-*.jsonl"}',
+                '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
+                "codex_adapter_file",
+                id="codex-inventory",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.path = root / "projects"',
+                '.path = root / "projects_moved"',
+                "claude_adapter_file",
+                id="claude-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.path = root / "sessions"',
+                '.path = root / "sessions_moved"',
+                "codex_adapter_file",
+                id="codex-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                'root / "archived_sessions"}}',
+                'root / "archived_sessions2"}}',
+                "codex_adapter_file",
+                id="codex-discover-archived",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".claude",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "claude_adapter_file",
+                id="claude-discover-novel-location",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".codex",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "codex_adapter_file",
+                id="codex-discover-novel-location",
+            ),
+        ),
+    )
+    def test_drift_tripwire_reds_each_adapter_read_side_change(
+        tmp_path, rel, anchor_old, anchor_new, key
+    ):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+&gt;       assert e3._c1_drift_tripwire_failures(repo) == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1962: AssertionError
+___ test_drift_tripwire_reds_each_adapter_read_side_change[codex-inventory] ____
+
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_drift_tripwire_reds_each_1')
+rel = 'src/adapters/codex/codex.cpp'
+anchor_old = '.globs = {"sessions/**/rollout-*.jsonl"}'
+anchor_new = '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}'
+key = 'codex_adapter_file'
+
+    @pytest.mark.parametrize(
+        ("rel", "anchor_old", "anchor_new", "key"),
+        (
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.globs = {"projects/*/*.jsonl"}',
+                '.globs = {"projects/*/*.jsonl", "x/**"}',
+                "claude_adapter_file",
+                id="claude-inventory",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.globs = {"sessions/**/rollout-*.jsonl"}',
+                '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
+                "codex_adapter_file",
+                id="codex-inventory",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.path = root / "projects"',
+                '.path = root / "projects_moved"',
+                "claude_adapter_file",
+                id="claude-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.path = root / "sessions"',
+                '.path = root / "sessions_moved"',
+                "codex_adapter_file",
+                id="codex-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                'root / "archived_sessions"}}',
+                'root / "archived_sessions2"}}',
+                "codex_adapter_file",
+                id="codex-discover-archived",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".claude",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "claude_adapter_file",
+                id="claude-discover-novel-location",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".codex",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "codex_adapter_file",
+                id="codex-discover-novel-location",
+            ),
+        ),
+    )
+    def test_drift_tripwire_reds_each_adapter_read_side_change(
+        tmp_path, rel, anchor_old, anchor_new, key
+    ):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+&gt;       assert e3._c1_drift_tripwire_failures(repo) == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1962: AssertionError
+_ test_drift_tripwire_reds_each_adapter_read_side_change[claude-discover-primary] _
+
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_drift_tripwire_reds_each_2')
+rel = 'src/adapters/claude_code/claude_code.cpp'
+anchor_old = '.path = root / "projects"'
+anchor_new = '.path = root / "projects_moved"', key = 'claude_adapter_file'
+
+    @pytest.mark.parametrize(
+        ("rel", "anchor_old", "anchor_new", "key"),
+        (
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.globs = {"projects/*/*.jsonl"}',
+                '.globs = {"projects/*/*.jsonl", "x/**"}',
+                "claude_adapter_file",
+                id="claude-inventory",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.globs = {"sessions/**/rollout-*.jsonl"}',
+                '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
+                "codex_adapter_file",
+                id="codex-inventory",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.path = root / "projects"',
+                '.path = root / "projects_moved"',
+                "claude_adapter_file",
+                id="claude-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.path = root / "sessions"',
+                '.path = root / "sessions_moved"',
+                "codex_adapter_file",
+                id="codex-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                'root / "archived_sessions"}}',
+                'root / "archived_sessions2"}}',
+                "codex_adapter_file",
+                id="codex-discover-archived",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".claude",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "claude_adapter_file",
+                id="claude-discover-novel-location",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".codex",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "codex_adapter_file",
+                id="codex-discover-novel-location",
+            ),
+        ),
+    )
+    def test_drift_tripwire_reds_each_adapter_read_side_change(
+        tmp_path, rel, anchor_old, anchor_new, key
+    ):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+&gt;       assert e3._c1_drift_tripwire_failures(repo) == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1962: AssertionError
+_ test_drift_tripwire_reds_each_adapter_read_side_change[codex-discover-primary] _
+
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_drift_tripwire_reds_each_3')
+rel = 'src/adapters/codex/codex.cpp', anchor_old = '.path = root / "sessions"'
+anchor_new = '.path = root / "sessions_moved"', key = 'codex_adapter_file'
+
+    @pytest.mark.parametrize(
+        ("rel", "anchor_old", "anchor_new", "key"),
+        (
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.globs = {"projects/*/*.jsonl"}',
+                '.globs = {"projects/*/*.jsonl", "x/**"}',
+                "claude_adapter_file",
+                id="claude-inventory",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.globs = {"sessions/**/rollout-*.jsonl"}',
+                '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
+                "codex_adapter_file",
+                id="codex-inventory",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.path = root / "projects"',
+                '.path = root / "projects_moved"',
+                "claude_adapter_file",
+                id="claude-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.path = root / "sessions"',
+                '.path = root / "sessions_moved"',
+                "codex_adapter_file",
+                id="codex-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                'root / "archived_sessions"}}',
+                'root / "archived_sessions2"}}',
+                "codex_adapter_file",
+                id="codex-discover-archived",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".claude",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "claude_adapter_file",
+                id="claude-discover-novel-location",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".codex",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "codex_adapter_file",
+                id="codex-discover-novel-location",
+            ),
+        ),
+    )
+    def test_drift_tripwire_reds_each_adapter_read_side_change(
+        tmp_path, rel, anchor_old, anchor_new, key
+    ):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+&gt;       assert e3._c1_drift_tripwire_failures(repo) == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1962: AssertionError
+_ test_drift_tripwire_reds_each_adapter_read_side_change[codex-discover-archived] _
+
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_drift_tripwire_reds_each_4')
+rel = 'src/adapters/codex/codex.cpp'
+anchor_old = 'root / "archived_sessions"}}'
+anchor_new = 'root / "archived_sessions2"}}', key = 'codex_adapter_file'
+
+    @pytest.mark.parametrize(
+        ("rel", "anchor_old", "anchor_new", "key"),
+        (
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.globs = {"projects/*/*.jsonl"}',
+                '.globs = {"projects/*/*.jsonl", "x/**"}',
+                "claude_adapter_file",
+                id="claude-inventory",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.globs = {"sessions/**/rollout-*.jsonl"}',
+                '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
+                "codex_adapter_file",
+                id="codex-inventory",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.path = root / "projects"',
+                '.path = root / "projects_moved"',
+                "claude_adapter_file",
+                id="claude-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.path = root / "sessions"',
+                '.path = root / "sessions_moved"',
+                "codex_adapter_file",
+                id="codex-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                'root / "archived_sessions"}}',
+                'root / "archived_sessions2"}}',
+                "codex_adapter_file",
+                id="codex-discover-archived",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".claude",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "claude_adapter_file",
+                id="claude-discover-novel-location",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".codex",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "codex_adapter_file",
+                id="codex-discover-novel-location",
+            ),
+        ),
+    )
+    def test_drift_tripwire_reds_each_adapter_read_side_change(
+        tmp_path, rel, anchor_old, anchor_new, key
+    ):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+&gt;       assert e3._c1_drift_tripwire_failures(repo) == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1962: AssertionError
+_ test_drift_tripwire_reds_each_adapter_read_side_change[claude-discover-novel-location] _
+
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_drift_tripwire_reds_each_5')
+rel = 'src/adapters/claude_code/claude_code.cpp'
+anchor_old = '    std::vector&lt;Store&gt; stores;\n'
+anchor_new = '    std::vector&lt;Store&gt; stores;\n    stores.push_back(Store{\n        .root = env.home / ".claude",\n        .locators...     .path = env.home / "legacy_sessions"}},\n        .tier = DiscoveryTier::defaults,\n        .archived = false});\n'
+key = 'claude_adapter_file'
+
+    @pytest.mark.parametrize(
+        ("rel", "anchor_old", "anchor_new", "key"),
+        (
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.globs = {"projects/*/*.jsonl"}',
+                '.globs = {"projects/*/*.jsonl", "x/**"}',
+                "claude_adapter_file",
+                id="claude-inventory",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.globs = {"sessions/**/rollout-*.jsonl"}',
+                '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
+                "codex_adapter_file",
+                id="codex-inventory",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.path = root / "projects"',
+                '.path = root / "projects_moved"',
+                "claude_adapter_file",
+                id="claude-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.path = root / "sessions"',
+                '.path = root / "sessions_moved"',
+                "codex_adapter_file",
+                id="codex-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                'root / "archived_sessions"}}',
+                'root / "archived_sessions2"}}',
+                "codex_adapter_file",
+                id="codex-discover-archived",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".claude",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "claude_adapter_file",
+                id="claude-discover-novel-location",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".codex",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "codex_adapter_file",
+                id="codex-discover-novel-location",
+            ),
+        ),
+    )
+    def test_drift_tripwire_reds_each_adapter_read_side_change(
+        tmp_path, rel, anchor_old, anchor_new, key
+    ):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+&gt;       assert e3._c1_drift_tripwire_failures(repo) == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1962: AssertionError
+_ test_drift_tripwire_reds_each_adapter_read_side_change[codex-discover-novel-location] _
+
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_drift_tripwire_reds_each_6')
+rel = 'src/adapters/codex/codex.cpp'
+anchor_old = '    std::vector&lt;Store&gt; stores;\n'
+anchor_new = '    std::vector&lt;Store&gt; stores;\n    stores.push_back(Store{\n        .root = env.home / ".codex",\n        .locators ...     .path = env.home / "legacy_sessions"}},\n        .tier = DiscoveryTier::defaults,\n        .archived = false});\n'
+key = 'codex_adapter_file'
+
+    @pytest.mark.parametrize(
+        ("rel", "anchor_old", "anchor_new", "key"),
+        (
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.globs = {"projects/*/*.jsonl"}',
+                '.globs = {"projects/*/*.jsonl", "x/**"}',
+                "claude_adapter_file",
+                id="claude-inventory",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.globs = {"sessions/**/rollout-*.jsonl"}',
+                '.globs = {"sessions/**/rollout-*.jsonl", "x/**"}',
+                "codex_adapter_file",
+                id="codex-inventory",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                '.path = root / "projects"',
+                '.path = root / "projects_moved"',
+                "claude_adapter_file",
+                id="claude-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                '.path = root / "sessions"',
+                '.path = root / "sessions_moved"',
+                "codex_adapter_file",
+                id="codex-discover-primary",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                'root / "archived_sessions"}}',
+                'root / "archived_sessions2"}}',
+                "codex_adapter_file",
+                id="codex-discover-archived",
+            ),
+            pytest.param(
+                "src/adapters/claude_code/claude_code.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".claude",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "claude_adapter_file",
+                id="claude-discover-novel-location",
+            ),
+            pytest.param(
+                "src/adapters/codex/codex.cpp",
+                "    std::vector&lt;Store&gt; stores;\n",
+                (
+                    "    std::vector&lt;Store&gt; stores;\n"
+                    "    stores.push_back(Store{\n"
+                    '        .root = env.home / ".codex",\n'
+                    '        .locators = {StoreLocator{.kind = "sessions_root",\n'
+                    '                                  .path = env.home / "legacy_sessions"}},\n'
+                    "        .tier = DiscoveryTier::defaults,\n"
+                    "        .archived = false});\n"
+                ),
+                "codex_adapter_file",
+                id="codex-discover-novel-location",
+            ),
+        ),
+    )
+    def test_drift_tripwire_reds_each_adapter_read_side_change(
+        tmp_path, rel, anchor_old, anchor_new, key
+    ):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+&gt;       assert e3._c1_drift_tripwire_failures(repo) == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:1962: AssertionError
+____________ test_drift_tripwire_ignores_write_side_install_change _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_drift_tripwire_ignores_wr0')
+
+    def test_drift_tripwire_ignores_write_side_install_change(tmp_path):
+        repo = tmp_path / "repo"
+        shutil.copytree(Path(__file__).resolve().parents[2] / "src", repo / "src")
+        source = repo / "src/adapters/claude_code/install.cpp"
+        text = source.read_text(encoding="utf-8")
+        old = 'install_root / "projects" / project_key_for_record(record)'
+        assert old in text
+        source.write_text(
+            text.replace(
+                old,
+                'install_root / "projects_moved" / project_key_for_record(record)',
+                1,
+            ),
+            encoding="utf-8",
+        )
+    
+&gt;       assert e3._c1_drift_tripwire_failures(repo) == []
+E       AssertionError: assert ['C1 drift tr...dapter_file)'] == []
+E         
+E         Left contains one more item: 'C1 drift tripwire RED: adapter session-location source changed (claude_adapter_file)'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:2008: AssertionError
+________ test_e3_open_uses_fresh_work_directory_below_host2_state_root _________
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd450830&gt;
+
+    def test_e3_open_uses_fresh_work_directory_below_host2_state_root(monkeypatch):
+        scenario = Path(__file__).parents[1] / "scenarios-e3" / "e3-dual-resume.json"
+        scratch = Path.home() / ".cache" / f"biv-e3-open-dest-{os.getpid()}"
+        shutil.rmtree(scratch, ignore_errors=True)
+        opened = []
+        restored_workspaces = []
+    
+        monkeypatch.setattr(e3, "_seed_agent", lambda *args, **kwargs: None)
+        monkeypatch.setattr(e3, "scan_image_secret_values", lambda *args: [])
+        real_class_j_failures = e3.class_j_failures
+    
+        def capture_class_j(seed_workspace, restored_workspace, app_state_paths):
+            restored_workspaces.append(restored_workspace)
+            return real_class_j_failures(seed_workspace, restored_workspace, app_state_paths)
+    
+        monkeypatch.setattr(e3, "class_j_failures", capture_class_j)
+    
+        def fake_spawn(command, cwd, env):
+            if command[1:] == ["--version"]:
+                version = "2.1.207" if _agent_basename(command) == "claude" else "0.142.5"
+                return SimpleNamespace(returncode=0, stdout=version, stderr="")
+            if _agent_basename(command) == "claude" and command[1] == "--model":
+                return SimpleNamespace(returncode=0, stdout="OK", stderr="")
+            if len(command) &gt; 1 and command[1] == "pack":
+                return _successful_pack()
+            if len(command) &gt; 1 and command[1] == "open":
+                dest = Path(command[command.index("--dest") + 1])
+                host2 = scratch / "host2"
+                assert dest == host2 / "work"
+                assert not dest.exists()
+                assert (host2 / "home").is_dir()
+                assert (host2 / "profiles" / "claude").is_dir()
+                assert (host2 / "profiles" / "codex").is_dir()
+                assert dest != scratch / "seed-ws" / "biv-e3-dual-resume"
+                assert cwd == host2
+                assert env["HOME"] == str(host2 / "home")
+                assert env["CLAUDE_CONFIG_DIR"] == str(host2 / "profiles" / "claude")
+                assert env["CODEX_HOME"] == str(host2 / "profiles" / "codex")
+                dest.mkdir()
+                assert dest.is_dir()
+                opened.append(dest)
+                result = {
+                    "output_dir": str(dest),
+                    "sessions": {"agents": []},
+                }
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout=_envelope("open", 0, ok=True, result=result),
+                    stderr="",
+                )
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+    
+        monkeypatch.setattr(e3, "_spawn", fake_spawn)
+        try:
+            result = e3.run_e3(scenario, Path("biv"), scratch)
+            expected = scratch / "host2" / "work"
+&gt;           assert result.status is Status.FAIL
+E           AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.FAIL: 'fail'&gt;
+E            +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='e3-dual-resume', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail...on=2.1.207;newer_than_surveyed=false', 'version-floor-evidence:host2:codex:version=0.142.5;newer_than_surveyed=false']).status
+E            +  and   &lt;Status.FAIL: 'fail'&gt; = Status.FAIL
+
+selftest/test_e3_asserts.py:4472: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+
+Ownership-proven cleanup candidates (not deleted):
+
+___ test_credential_scanner_detects_entry_added_after_directory_enumeration ____
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd455310&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_credential_scanner_detect1')
+
+    def test_credential_scanner_detects_entry_added_after_directory_enumeration(
+        monkeypatch, tmp_path
+    ):
+        scanner = e3._CredentialScanner()
+        (tmp_path / "existing").write_bytes(b"ordinary")
+        real_scandir = e3.os.scandir
+        mutated = False
+    
+        class MutatingScandir:
+            def __init__(self, descriptor):
+                self._entries = real_scandir(descriptor)
+    
+            def __enter__(self):
+                return self
+    
+            def __exit__(self, *args):
+                self._entries.close()
+    
+            def __iter__(self):
+                return self
+    
+            def __next__(self):
+                nonlocal mutated
+                try:
+                    return next(self._entries)
+                except StopIteration:
+                    if not mutated:
+                        (tmp_path / "late-addition").write_bytes(b"ordinary")
+                        mutated = True
+                    raise
+    
+        monkeypatch.setattr(e3.os, "scandir", MutatingScandir)
+    
+&gt;       assert scanner.scan_tree(tmp_path, set())
+E       AssertionError: assert False
+E        +  where False = scan_tree(PosixPath('/tmp/pytest-of-suite/pytest-0/test_credential_scanner_detect1'), set())
+E        +    where scan_tree = _CredentialScanner().scan_tree
+E        +    and   set() = set()
+
+selftest/test_e3_asserts.py:5102: AssertionError
+_ test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_barrier _
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd2719a0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_run_e3_uses_one_absolute_0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_run_e3_uses_one_absolute_0')
+
+    def test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_barrier(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        (
+            result,
+            spec,
+            binaries,
+            ledger,
+            setup_calls,
+            scratch,
+            lifecycle_events,
+        ) = _run_argv_barrier_flow(
+            monkeypatch, tmp_path, stable_test_root
+        )
+    
+&gt;       assert result.status is Status.PASS
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...44.1;newer_than_surveyed=false', 'version-floor-evidence:host2:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+E        +  and   &lt;Status.PASS: 'pass'&gt; = Status.PASS
+
+selftest/test_e3_asserts.py:8914: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_run_e3_uses_one_absolute_0/live-claude-code/projects/-home-suite--cache-bivharness-selftest-9838-test-run-e3-uses-one-absolute-0-scratch-seed-ws-argv-barrier/bbbbbbbb-2222-4222-8222-222222222222.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_run_e3_uses_one_absolute_0/live-codex/rollout-2026-07-22-aaaaaaaa-1111-4111-8111-111111111111.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_run_e3_uses_one_absolute_0/live-claude-code/projects/-home-suite--cache-bivharness-selftest-9838-test-run-e3-uses-one-absolute-0-scratch-seed-ws-argv-barrier/bbbbbbbb-2222-4222-8222-222222222222.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_run_e3_uses_one_absolute_0/live-codex/rollout-2026-07-22-aaaaaaaa-1111-4111-8111-111111111111.jsonl
+_____ test_run_e3_invalidates_each_post_materialization_output_leak[open] ______
+post-materialization-output-leak-warning-missing
+____ test_run_e3_invalidates_each_post_materialization_output_leak[resume] _____
+post-materialization-output-leak-warning-missing
+_ test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[open] _
+exceptional-output-leak-warning-missing
+_ test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[resume] _
+exceptional-output-leak-warning-missing
+_ test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization _
+scratch-token-leak-warning-missing
+_____ test_run_e3_finalizes_exactly_once_for_each_execution_outcome[pass] ______
+
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd27d6a0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_run_e3_finalizes_exactly_0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9838-test_run_e3_finalizes_exactly_0')
+outcome = 'pass'
+
+    @pytest.mark.parametrize("outcome", ("pass", "resume-invalid", "runtime"))
+    def test_run_e3_finalizes_exactly_once_for_each_execution_outcome(
+        monkeypatch, tmp_path, stable_test_root, outcome
+    ):
+        calls = 0
+        real_finalize = e3._finalize_report
+    
+        def recording_finalize(result, scanner):
+            nonlocal calls
+            calls += 1
+            return real_finalize(result, scanner)
+    
+        monkeypatch.setattr(e3, "_finalize_report", recording_finalize)
+        kwargs = {}
+        if outcome == "resume-invalid":
+            kwargs["leak_phase"] = "resume"
+        elif outcome == "runtime":
+            kwargs["unexpected_phase"] = "open"
+        result, *_ = _run_argv_barrier_flow(
+            monkeypatch,
+            tmp_path,
+            stable_test_root,
+            **kwargs,
+        )
+    
+&gt;       assert result.status is (Status.PASS if outcome == "pass" else Status.INVALID)
+E       AssertionError: assert &lt;Status.INVALID: 'invalid'&gt; is &lt;Status.PASS: 'pass'&gt;
+E        +  where &lt;Status.INVALID: 'invalid'&gt; = ScenarioResult(id='cx-range', tier='E3', status=&lt;Status.INVALID: 'invalid'&gt;, classes=[], held_asserts=[], detail='e3-p...44.1;newer_than_surveyed=false', 'version-floor-evidence:host2:claude-code:version=2.1.210;newer_than_surveyed=false']).status
+
+selftest/test_e3_asserts.py:9217: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9838-test_run_e3_finalizes_exactly_0/live-claude-code/projects/-home-suite--cache-bivharness-selftest-9838-test-run-e3-finalizes-exactly-0-scratch-seed-ws-argv-barrier/bbbbbbbb-2222-4222-8222-222222222222.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_run_e3_finalizes_exactly_0/live-codex/rollout-2026-07-22-aaaaaaaa-1111-4111-8111-111111111111.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9838-test_run_e3_finalizes_exactly_0/live-claude-code/projects/-home-suite--cache-bivharness-selftest-9838-test-run-e3-finalizes-exactly-0-scratch-seed-ws-argv-barrier/bbbbbbbb-2222-4222-8222-222222222222.jsonl
+/home/suite/.cache/bivharness-selftest/9838-test_run_e3_finalizes_exactly_0/live-codex/rollout-2026-07-22-aaaaaaaa-1111-4111-8111-111111111111.jsonl
+_ test_a4_offline_collector_registry_is_exact_and_multi_failure_is_value_free __
+a4-collector-verdict-set-mismatch
+=========================== short test summary info ============================
+FAILED selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite
+FAILED selftest/test_e3_asserts.py::test_e3_pack_warning_cannot_spoof_version_floor_evidence
+FAILED selftest/test_e3_asserts.py::test_e3_pack_exit2_with_warnings_reaches_pass_and_surfaces
+FAILED selftest/test_e3_asserts.py::test_e3_warned_pack_then_open_failure_retains_both
+FAILED selftest/test_e3_asserts.py::test_e3_open_exit2_with_warnings_proceeds
+FAILED selftest/test_e3_asserts.py::test_e3_open_failure_detail_from_envelope
+FAILED selftest/test_e3_asserts.py::test_e3_open_non_object_result_fails_loudly[null]
+FAILED selftest/test_e3_asserts.py::test_e3_open_non_object_result_fails_loudly[string]
+FAILED selftest/test_e3_asserts.py::test_e3_open_non_object_result_fails_loudly[list]
+FAILED selftest/test_e3_asserts.py::test_e3_open_invalid_output_dir_fails_before_path_resolution[empty-result]
+FAILED selftest/test_e3_asserts.py::test_e3_open_invalid_output_dir_fails_before_path_resolution[missing]
+FAILED selftest/test_e3_asserts.py::test_e3_open_invalid_output_dir_fails_before_path_resolution[empty]
+FAILED selftest/test_e3_asserts.py::test_e3_open_invalid_output_dir_fails_before_path_resolution[non-string]
+FAILED selftest/test_e3_asserts.py::test_e3_open_relative_output_dir_fails_before_workspace_binding[dot]
+FAILED selftest/test_e3_asserts.py::test_e3_open_relative_output_dir_fails_before_workspace_binding[dotdot]
+FAILED selftest/test_e3_asserts.py::test_e3_open_relative_output_dir_fails_before_workspace_binding[nested-relative]
+FAILED selftest/test_e3_asserts.py::test_e3_open_off_tree_absolute_output_dir_fails_before_workspace_binding
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[sessions-null]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[sessions-list]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[agents-null]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[group-scalar]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[group-agent-missing]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[group-sessions-null]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[session-scalar]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[session-outcome-missing]
+FAILED selftest/test_e3_asserts.py::test_e3_open_malformed_sessions_fail_before_consumer_access[installed-id-non-string]
+FAILED selftest/test_e3_asserts.py::test_e3_open_installed_agent_ids_must_match_spec_and_retain_warning
+FAILED selftest/test_e3_asserts.py::test_e3_open_installed_agent_multiset_must_match_spec[duplicate-actual_agents0]
+FAILED selftest/test_e3_asserts.py::test_e3_open_installed_agent_multiset_must_match_spec[missing-actual_agents1]
+FAILED selftest/test_e3_asserts.py::test_e3_open_installed_agent_multiset_must_match_spec[extra-actual_agents2]
+FAILED selftest/test_e3_asserts.py::test_e3_open_each_raw_group_requires_exactly_one_installed_row[mixed-over-2]
+FAILED selftest/test_e3_asserts.py::test_e3_open_each_raw_group_requires_exactly_one_installed_row[mixed-under-0]
+FAILED selftest/test_e3_asserts.py::test_e3_open_each_raw_group_requires_exactly_one_installed_row[sole-over-2]
+FAILED selftest/test_e3_asserts.py::test_e3_open_each_raw_group_requires_exactly_one_installed_row[sole-under-0]
+FAILED selftest/test_e3_asserts.py::test_e3_warned_pack_then_malformed_open_result_retains_warning
+FAILED selftest/test_e3_asserts.py::test_cli_persists_failed_e3_report_for_malformed_open_result
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_is_green_at_pinned_source
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_reds_each_adapter_read_side_change[claude-inventory]
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_reds_each_adapter_read_side_change[codex-inventory]
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_reds_each_adapter_read_side_change[claude-discover-primary]
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_reds_each_adapter_read_side_change[codex-discover-primary]
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_reds_each_adapter_read_side_change[codex-discover-archived]
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_reds_each_adapter_read_side_change[claude-discover-novel-location]
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_reds_each_adapter_read_side_change[codex-discover-novel-location]
+FAILED selftest/test_e3_asserts.py::test_drift_tripwire_ignores_write_side_install_change
+FAILED selftest/test_e3_asserts.py::test_e3_open_uses_fresh_work_directory_below_host2_state_root
+FAILED selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration
+FAILED selftest/test_e3_asserts.py::test_run_e3_uses_one_absolute_binary_for_full_agent_argv_ledger_and_global_barrier
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_post_materialization_output_leak[open]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_post_materialization_output_leak[resume]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[open]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_each_exceptional_post_materialization_output_leak[resume]
+FAILED selftest/test_e3_asserts.py::test_run_e3_invalidates_token_leaf_copied_into_scratch_after_materialization
+FAILED selftest/test_e3_asserts.py::test_run_e3_finalizes_exactly_once_for_each_execution_outcome[pass]
+FAILED selftest/test_e3_asserts.py::test_a4_offline_collector_registry_is_exact_and_multi_failure_is_value_free
+================== 55 failed, 955 passed, 3 skipped in 29.55s ==================
+</system-out>
+	</testcase>
+	<testcase name="harness-e2" classname="harness-e2" time="1.38756" status="run">
+		<properties>
+			<property name="cmake_labels" value="e2;harness"/>
+		</properties>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="safety-build-werror" classname="safety-build-werror" time="1.77885" status="run">
+		<properties>
+			<property name="cmake_labels" value="build;safety"/>
+		</properties>
+		<system-out>[ 18%] Built target libzstd_static
+[ 68%] Built target Catch2
+[ 69%] Built target Catch2WithMain
+[ 70%] Built target biv_support
+[ 70%] Built target biv_probe_test_seam
+[ 72%] Built target simdjson
+[ 76%] Built target biv_adapters
+[ 89%] Built target bivcore
+[100%] Built target biv_tests
+</system-out>
+	</testcase>
+	<testcase name="safety-asan-ubsan" classname="safety-asan-ubsan" time="0.0349898" status="notrun">
+		<skipped message="SKIP_REGULAR_EXPRESSION_MATCHED"/>
+		<properties>
+			<property name="cmake_labels" value="harness-skip"/>
+		</properties>
+		<system-out>SKIP: biv_tests not built with sanitizer flags
+</system-out>
+	</testcase>
+	<testcase name="safety-tidy-analyzer" classname="safety-tidy-analyzer" time="64.8602" status="run">
+		<properties>
+			<property name="cmake_labels" value="safety;tidy"/>
+		</properties>
+		<system-out>clang-tidy coverage: 37 results == 37 sources
+</system-out>
+	</testcase>
+	<testcase name="safety-hardening" classname="safety-hardening" time="0.215704" status="run">
+		<properties>
+			<property name="cmake_labels" value="hardening;safety"/>
+		</properties>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="safety-fuzz-smoke" classname="safety-fuzz-smoke" time="0.0483719" status="notrun">
+		<skipped message="SKIP_REGULAR_EXPRESSION_MATCHED"/>
+		<properties>
+			<property name="cmake_labels" value="harness-skip"/>
+		</properties>
+		<system-out>SKIP: fuzz_manifest_json and fuzz_tar_member targets unavailable
+</system-out>
+	</testcase>
+</testsuite>

@@ -1,0 +1,54 @@
+Test project /Users/jack/Programming/bivpak-intg-r450-discover-parity/build/ci-macos
+      Start  1: subprocess
+ 1/18 Test  #1: subprocess .......................   Passed    0.55 sec
+      Start  2: repo_git
+ 2/18 Test  #2: repo_git .........................   Passed    0.76 sec
+      Start  3: repo_engine
+ 3/18 Test  #3: repo_engine ......................   Passed   22.63 sec
+      Start 12: generated_envelope_reset
+ 4/18 Test #12: generated_envelope_reset .........   Passed    0.02 sec
+      Start  4: biv_tests
+ 5/18 Test  #4: biv_tests ........................   Passed  588.85 sec
+      Start  5: probe
+ 6/18 Test  #5: probe ............................   Passed   11.53 sec
+      Start  6: open_no_rewrite_gate
+ 7/18 Test  #6: open_no_rewrite_gate .............   Passed    0.01 sec
+      Start  7: core_adapter_purity_selftest
+ 8/18 Test  #7: core_adapter_purity_selftest .....   Passed    0.05 sec
+      Start  8: version_floor_mirror
+ 9/18 Test  #8: version_floor_mirror .............   Passed    0.05 sec
+      Start  9: errno_table_gate
+10/18 Test  #9: errno_table_gate .................   Passed    1.07 sec
+      Start 10: probe_envelope_schema
+11/18 Test #10: probe_envelope_schema ............   Passed    0.25 sec
+      Start 11: generated_envelope_conforms
+12/18 Test #11: generated_envelope_conforms ......   Passed    0.08 sec
+      Start 13: harness-selftest
+13/18 Test #13: harness-selftest .................   Passed   15.07 sec
+      Start 14: harness-e2
+14/18 Test #14: harness-e2 .......................   Passed    2.01 sec
+      Start 15: safety-build-werror
+15/18 Test #15: safety-build-werror ..............   Passed    0.67 sec
+      Start 16: safety-asan-ubsan
+16/18 Test #16: safety-asan-ubsan ................***Skipped   0.01 sec
+      Start 17: safety-tidy-analyzer
+17/18 Test #17: safety-tidy-analyzer .............***Skipped   0.00 sec
+      Start 18: safety-fuzz-smoke
+18/18 Test #18: safety-fuzz-smoke ................***Skipped   0.00 sec
+
+100% tests passed, 0 tests failed out of 18
+
+Label Time Summary:
+build           =   0.67 sec*proc (1 test)
+e2              =   2.01 sec*proc (1 test)
+harness         =  17.08 sec*proc (2 tests)
+harness-skip    =   0.01 sec*proc (3 tests)
+safety          =   0.67 sec*proc (1 test)
+selftest        =  15.07 sec*proc (1 test)
+
+Total Test time (real) = 643.63 sec
+
+The following tests did not run:
+	 16 - safety-asan-ubsan (Skipped)
+	 17 - safety-tidy-analyzer (Skipped)
+	 18 - safety-fuzz-smoke (Skipped)

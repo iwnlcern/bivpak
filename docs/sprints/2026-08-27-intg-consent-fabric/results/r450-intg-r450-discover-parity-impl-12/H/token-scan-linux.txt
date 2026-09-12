@@ -1,0 +1,1 @@
+pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0

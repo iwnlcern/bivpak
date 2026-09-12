@@ -1,0 +1,6 @@
+adapters(claude): discover returns every store found (env + default), codex parity — PROVISIONAL, cells not yet transcribed
+
+Design pin: m2-r450-discover-fence-rev2-20260903 sha256 f2216ee606a03b0b5b0b7f4562fed52a7349219c28990e6ee3e89b0cc25e8c6f
+Plan pin: intg-r450-discover-parity-plan-20260906 sha256 777f8c20d1f19566bdd9096c40b70c0ce3b5136d865b6cf7eca70cb260ffbda7
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

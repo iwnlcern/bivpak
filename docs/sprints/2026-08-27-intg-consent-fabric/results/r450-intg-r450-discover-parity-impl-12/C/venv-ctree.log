@@ -1,0 +1,3 @@
+
+[notice] A new release of pip is available: 25.3 -> 26.2.1
+[notice] To update, run: /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ctree-lp2spQ/repo/.venv-harness/bin/python -m pip install --upgrade pip

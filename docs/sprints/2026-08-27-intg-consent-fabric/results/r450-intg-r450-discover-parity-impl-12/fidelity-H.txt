@@ -1,0 +1,5 @@
+ROW 1 env set, exists, differs; default exists: observed=['CLAUDE_CONFIG_DIR', 'HOME'] expected=['CLAUDE_CONFIG_DIR', 'HOME'] ok
+ROW 2 env set and equal to the default: observed=['CLAUDE_CONFIG_DIR'] expected=['CLAUDE_CONFIG_DIR'] ok
+ROW 3 env unset, default exists: observed=['HOME'] expected=['HOME'] ok
+ROW 4 neither: observed=[] expected=[] ok
+ROW 5 env set, default exists, both hold sessions (enumeration only): observed=['CLAUDE_CONFIG_DIR', 'HOME'] expected=['CLAUDE_CONFIG_DIR', 'HOME'] ok

@@ -1,0 +1,5 @@
+Filters: "Claude adapter discovers CLAUDE_CONFIG_DIR as an env-tier store"
+Randomness seeded to: 560361234
+===============================================================================
+All tests passed (6 assertions in 1 test case)
+

@@ -1,0 +1,12 @@
+biv_subprocess_tests macos successes=12 failures=0 expectedFailures=0 skips=0
+biv_repo_git_tests macos successes=6 failures=0 expectedFailures=0 skips=0
+biv_repo_engine_tests macos successes=60 failures=0 expectedFailures=0 skips=0
+biv_tests macos successes=419 failures=0 expectedFailures=0 skips=3
+biv_probe_tests macos successes=25 failures=0 expectedFailures=0 skips=0
+expected_skips macos n=3 pack derives relpath from slash-form Windows extended paths | pack computes foreign-flavor session relpaths without host path parsing | threshold-parity per-agent distribution self-activates at R-4.29
+biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0
+biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0
+biv_repo_engine_tests linux successes=60 failures=0 expectedFailures=0 skips=0
+biv_tests linux successes=421 failures=0 expectedFailures=0 skips=1
+biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0
+expected_skips linux absent 

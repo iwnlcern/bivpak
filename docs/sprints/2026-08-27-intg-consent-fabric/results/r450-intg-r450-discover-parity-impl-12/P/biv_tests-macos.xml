@@ -1,0 +1,1861 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Catch2TestRun name="biv_tests" rng-seed="2392883392" xml-format-version="3" catch2-version="3.7.1">
+  <TestCase name="app version pin" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_smoke.cpp" line="7">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Writer emits nested objects and arrays with stable formatting" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_json_writer.cpp" line="9">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Writer escapes required characters and passes through UTF-8" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_json_writer.cpp" line="38">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Writer renders empty containers compactly" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_json_writer.cpp" line="51">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Writer emits int64 bounds and one trailing newline" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_json_writer.cpp" line="69">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Writer emits uint64 maximum without sign narrowing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_json_writer.cpp" line="86">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Checksums serialize sorted entries exactly" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_checksums.cpp" line="24">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Checksums parse round-trips serialized models" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_checksums.cpp" line="39">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Checksums parser refuses bad algo and bad digests" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_checksums.cpp" line="49">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Checksums parser enforces byte cap" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_checksums.cpp" line="61">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="builtin-v1 bytes are pinned" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_ignore.cpp" line="44">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="builtin matcher prunes directory patterns at any depth" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_ignore.cpp" line="60">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="file matcher supports last-match negation and line provenance" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_ignore.cpp" line="72">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="matcher supports double-star paths" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_ignore.cpp" line="89">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="matcher strips unescaped trailing spaces" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_ignore.cpp" line="98">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="matcher replays ignore parity corpus" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_ignore.cpp" line="107">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="packer_home serializes after source_path_flavor and round-trips" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="570">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="packer_home round-trips every flavor spelling" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="606">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="packer_home absent round-trips and pre-carrier fixtures stay clean" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="665">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="packer_home invalid engaged values collapse to absent on serialize" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="679">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="packer_home JSON null is missing for both keys" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="707">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="packer_home lone keys fail closed naming the flavor key" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="734">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="packer_home malformed values fail closed naming the home key" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="746">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="packer_home flavor errors name the flavor key not source_path_flavor" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="803">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classify_absolute covers every grammar branch" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="815">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classify_absolute agrees with the adapter spelling classifier" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="836">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest serializes in the locked field order" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="847">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest serializes agent_sessions entries per seam lock" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="869">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parse round-trips serialized manifests" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="883">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parser ignores unknown fields" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="897">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parser reports future format_version without caller gating" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="918">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parser refuses malformed or step-incompatible inputs" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="927">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest repos populated round-trip is symmetric and row-bound" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="955">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest repos G unborn-with-refs shape round-trips" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1236">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest repos never serialize transient engine state" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1275">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-N capture_mode absence is licensed only by disjoint markers" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1301">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-N local_refs absence is licensed only by H and N" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1330">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parser refuses unsafe member paths but retains URL data" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1349">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-N shallow member validity is presence-aware" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1443">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-N shallow composition cluster rejects each hostile coordinate" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1473">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-N promisor-source and unknown notes round-trip" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1512">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O writer refuses unsafe member paths without emitting bytes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1537">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O local refs bundle relation is enforced in both directions" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1606">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O refuses unnamed serialized enum values" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1641">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O writer refuses invalid UTF-8 in every carried repo string" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1678">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O omits contextual capture_mode before enum validation" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1747">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O validates unknown note shape and projection before emission" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1762">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O shared predicate inventory refuses typed parser-invalid rows" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1815">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O parser preserves legacy shared-validator details" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1909">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O validates every typed non-carried-refs predicate" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1938">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O projection oracle preserves carried state and ignores context" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="1997">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-O URL fields remain data" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2066">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest preserves unknown notes containing later placeholders" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2083">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parser accepts agent_sessions entries per seam lock" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2110">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parser accepts forward-compatible agent_sessions shapes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2140">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest reader accepts schema 2 entries in full and skips newer schemas" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2198">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest stub footprint validates paths and one manifest-wide occurrence set" tags="[slice-e][stub-footprint]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2229">
+    <Section name="footprint paths use the parsed-entry artifact grammar" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2238">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="a stub cannot alias a parsed entry member" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2245">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="entry and child occurrences within one stub cannot alias" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2260">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="two stubs cannot claim the same member" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2267">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest stub footprint refuses bearing-key duplicates without reading graph values" tags="[slice-e][stub-footprint]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2278">
+    <Section name="duplicate entry artifacts names their own class" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2288">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate entry children names their own class" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2296">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate child artifacts names their own class" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2304">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate hostile original_id values remain unread" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2312">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate hostile parent_id values remain unread" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2323">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate hostile original_path values remain unread" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2335">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest stub footprint enforces graph-free caps before reading excess nodes" tags="[slice-e][stub-footprint]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2348">
+    <Section name="the 1025th child is refused before its invalid path is read" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2358">
+      <OverallResults successes="11" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="entry artifacts retain the per-node cap" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2371">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="child artifacts retain the per-node cap" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2383">
+      <OverallResults successes="10" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="the entry total cap includes entry and child artifacts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2399">
+      <OverallResults successes="10" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest reader enforces the complete parent-edge tree contract" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2410">
+    <Section name="explicit primary parent is not a second encoding of absence" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2428">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="parent must name another member of the same entry" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2432">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="child ids are unique" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2436">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="child id cannot collide with the primary" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2441">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="self loops are refused" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2446">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="longer cycles are refused by an iterative walk" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2450">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="declared children carry at least one artifact" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2457">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="present null is refused rather than aliased to absence" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2461">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate parent_id is refused before first-wins access" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2465">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate original_id is refused before first-wins access" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2471">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate artifacts is refused before first-wins access" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2477">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest reader enforces all four per-entry graph caps" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2490">
+    <Section name="node cap accepts 1024 and short-circuits on the 1025th element" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2501">
+      <OverallResults successes="9" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="parent depth accepts 64 and refuses 65" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2513">
+      <OverallResults successes="136" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="artifacts per child accepts 256 and refuses 257" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2521">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="total artifacts accepts 4096 and refuses 4097" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2537">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest writer emits only non-primary parent edges and bumps schema conditionally" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2547">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parser accepts null parents and rejects empty parent artifacts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2579">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Manifest parser rejects mechanically invalid agent_sessions entries" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_manifest.cpp" line="2597">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="scan enumerates payload in lexicographic byte order" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_scan.cpp" line="31">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="root .bivignore prunes directories and records file provenance" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_scan.cpp" line="48">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="root .bivignore prunes files and cannot prune itself" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_scan.cpp" line="68">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="root .bivignore can prune .git before repo refusal" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_scan.cpp" line="83">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="builtin ignore prunes target directory when root ignore is absent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_scan.cpp" line="97">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="scan records symlinks and nested .bivignore advisories" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_scan.cpp" line="114">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="scan refuses repo-bearing roots" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_scan.cpp" line="131">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="secure_random_bytes honors bounds, chunking, and fallback" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_portability.cpp" line="23">
+    <Section name="fills the requested region within bounds" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_portability.cpp" line="24">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="fills requests larger than getentropy's limit" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_portability.cpp" line="46">
+      <OverallResults successes="1" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="chunks getentropy requests at the platform limit" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_portability.cpp" line="55">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="fills independent random_device fallback sequences" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_portability.cpp" line="67">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="stat_mtime accessors return the struct's mtime fields" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_portability.cpp" line="82">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="ErrKind spellings match envelope strings" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_support.cpp" line="7">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="BivError facts round-trip inserted keys" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_support.cpp" line="15">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="sha256 matches NIST vectors and builtin-v1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_writer.cpp" line="69">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="tar writer emits pax record, ustar header, and extent hash" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_writer.cpp" line="81">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="tar writer archives extract with GNU tar" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_writer.cpp" line="125">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="zstd magic and tar reader round-trip writer extents" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_reader.cpp" line="150">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="zstd checksum corruption returns typed error" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_reader.cpp" line="174">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="tar reader refuses unsafe member paths" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_reader.cpp" line="194">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="tar reader refuses GNU long-name typeflag" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_reader.cpp" line="230">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="tar reader accepts signed pax mtime emitted by writer" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_reader.cpp" line="251">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="tar reader rejects oversized pax payload size before reading payload" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_tar_reader.cpp" line="285">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack captures packer_home per HOME shape" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="574">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 6 pack omits known below-minimum sessions and reports every floor fact" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="667">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 6 pack keeps minimum and forward-known sessions at entry schema one" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="726">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack writes manifest, checksums, and payload extents" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="780">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-2 Codex two-level round trip is byte-identical" tags="[slice-e][slice-e-control]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="836">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-1b pack emits a transitive Codex parent edge" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="894">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12 producer node cap refuses atomically at cap plus one" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="933">
+    <Section name="descendants=1024" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="935">
+      <OverallResults successes="1028" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="descendants=1025" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="935">
+      <OverallResults successes="1033" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12 producer depth cap refuses atomically at cap plus one" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="959">
+    <Section name="depth=64" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="961">
+      <OverallResults successes="68" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="depth=65" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="961">
+      <OverallResults successes="73" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12 producer child-artifact cap refuses atomically at cap plus one" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="986">
+    <Section name="child artifacts=256" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="988">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="child artifacts=257" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="988">
+      <OverallResults successes="10" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12 producer total-artifact cap refuses atomically at cap plus one" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1015">
+    <Section name="total artifacts=4096" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1017">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="total artifacts=4097" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1017">
+      <OverallResults successes="10" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack refuses stale partial and reports facts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1047">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack refuses repo-bearing source" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1064">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack collects Claude adapter artifacts into agents members and manifest sessions" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1079">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="T-3 pack attributes every same-stem nested Claude workflow artifact" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1144">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack rejects duplicate adapter members before publishing an image" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1183">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack rejects traversal and control-character session ids atomically" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1208">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack rejects control and DEL bytes in collected artifact members" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1237">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack carries duplicate-store warning and A5 pick into the envelope" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1264">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack excludes symlinked Claude agent artifacts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1315">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack derives relpath from slash-form Windows extended paths" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1370">
+    <Skip filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1372">
+      requires a writable /mnt/c WSL fixture root
+    </Skip>
+    <OverallResult success="true" skips="1"/>
+  </TestCase>
+  <TestCase name="pack computes foreign-flavor session relpaths without host path parsing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1402">
+    <Skip filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1404">
+      requires a writable /mnt/c WSL fixture root
+    </Skip>
+    <OverallResult success="true" skips="1"/>
+  </TestCase>
+  <TestCase name="pack writes dangling Codex parent fields as parent not in image" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1446">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack forwards each collected torn-tail fact as an exact warning" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1495">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack warns that a retained torn tail makes the session uninstallable" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1533">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O1 re-pack manifests retain staged identity and original provenance" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1574">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 composed Claude stage pack install removes the staging workspace path" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1693">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B1 Claude consent-no round trip carries every declared subtree class" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1777">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 composed Codex stage pack install removes the staging workspace path" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1834">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-1 Codex consent-no round trip preserves two distinct original paths" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1922">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-7a Codex mixed-separator origin canonicalizes on round trip" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="1984">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-7b Claude mixed-separator origin canonicalizes on round trip" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2002">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-8a Codex canonical original_path bytes are fixed on repack" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2020">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-8b Claude canonical original_path bytes are fixed on repack" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2047">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 standing Claude stage pack open keeps parent references equal to child stems" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2076">
+    <Section name="flat-bare-hex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2089">
+      <OverallResults successes="160" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="flat-slug-hex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2089">
+      <OverallResults successes="160" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="nested-bare-hex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2089">
+      <OverallResults successes="162" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-1 Claude consent-no round trip accepts an empty subagent body" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2222">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-2 staged readers use the minted filename when legal writer content has no id" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2257">
+    <Section name="claude-code" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2266">
+      <OverallResults successes="95" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2266">
+      <OverallResults successes="112" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="G-3 Claude consent-no establishes manifest version for a nested staged round trip" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2317">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-1 Claude consent-no preserves an unattributed nested subagent agentId" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2367">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-1b Codex parent-valued child session identity survives staged repack" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2411">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-1b Codex staged reader accepts a separately mapped in-image parent reference" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2450">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="X-3 Codex staged reader skips one conflicting row and keeps its sibling" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2496">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-9 Claude version establishment is stable across staged repack cycles" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2564">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="G-2 Codex divergent payload identities refuse one row and the clean sibling re-packs" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2611">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="G-1 missing staged version skips one row without losing same-adapter or other-adapter siblings" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2689">
+    <Section name="codex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2709">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="claude-code" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2709">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex staged reader accepts a global cross-agent path set" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2825">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex staged reader collapses multiple spellings of one origin" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2882">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="staged sidecars reject malformed and decoy Codex state but row-scope identity mismatches" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2923">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="staged sidecars require exact unique Codex dated locations" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="2960">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="staged sidecars require exact unique Claude project locations and subtree classes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3032">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="T-1 T-2 staged Claude collection warns for denied and unknown regular files" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3089">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="staged sidecars reject malformed rows and sealed associations" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3134">
+    <Section name="missing-agent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ill-typed-agent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="unknown-agent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="missing-image" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ill-typed-image" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="missing-installed" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ill-typed-installed" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="missing-children" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ill-typed-children" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="malformed-child" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ill-typed-provenance" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="missing-provenance" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ill-typed-pair" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="malformed-other-supported-row" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3191">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-3 malformed present original_path fails at parse" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3217">
+    <Section name="empty" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3235">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="wrong-type" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3235">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="duplicate" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3235">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-4 well-formed original_path outside audit set refuses" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3263">
+    <Section name="missing exact pair" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3295">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="target mismatch" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3298">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-5 mixed original_path presence refuses at parse" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3305">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-6a Claude provenance uses the validated row value" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3339">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="staged sidecars resolve only path associations proven by the global sidecar" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3380">
+    <Section name="codex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3386">
+      <Section name="same origin class is shared by both rows" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3414">
+        <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+      </Section>
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3386">
+      <Section name="FX-A11-2 absent row edge preserves ambiguous typed refusal" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3426">
+        <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+      </Section>
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="cross-agent partial sharing is ambiguous for multiple Codex rows" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3438">
+      <OverallResults successes="2" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="claude" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_pack.cpp" line="3486">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open restores packed tree to explicit destination" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="265">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open collision modes refuse or rename" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="282">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open treats dangling destination leaves as occupied names" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="302">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open skips dangling rename candidates" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="321">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 4 open occupancy and destination contracts stay bounded" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="343">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open refuses pre-existing partial dir" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="381">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open refuses payload writes through a created symlink parent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="394">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open gates manifest version before later hostile members" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="431">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open verify rejects checksum mismatches before apply" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="454">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open verify rechecks payload digest during apply pass" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="478">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open refuses payload members absent from checksums" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="525">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="planned agent member reader survives execute without materializing agents" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="548">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="planned agent reader refuses bytes changed after planning" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="581">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open rejects checksummed unreferenced agent members" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="608">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open rejects missing and non-regular referenced agent members" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_open.cpp" line="629">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="exit map classifies refusal, mid-fail, and usage" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="60">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack success envelope includes advisories" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="73">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack warning carrier serializes optional artifact and byte facts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="101">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack warning bytes serialize uint64 maximum as an unsigned JSON integer" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="136">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="pack envelope uses per-kind advisory shapes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="159">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="error envelope carries failure facts in result" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="187">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="schema artifacts reserve envelope and exit-map contracts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="200">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="session exit composition uses typed skip reasons" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="266">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="entry-schema advisory cannot mask a failed session in the envelope" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="304">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="capability factory enforces four deterministic wire states" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="348">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="envelope serializes each derived capability state exactly once" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="381">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open envelope includes typed sessions report" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="418">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="probe fields replace invalid UTF-8 before envelope serialization" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="548">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="no-detail session rows serialize byte-identically to the pre-carrier baseline" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="604">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="an adapter-authored detail reaches the envelope verbatim" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="707">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="the emitted envelope carries detail at the schema's session-row path" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="737">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a generated detail-bearing envelope is emitted for schema conformance" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="769">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a6-R1 open carriers: exact rows, order, cardinality, grouped advisory, zero state" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="820">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a6-R1 pack carries the grouped advisory too: exact entries, order, zero state" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="843">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a6-R1 site 1: the preflight grain rides the top-level error carrier" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="862">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a6-R1 exit composition: one typed aggregator over both sources" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_envelope.cpp" line="879">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Stage 1b-ii all-skipped surfaces split eligible from skipped" tags="[slice-e][stage1b-ii]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="661">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Slice E successor distinguishes exact and floor skipped cardinality" tags="[slice-e][successor]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="780">
+    <Section name="parsed-childed" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="800">
+      <OverallResults successes="52" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="stubbed-childed-wire" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="800">
+      <OverallResults successes="35" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="mixed-shapes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="800">
+      <OverallResults successes="54" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Slice E stub footprints admit present entry and child members without requiring absence" tags="[slice-e][stub-footprint]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="860">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI pack/open round-trip emits JSON envelopes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="895">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a6.15 zero state: no divergence -> both carriers absent on real verb envelopes" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="923">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude reference resolution controls use the shipped CLI" tags="[slice-e][slice-e-control]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1007">
+    <Section name="flat bare-hex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1028">
+      <OverallResults successes="40" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="flat slug-hex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1028">
+      <OverallResults successes="40" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="nested subagents workflow" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1028">
+      <OverallResults successes="40" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI reports usage and reserved verbs with exit 5" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1093">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI reports warning and refusal exit classes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1105">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI pack text renders live session warnings and omits warnings-free output" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1122">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI pack text derives Codex live and terminal warning controls" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1168">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI warning text covers live torn and generic shapes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1265">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI pack carries a live torn tail into text and JSON warnings" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1284">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI warning text sanitizes a real control-byte filename" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1323">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI parses open consent specifications" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1345">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CLI rejects invalid consent specifications" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1355">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 4 CLI parses strict absolute agent binary pins" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1370">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 4 CLI rejects malformed unknown empty and duplicate pins" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1391">
+    <Section name="codex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1404">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="=tool" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1404">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex=" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1404">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="future-agent=/tmp/tool" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1404">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex=/tmp/a=/tmp/b" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1404">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 4 CLI rejects an explicitly empty destination in the parser" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1431">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 4 CLI help documents the strict agent binary pin syntax" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1455">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="A6-R2 PROMPT D bytes are golden" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1474">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="A6-R4 accepted notice bytes are golden" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1483">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="A6-R4 refusal + guidance bytes are golden" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1489">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1500">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a6-R3 pack and open accept --accept-url-divergence" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1524">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a6.14 list/info accept the flag inert: full-stream equality with flagless" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1549">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a6.18 inherited no-help boundary witnessed on pack/list/info" tags="[a6-fabric]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1566">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 4 CLI normalizes only destination ancestors before plan_open" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1603">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 4 CLI restores through one normalized absolute destination" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1654">
+    <Section name="work/" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1671">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="relative" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1671">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="nested/../dotdot" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1671">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/biv-cli-absolute-destinations-62301/absolute" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1671">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 4 CLI carries probe and final destination through both agent imports" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1764">
+    <Section name="pin stat text binds each path to its outcome" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1850">
+      <OverallResults successes="9" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="pin stat JSON binds each path to its outcome" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1870">
+      <OverallResults successes="20" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="closed stderr closed-global-text" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1902">
+      <OverallResults successes="32" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="closed stderr closed-global-json" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1902">
+      <OverallResults successes="42" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="closed stderr closed-per-agent-text" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1902">
+      <OverallResults successes="32" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="closed stderr closed-per-agent-json" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1902">
+      <OverallResults successes="42" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="broken stderr pipe text" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1930">
+      <OverallResults successes="34" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="broken stderr pipe JSON" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1930">
+      <OverallResults successes="44" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="shared broken output sink exits 4 under JSON" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1956">
+      <OverallResults successes="32" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="trust warning second write failure refuses before mutation" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="1973">
+      <OverallResults successes="77" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="CLI restores with probe output and normalized destination" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_cli.cpp" line="2018">
+      <OverallResults successes="54" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Adapter registry exposes Claude and Codex adapters" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapters_registry.cpp" line="8">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude adapter discovers CLAUDE_CONFIG_DIR as an env-tier store" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="154">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude adapter discovery returns every store found: env and default both searched with codex parity (c1 §7)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="176">
+    <Section name="ROW 1: env set, exists, differs; default exists -> TWO stores, env first" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="187">
+      <OverallResults successes="19" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ROW 2: env set and lexically equal to the default -> ONE store (env)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="217">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ROW 3: env unset, default exists -> ONE store (defaults)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="239">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ROW 4: neither -> ZERO stores" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="255">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="ROW 5: (pinned interim, NOT c1 §7 dedupe/provenance compliance) one session id in both stores -> pack refuses" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="267">
+      <OverallResults successes="5" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude adapter collects only matching cwd transcript and subagent artifacts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="302">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude collector rejects subtree files outside its three classes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="349">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="CB2 Claude live collect covers flat bare and slug hex plus nested bare hex layouts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="391">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude adapter keys membership on the first cwd record" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="448">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude adapter matches Windows cwd to its WSL workspace" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="474">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude adapter inventory denies credential and settings files" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="501">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude adapter rejects symlinked project and session roots" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="523">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude adapter does not collect symlinked subtree artifacts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="556">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude collected sources stay fd-bound across a leaf swap" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="589">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude collect applies all four torn-tail branches" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="624">
+    <Section name="empty" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="639">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="valid" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="639">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="invalid-live" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="639">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="invalid-terminal" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="639">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude collect never inspects an invalid interior segment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="675">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude collect drops a whole-file invalid live subtree segment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="703">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-7 Claude flat subagents enumeration is unchanged" tags="[slice-e][slice-e-control]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_collect.cpp" line="794">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude FIFO deadline control reports synchronous SIGALRM delivery" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="78">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O2 claude direction refusal is per-session and transports detail" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="311">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude admission refuses an unparseable host version through InstallTarget" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="346">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O4 and FX-MG-7 claude hostile bases refuse before ordering" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="377">
+    <Section name="basis-absent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="391">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-null" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="391">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-nul-bearing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="391">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-non-numeric" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="391">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-overlong-patch" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="391">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-control-bearing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="391">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-unicode-bearing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="391">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-line-valid-but-unparseable" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="391">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="rewrite common derives pair sets and rewrites JSONL strings" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="424">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="rewrite common preserves every non-target JSON value type" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="504">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="rewrite common decodes and rewrites JSON keys and string values" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="525">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install produces identical bytes with or without packer_home" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="565">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install rewrites escaped values and origin path keys" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="657">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install rewrites transcripts, preserves meta, and avoids collisions" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="700">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11-6b Claude consent-no stages under the destination project key" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="783">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-1 F-6 Claude consent-no refuses a present non-parent transcript identity per row" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="848">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O1 Claude installs a re-packed staged artifact identity" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="902">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 composed Claude descendant staging path uses the exact final workspace" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="944">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude consent-no reports an unwritable workspace without staged artifacts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="994">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude consent-no ignores unpinned origin keys when destination is bounded" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1028">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install uses grammar and direction instead of an allowlist" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1089">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 3 Claude activation binds every clean session and omits failed rows" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1155">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude rewrite applies pair rewrites and reports non-UTF8 skips" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1193">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install refuses unpinned long project keys and unsafe artifacts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1233">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude containment refusal fails every session before writing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1266">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install refuses parent symlinks without visible writes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1297">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="secure install batch refuses a leaf symlink before any publication" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1323">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="secure install preserves unowned temporary-name collisions" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1348">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install refuses non-UTF8 JSONL before writing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1396">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude rewrite verification preserves a sibling capability refusal" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1431">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install refuses every unverifiable escaped origin line" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1482">
+    <Section name="malformed escaped solidus" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1497">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="malformed Unicode escape" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1497">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="non-UTF8 escaped solidus" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1497">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="non-UTF8 Unicode escape" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1497">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 3 Claude capabilities parse one probe observation" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1527">
+    <Section name="2.1.211 (Claude Code)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1558">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="2.2.0 (Claude Code)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1558">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="v2.2.0-alpha.1+build (Claude Code)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1558">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="2.2.0.1 (Claude Code)" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1558">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="2.2.0 (Claude Code)
+runtime 2.1.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1558">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="not a version" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1558">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1558">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 3 Claude capabilities preserve not-found and timeout evidence" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1610">
+    <Section name="1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1613">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="6" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1613">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 5 Claude absent store dominates readable probe" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1702">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 3 Claude install consumes supplied capabilities and has no store oracle" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1763">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude bridge-session E-1 slot preserves bridgeSessionId" tags="[!mayfail][pending-e1]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1792">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="errno_symbol converts representative errnos to exact POSIX spellings" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1808">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="errno_symbol resolves each equal-valued group by the owner's rule" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1835">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="errno_symbol disengages for zero and never yields an empty string" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1925">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="ambient_error binds all five BivError fields with an empty detail" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1950">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="ambient_error never emits a detail install_failure_reason can retype" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1961">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classify keeps containment only where the errno is the I7 signal" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="1970">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="classify is pure and total over every site kind" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2005">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="secure install reports an absent store root as ambient, not containment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2020">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="secure install refuses a duplicate publish target and rolls back completely" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2037">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="secure install classifies temporary-name exhaustion as containment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2062">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="fstat_outcome routes a failed fstat to ambient with the captured errno" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2090">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="fstat_outcome routes a non-regular file to containment with explicit EINVAL" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2103">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="fstat_outcome disengages for a successful fstat over a regular file" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2123">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open_read_no_follow refuses a directory through real fstat containment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2132">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open_read_no_follow refuses a FIFO through real fstat containment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2147">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="open_read_no_follow refuses a final symlink before fstat" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2168">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude preserves a capability refusal through a containment publish fact" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2183">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude preserves a capability refusal through an ambient publish fault" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2229">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="every installed path embeds that session's freshly minted id" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2271">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install refuses a retained undecodable JSONL line" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2310">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude install accepts an empty JSONL artifact as zero records" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2325">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude declared never-rewrite artifacts are whole-document scanned" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2352">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude never-rewrite verification decodes escaped JSON keys and values" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2386">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude verifies every session against the image origin union" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2447">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 image union excludes Claude manifest child IDs" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2496">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 image union includes Claude manifest parent session IDs" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2551">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 image union includes Claude message UUIDs from capability-refused rows" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2600">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-4 Claude image union excludes agentId values from capability-refused rows" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2654">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="A1 Claude undecodable artifact does not promote a later agentId to image identity" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2718">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="A2 Claude image union includes staged primary aliases before version admission" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2775">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude refuses subtree formats absent from the declared inventory" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2825">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude scopes an unsupported subtree artifact refusal to its owning row" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2856">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude well-formed escaped ambiguous origins fail decoded verification" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2902">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude raw-text artifacts refuse origins outside rewrite boundaries" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2938">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude raw-text artifacts publish the rewritten output with zero verify hits" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="2981">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude non-staged artifact identity mismatch refuses the whole set" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3020">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Claude mixed verify failures preserve rows and publish clean siblings" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3049">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-1 Claude preserves an unattributed nested subagent agentId verbatim" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3138">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="L-1 Claude preserves a main-transcript-only agentId on both consent paths" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3202">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="L-3 Claude boundary-safe replacement strictly refuses embedded canonical ids" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3250">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="M-1 Claude child attribution does not assign agentId aliases" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3292">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="L-2 Claude does not claim shared agentId values across records" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3351">
+    <Section name="reverse=0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3362">
+      <OverallResults successes="17" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="reverse=1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3362">
+      <OverallResults successes="17" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="L-2 Claude preserves one agentId value across independently named children" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3428">
+    <Section name="reverse=0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3437">
+      <OverallResults successes="12" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="reverse=1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3437">
+      <OverallResults successes="12" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="L-2 Claude primary collision falls through to shared session identity verification" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3497">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="G-3 Claude refuses stale or ill-typed body version evidence and stages a clean sibling" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3556">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-2 Claude skips a non-string body version and accepts later valid evidence" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3629">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-3 Claude refuses a below-floor recipient version before injection" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3661">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-4 Claude consent-yes does not synthesize transcript version evidence" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3700">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-5 Claude keeps a typed version refusal when an earlier artifact has verify hits" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3732">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-7 Claude injects valid version JSON into an empty first object" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3768">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="G-4 Claude does not harvest child-attributed agentId values outside subagents" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_claude_install.cpp" line="3803">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex FIFO deadline control reports synchronous SIGALRM delivery" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="80">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex adapter discovers CODEX_HOME as an env-tier store" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="213">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex adapter reads sqlite_home from config and collection honors it" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="250">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex collect executes database reachability for a FIFO" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="292">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex adapter collects rollout parent, child, and same-store newest duplicate" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="327">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex adapter derives liveness from exactly the final rollout record" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="375">
+    <Section name="rollout-task-complete-with-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-task-complete-without-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1002.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-turn-aborted-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1003.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-thread-rolled-back-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1004.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-session-meta-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1005.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-dangling-tool-call-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1006.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-malformed-complete-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1007.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-truncated-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1008.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-empty-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1009.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-terminal-before-corrupt-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1010.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-trailing-blank-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1011.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-lone-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1012.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="4" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="rollout-final-record-missing-type-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1013.jsonl" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="412">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex parent liveness includes an absorbed live child" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="449">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex collect trims only a live invalid final segment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="483">
+    <Section name="empty" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="500">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="valid" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="500">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="invalid-live" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="500">
+      <OverallResults successes="9" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex tail normalizer retains an invalid non-live final segment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="537">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex tail normalizer drops a whole-file invalid live segment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="563">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex tail normalizer keeps multi-artifact facts paired" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="594">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex collect keeps a terminal child under a live parent intact" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="621">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex collect never inspects an invalid interior segment" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="674">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex adapter matches Windows cwd to its WSL workspace" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="701">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex adapter inventory denies credentials and installation ids" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="730">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex adapter skips symlinked and compressed rollout files" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="751">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex adapter keeps dangling parent ids for manifest emission" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="797">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="X-2 Codex warns when a rollout has session_id but no id" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="829">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="X-2 Codex suppresses session_id warnings outside the source root" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="859">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex duplicate-store E-3 warns and picks by declared freshness" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="887">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex duplicate selection follows every locked A5 freshness key" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="911">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex sqlite_home config parsing is top-level TOML aware" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="988">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-1 Codex carries a three-level descendant chain" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="1205">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-3 Codex breaks a rootless cycle and carries its component" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="1233">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-4 Codex warns when a descendant cannot be carried" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_collect.cpp" line="1282">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version floor parses the complete bounded grammar" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="248">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version floor compares only the numeric major-minor line" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="283">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version floor centralizes admission policy for both adapters" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="304">
+    <Section name="codex host 0.144.4 image 0.142.5" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="330">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex host 0.144.4 image 0.145.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="330">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex host unknown image 0.142.5" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="330">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex host 0.144.4 image unknown" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="330">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex host 0.300.0 image 0.145.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="330">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="claude-code host 2.1.211 image 2.1.202" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="330">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="claude-code host 2.9.0 image 2.2.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="330">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex host 0.61.0 image 0.61.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="330">
+      <OverallResults successes="3" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O2 codex direction refusal is per-session and transports detail" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="343">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex admission refuses an unparseable host version through InstallTarget" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="378">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O4 and FX-MG-7 codex hostile bases refuse before ordering" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="409">
+    <Section name="basis-absent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="423">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-null" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="423">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-nul-bearing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="423">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-non-numeric" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="423">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-overlong-patch" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="423">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-control-bearing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="423">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-unicode-bearing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="423">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="basis-line-valid-but-unparseable" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="423">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install rewrites parent and child rollouts with coherent UUIDv7 filenames" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="458">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install produces identical bytes with or without packer_home" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="528">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O1 Codex consent-no stages install-ready parent and child rollouts" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="628">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O1 Codex installs a re-packed staged artifact identity" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="690">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 composed Codex descendant staging path uses the exact final workspace" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="753">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex consent-no reports an unwritable workspace without a staged artifact" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="807">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install rewrites escaped values and origin path keys" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="840">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-CX-144 discover collect install preserves new rollout variants" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="887">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install uses grammar and direction instead of an allowlist" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1036">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install refuses unsafe artifacts for the whole install set" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1100">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install rejects traversal-shaped artifact ids for the whole set" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1136">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install refuses parent symlinks without visible writes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1170">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install refuses non-UTF8 JSONL before writing" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1196">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex rewrite verification preserves a sibling capability refusal" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1233">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="A2 Codex image union includes staged primary aliases before version admission" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1291">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="F-5 Codex image union includes staged child artifact aliases before version admission" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1355">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install refuses every unverifiable escaped origin line" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1431">
+    <Section name="malformed escaped solidus" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1446">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="malformed Unicode escape" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1446">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="non-UTF8 escaped solidus" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1446">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="non-UTF8 Unicode escape" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1446">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install reads the whole set before its first host write" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1476">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex rewrite applies pair rewrites and reports non-UTF8 skips" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1502">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 3 Codex capabilities parse probe output and ignore store versions" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1541">
+    <Section name="codex-cli 0.144.4" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1571">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex-cli 0.142.9 trailing text" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1571">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex-cli 0.145.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1571">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex-cli v0.145.0-alpha.1+build" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1571">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex-cli 0.145.0.1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1571">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="codex-cli 0.145.0
+sandbox-runtime 0.142.9" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1571">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="not a version" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1571">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1571">
+      <OverallResults successes="16" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 3 Codex capabilities preserve not-found and timeout evidence" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1632">
+    <Section name="1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1635">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="6" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1635">
+      <OverallResults successes="6" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 5 Codex absent store dominates readable probe" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1723">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 3 Codex install consumes supplied capabilities and has no store oracle" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1783">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex preserves a capability refusal through a containment publish fact" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1812">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex preserves a capability refusal through an ambient publish fault" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1857">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install refuses a retained undecodable JSONL line" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1899">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex install accepts an empty JSONL artifact as zero records" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1914">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex non-staged artifact identity mismatch refuses the whole set" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1946">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex preserves an undecodable refusal through an ambient publish fault" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="1978">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex verifies every session against the image origin union" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2021">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 image union includes Codex manifest parent session IDs" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2075">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 image union includes Codex manifest child session IDs" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2165">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="B2 image union includes Codex parent IDs from refused rows" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2222">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex mixed verify failures preserve rows and publish clean siblings" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2283">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-6 Codex consent-no checks both payload identity arms and stages a clean sibling" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2385">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-5 Codex preserves a typed identity refusal over an earlier verify hit" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2469">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="R-1b Codex refuses an unrecoverable separately mapped parent lineage" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2519">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-6 Codex install validates a grandchild against its own parent" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2621">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-4a a present inconsistent parent edge refuses" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2686">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A12-5 adding a consistent edge never grants acceptance" tags="[slice-e][slice-e-red]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2764">
+    <Section name="edge present=0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2772">
+      <OverallResults successes="12" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="edge present=1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_adapter_codex_install.cpp" line="2772">
+      <OverallResults successes="12" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-VF-O5 unreadable hosts produce CANON-3 rows before consent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="517">
+    <Section name="codex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="521">
+      <OverallResults successes="24" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="claude-code" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="521">
+      <OverallResults successes="24" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="absent stores produce refusal rows before consent or adapter calls" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="583">
+    <Section name="codex" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="585">
+      <OverallResults successes="11" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="claude-code" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="585">
+      <OverallResults successes="11" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a readable agent missing its store refuses before consent or adapter calls" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="628">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version refusal details map to closed reasons without changing siblings" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="665">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_session_leg transports packer_home to every adapter leg" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="738">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_session_leg passes absent packer_home through unchanged" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="776">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="consent-no carries a staged adapter outcome successfully" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="810">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="one sidecar aggregates two successful staged agents" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="887">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="FX-A11 producer emits one canonical original_path per staged row" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="976">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a foreign staging carrier is refused before adapter writes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1033">
+    <Section name="manifest.json" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1036">
+      <OverallResults successes="12" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="foreign/payload.bin" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1036">
+      <OverallResults successes="12" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="real adapters stage consent-no bytes and one sealed sidecar with read-only host stores" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1086">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="publication-race containment preserves detail and discloses every staged file" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1208">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="real adapters report consent-no failure without artifacts in an unwritable workspace" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1343">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a read-only host store permits consent-no staging but blocks consent-yes" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1399">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="one adapter failure leaves its staged sibling in the aggregate sidecar" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1479">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="an adapter row missing from the manifest is reported live at pack" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1557">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="the cross-family control catches an illegal constructed reason/detail pair" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1595">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="session preview groups manifest agents and flags unsupported rows" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1619">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="consent resolution covers global per-agent prompt and deny default" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1691">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="session leg skips denied and unknown rows without reading members" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1720">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="threshold-parity per-agent distribution self-activates at R-4.29" tags="[pending-R-4.29][slice-e]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1746">
+    <Skip filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1749">
+      configured-deferred until R-4.29 makes the supported and parse ceilings equal
+    </Skip>
+    <OverallResult success="true" skips="1"/>
+  </TestCase>
+  <TestCase name="stub unparsed counts remain independent for two agents" tags="[slice-e][stub-footprint]" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1787">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="typed session kinds cover every advisory and divergence class" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1815">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="activation filtering suppresses only the failed session command" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1832">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex session outcomes map admitted and refusing version directions" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1862">
+    <Section name="image 0.142.5 on host 0.142.5" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1879">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="image 0.144.1 on host 0.144.1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1879">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="image 0.143.0 on host 0.143.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1879">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="image 0.145.0 on host 0.145.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1879">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="image 0.61.0 on host 0.61.0" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1879">
+      <OverallResults successes="8" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="image 0.145.0 on host 0.144.1" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1879">
+      <OverallResults successes="10" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Codex session leg preserves a version refusal beside a verify-hit sibling" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="1962">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="unreadable probes stop before adapter-authored detail exists" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="2058">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 3 session preview observes capabilities once and install reuses them" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="2115">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a fanned hard error carries the exact errno symbol to every row" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="2179">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a fanned hard error with a zero errno omits the detail entirely" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="2195">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="a fanned containment error stays outside the errno family" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_sessions.cpp" line="2208">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="prompt B renders counts provenance and trust warning" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="9">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="malformed activation falls back to report without inventing a command" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="55">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="session summary renders outcomes activation and caveats from data" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="66">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 5 prompt discloses probe evidence before consent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="90">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="entry-schema skips render exact and at-least disclosure and summary cardinality" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="190">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="store-absent capability is never disclosed as readable before consent" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="340">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="probe failure disclosure distinguishes typed execution failures" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="376">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 6 prompt discloses readable versions above the survey watermark" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="423">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 6 survey boundary is quiet while one line above is loud" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="485">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 6 newer disclosure is driven by capability state without probe evidence" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="531">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Task 5 summary filters failed activations and pairs clean commands with the post-collision output" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="553">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="probe display escapes controls by scalar and preserves non-controls" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="621">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="probe display truncation reports the complete UTF-8 prefix" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="672">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="probe timeout disclosure derives from the shared constant" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="716">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="no-detail session rows render byte-identically to the pre-carrier baseline" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="726">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="an adapter-authored detail reaches the rendered summary verbatim" filename="/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-ptree-g17t3w/repo/tests/test_render.cpp" line="760">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <OverallResults successes="16385" failures="0" expectedFailures="0" skips="3"/>
+  <OverallResultsCases successes="419" failures="0" expectedFailures="0" skips="3"/>
+</Catch2TestRun>

@@ -1,0 +1,11 @@
+Test project /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-btree-84OqjI/repo/build/ci-macos
+    Start 13: harness-selftest
+1/1 Test #13: harness-selftest .................   Passed   21.68 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+harness     =  21.68 sec*proc (1 test)
+selftest    =  21.68 sec*proc (1 test)
+
+Total Test time (real) =  21.68 sec

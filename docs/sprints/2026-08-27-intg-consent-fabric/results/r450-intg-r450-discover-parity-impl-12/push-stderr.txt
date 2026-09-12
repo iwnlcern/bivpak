@@ -1,0 +1,6 @@
+remote: 
+remote: Create a pull request for 'intg/r450-discover-parity' on GitHub by visiting:        
+remote:      https://github.com/iwnlcern/bivpak/pull/new/intg/r450-discover-parity        
+remote: 
+To https://github.com/iwnlcern/bivpak.git
+ * [new branch]      intg/r450-discover-parity -> intg/r450-discover-parity
