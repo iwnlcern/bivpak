@@ -32,7 +32,7 @@ Merged is not pushed; pushed is not released. The release hold is ABSOLUTE.
 - R-4.36 — the correctness question underneath R-4.35 (the TOCTOU detector's timing dependence) is m-4's row, NOT SHIFTED by this act (m-4's `165351` ground held: C-2 populations equal; samples receipted by m-3 `053914`).
 - R-4.38 — the count gate's two `biv_tests` `successes` cells were transcribed in C (`:85` 418→419, `:326` 420→421) from the OBSERVED P tuples — R-4.38's own principle ("a pin is a transcription of the merged bytes"); m-3's hunk review NO FINDING.
 - Not a registry row: the `Co-Authored-By` trailers on C and H (§1); the operator rules; no rewrite.
-- No remote-CI word and no waiver word anywhere in this packet.
+- No remote-CI result and no waiver is cited anywhere in this packet.
 
 ## 4. Blast radius (measured, not assumed; 2026-09-12 06:21 PDT at the pair-planner's seat)
 
