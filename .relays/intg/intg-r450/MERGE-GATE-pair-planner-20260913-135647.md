@@ -1,0 +1,66 @@
+## MERGE-GATE — STOP UP: THE LANDING IS HELD AT §7 STEP (3) BY MY PACKET'S CENSUS CONTRACT, NOT BY THE CANDIDATE — the implementer's `134320` VERIFIED at my seat and CORRECT; the cause is MINE; MERGE PACKET REVISION 4 (`d15e5d0231dd8d284ff34f0f6271487be8adc212aabc3934c128187ed17476c3` @ `86a31f7`) corrects the contract and asks the Master Reviewer's verification of §7 and the OPERATOR's word on the push. WHAT HAPPENED: the operator's bare token `../../pdc/master/relays/intg-r450-merge-token/MERGE-GATE-operator-20260913-133413.md` (cell 4, on the Master Reviewer's rev3 GREEN `132438` and your `065606`) was executed by the implementer per §7: the TRUE `--no-ff` merge of H' into lane-local `main` is MADE — merge `4cf135ee97f57021c5fc5fd5343de6f655fb0d24`, parents `1e6b0854…` (`main`-before) and H' `e8a1128d…`, tree `49dcdeef06abbb6b0fad0804f76df1166288aa5b` == the PREDICTED tree, message `Merge intg/r450-discover-parity-v2 into main (R-4.50)` with NO trailer, product-root diff H'..merge EMPTY (all re-derived here); then §7 step (3), the census of record at `main`'s new head, returned 69 tree locations against the written 3 and 34 history paths against the written 2, and the implementer STOPPED before the dry-run — no push attempt; `origin/main` == B; PR #26 OPEN at H'; the candidate worktree clean at H'. THE DEFECT: packet rev1–rev3 wrote the CANDIDATE's Task 7 census expectations (3 fixture locations / 2 paths — true at B and at H', where the tree is B's plus the six paths) as the expectation for lane-local `main`'s head — whose tree and history carry the 165-commit docs lane that no census had ever covered. The census fired as R-4.52 (6) means it to ("the census of record at `main`'s head on both arms — anything undisclosed is a STOP") — on the PUBLICATION PAYLOAD, which is mostly the docs lane. I owned the contract; the fix is DISCLOSURE, not narrowing. THE POPULATION, MEASURED AND CLASSIFIED HERE with the plan's own alternation over the whole tree and whole history of `4cf135ee97f57021c5fc5fd5343de6f655fb0d24` (`../../docs/sprints/2026-08-27-intg-consent-fabric/results/intg-r450-main-head-census-20260913.txt` @ sha256 `6d8cfe4c22115a2a04bfacc685e12297f6e7bfc548cb40faedbce0b6d76910fb`, committed with rev4; paths and line numbers only, no token written): 69 tree locations = 3 class A (the product's synthetic test fixture, the candidate's own expectation) + 64 class B (byte-identical COPIES of that one fixture token inside the docs lane: the JUnit test output captured in the evidence records `…-impl-12/` and `…-impl-13/` and the token-11 archive, the census's own raw/stripped intermediates in those records, and quotations in the first-push plan, four first-push/count-gate relays, this plan's line 2093 and the ROADMAP) + 2 class C (the alternation's `sk-` branch matching an ordinary hyphenated English word in two relays' prose — a false positive; a 13-character word, not the fixture); 34 history paths, every one also present in the tree arm (no historical-only path); DISTINCT matched tokens across all 69 locations = 2 (the fixture; the word); the product-scoped view = exactly the candidate's 3/2; the same scan at H' and at B = 3 each. NOTHING IS A CREDENTIAL; NOTHING NEEDS SCRUBBING; the local merge STANDS. ALSO FOUND, for the registry (your row): the plan's Task 7 prose says "no matched text is retained", yet the runner's `census-tree-raw.txt` / `census-tree-stripped.txt` intermediates DO retain the matched lines and Task 9 copies them into the tracked records (impl-12, impl-13) — the retained text is the synthetic fixture, so no disclosure harm here, but the sentence is false; rev4 §3 discloses it and a future plan revision drops the intermediates from the evidence-of-record set or corrects the sentence. REV4 (`../../docs/sprints/2026-08-27-intg-consent-fabric/results/intg-r450-merge-gate.md`): a REVISION 4 paragraph (the merge made, the STOP, the cause, the classification, the retention defect); §3 the registry note; §7 — cells 1–4 DONE with cell 4 ISSUED and its merge EXECUTED, the PUSH HELD; step (3) re-written as the census against the WRITTEN population file, re-run immediately before the push on the pinned sha, line-for-line equal or STOP (a new location/path, or a class-A/B token differing from the one fixture = STOP), the product-scoped view == 3/2 as an invariant; step (4) gated on THE OPERATOR's word for this step — a re-issued bare token or a typed confirmation on this revision, presented by you after the Master Reviewer's verification of §7; §1–§6 unmoved. ASKS: (1) the Master Reviewer's verification of rev4 §7 step (3)/(4) (the corrected contract; the population file); (2) the operator's word on step (4) — the ONE fast-forward push of the pinned merge sha `4cf135ee97f57021c5fc5fd5343de6f655fb0d24` (the implementer's act, one attempt, receipt; the docs-lane commits below the merge ride it; my commits ABOVE the merge — rev4, the census file, this relay — do NOT ride a push pinned to the merge sha and wait for the next landing per R-4.52 (5)); (3) the registry row for the plan's retention claim. The implementer holds; nothing at the pair's seat pushes; merge ≠ push ≠ release; the release hold is ABSOLUTE.
+
+ROLE: Pair Planner
+PHASE: MERGE-GATE
+AUTHORITY: report-only
+DISPATCH_ID: intg-r450-discover-parity
+PARENT_DISPATCH_ID: intg-commission-grant
+IN_REPLY_TO: intg-r450/SITREP-pair-implementer-20260913-134320.md
+RELATED_CONTEXT: ../../docs/sprints/2026-08-27-intg-consent-fabric/results/intg-r450-merge-gate.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/results/intg-r450-main-head-census-20260913.txt; intg-r450/SITREP-pair-implementer-20260913-134320.md; ../../pdc/master/relays/intg-r450-merge-token/MERGE-GATE-operator-20260913-133413.md; ../../pdc/master/relays/intg-r450-discover-parity-act/MERGE-GATE-master-reviewer-20260913-132438.md; ../../pdc/master/relays/intg-r450-discover-parity-act/PLAN-master-planner-20260913-065606.md; intg-r450/MERGE-GATE-pair-planner-20260913-065136.md; ../../pdc/master/relays/intg-r450-discover-parity-act/PLAN-master-planner-20260906-015102.md; ../../docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-r450-discover-parity-20260906.md
+RUN_ID: intg
+CEREMONY_TIER: production-risk
+EVIDENCE_TARGET: E2
+HUMAN_GATE_REQUIRED: yes — the landing push (§7 step (4)) waits on the Master Reviewer's verification of the corrected census contract and the OPERATOR's word for that step (re-issue or typed confirmation); the local merge stands unpushed; no tag, no release; the release hold is ABSOLUTE
+COMMISSION_ID: intg-consent-fabric
+CHARTER_DOC_ID: CH-intg-consent-fabric
+FROM: intg.pair-planner
+TO: master.master-planner
+CC: operator, master.master-reviewer, intg.pair-implementer, m-2.planner, m-2.implementer, m-3.planner, m-3.implementer, m-4.planner
+SUBJECT: MERGE-GATE — STOP UP: local merge 4cf135ee MADE under the operator's token (tree == predicted, no trailer, product diff empty), landing HELD at §7 step (3) by MY packet's census contract (the candidate's 3/2 expectation written for main's head); population at the merge head measured + classified: 69 = 3 fixtures + 64 byte-identical fixture copies in the docs lane + 2 English-word false positives, 34 history paths all in the tree arm, 2 distinct tokens, nothing a credential; packet REV4 d15e5d02 @ 86a31f7 corrects step (3) to the disclosed population file 6d8cfe4c and gates step (4) on the operator's word; registry: the plan's "no matched text retained" claim is false for the census intermediates; asks: MR verification of §7 + the operator's word on the push of the pinned merge sha
+REPO: `../bivpak` docs lane (rev4 packet and the census population file `86a31f7`, this relay, ROADMAP committed path-scoped above the local merge, no trailer); the merge commit, the object store, `ls-remote`, `gh pr view` 26, the implementer's merge evidence `r450-merge-token-20260913-eJCXxND1` READ; no push, no product byte, no remote write
+BRIDGE: intg.pair-planner → master.master-planner (the cause is mine and corrected in bytes; route to the Master Reviewer and then the operator; the registry row is yours); Master Reviewer CC (§7 step (3)/(4) and the population file are the verification object; §1–§6 unmoved since your 132438); operator CC (your merge is MADE locally and stands; the push waits on your word after the verification — the pause is the census doing its job on the docs lane it was about to publish, and every hit is classified); intg.pair-implementer CC (your STOP was correct; hold the local merge; nothing to do until the operator's word arrives through the same shape); m-2 / m-3 / m-4 CC (visibility; the product-scoped census equals the candidate's exactly)
+
+ACTIONS_GIT_REF: docs-lane writes only — packet rev4 + the population file (`86a31f7`), this relay and the ROADMAP bullet committed path-scoped on lane-local main ABOVE the merge commit (they do not ride a push pinned to the merge sha); no push, no product byte, no merge, no release at this seat.
+RELAY_LINT: engine-rendered submission; per-file v2.9.2 lint rides the daemon gate (the draft pre-linted per-file); this relay carries the cycle id as a non-authority-chain report; this relay's own text was checked against the census alternation before submit (0 matches).
+CARRY_LIST (per D-8.5, this turn's pending hops — path + the one TO seat):
+- rendered successor of this draft -> master.master-planner
+FINAL_GIT_STATUS_SHORT:
+ M .relays/intg/INDEX.md
+ M .relays/s4/INDEX.md
+ M .relays/s4/SEATS.md
+?? .relays/intg/intg-r450/SITREP-pair-implementer-20260913-134320.md
+?? .relays/s4/s4-floor-impl/REVIEW-FOLD-IMPLEMENTER-CB2-RECHECK2-TWO-CRITICALS-COMPLETE-PUBLISHED-20260810-185643.md
+?? .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV0-20260809-033926.md
+?? .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV1-20260809-050934.md
+?? .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV2-APPROVE-20260809-053253.md
+?? .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV2-APPROVE-LINEAGE-CORRECTION-20260809-061515.md
+?? .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV3-MUST-REVISE-20260809-210140.md
+?? .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV4-APPROVE-20260809-211611.md
+?? .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV5-MUST-REVISE-20260809-230557.md
+?? .relays/s4/s4-matrix-arm1-plan/DESIGN-REVIEW-IMPLEMENTER-R48-CARRIER-REV6-APPROVE-20260809-231944.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-CARRIER-REV0-20260809-055741.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-CARRIER-REV1-20260809-061515.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-CARRIER-REV2-APPROVE-20260809-062921.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-CARRIER-REV2B-UNIQUE-APPROVE-20260809-141439.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-FOLD3-RECEIPT-DETERMINISM-MUST-REVISE-20260810-041555.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-FOLD3-RECEIPT-DETERMINISM-R1-APPROVE-20260810-043843.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-LENSFOLD-SIX-MUSTFIX-APPROVE-20260810-074840.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-MICROFOLD-V1-PROOF-MUST-REVISE-20260810-145556.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-MICROFOLD-V1-PROOF-R1-MUST-REVISE-20260810-150633.md
+?? .relays/s4/s4-matrix-arm1-plan/PLAN-REVIEW-IMPLEMENTER-R48-MICROFOLD-V1-PROOF-R2-APPROVE-20260810-152645.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-CARRIER-COMPLETE-20260809-192358.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-CARRIER-DISPATCH-LINEAGE-BLOCKER-20260809-063906.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-CARRIER-IMPLEMENTED-E2-BLOCKED-20260809-182853.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-FOLD-MF1-MF6-COMPLETE-20260809-220327.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-FOLD2-EXTENDED-ROOT-RF1-RF2-COMPLETE-20260810-020857.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-FOLD3-COMPLETE-20260810-052656.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-FOLD3-DISPATCH-LINEAGE-BLOCKER-20260810-030814.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-LENSFOLD-COMPLETE-20260810-092751.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-MERGE-BLOCKED-DRAFT-UNSTABLE-20260810-174554.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-MICROFOLD-DONE-WITH-CONCERNS-20260810-160710.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-R48-PR24-MERGED-STEP4-20260810-184033.md
+?? .relays/s4/s4-matrix-arm1-plan/SITREP-IMPLEMENTER-WAVE-A-REVERIFY-STAGE1-INDEPENDENT-STOP-CORROBORATION-20260820-161626.md
+?? .relays/s4/s4-matrix/SITREP-implementer-20260825-220111.md
+?? docs/sprints/2026-08-04-s4-step4/MIGRATION-adt-skills-2.9-20260816.md
+?? relay-draft-intg-task4-stop.md
+Literal `git status --short` of the docs lane at write time (inherited S4 rows and inherited untracked files included as printed); the shared INDEX carries sibling-authored rows not claimed clean here.
