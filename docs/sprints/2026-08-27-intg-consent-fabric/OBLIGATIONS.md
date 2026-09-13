@@ -60,3 +60,14 @@ Row CLOSED; surviving and binding: the release-checklist clause (first checklist
 - Opportunistic-fix riders: R-3.41 / R-3.54 / R-3.56 / R-3.50 discharge only if their files are opened substantively.
 - Deferral mechanics: anything this pair defers lands as a ROW in master/RESIDUALS.md via master (the pair proposes, master registers); a relay is not a durable carrier.
 - Sweep hygiene: `grep -a` on content sweeps (NUL-bearing relays); harness rows (R-3.17/19/26, R-3.14/15/16, R-3.1, R-3.6..9) stay at master unless enumerated to us.
+
+## Bound 2026-09-13 by master's R-4.50 closure (`intg-r450-discover-parity-act/PLAN-master-planner-20260913-162403.md`)
+
+- THE PUBLISHED PIN of record is now `origin/main` = `4cf135ee97f57021c5fc5fd5343de6f655fb0d24` (the R-4.50 landing merge; parents `1e6b0854` + H' `e8a1128d`).
+  Every later PR branch of this lane is cut from it; B `bbf297e3…` is history.
+- Lane-local `main`'s commits ABOVE the merge (packet rev4/rev5, the two STOP relays, §8, the landing relay, and everything filed after) ride the NEXT landing push under R-4.52 (5).
+  No docs-lane-only push, ever.
+- R-4.53 (registered by master `142209`) is THIS SEAT's at the next plan revision of any act that carries the census: master recommends arm (a) — drop the `census-tree-raw.txt` / `census-tree-stripped.txt` intermediates from the evidence-of-record set (or correct the "no matched text is retained" sentence).
+- LANDING CENSUS CONTRACT (the lesson of the two R-4.50 STOPs, registered by master as a process rule): a line-for-line census contract pins the POPULATION (produced on the exact object the gate scans — `main`'s post-merge head, whole tree and whole history), the REDUCTION (the exact producer lines) AND the COLLATION (`LC_ALL=C sort -u`; the tree arm in `git grep`'s own order); the expectation is written from a run on that object, classified, names only, and re-run immediately before the act.
+- The retained candidate worktree `../bivpak-intg-r450-discover-parity` stays at H' on `intg/r450-discover-parity-v2` (status EMPTY) until a later ruling disposes of it; the remote branches `intg/r450-discover-parity` (H) and `-v2` (H') are left in place.
+- Token 13 is CONSUMED; no token of this act is live. The operator's release hold is ABSOLUTE; the landing is a push, not a release.
