@@ -1,5 +1,5 @@
 # R-4.50 census of record at lane-local main's post-merge head 4cf135ee97f57021c5fc5fd5343de6f655fb0d24 — the WRITTEN EXPECTATION for packet rev4 §7 step (3)
-# Produced 2026-09-13 at the pair-planner's seat by the plan's own alternation (Task 7 lines 31 and 36 of the derived runner; the sk- / PEM / AKIA / ghp_ / xox branches) over the WHOLE tree and the WHOLE reachable history of that commit.
+# Produced 2026-09-13 at the pair-planner's seat by the plan's own alternation (Task 7 lines 31 and 36 of the derived runner; the sk- / PEM / AKIA / ghp_ / xox branches) over the WHOLE tree and the WHOLE reachable history of that commit. ORDER CONTRACT (rev5): the tree arm is `git grep -n`'s own output order — (path bytes, line number) ascending, locale-independent, verified equal to that key order; the history arm is `LC_ALL=C sort -u` (byte order) — the rev4 file's history arm had been sorted under en_US.UTF-8 collation and differed at line 6 from the implementer's C.UTF-8 sort (the STOP of `SITREP-pair-implementer-20260913-145802.md`).
 # Paths and line numbers ONLY. No matched text is written here. Class A = the product's synthetic test fixture (the three locations the candidate's Task 7 census expects; same at B and at H'); class B = a byte-identical COPY of that one fixture token inside the docs lane (JUnit test output captured in the evidence records, the census's own raw/stripped intermediates in the records, quotations in plans/relays/ROADMAP); class C = the sk- branch matching an ordinary hyphenated English word inside prose (a false positive of the alternation; two locations, one 13-character word, not the fixture). Distinct matched tokens across all 69 locations = 2 (the fixture; the English word). Nothing is a credential; nothing is undisclosed.
 
 == TREE ARM (path:line | class) — 69 locations
@@ -75,12 +75,13 @@ tests/test_cli.cpp:1188 | A product-fixture
 
 == TREE ARM class counts: A product-fixture = 3, B fixture-copy = 64, C english-word-false-positive = 2
 
-== HISTORY ARM (unique paths over git rev-list 4cf135ee | xargs git grep -l) — 34 paths; every path is also in the tree arm above (no historical-only path)
+== HISTORY ARM (unique paths over git rev-list 4cf135ee | xargs git grep -l, reduced with `LC_ALL=C sort -u` — BYTE ORDER, rev5; the rev4 file listed the same 34 paths in en_US.UTF-8 collation order) — 34 paths; every path is also in the tree arm above (no historical-only path)
 .relays/intg/intg-countgate/SITREP-pair-planner-20260905-081300.md
 .relays/intg/intg-firstpush/IMPL-pair-implementer-20260905-163348.md
 .relays/intg/intg-firstpush/IMPL-pair-implementer-20260905-195647.md
 .relays/intg/intg-firstpush/PLAN-pair-planner-20260905-084607.md
 .relays/intg/intg-r450/SITREP-pair-planner-20260908-140559.md
+docs/sprints/2026-08-27-intg-consent-fabric/ROADMAP.md
 docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-firstpush-20260905.md
 docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-r450-discover-parity-20260906.md
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-evidence-archive-20260910/token-11-6fNsQJ/C/biv_tests-linux.xml
@@ -92,22 +93,21 @@ docs/sprints/2026-08-27-intg-consent-fabric/results/r450-evidence-archive-202609
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/B/biv_tests-linux.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/C/biv_tests-linux.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/C/biv_tests-macos.xml
-docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/census-tree-raw.txt
-docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/census-tree-stripped.txt
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/H/biv_tests-linux.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/H/biv_tests-macos.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/P/biv_tests-linux.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/P/biv_tests-macos.xml
+docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/census-tree-raw.txt
+docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-12/census-tree-stripped.txt
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/B/biv_tests-linux.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/C/biv_tests-linux.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/C/biv_tests-macos.xml
-docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/census-tree-raw.txt
-docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/census-tree-stripped.txt
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/H/biv_tests-linux.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/H/biv_tests-macos.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/P/biv_tests-linux.xml
 docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/P/biv_tests-macos.xml
-docs/sprints/2026-08-27-intg-consent-fabric/ROADMAP.md
+docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/census-tree-raw.txt
+docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-13/census-tree-stripped.txt
 tests/test_adapter_codex_collect.cpp
 tests/test_cli.cpp
 
