@@ -1,0 +1,40 @@
+rev20 controls — 2026-09-12 — the Task 6 Step 2 bar lines (derived task-6 lines 44..49 of the assembled rev20 artifact 3594ee69bbbda804560250f6e449f7a097ce06ad0ad0111fd40cb641ded7df52; byte-identical to rev19's) on the 17 synthetic scenarios, bash AND zsh
+
+== bar outcomes (H then B synthetic evidence; rows = ctest failed rows; names = pytest FAILED lines; sf/sp/ss = summary counts)
+S01-green                                  bash expected=pass-green                                       got=pass-green                                       rc=0 OK
+S01-green                                  zsh  expected=pass-green                                       got=pass-green                                       rc=0 OK
+S02-valid-red-base-shows                   bash expected=pass-r435-disclosed-registered-red               got=pass-r435-disclosed-registered-red               rc=0 OK
+S02-valid-red-base-shows                   zsh  expected=pass-r435-disclosed-registered-red               got=pass-r435-disclosed-registered-red               rc=0 OK
+S03-names-ne-N                             bash expected=stop-invalid-candidate-result                    got=stop-invalid-candidate-result                    rc=1 OK
+S03-names-ne-N                             zsh  expected=stop-invalid-candidate-result                    got=stop-invalid-candidate-result                    rc=1 OK
+S04-no-summary                             bash expected=stop-invalid-candidate-result                    got=stop-invalid-candidate-result                    rc=1 OK
+S04-no-summary                             zsh  expected=stop-invalid-candidate-result                    got=stop-invalid-candidate-result                    rc=1 OK
+S05-fifth-name                             bash expected=stop-fresh-finding-K1-K2-up-to-m3-m4             got=stop-fresh-finding-K1-K2-up-to-m3-m4             rc=1 OK
+S05-fifth-name                             zsh  expected=stop-fresh-finding-K1-K2-up-to-m3-m4             got=stop-fresh-finding-K1-K2-up-to-m3-m4             rc=1 OK
+S06-foreign-other-file                     bash expected=stop-fresh-finding-K1-K2-up-to-m3-m4             got=stop-fresh-finding-K1-K2-up-to-m3-m4             rc=1 OK
+S06-foreign-other-file                     zsh  expected=stop-fresh-finding-K1-K2-up-to-m3-m4             got=stop-fresh-finding-K1-K2-up-to-m3-m4             rc=1 OK
+S07-base-foreign-row                       bash expected=stop-invalid-base-draw                           got=stop-invalid-base-draw                           rc=1 OK
+S07-base-foreign-row                       zsh  expected=stop-invalid-base-draw                           got=stop-invalid-base-draw                           rc=1 OK
+S08-base-no-summary                        bash expected=stop-invalid-base-draw                           got=stop-invalid-base-draw                           rc=1 OK
+S08-base-no-summary                        zsh  expected=stop-invalid-base-draw                           got=stop-invalid-base-draw                           rc=1 OK
+S09-population-unequal                     bash expected=stop-single-draw-inadmissible-arm-ii-required    got=stop-single-draw-inadmissible-arm-ii-required    rc=1 OK
+S09-population-unequal                     zsh  expected=stop-single-draw-inadmissible-arm-ii-required    got=stop-single-draw-inadmissible-arm-ii-required    rc=1 OK
+S10-tripwire-at-H                          bash expected=stop-single-draw-inadmissible-arm-ii-required    got=stop-single-draw-inadmissible-arm-ii-required    rc=1 OK
+S10-tripwire-at-H                          zsh  expected=stop-single-draw-inadmissible-arm-ii-required    got=stop-single-draw-inadmissible-arm-ii-required    rc=1 OK
+S11-base-green                             bash expected=stop-inconclusive-base-green-arm-ii-required     got=stop-inconclusive-base-green-arm-ii-required     rc=1 OK
+S11-base-green                             zsh  expected=stop-inconclusive-base-green-arm-ii-required     got=stop-inconclusive-base-green-arm-ii-required     rc=1 OK
+S12-base-five-names                        bash expected=stop-fresh-finding-base-outside-family           got=stop-fresh-finding-base-outside-family           rc=1 OK
+S12-base-five-names                        zsh  expected=stop-fresh-finding-base-outside-family           got=stop-fresh-finding-base-outside-family           rc=1 OK
+S13-base-foreign-name                      bash expected=stop-fresh-finding-base-outside-family           got=stop-fresh-finding-base-outside-family           rc=1 OK
+S13-base-foreign-name                      zsh  expected=stop-fresh-finding-base-outside-family           got=stop-fresh-finding-base-outside-family           rc=1 OK
+S14-rc3                                    bash expected=fail-not-the-one-row                             got=fail-not-the-one-row                             rc=1 OK
+S14-rc3                                    zsh  expected=fail-not-the-one-row                             got=fail-not-the-one-row                             rc=1 OK
+S15-two-rows-at-H                          bash expected=fail-not-the-one-row                             got=fail-not-the-one-row                             rc=1 OK
+S15-two-rows-at-H                          zsh  expected=fail-not-the-one-row                             got=fail-not-the-one-row                             rc=1 OK
+S17-base-empty-names-positive-N            bash expected=stop-invalid-base-draw                           got=stop-invalid-base-draw                           rc=1 OK
+S17-base-empty-names-positive-N            zsh  expected=stop-invalid-base-draw                           got=stop-invalid-base-draw                           rc=1 OK
+S16-base-names-ne-N                        bash expected=stop-invalid-base-draw                           got=stop-invalid-base-draw                           rc=1 OK
+S16-base-names-ne-N                        zsh  expected=stop-invalid-base-draw                           got=stop-invalid-base-draw                           rc=1 OK
+== the helper on the rehearsal's REAL H JUnit
+status=fail summary=parsed failed=4 passed=1006 skipped=3 population=1013 names_count=4
+4
