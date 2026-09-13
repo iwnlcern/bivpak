@@ -137,13 +137,17 @@ def _discover_model(env):
     rows = []
     home = Path(env["HOME"]) if env.get("HOME") else None
 
+    claude_roots = []
+    claude_env_root = None
     ccd = env.get("CLAUDE_CONFIG_DIR")
     if ccd and Path(ccd).exists():
-        claude_roots = [("CLAUDE_CONFIG_DIR", Path(ccd))]
-    elif home and (home / ".claude").exists():
-        claude_roots = [("HOME", home / ".claude")]
-    else:
-        claude_roots = []
+        claude_env_root = Path(ccd)
+        claude_roots.append(("CLAUDE_CONFIG_DIR", claude_env_root))
+    if home and (home / ".claude").exists() and (
+        claude_env_root is None
+        or os.path.normpath(home / ".claude") != os.path.normpath(claude_env_root)
+    ):
+        claude_roots.append(("HOME", home / ".claude"))
     for tag, root in claude_roots:
         rows += [(tag, path) for path in sorted((root / "projects").rglob("*.jsonl"))]
 
