@@ -1,0 +1,85 @@
+rev21 FLOW rehearsal — 2026-09-12 22:31 → 2026-09-13 01:23 (run "rev21c") — the plan's (0) bootstrap lines then run-task.sh 0..9 on a plan COPY of the rev21 artifact (b5d60dbbf5191597edbe222c136c16bc88985bc807e903b210c1d7cc53f09502) with TWO substitutions: the candidate worktree path -> a scratch FULL local clone at H (state iii; hardlinked objects), and the container mount "${MAIN}:/repo-ro:ro" -> that scratch clone (7 lines); Task 8 against a scratch bare remote + a gh shim (repo view -> PRIVATE, pr create -> a scratch URL, pr close -> echo); everything else real (MAIN repository reads, Docker, gh release download, the durable evidence root, the tracked results copy). Harness: ea3c253b11d637f9 (snapshot of the rev21 harness: run-flow.rev21.sh).
+
+== HARNESS DISCLOSURE — why two substitutions (the first rev21 run, 17:44 → 19:23, FLOW-STOPPED at Task 4)
+first run (flow-rev21.log, RUNNERS r450-runners-LoRgwj, EVID …-flow21-bNsCnx): 19:23:57 run-task.sh 4 exit=1 proof_tail=rc=0 task_exit=rc=1 19:23:57 STOP at task 4 — see /private/tmp/r450-rev14/flow/task-4.out FLOW-STOPPED 
+its C container (Phase T, linux-container.log tail): STOP-linux-container-C line=96 
+its C ledger: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=35 
+cause: that harness cloned the worktree with --shared, so Step 2b's commit-tree objects (C-prime, H-prime) and the -v2 branch existed only in the scratch clone while the plan mounts MAIN as /repo-ro; Phase T clones /repo-ro and detaches at the expected head -> "reference is not a tree". A REHEARSAL-TOPOLOGY artifact, not a plan defect: the real candidate worktree is a LINKED worktree of MAIN (gitdir: /Users/jack/Programming/bivpak/.git/worktrees/bivpak-intg-r450-discover-), so commit-tree/branch there write into MAIN's shared object store and ref namespace, and Phase T sees them exactly as it saw C and H under token 12.
+MAIN object store at this write: C-prime present = no · H-prime present = no (the rehearsal wrote nothing into MAIN; the real run will).
+a second (rev21b) launch at 21:42 died with the launching tool task mid-Task 2 (Tasks 0–1 rc 0, the same pins reproduced); the rev21c run below is the complete one. Harness diff rev21 -> rev21b/c: 8 changed lines.
+
+== the run log (flow-rev21c.log, verbatim)
+22:31:07 scratch=/private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev21c-MOSt13
+22:31:10 wt HEAD=8509157c41c5ef66595d655f39eee5107081bd32 branch=intg/r450-discover-parity origin/main=bbf297e36a38a1fab8c2675f945098a0633f9f8b status=0
+22:31:11 plan copy sha=b64c9b6c9ca12484 substitutions=30 repo_ro_mounts=7 main_mounts_left=0
+22:31:12 bootstrap (0) done: RUNNERS=/Users/jack/Programming/bivpak-evidence/r450-runners-i9gR1Z blocks=31
+22:31:12 run-task.sh 0 START
+22:33:52 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+22:33:52 run-task.sh 1 START
+22:51:50 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+22:51:50 run-task.sh 2 START
+23:29:06 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+23:29:06 run-task.sh 3 START
+23:29:07 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+23:29:07 run-task.sh 4 START
+00:22:28 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:22:28 run-task.sh 5 START
+00:22:48 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:22:48 run-task.sh 6 START
+01:22:11 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:22:11 run-task.sh 7 START
+01:22:52 run-task.sh 7 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:22:52 run-task.sh 8 START (scratch remote /private/var/folders/hq/f0qq8v_103q9y8prfn20rzx80000gn/T/r450-flow-rev21c-MOSt13/remote.git; gh shim)
+01:22:53 run-task.sh 8 exit=0 proof_tail=rc=0 task_exit=rc=0 remote_head_v2=e8a1128d75cd4693d21269c4d040095df570f116 remote_old=refs/heads/intg/r450-discover-parity
+none
+01:22:53 run-task.sh 9 START (the finalizer; writes the REAL results/r450-<flow token>/ in the docs lane — removed after the rehearsal)
+01:22:59 run-task.sh 9 exit=0 proof_tail=rc=0 task_exit=rc=0 final=results_dir=/Users/jack/Programming/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r450-intg-r450-discover-parity-impl-flow21c set=709 finalize_check_rc=0 shasum_c_rc=0 verdict=set=709 tree=709 manifest=709 equal=yes digests=ok copies=ok
+01:22:59 EVID=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-flow21c-mYirzr
+01:22:59 real worktree untouched: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status=0
+FLOW-COMPLETE
+
+== Step 2b rewrite proofs (rewrite.txt, verbatim)
+C_orig=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 C_new=efb4caeda0533a81e7148dfd38462ae64704ec8a H_orig=8509157c41c5ef66595d655f39eee5107081bd32 H_new=e8a1128d75cd4693d21269c4d040095df570f116 tree_C=1efd9ce26aba839b8c234cc8be9f31b7a37e1d20 tree_H=4a6075c9caa1d1b8757aa44a734675d1dc6d6ee4 parent_C=bbf297e36a38a1fab8c2675f945098a0633f9f8b parent_H=efb4caeda0533a81e7148dfd38462ae64704ec8a diff_C_rc=0 diff_H_rc=0 msg_lines_deleted=1+1 trailers_new=0 branch=intg/r450-discover-parity-v2 old_branch_kept_at=8509157c41c5ef66595d655f39eee5107081bd32
+
+== pinned heads as recorded: C.txt=efb4caeda0533a81e7148dfd38462ae64704ec8a · H.txt=e8a1128d75cd4693d21269c4d040095df570f116 · C-orig.txt=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 · H-orig.txt=8509157c41c5ef66595d655f39eee5107081bd32 · status-post-rewrite lines=0
+
+== container phase ledgers (P, C = C-prime, H = H-prime, B)
+P: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 
+C: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 
+H: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 
+B: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 
+
+== bar receipt (H/linux-selftest-bar.txt)
+rcL=8 a_rows_rc=0 summary_H=parsed failed_H=3 names_H=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration,selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite, foreign_H= d_tripwire_lines=0 d_family_files_rc=0 population_H=1013 rcB=8 base_rows=1 base_rows_rc=0 summary_B=parsed failed_B=2 names_B=selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration,selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite, foreign_B= population_B=1013 bar=pass-r435-disclosed-registered-red
+
+== pytest facts (selftest-H.kv / selftest-B.kv)
+status=fail summary=parsed failed=3 passed=1007 skipped=3 population=1013 names_count=3 
+status=fail summary=parsed failed=2 passed=1008 skipped=3 population=1013 names_count=2 
+
+== ctest rc per tree (ctest-key.txt / ctest-key.value — the key recorded as DATA) and failed rows
+P key=ctest_P_producer_rc=8  value=8  failed_rows=1
+C key=ctest_C_producer_rc=8  value=8  failed_rows=1
+H key=ctest_H_producer_rc=8  value=8  failed_rows=1
+B key=ctest_B_producer_rc=8  value=8  failed_rows=1
+
+== the ctest size flags in effect: per JUnit — testcases / testcases with system-out > 1024 bytes / CTest truncation markers ("was removed since it exceeds the threshold") / harness-selftest (status, system-out bytes)
+P testcases 19 out>1024 1 truncation-markers 0 harness-selftest ('fail', 162606)
+C testcases 19 out>1024 1 truncation-markers 0 harness-selftest ('fail', 163814)
+H testcases 19 out>1024 1 truncation-markers 0 harness-selftest ('fail', 8182)
+B testcases 19 out>1024 1 truncation-markers 0 harness-selftest ('fail', 6974)
+
+== the ctest line as executed (from the evidence copy of linux-suite.sh)
+105:  ctest --preset ci --output-junit "$OUT/ctest-linux-$LABEL.junit.xml" --output-on-failure --test-output-size-passed 50000000 --test-output-size-failed 50000000 > "$OUT/ctest-linux-$LABEL.log" 2>&1 || ctest_rc=$?
+
+== Task 8 receipts (scratch remote + gh shim)
+push-class=class=a  push-rc=push_rc=0  remote-branch-before= remote-branch-after=e8a1128d75cd4693d21269c4d040095df570f116	refs/heads/intg/r450-discover-parity-v2  pr.rc=pr_rc=0  pr.txt=https://github.com/iwnlcern/bivpak/pull/SCRATCH pr25-close.rc=pr25_close_rc=0
+pr25-close.txt: gh shim: pr close args: pr close 25 --comment Superseded by https://github.com/iwnlcern/bivpak/pull/SCRATCH. C 961b1ccd and H 8509157c were rewritten as efb4caeda0533a81e7148dfd38462ae64704ec8a and e8a1128d75cd4693d21269c4d040095df570f116 (commit messages only: the Co-Authored-By trailer line removed per the operator ruling 164309; trees byte-identical). Closed UNMERGED; the branch intg/r450-disco
+pr-body.md F1 phrases: "SUPERSEDES PR #25" = 1 · "PENDING for C-prime and H-prime" = 1 · "PENDING their own owner re-reviews" = 1 · "is to be closed UNMERGED by this runner" = 1 · "PR #25 is closed unmerged" = 0 · Rewrite line: Rewrite: C_orig=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 C_new=efb4caeda0533a81e7148dfd38462ae64704ec8a H_orig=8509157c41c5ef66595d655f39eee5107081bd32 H_new=e8a1128d75cd4693d21269c4d040095df570f116
+
+== finalizer (proof-9.txt)
+bytes=equal run_blocks=5 prologue=ok lines=31 spans=77 gates=10 omitted=0 out_of_order=0
+rc=0
+
+== tracked results copy written by Task 9 (removed after this rehearsal): files=710 SHA256SUMS lines=709 shasum -c rc=0
+
+== worktree after: HEAD=8509157c41c5ef66595d655f39eee5107081bd32 status_lines=0 · MAIN product paths status lines=0
