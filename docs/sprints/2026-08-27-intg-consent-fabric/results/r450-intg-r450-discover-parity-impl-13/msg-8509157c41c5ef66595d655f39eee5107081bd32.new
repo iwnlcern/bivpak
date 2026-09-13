@@ -1,0 +1,17 @@
+harness: claude discovery model follows c1 §7 parity (stub codex-shaped append, HOME mutant asserts both canaries, E3 anchor re-pinned) — m-3 follow-through, iso rev8
+
+Design pin: iso rev8 master/domains/m-3-restore-cli/design/2026-09-01-e2-store-isolation-r437.md sha256 00046a657abd6c5792e3c6222c8690b39f1a773ecbc2473ca9af2845a95813af (V-FT-1..8 / S-FT-1..4)
+Plan pin: intg-r450-discover-parity-plan-20260906 sha256 97bef383a22771fc4855f87caa4ec6865d3f596af57860165e903f7f712d7747
+Parent C=961b1ccd0ba488f909357d4cac1abab8c77d2fa8 (the R-4.50 candidate; product bytes fixed)
+
+claude_adapter_file anchor: old cd1f8bc8f7ab87cf15251d84ad7e59c618a22f3c19b9633ff193350782800851 -> new 4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51 = sha256(src/adapters/claude_code/claude_code.cpp @ C)
+
+Fidelity rows:
+ROW 1 env set, exists, differs; default exists: observed=['CLAUDE_CONFIG_DIR', 'HOME'] expected=['CLAUDE_CONFIG_DIR', 'HOME'] ok
+ROW 2 env set and equal to the default: observed=['CLAUDE_CONFIG_DIR'] expected=['CLAUDE_CONFIG_DIR'] ok
+ROW 3 env unset, default exists: observed=['HOME'] expected=['HOME'] ok
+ROW 4 neither: observed=[] expected=[] ok
+ROW 5 env set, default exists, both hold sessions (enumeration only): observed=['CLAUDE_CONFIG_DIR', 'HOME'] expected=['CLAUDE_CONFIG_DIR', 'HOME'] ok
+
+NAMED MUTANT markers 7, tests 11 (unchanged)
+

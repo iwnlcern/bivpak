@@ -1,0 +1,53 @@
+run_id=P-linux-54954281b30cae113f399055fff106963a37a443
+platform=ubuntu:24.04 linux/amd64 --init
+P=54954281b30cae113f399055fff106963a37a443
+expected=54954281b30cae113f399055fff106963a37a443 observed=54954281b30cae113f399055fff106963a37a443
+phase_R_base_provision_rc=0
+phase_R_asset_provision_rc=0
+phase_T_transition_fixture_rc=0
+phase_S_suite_rc=0
+nofile_hard_read_rc=0
+nofile_raise_rc=0
+nofile_soft_read_rc=0
+nofile_soft_equals_hard_rc=0
+nofile_receipt_write_rc=0
+venv_rc=0
+requirements_rc=0
+configure_rc=0
+build_rc=0
+observer_name_proof_create_rc=0
+observer_name_input_nonempty_rc=0
+observer_name_present_rc=0
+observer_name_proof_write_rc=0
+observer_name_proof_nonempty_rc=0
+biv_subprocess_tests_producer_rc=0
+biv_subprocess_tests_xml_nonempty_rc=0
+biv_repo_git_tests_producer_rc=0
+biv_repo_git_tests_xml_nonempty_rc=0
+biv_repo_engine_tests_producer_rc=0
+biv_repo_engine_tests_xml_nonempty_rc=0
+biv_tests_producer_rc=0
+biv_tests_xml_nonempty_rc=0
+biv_probe_tests_producer_rc=0
+biv_probe_tests_xml_nonempty_rc=0
+ctest_P_producer_rc=8
+ctest_P_log_nonempty_rc=0
+ctest_P_receipt_write_rc=0
+suite_aggregate_rc=0 ledger_write_failed=0
+soft=1048576 hard=1048576
+ANTHROPIC_API_KEY absent
+OPENAI_API_KEY absent
+CODEX_ACCESS_TOKEN absent
+baseline_linux_skips=1 observed_linux_skips=1
+biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=a3050ddeb6c6b56a5e57844528344c858426d10a7b0b21f17d8bd9b23f1b4963
+biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=4b8291ef44c3fe131bae8830b1c2d85fdf90fda1cdaa023099add37d771eb20e
+biv_repo_engine_tests linux successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=bd4e1d132d487591b984e2e059c417093aed7e621657bcdb62171c2971e0d921
+biv_tests linux successes=421 failures=0 expectedFailures=0 skips=1 xml_sha256=ae59384506591fc243cb40414eb920170422c92b0f5a3dd93738f6f06ad57b44
+biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=b5fd66c306627c079e3d98e9f374fd1f729d61c47f354dfd3506da3366e77ad2
+expected_skips_observed linux n=1 threshold-parity per-agent distribution self-activates at R-4.29
+b5fd66c306627c079e3d98e9f374fd1f729d61c47f354dfd3506da3366e77ad2  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_probe_tests-linux.xml
+bd4e1d132d487591b984e2e059c417093aed7e621657bcdb62171c2971e0d921  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_repo_engine_tests-linux.xml
+4b8291ef44c3fe131bae8830b1c2d85fdf90fda1cdaa023099add37d771eb20e  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_repo_git_tests-linux.xml
+a3050ddeb6c6b56a5e57844528344c858426d10a7b0b21f17d8bd9b23f1b4963  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_subprocess_tests-linux.xml
+ae59384506591fc243cb40414eb920170422c92b0f5a3dd93738f6f06ad57b44  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_tests-linux.xml
+pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0

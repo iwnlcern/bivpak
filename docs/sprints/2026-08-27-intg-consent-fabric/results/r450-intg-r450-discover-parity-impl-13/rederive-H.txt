@@ -1,0 +1,4 @@
+harness/selftest/stub_biv.py diff_rc=0
+harness/selftest/test_store_isolation.py diff_rc=0
+harness/bivharness/e3.py diff_rc=0
+rederive_mismatch=0

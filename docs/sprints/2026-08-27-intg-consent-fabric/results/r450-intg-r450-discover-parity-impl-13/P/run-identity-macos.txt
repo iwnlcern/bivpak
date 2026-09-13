@@ -1,0 +1,29 @@
+run_id=P-macos-54954281b30cae113f399055fff106963a37a443
+platform=macos
+P=54954281b30cae113f399055fff106963a37a443
+ProductName:		macOS
+ProductVersion:		26.5.1
+BuildVersion:		25F80
+arm64
+P=54954281b30cae113f399055fff106963a37a443 ancestor_bbf297e_rc=0 ancestor_b065de1_rc=0
+observer_unset_names:
+ANTHROPIC_API_KEY
+OPENAI_API_KEY
+CODEX_ACCESS_TOKEN
+observer_host_presence_names_only:
+ANTHROPIC_API_KEY present
+OPENAI_API_KEY absent
+CODEX_ACCESS_TOKEN absent
+present_count=1
+biv_subprocess_tests macos successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=06b88b29bdabe24f9bac1cc69ab4bdc6f8ac6f7b44eb8cb5b5e8a5b3cabfcf29
+biv_repo_git_tests macos successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=81138bbaf897fb21f3da04c59ac7683993193bbff3e7d5c587a7f07562cba3e9
+biv_repo_engine_tests macos successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=8372e2d052a17f9dfc3ac1019f180bd213d08fcad18580080a541d8fa296a397
+biv_tests macos successes=419 failures=0 expectedFailures=0 skips=3 xml_sha256=ad10052b2ca77e4c4a61aa76d3d490c54dc19a4e4aa5f78c843f569566bb5250
+biv_probe_tests macos successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=d1fffc5e937600fff8a0bc7c071853008a028fe8d55190ec43c4eac75688d861
+expected_skips_observed macos n=3 pack computes foreign-flavor session relpaths without host path parsing | pack derives relpath from slash-form Windows extended paths | threshold-parity per-agent distribution self-activates at R-4.29
+d1fffc5e937600fff8a0bc7c071853008a028fe8d55190ec43c4eac75688d861  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_probe_tests-macos.xml
+8372e2d052a17f9dfc3ac1019f180bd213d08fcad18580080a541d8fa296a397  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_repo_engine_tests-macos.xml
+81138bbaf897fb21f3da04c59ac7683993193bbff3e7d5c587a7f07562cba3e9  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_repo_git_tests-macos.xml
+06b88b29bdabe24f9bac1cc69ab4bdc6f8ac6f7b44eb8cb5b5e8a5b3cabfcf29  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_subprocess_tests-macos.xml
+ad10052b2ca77e4c4a61aa76d3d490c54dc19a4e4aa5f78c843f569566bb5250  /Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/P/biv_tests-macos.xml
+pattern=sk-[A-Za-z0-9]{8,}|-----BEGIN cat_rc=0 grep_rc=1 hits=0

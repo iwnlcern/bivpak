@@ -1,0 +1,15 @@
+[  1%] Built target biv_support
+[ 18%] Built target libzstd_static
+[ 19%] Built target simdjson
+[ 23%] Built target biv_adapters
+[ 34%] Built target bivcore
+[ 36%] Built target biv
+[ 83%] Built target Catch2
+[ 84%] Built target Catch2WithMain
+[ 85%] Built target biv_subprocess_tests
+[ 86%] Built target biv_repo_git_test_seam
+[ 87%] Built target biv_repo_git_tests
+[ 87%] Built target biv_repo_engine_tests
+[ 88%] Built target biv_probe_test_seam
+[ 99%] Built target biv_tests
+[100%] Built target biv_probe_tests

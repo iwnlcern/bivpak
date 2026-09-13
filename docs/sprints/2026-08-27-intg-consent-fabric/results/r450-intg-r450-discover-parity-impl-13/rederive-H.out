@@ -1,0 +1,3 @@
+stub claude branch replaced: old_lines=7 new_lines=11
+test_store_isolation.py: HOME mutant renamed; claude HOME canary asserted PRESENT
+old=cd1f8bc8f7ab87cf15251d84ad7e59c618a22f3c19b9633ff193350782800851 new=4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51

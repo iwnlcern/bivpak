@@ -1,0 +1,1 @@
+✓ Closed pull request iwnlcern/bivpak#25 (adapters(claude): discover returns every store found (env + default), codex parity; count-gate cells transcribed)

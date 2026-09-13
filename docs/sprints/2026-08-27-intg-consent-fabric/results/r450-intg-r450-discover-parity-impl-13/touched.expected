@@ -1,0 +1,3 @@
+.github/workflows/s2-harness.yml
+src/adapters/claude_code/claude_code.cpp
+tests/test_adapter_claude_collect.cpp

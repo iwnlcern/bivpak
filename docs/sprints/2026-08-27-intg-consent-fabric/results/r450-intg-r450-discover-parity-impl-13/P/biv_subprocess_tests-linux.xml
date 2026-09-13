@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Catch2TestRun name="biv_subprocess_tests" rng-seed="2442485444" xml-format-version="3" catch2-version="3.7.1">
+  <TestCase name="run_argv echoes caller argv and full environment" filename="/work/repo/tests/test_subprocess.cpp" line="55">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv marks both captured streams incomplete at their caps" filename="/work/repo/tests/test_subprocess.cpp" line="75">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv marks output incomplete when only stdout reaches its cap" filename="/work/repo/tests/test_subprocess.cpp" line="91">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv marks output incomplete when only stderr reaches its cap" filename="/work/repo/tests/test_subprocess.cpp" line="105">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv leaves output complete when both streams fit" filename="/work/repo/tests/test_subprocess.cpp" line="119">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv separate topology keeps streams apart" filename="/work/repo/tests/test_subprocess.cpp" line="132">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv drains ready stderr while stdout stays quiet and open" filename="/work/repo/tests/test_subprocess.cpp" line="144">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv merge topology preserves source write order" filename="/work/repo/tests/test_subprocess.cpp" line="160">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv returns a nonzero exit code as data" filename="/work/repo/tests/test_subprocess.cpp" line="173">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv timeout sweeps its process group and reaps its child" filename="/work/repo/tests/test_subprocess.cpp" line="183">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv streams stdout to the requested file" filename="/work/repo/tests/test_subprocess.cpp" line="210">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="run_argv preserves raw bytes on both separate streams" filename="/work/repo/tests/test_subprocess.cpp" line="228">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <OverallResults successes="69" failures="0" expectedFailures="0" skips="0"/>
+  <OverallResultsCases successes="12" failures="0" expectedFailures="0" skips="0"/>
+</Catch2TestRun>

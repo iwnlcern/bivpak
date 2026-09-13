@@ -1,0 +1,2 @@
+bytes=equal run_blocks=5 prologue=ok lines=53 spans=57 gates=28 omitted=0 out_of_order=0
+rc=0

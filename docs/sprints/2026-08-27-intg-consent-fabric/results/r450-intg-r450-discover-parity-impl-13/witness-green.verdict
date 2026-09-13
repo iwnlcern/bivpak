@@ -1,0 +1,6 @@
+ROW 1 failures=0 expected=green ok
+ROW 2 failures=0 expected=green ok
+ROW 3 failures=0 expected=green ok
+ROW 4 failures=0 expected=green ok
+ROW 5 failures=0 expected=green ok
+green verdict ok

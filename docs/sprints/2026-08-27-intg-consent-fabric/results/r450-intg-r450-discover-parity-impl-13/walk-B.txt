@@ -1,0 +1,47 @@
+harness/scenarios-e3/e3-dual-resume.json:7:  "live_store_roots": ["~/.claude", "~/.codex"],
+harness/scenarios-e3/e3-dual-resume.json:19:      "live_profile": "~/.claude",
+harness/scenarios-e3/e3-dual-resume.json:21:      "env": {"CLAUDE_CONFIG_DIR": "{profile}"},
+harness/bivharness/scenario.py:29:    "CLAUDE_CONFIG_DIR",
+harness/bivharness/scenario.py:41:        "CLAUDE_CONFIG_DIR": "claude-config",
+harness/bivharness/scenario.py:70:    "CLAUDE_CONFIG_DIR": "0d15ea5e-0004-4000-8000-0000c1a0dec0",
+harness/bivharness/scenario.py:76:    "claude-config": "CLAUDE_CONFIG_DIR",
+harness/bivharness/scenario.py:170:        home / ".claude" / "projects", POISON_SESSION_IDS["HOME:claude"], source
+harness/bivharness/scenario.py:181:        POISON_SESSION_IDS["CLAUDE_CONFIG_DIR"],
+harness/bivharness/scenario.py:189:        "CLAUDE_CONFIG_DIR": str(claude_config),
+harness/bivharness/scenario.py:567:        source_env["CLAUDE_CONFIG_DIR"] = str(source_store)
+harness/bivharness/scenario.py:568:        target_env["CLAUDE_CONFIG_DIR"] = str(target_store)
+harness/bivharness/e3.py:55:LIVE_STORE_SELECTORS: dict[str, tuple[str, ...]] = {
+harness/bivharness/e3.py:56:    "claude-code": ("CLAUDE_CONFIG_DIR",),
+harness/bivharness/e3.py:59:SESSION_LOCATIONS: dict[str, tuple[str, ...]] = {
+harness/bivharness/e3.py:69:# are write/restore-side, cannot desync SESSION_LOCATIONS, and are covered by
+harness/bivharness/e3.py:2367:        for location in SESSION_LOCATIONS.get(agent_id, ()):
+harness/bivharness/e3.py:2794:        selectors = LIVE_STORE_SELECTORS.get(agent_id)
+harness/selftest/test_e3_asserts.py:189:    for live_store in (Path.home() / ".claude", Path.home() / ".codex"):
+harness/selftest/test_e3_asserts.py:299:        "live_profile": "~/.claude",
+harness/selftest/test_e3_asserts.py:639:        "claude-code": {"CLAUDE_CONFIG_DIR": "{profile}"},
+harness/selftest/test_e3_asserts.py:1931:                '        .root = env.home / ".claude",\n'
+harness/selftest/test_e3_asserts.py:2054:    spec["agents"][1]["env"] = {"CLAUDE_CONFIG_DIR": "{profile}"}
+harness/selftest/test_e3_asserts.py:2084:            projects = Path(env["CLAUDE_CONFIG_DIR"]) / "projects" / "liveness"
+harness/selftest/test_e3_asserts.py:2153:            for location in e3.SESSION_LOCATIONS[agent["id"]]:
+harness/selftest/test_e3_asserts.py:2253:    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "ambient-claude"))
+harness/selftest/test_e3_asserts.py:2269:    assert "CLAUDE_CONFIG_DIR" in result.detail
+harness/selftest/test_e3_asserts.py:2276:    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "ambient-claude"))
+harness/selftest/test_e3_asserts.py:2297:    assert "CLAUDE_CONFIG_DIR" in result.detail
+harness/selftest/test_e3_asserts.py:2356:    assert "CLAUDE_CONFIG_DIR" not in seen[tuple(_resolved_agent_command("claude-code", "auth", "status"))]
+harness/selftest/test_e3_asserts.py:2391:            "env": {"CLAUDE_CONFIG_DIR": "{profile}"},
+harness/selftest/test_e3_asserts.py:2437:        "CLAUDE_CONFIG_DIR": str(root / "claude")
+harness/selftest/test_e3_asserts.py:2496:        assert "CLAUDE_CONFIG_DIR" not in env
+harness/selftest/test_e3_asserts.py:4452:            assert env["CLAUDE_CONFIG_DIR"] == str(host2 / "profiles" / "claude")
+harness/selftest/test_e3_asserts.py:7652:            "live_store_roots": ".claude",
+harness/selftest/test_e3_asserts.py:8455:    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+harness/selftest/test_e3_asserts.py:8473:    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+harness/selftest/test_e3_asserts.py:8492:    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+harness/selftest/test_e3_asserts.py:8516:    for name in (*CREDENTIAL_ENV_NAMES, "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+harness/selftest/stub_biv.py:140:    ccd = env.get("CLAUDE_CONFIG_DIR")
+harness/selftest/stub_biv.py:142:        claude_roots = [("CLAUDE_CONFIG_DIR", Path(ccd))]
+harness/selftest/stub_biv.py:143:    elif home and (home / ".claude").exists():
+harness/selftest/stub_biv.py:144:        claude_roots = [("HOME", home / ".claude")]
+harness/selftest/test_store_isolation.py:97:        and tag == "CLAUDE_CONFIG_DIR"
+harness/selftest/test_store_isolation.py:148:    # NAMED MUTANT: CLAUDE_CONFIG_DIR restored to poison ⇒ RED here.
+harness/selftest/test_store_isolation.py:150:        tmp_path, monkeypatch, poison, "CLAUDE_CONFIG_DIR"
+harness/selftest/test_store_isolation.py:154:    assert scenario.POISON_SESSION_IDS["CLAUDE_CONFIG_DIR"] in "\n".join(

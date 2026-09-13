@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Catch2TestRun name="biv_repo_git_tests" rng-seed="1265792108" xml-format-version="3" catch2-version="3.7.1">
+  <TestCase name="Git resolve records one fully resolved binary" filename="/work/repo/tests/test_repo_git.cpp" line="113">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Git run pins environment away from hostile user and repo config" filename="/work/repo/tests/test_repo_git.cpp" line="127">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Git returns merge-base non-ancestry exit one as data" filename="/work/repo/tests/test_repo_git.cpp" line="220">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Git request pins no-lazy-fetch and mechanically delimits operands" filename="/work/repo/tests/test_repo_git.cpp" line="238">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="RepoEntry preserves unknown notes verbatim for JSON re-emission" filename="/work/repo/tests/test_repo_git.cpp" line="276">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="Git streams cat-file stdout to a file" filename="/work/repo/tests/test_repo_git.cpp" line="294">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <OverallResults successes="183" failures="0" expectedFailures="0" skips="0"/>
+  <OverallResultsCases successes="6" failures="0" expectedFailures="0" skips="0"/>
+</Catch2TestRun>

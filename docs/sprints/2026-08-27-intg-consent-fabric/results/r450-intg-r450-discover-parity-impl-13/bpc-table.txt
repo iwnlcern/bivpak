@@ -1,0 +1,10 @@
+biv_probe_tests linux old_B=25 observed_P=25 new_C=pending ok
+biv_probe_tests macos old_B=25 observed_P=25 new_C=pending ok
+biv_repo_engine_tests linux old_B=60 observed_P=60 new_C=pending ok
+biv_repo_engine_tests macos old_B=60 observed_P=60 new_C=pending ok
+biv_repo_git_tests linux old_B=6 observed_P=6 new_C=pending ok
+biv_repo_git_tests macos old_B=6 observed_P=6 new_C=pending ok
+biv_subprocess_tests linux old_B=12 observed_P=12 new_C=pending ok
+biv_subprocess_tests macos old_B=12 observed_P=12 new_C=pending ok
+biv_tests linux old_B=420 observed_P=421 new_C=pending ok
+biv_tests macos old_B=418 observed_P=419 new_C=pending ok

@@ -1,0 +1,63 @@
+Test project /Users/jack/Programming/bivpak-intg-r450-discover-parity/build/ci-macos
+      Start  1: subprocess
+ 1/19 Test  #1: subprocess .......................   Passed    0.52 sec
+      Start  2: repo_git
+ 2/19 Test  #2: repo_git .........................   Passed    0.89 sec
+      Start  3: repo_engine
+ 3/19 Test  #3: repo_engine ......................   Passed   24.32 sec
+      Start 12: generated_envelope_reset
+ 4/19 Test #12: generated_envelope_reset .........   Passed    0.02 sec
+      Start  4: biv_tests
+ 5/19 Test  #4: biv_tests ........................   Passed  633.39 sec
+      Start  5: probe
+ 6/19 Test  #5: probe ............................   Passed   10.84 sec
+      Start  6: open_no_rewrite_gate
+ 7/19 Test  #6: open_no_rewrite_gate .............   Passed    0.01 sec
+      Start  7: core_adapter_purity_selftest
+ 8/19 Test  #7: core_adapter_purity_selftest .....   Passed    0.06 sec
+      Start  8: version_floor_mirror
+ 9/19 Test  #8: version_floor_mirror .............   Passed    0.05 sec
+      Start  9: errno_table_gate
+10/19 Test  #9: errno_table_gate .................   Passed    1.43 sec
+      Start 10: probe_envelope_schema
+11/19 Test #10: probe_envelope_schema ............   Passed    0.27 sec
+      Start 11: generated_envelope_conforms
+12/19 Test #11: generated_envelope_conforms ......   Passed    0.08 sec
+      Start 13: harness-selftest
+13/19 Test #13: harness-selftest .................   Passed   17.69 sec
+      Start 14: harness-e2
+14/19 Test #14: harness-e2 .......................   Passed    1.88 sec
+      Start 15: safety-build-werror
+15/19 Test #15: safety-build-werror ..............   Passed    0.65 sec
+      Start 16: safety-asan-ubsan
+16/19 Test #16: safety-asan-ubsan ................***Skipped   0.00 sec
+      Start 17: safety-tidy-analyzer
+17/19 Test #17: safety-tidy-analyzer .............***Skipped   0.00 sec
+      Start 18: safety-hardening
+18/19 Test #18: safety-hardening .................***Failed    0.02 sec
+readelf unavailable
+
+      Start 19: safety-fuzz-smoke
+19/19 Test #19: safety-fuzz-smoke ................***Skipped   0.01 sec
+
+95% tests passed, 1 tests failed out of 19
+
+Label Time Summary:
+build           =   0.65 sec*proc (1 test)
+e2              =   1.88 sec*proc (1 test)
+hardening       =   0.02 sec*proc (1 test)
+harness         =  19.57 sec*proc (2 tests)
+harness-skip    =   0.01 sec*proc (3 tests)
+safety          =   0.68 sec*proc (2 tests)
+selftest        =  17.69 sec*proc (1 test)
+
+Total Test time (real) = 692.15 sec
+
+The following tests did not run:
+	 16 - safety-asan-ubsan (Skipped)
+	 17 - safety-tidy-analyzer (Skipped)
+	 19 - safety-fuzz-smoke (Skipped)
+
+The following tests FAILED:
+	 18 - safety-hardening (Failed)                         hardening safety
+Errors while running CTest

@@ -1,0 +1,18 @@
+MUTANT HOME: status=fail leak_tags=['HOME']
+isolation-leak HOME: warnings[1] kind=SessionLiveAtPack path=0d15ea5e-0001-4000-8000-00000000c0de
+isolation-leak HOME: agents[claude-code].image_session_id=0d15ea5e-0002-4000-8000-0000000c1a0d
+isolation-leak HOME: agents[codex].image_session_id=0d15ea5e-0001-4000-8000-00000000c0de
+MUTANT CODEX_HOME: status=fail leak_tags=['CODEX_HOME']
+isolation-positive missing: codex staged session 019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001 appears 0 times in agent_sessions (expected 1)
+isolation-leak CODEX_HOME: warnings[0] kind=SessionLiveAtPack path=0d15ea5e-0003-4000-8000-000000c0de40
+isolation-leak CODEX_HOME: agents[codex].store_root=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/H/rp/rp-mutants/mutant-CODEX_HOME/store-isolation-witness.poison/codex-home
+isolation-leak CODEX_HOME: agents[codex].image_session_id=0d15ea5e-0003-4000-8000-000000c0de40
+session row missing: {'agent': 'codex', 'outcome': 'installed', 'image_session_id': '019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001'}; got [{'agent': 'claude-code', 'image_session_id': 'aaaaaaaa-1111-4000-8000-000000000001', 'installed_session_id': 'd816df86-ead4-4db8-b8d1-0772c5ef4bd0', 'outcome': 'installed', 'host_version_unverified': False, 'activation_suppressed': False}, {'agent': 'codex', 'image_session_id': '0d15ea5e-0003-4000-8000-000000c0de40', 'installed_session_id': '01a09ae1-4c82-7505-bcdb-4ac211e499c8', 'outcome': 'installed', 'host_version_unverified': False, 'activation_suppressed': False}]
+MUTANT CODEX_SQLITE_HOME: status=fail leak_tags=['CODEX_SQLITE_HOME']
+isolation-leak CODEX_SQLITE_HOME: warnings[0] kind=CodexDbEnrichmentSkipped path=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/H/rp/rp-mutants/mutant-CODEX_SQLITE_HOME/store-isolation-witness.poison/codex-sqlite/state_5.sqlite
+MUTANT CLAUDE_CONFIG_DIR: status=fail leak_tags=['CLAUDE_CONFIG_DIR']
+isolation-positive missing: claude-code staged session aaaaaaaa-1111-4000-8000-000000000001 appears 0 times in agent_sessions (expected 1)
+isolation-leak CLAUDE_CONFIG_DIR: agents[claude-code].store_root=/Users/jack/Programming/bivpak-evidence/r450-intg-r450-discover-parity-impl-13-UoYDAE/H/rp/rp-mutants/mutant-CLAUDE_CONFIG_DIR/store-isolation-witness.poison/claude-config
+isolation-leak CLAUDE_CONFIG_DIR: agents[claude-code].image_session_id=0d15ea5e-0004-4000-8000-0000c1a0dec0
+session row missing: {'agent': 'claude-code', 'outcome': 'installed', 'image_session_id': 'aaaaaaaa-1111-4000-8000-000000000001'}; got [{'agent': 'claude-code', 'image_session_id': '0d15ea5e-0004-4000-8000-0000c1a0dec0', 'installed_session_id': '65227319-921b-4410-a446-5c6e7eaae31e', 'outcome': 'installed', 'host_version_unverified': False, 'activation_suppressed': False}, {'agent': 'codex', 'image_session_id': '019faaaa-bbbb-7ccc-8ddd-eeeeeeee0001', 'installed_session_id': '01a09ae1-4edd-72c0-bd24-a9af81b7d702', 'outcome': 'installed', 'host_version_unverified': False, 'activation_suppressed': False}]
+ALL FOUR MUTANTS RED ON EXACTLY THEIR OWN LOCATOR

@@ -1,0 +1,3 @@
+e8a1128d75cd4693d21269c4d040095df570f116:tests/test_adapter_codex_collect.cpp:383:      TailCase{"rollout-task-complete-with-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001.jsonl",
+e8a1128d75cd4693d21269c4d040095df570f116:tests/test_adapter_codex_collect.cpp:385:      TailCase{"rollout-task-complete-without-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1002.jsonl",
+e8a1128d75cd4693d21269c4d040095df570f116:tests/test_cli.cpp:1188:      "rollout-task-complete-with-lf-019faaaa-bbbb-7ccc-8ddd-eeeeeeee1001.jsonl";

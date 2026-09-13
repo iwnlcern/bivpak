@@ -1,0 +1,4 @@
+.globs = {"projects/*/*.jsonl"} -> 1
+.path = root / "projects" -> 1
+    std::vector<Store> stores; -> 1
+const Inventory& claude_inventory() -> 1

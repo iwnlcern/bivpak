@@ -1,0 +1,4 @@
+@@ -571,0 +572,6 @@ class ClaudeCodeAdapter final : public AgentAdapter {
+@@ -572,0 +579 @@ class ClaudeCodeAdapter final : public AgentAdapter {
+@@ -576,6 +583,2 @@ class ClaudeCodeAdapter final : public AgentAdapter {
+@@ -586,7 +589,3 @@ class ClaudeCodeAdapter final : public AgentAdapter {
