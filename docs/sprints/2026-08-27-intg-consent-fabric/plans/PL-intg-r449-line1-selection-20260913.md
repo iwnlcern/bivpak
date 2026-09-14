@@ -1,6 +1,8 @@
-# R-4.49 line-1 selection — Implementation Plan (revision 2 — assembled 2026-09-13; the scratch rehearsal's Task 3 STOP folded: m-3's S-CP-2 re-pin commit; C-1/C-2 RESOLVED; the root-mode edge measured green)
+# R-4.49 line-1 selection — Implementation Plan (revision 3 — assembled 2026-09-13; m-3's word YES with the V-RP/S-RP fence on H folded verbatim; the rev2 rehearsal's Task 4 STOP folded: the LEG 1/2 instrument is an in-process read-accounting shim, strace being invalid under the container's CPU emulation)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task, IN DOCUMENT ORDER, through the per-task runner protocol below and nothing else. Steps use checkbox (`- [ ]`) syntax for tracking. Nothing in this document is authority: the implementation token is a separate bare `DISPATCH IMPL` relay from the pair Planner after the exact-hash approve; the branch push and the PR are the R-4.51 clause (2) vehicle; the merge is the operator's condition-4 token; the landing is R-4.52; nothing here releases.
+
+**Revision 3 (2026-09-13).** (1) **m-3's word is YES** (`intg-r449-line1-selection-act/DESIGN-planner-20260913-190502.md`, carried by master `194027`): the two-anchor re-pin is m-3's ONE routed harness byte under C-2 rule 4, implementer-authored as H on C, byte-reviewed by m-3 at H before the vehicle — all three pre-token gates are on the record (m-3's settle `164629`, m-2's C-1/C-2 `170000`, m-3's re-pin YES `190502`). m-3's FENCE ON H (V-RP-1..8, S-RP-1..4) binds verbatim below; m-3's evidence list for H is produced by Task 2 / Task 4 / Task 5 into `$EVID/H/`. **The diff-line count reconciled** (m-3's V-RP-2 asked): `git diff -U0 C H` is EXACTLY two hunks, each one `-` and one `+` line = FOUR ± content lines; rev2's "six" counted the two `---`/`+++` file-header lines as well — Task 5 now proves hunks = 2, `±` content lines = 4, header lines = 2 separately. (2) The rev2 scratch rehearsal ran **Tasks 0–3 GREEN with the re-pin** (the discriminator's hygiene PASS at H: `harness-selftest` green under the observer once the anchors moved) and STOPPED at Task 4's H container: Phase L's `strace` reduction was EMPTY. Diagnosis by two scouts in throwaway containers: under this host's CPU emulation (`--platform linux/amd64` on an arm64 host) `strace` output is garbled (`syscall_0x…` names, nonsense fd numbers) — an INVALID instrument, and the traced `biv pack` reported zero members while untraced runs report six. **FOLDED: the LEG 1/2 instrument is now an in-process read accountant** — `readtrace.c`, an `LD_PRELOAD` library wrapping `read`/`pread`/`pread64`, resolving each fd's path through `/proc/self/fd` and summing the BYTES RETURNED per path under a prefix (no ptrace; no content recorded) — compiled in Phase L, VALIDATED FIRST by a must-be-YES control (`dd` over one store file → exactly one row equal to that file's size, `cmp` against the expectation) and only then wrapped around `biv pack`; `readtrace_reduce.py` replaces `strace_bytes.py`; `leg12_verdict.py` is unchanged (path<TAB>bytes). The shim was scouted against a real `biv` built on the candidate branch in a container before this revision (receipt on the carrier).
 
 **Revision 2 (2026-09-13).** The rev1 scratch rehearsal (Tasks 0–2 green: S built at 868,623,617 bytes / 1,645 files, LEG 3 at B with the six members and five `SessionNoCwdRecord` warnings, the four patchers applied, `TEST_CASE` census 15/25, the whole suite green with the nine SECTIONs run, the commit bound) STOPPED at Task 3's discriminator: `harness-selftest` red under the observer too — 53 failures in `selftest/test_e3_asserts.py`, ALL from one root, `_c1_drift_tripwire_failures` (`harness/bivharness/e3.py:2382`): the S-CP-2 anchors `_ADAPTER_SOURCE_ANCHORS` pin the WHOLE-FILE sha256 of `claude_code.cpp` AND `codex.cpp`, so any byte in either reds the harness at the candidate (the R-4.50 lesson of 2026-09-07, which rev1 failed to carry). FOLDED: the candidate is TWO COMMITS, TWO OWNERS in ONE PR (the R-4.50 arm A shape) — **C** = the lane's product commit (the four touchable paths, m-2's fence) and **H** = m-3's harness commit (`e3pin_r449.py`: the two anchor literals re-pinned to C's adapter digests, NOTHING else — numstat `2 2 harness/bivharness/e3.py`, exactly six diff lines), authored by the implementer as m-3's ROUTED byte under C-2 rule 4 (`143638`: "any harness byte … is my surface — routed, under my byte review, one commit") and byte-reviewed by m-3 at H through master before the vehicle. **m-3's word on this shape is a PRE-TOKEN GATE** (asked through master with this revision; the token does not issue before it). Also folded: the pack JSON's warning key is `SessionNoCwdRecord` (rev1 grepped `no_cwd`, a confident zero — the count is now REQUIRED 5 = the `claude-no-cwd` class at B and at H). The rehearsal's first attempt had stopped at Task 0's ignore proof because a fresh clone lacks the real checkout's local exclude rules (`.venv-harness/`, `__pycache__/`, `.pytest_cache/` in `.git/info/exclude`, shared by the real linked worktree) — a driver-fidelity fix, and the gate that caught it stays.
 
@@ -59,13 +61,16 @@ S-LS-4  CROSS-DOMAIN: any harness or witness expectation keyed to read counts or
         → dormant by m-3's own C-2 rule 5 (oracles observe identities/provenance/paths/warnings, not read patterns); no harness byte in this act
 ```
 
+- m-3's FENCE ON H (`190502` §, binding verbatim; the R-4.50 arm A shape): **V-RP-1** any byte outside `harness/bivharness/e3.py` · **V-RP-2** any `e3.py` byte other than the two 64-hex literals — numstat EXACTLY `2 2 harness/bivharness/e3.py`, `git diff -U0 C H` EXACTLY two hunks each one `-` and one `+` line (four ± lines), the two path strings, the two keys, the tripwire logic, `SESSION_LOCATIONS` / `LIVE_STORE_SELECTORS` and every comment byte untouched · **V-RP-3** either `+` literal ≠ sha256 of the corresponding adapter file AT C · **V-RP-4** the re-pin set ≠ the set of adapter files C changes (both move for this act; the patcher's exit-4 refusal enforces the first half, the tripwire green at H the second) · **V-RP-5** `H^` ≠ C, or `C^` ≠ B `4cf135ee`, or H anywhere but the candidate branch before the PR-head acceptance run · **V-RP-6** the acceptance at the PR head C+H failing the rev13 `harness-selftest` bar (macOS rc 0; Linux rc 0 OR the (a)–(h) disclosed-registered reading with a VALID candidate red against a VALID base draw that SHOWS; C-1 `d_tripwire_lines=0` at H on C's bytes with the R-4.35 family files identical; C-2 equal collected population; no `-E` on the row, no rerun) · **V-RP-7** any `Co-Authored-By` trailer in H's message · **V-RP-8** any S-LS-4 byte inside H — H is the re-pin ONLY. **S-RP-1** the tripwire needs more than the two literals · **S-RP-2** the walk finds any further harness reference to the adapters' bytes or digests beyond `e3.py:73-79` and the selftests' path/key strings · **S-RP-3** an anchor not found exactly once at C's `e3.py` (patcher exit 3 — the base moved) · **S-RP-4** the selftests' anchor tests red at H for any reason other than the pre-re-pin state — every STOP routed UP before any harness byte. **EVIDENCE m-3 READS AT H** (all under `$EVID/H/`): `repin.txt` (both keys; old = the pin's literals; new = C's digests), `repin.numstat` == `2 2 harness/bivharness/e3.py`, `e3-H.diff` (the `-U0` diff) beside `adapters-at-C.sha256`, `harness-walk-old-digests.txt` (the two OLD digests: zero hits under `harness/`) and `harness-walk-adapter-paths.rows` (the adapter paths under `harness/`: only `e3.py` and `test_e3_asserts.py` rows), `linux-selftest-bar.txt`, `ctest-macos-H.rc`, `d_tripwire_lines` (inside the bar line), `message-H.committed` (no trailer; the rule-4 authority sentence). m-3's review returns through master as a merge-gate input beside m-2's V-LS-1..6 of C, before the branch push and PR.
 - THE WITNESS, three legs (`142000` §2), executed as EVIDENCE by the runner (no witness leg is a product byte; the Catch2 `SECTION`s carry the corpus-shaped membership cases):
 
 ```text
-LEG 1  bytes-read-per-store-file BEFORE (B) and AFTER (H), instrumented at the candidate head: `strace -f -s 0 -e trace=open,openat,openat2,read,pread64`
-       around `biv pack` inside the Linux parity container (Phase L) at B and at H over the synthetic store S (six classes, per-file manifest
-       with each file's predicate-completing byte offset `head_end`); `strace_bytes.py` reduces the trace to path<TAB>bytes_read (no content:
-       `-s 0`); `leg12_verdict.py` grades every file of S by its class with the bound NAMED per file:
+LEG 1  bytes-read-per-store-file BEFORE (B) and AFTER (H), instrumented at the candidate head: the `readtrace.c` shim (LD_PRELOAD; wraps
+       read/pread/pread64, sums the bytes RETURNED per fd path under /work/synth; no ptrace — strace is invalid under this host's CPU emulation;
+       no content recorded) around `biv pack` inside the Linux parity container (Phase L) at B and at H over the synthetic store S (six classes,
+       per-file manifest with each file's predicate-completing byte offset `head_end`), after a must-be-YES control of the shim in the same
+       container (`dd` over one store file → exactly its size); `readtrace_reduce.py` reduces to path<TAB>bytes_read; `leg12_verdict.py`
+       grades every file of S by its class with the bound NAMED per file:
          selected (K per agent)                          bytes_B >= size AND bytes_H >= size                (full reads retained — V-LS-4)
          non-selected with a completing line             bytes_B >= size AND bytes_H <= ceil(head_end / 8192) * 8192 AND bytes_H < size
          the SEALED whole-file classes                   bytes_B >= size AND bytes_H >= size — claude-no-cwd (A1 §A1: no cwd anywhere → EOF +
@@ -370,12 +375,12 @@ ANTI-RETROSPECTION  B.txt and H.txt are written at their binding steps and never
 - Modify (m-3's commit H): `harness/bivharness/e3.py` — the two `_ADAPTER_SOURCE_ANCHORS` sha256 literals (:74-79 at B) re-pinned to C's `claude_code.cpp` / `codex.cpp` digests (patcher BLOCK `e3pin_r449.py`: each anchor exactly once; unchanged digest refused; validated on a must-be-YES and a must-be-NO case at the planner's seat).
 - Modify: `tests/test_adapter_codex_collect.cpp` — four `SECTION`s appended inside `TEST_CASE("X-2 Codex suppresses session_id warnings outside the source root")` (patcher BLOCK `tests_codex_r449.py`): an unparseable first line ahead of session_meta still keys the rollout; the tail facts of a large selected rollout come from its full text (a terminal `task_complete` after 3 MiB → `live_at_pack` false); an out-of-root session_meta with a large body is excluded without a warning; the in-root `SessionIdWithoutId` warning still fires from the head facts of a large rollout.
 - Evidence (outside the repository): `$EVID` under the durable root; `$EVID/work/` (S, the pack images), `$EVID/census-raw/` and `$EVID/{B,H}/strace-*.log` EXCLUDED from the record (`finalize.py` SCRATCH); the tracked record `results/r449-<token>/` by Task 7.
-- Instruments (BLOCKs of this document; materialized at Task 0 Step 0b; hashed into `helpers.sha256`; verified before every task): `cells.py`, `tuples.py`, `cellgate.py`, `skipset.py`, `selftest_summary.py`, `finalize.py`, `synth_store.py`, `membership.py`, `strace_bytes.py`, `leg12_verdict.py`, `pack_run.py`, `hunkwin.py`, `head_reader_claude.py`, `head_reader_codex.py`, `tests_claude_r449.py`, `tests_codex_r449.py`, `e3pin_r449.py`, `linux-container.sh` (the R-4.50 container with the branch name, `strace` in Phase R's package list and a new Phase L), `linux-suite.sh` (unchanged from R-4.50 rev19), `commit-message.txt`, `commit-message-harness.txt`.
+- Instruments (BLOCKs of this document; materialized at Task 0 Step 0b; hashed into `helpers.sha256`; verified before every task): `cells.py`, `tuples.py`, `cellgate.py`, `skipset.py`, `selftest_summary.py`, `finalize.py`, `synth_store.py`, `membership.py`, `readtrace.c` + `readtrace_reduce.py`, `leg12_verdict.py`, `pack_run.py`, `hunkwin.py`, `head_reader_claude.py`, `head_reader_codex.py`, `tests_claude_r449.py`, `tests_codex_r449.py`, `e3pin_r449.py`, `linux-container.sh` (the R-4.50 container with the branch name and a new Phase L: the shim compiled, its must-be-YES control, the pack over the copied S), `linux-suite.sh` (unchanged from R-4.50 rev19), `commit-message.txt`, `commit-message-harness.txt`.
 
 ### Task 0 — bootstrap: evidence home; helpers; B resolved and recorded; the `-v2` worktree DISPOSED with a receipt; the FRESH branch + worktree from the pin; venv + build at B; the observer; B's macOS tuples
 
 - [ ] **Step 0: the evidence home** — the token id from the runners dir; `mktemp -d` under the durable root with the `r449-` prefix, resolved with `pwd -P`; not the OS temp root; not inside the repository; the sub-directories `runners`, `B`, `H`, `work`, `census-raw`; the proof set copied; `token.txt`; the MAIN checkout's product-path status snapshot (`status-initial.txt`).
-- [ ] **Step 0b: helpers materialized** — the seventeen python BLOCKs extracted and `py_compile`d, the two shell BLOCKs extracted and `bash -n`'d, the two commit-message BLOCKs extracted; `helpers.sha256` over all twenty-one; the block listing compared with the bootstrap's.
+- [ ] **Step 0b: helpers materialized** — the seventeen python BLOCKs extracted and `py_compile`d, the two shell BLOCKs extracted and `bash -n`'d, the two commit-message BLOCKs and the `readtrace.c` BLOCK extracted; `helpers.sha256` over all twenty-two; the block listing compared with the bootstrap's.
 - [ ] **Step 1: B resolved and recorded** — fetch `origin/main`; it MUST equal `4cf135ee97f57021c5fc5fd5343de6f655fb0d24` or STOP; the workflow bytes at B → `cells.py` → `B-cells.txt`; `B.txt`; the eight-line LLVM mirror manifest cut from the workflow (lines 167–174, shape-checked); the five base files (the four touchable paths + `harness/bivharness/e3.py`) and their digests (`base-hashes.txt`).
 - [ ] **Step 2: the retained `-v2` worktree DISPOSED (master `164219` (1))** — preconditions: its HEAD is H' `e8a1128d75cd4693d21269c4d040095df570f116` on branch `intg/r450-discover-parity-v2`, status EMPTY, both local refs at their recorded values (`8509157c…`, `e8a1128d…`), two remote heads present; then `git worktree remove`; the path ABSENT after; both refs UNCHANGED after; the worktree list no longer names it → `worktree-dispose.txt`.
 - [ ] **Step 3: the FRESH branch and worktree from the pin** — no local branch `intg/r449-line1-selection`, no remote head of that name, the worktree path absent; `git worktree add -b intg/r449-line1-selection ../bivpak-intg-r449-line1-selection <B>`; HEAD == B on the new branch; status EMPTY; cut-point `origin/main..HEAD` == 0 → `cutpoint.txt`; the ignore proof for `.venv-harness/` and `build/`.
@@ -406,10 +411,10 @@ c=0; cp -p "$RUNNERS/task-0.sh" "$RUNNERS/proof-0.txt" "$RUNNERS/task-0.sha256" 
 w=0; printf 'token=%s\nevid=%s\n' "$TOKEN" "$EVID" > "$EVID/token.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/token.txt" ] || STOP
 s0=0; git -C "$MAIN" status --porcelain -- . ':(exclude).relays' ':(exclude)docs/sprints' > "$EVID/status-initial.txt" || s0=$?; [ "$s0" -eq 0 ] || STOP
 # Step 0b
-for name in cells tuples cellgate skipset selftest_summary finalize synth_store membership strace_bytes leg12_verdict pack_run hunkwin head_reader_claude head_reader_codex tests_claude_r449 tests_codex_r449 e3pin_r449; do x=0; python3 "$RUNNERS/plan_blocks.py" extract "$PLAN" "$name.py" > "$EVID/$name.py" || x=$?; [ "$x" -eq 0 ] && [ -s "$EVID/$name.py" ] || STOP; k=0; python3 -m py_compile "$EVID/$name.py" || k=$?; [ "$k" -eq 0 ] || STOP; done
+for name in cells tuples cellgate skipset selftest_summary finalize synth_store membership readtrace_reduce leg12_verdict pack_run hunkwin head_reader_claude head_reader_codex tests_claude_r449 tests_codex_r449 e3pin_r449; do x=0; python3 "$RUNNERS/plan_blocks.py" extract "$PLAN" "$name.py" > "$EVID/$name.py" || x=$?; [ "$x" -eq 0 ] && [ -s "$EVID/$name.py" ] || STOP; k=0; python3 -m py_compile "$EVID/$name.py" || k=$?; [ "$k" -eq 0 ] || STOP; done
 for name in linux-container.sh linux-suite.sh; do x=0; python3 "$RUNNERS/plan_blocks.py" extract "$PLAN" "$name" > "$EVID/$name" || x=$?; [ "$x" -eq 0 ] && [ -s "$EVID/$name" ] || STOP; s=0; bash -n "$EVID/$name" || s=$?; [ "$s" -eq 0 ] || STOP; done
-for name in commit-message.txt commit-message-harness.txt; do x=0; python3 "$RUNNERS/plan_blocks.py" extract "$PLAN" "$name" > "$EVID/$name" || x=$?; [ "$x" -eq 0 ] && [ -s "$EVID/$name" ] || STOP; done
-h=0; (cd "$EVID" && shasum -a 256 cells.py tuples.py cellgate.py skipset.py selftest_summary.py finalize.py synth_store.py membership.py strace_bytes.py leg12_verdict.py pack_run.py hunkwin.py head_reader_claude.py head_reader_codex.py tests_claude_r449.py tests_codex_r449.py e3pin_r449.py linux-container.sh linux-suite.sh commit-message.txt commit-message-harness.txt > helpers.sha256) || h=$?; [ "$h" -eq 0 ] && [ -s "$EVID/helpers.sha256" ] || STOP
+for name in commit-message.txt commit-message-harness.txt readtrace.c; do x=0; python3 "$RUNNERS/plan_blocks.py" extract "$PLAN" "$name" > "$EVID/$name" || x=$?; [ "$x" -eq 0 ] && [ -s "$EVID/$name" ] || STOP; done
+h=0; (cd "$EVID" && shasum -a 256 cells.py tuples.py cellgate.py skipset.py selftest_summary.py finalize.py synth_store.py membership.py readtrace_reduce.py leg12_verdict.py pack_run.py hunkwin.py head_reader_claude.py head_reader_codex.py tests_claude_r449.py tests_codex_r449.py e3pin_r449.py linux-container.sh linux-suite.sh commit-message.txt commit-message-harness.txt readtrace.c > helpers.sha256) || h=$?; [ "$h" -eq 0 ] && [ -s "$EVID/helpers.sha256" ] || STOP
 x=0; python3 "$RUNNERS/plan_blocks.py" list "$PLAN" > "$EVID/blocks.txt" || x=$?; [ "$x" -eq 0 ] && [ -s "$EVID/blocks.txt" ] || STOP; c=0; cmp "$EVID/blocks.txt" "$RUNNERS/blocks.txt" || c=$?; [ "$c" -eq 0 ] || STOP
 # Step 1
 f=0; git -C "$MAIN" fetch --no-tags origin refs/heads/main:refs/remotes/origin/main || f=$?; [ "$f" -eq 0 ] || STOP
@@ -597,9 +602,9 @@ s=0; git -C "$MAIN" status --porcelain -- . ':(exclude).relays' ':(exclude)docs/
 exit 0
 ```
 
-### Task 4 — the Linux parity leg at H and at B (Phases R/T/S/L); LEG 1 and LEG 2 by strace; LEG 3 Linux; the iso rev13 bar with the in-token base draw; the count gate (Linux half)
+### Task 4 — the Linux parity leg at H and at B (Phases R/T/S/L); LEG 1 and LEG 2 by the readtrace shim; LEG 3 Linux; the iso rev13 bar with the in-token base draw; the count gate (Linux half)
 
-- [ ] **Step 1: the container at H** — the LLVM mirror assets downloaded and digest-verified; the stale macOS image removed from `work/ws`; `docker run --rm --platform linux/amd64 --init` with `/repo-ro` (the MAIN checkout, read-only — the fresh worktree is a linked worktree so H's objects are in the shared store and the branch ref is cloneable), `/llvm-mirror` (read-only) and `$EVID` at `/evidence`; Phase L copies `/evidence/work` to `/work/synth`, chowns it to the suite user and runs `strace -f -s 0` around `biv pack /work/synth/ws/proj --json` with the locator env, reduces the trace (`strace_bytes.py`) and extracts the image's membership (`membership.py`); the required files present (suite XMLs, ctest log/rc/junit, `bytes-H.tsv`, `pack-linux-H.json/.rc/.ok`, `membership-linux-H.json`, `strace-H.size`); the container ledger's five phase keys = 0; the 26 required suite-ledger keys = 0 (28 rows); pack rc 0 or 2 with ok; membership count 6; the aggregate log token-scanned; the observer names absent in the container; `H/tuples-linux.txt`.
+- [ ] **Step 1: the container at H** — the LLVM mirror assets downloaded and digest-verified; the stale macOS image removed from `work/ws`; `docker run --rm --platform linux/amd64 --init` with `/repo-ro` (the MAIN checkout, read-only — the fresh worktree is a linked worktree so H's objects are in the shared store and the branch ref is cloneable), `/llvm-mirror` (read-only) and `$EVID` at `/evidence`; Phase L copies `/evidence/work` to `/work/synth`, compiles `readtrace.c` into `/work/readtrace.so`, chowns both to the suite user, runs the must-be-YES control (`dd` over one non-selected codex-bulk file under the shim; the reduced row must `cmp` equal to `path<TAB>size`), then runs `biv pack /work/synth/ws/proj --json` under the shim with the locator env, reduces the accounting (`readtrace_reduce.py` → `bytes-H.tsv`) and extracts the image's membership (`membership.py`); the required files present (suite XMLs, ctest log/rc/junit, `bytes-H.tsv`, `pack-linux-H.json/.rc/.ok`, `membership-linux-H.json`, `readtrace-H.tsv/.rows`, the control's `.reduced`/`.expected`); the control `cmp` re-checked on the host; the container ledger's five phase keys = 0; the 26 required suite-ledger keys = 0 (28 rows); pack rc 0 or 2 with ok; membership count 6; the aggregate log token-scanned; the observer names absent in the container; `H/tuples-linux.txt`.
 - [ ] **Step 2: the container at B** — the same at B (the base draw of the bar AND LEG 1's before side) → `B/…`.
 - [ ] **Step 3: LEG 1 / LEG 2 / LEG 3 Linux** — `leg12_verdict.py B/bytes-B.tsv H/bytes-H.tsv synth-manifest.json` → `H/leg12-verdict.txt` (one row per file of S with its rule and verdict; per-class totals; the store totals and the H/B ratio; `VERDICT PASS violations=0` or STOP UP); `H/leg12-summary.txt`; `diff B/membership-linux-B.json H/membership-linux-H.json` EMPTY.
 - [ ] **Step 4: the iso rev13 bar (a)–(h) at H with the in-token base draw at B** — EXACTLY the R-4.50 Task 6 Step 2 lines re-based on B (the receipt `H/linux-selftest-bar.txt`; the two admitted outcomes `pass-green` | `pass-r435-disclosed-registered-red`; every other outcome STOP UP with the receipt).
@@ -613,24 +618,24 @@ MAIN=/Users/jack/Programming/bivpak
 B=4cf135ee97f57021c5fc5fd5343de6f655fb0d24
 cd "$WORKTREE" || STOP
 v=0; (cd "$EVID" && shasum -a 256 -c helpers.sha256 > helpers.verify-4.txt 2>&1) || v=$?; [ "$v" -eq 0 ] || STOP
-[ -s "$EVID/observer-unset-names.txt" ] && [ -s "$EVID/synth-manifest.json" ] && [ -d "$EVID/work/ws/proj" ] || STOP
+[ -s "$EVID/observer-unset-names.txt" ] && [ -s "$EVID/synth-manifest.json" ] && [ -d "$EVID/work/ws/proj" ] && [ -s "$EVID/readtrace.c" ] && [ -s "$EVID/readtrace_reduce.py" ] || STOP
 H=$(cat "$EVID/H.txt") || STOP; e=0; git cat-file -e "${H}^{commit}" || e=$?; [ "$e" -eq 0 ] || STOP; [ "$(git rev-parse HEAD)" = "$H" ] || STOP
 [ "$(sed -n 's/^B=//p' "$EVID/B.txt")" = "$B" ] || STOP
 # Step 1
 LLVM_RAW=$(mktemp -d "$EVID/llvm22-assets-H.XXXXXX") || STOP; LLVM_DIR=$(cd "$LLVM_RAW" && pwd -P) || STOP; c=0; cp "$EVID/llvm-manifest.txt" "$LLVM_DIR/MANIFEST" || c=$?; [ "$c" -eq 0 ] || STOP; h=0; while read -r _ package asset; do gh release download toolchain-mirror-clang-tidy-22-immutable-v1 --repo iwnlcern/bivpak --pattern "$asset" --dir "$LLVM_DIR" || h=$?; done < "$LLVM_DIR/MANIFEST" > "$EVID/H/phase-H.log" 2>&1; a=0; awk '{ print $1 "  " $3 }' "$LLVM_DIR/MANIFEST" > "$LLVM_DIR/SHA256SUMS" || a=$?; [ "$a" -eq 0 ] && [ -s "$LLVM_DIR/SHA256SUMS" ] || STOP; v=0; (cd "$LLVM_DIR" && shasum -a 256 -c SHA256SUMS) > "$EVID/H/phase-H-verify.txt" 2>&1 || v=$?; printf 'phase_H_transport_rc=%s verify_rc=%s\n' "$h" "$v" > "$EVID/H/phase-H.rc"; [ "$h" -eq 0 ] && [ "$v" -eq 0 ] || STOP
 rm -f "$EVID"/work/ws/proj.bvpk "$EVID"/work/ws/proj.bvpk.partial "$EVID"/work/ws/proj.bvpk.spool
 o=0; docker run --rm --platform linux/amd64 --init -v "${LLVM_DIR}:/llvm-mirror:ro" -v "${MAIN}:/repo-ro:ro" -v "${EVID}:/evidence" ubuntu:24.04 bash /evidence/linux-container.sh "$H" H > "$EVID/H/linux-container.log" 2>&1 || o=$?; printf '%s\n' "$o" > "$EVID/H/linux-container.rc"; [ "$o" -eq 0 ] && [ -s "$EVID/H/linux-container.log" ] || STOP
-for f in linux-ledger.txt linux-suite-ledger.txt linux-observer-name-proof.txt linux-nofile.txt linux-run-head-receipt.txt container-payload.rc container-copy-out.rc ctest-linux-H.log ctest-linux-H.rc ctest-linux-H.junit.xml biv_subprocess_tests-linux.xml biv_repo_git_tests-linux.xml biv_repo_engine_tests-linux.xml biv_tests-linux.xml biv_probe_tests-linux.xml bytes-H.tsv pack-linux-H.json pack-linux-H.rc pack-linux-H.ok membership-linux-H.json strace-H.size; do [ -s "$EVID/H/$f" ] || STOP; done; [ "$(cat "$EVID/H/container-payload.rc")" = container_payload_rc=0 ] || STOP; [ "$(cat "$EVID/H/container-copy-out.rc")" = 'copy_out_rc=0 payload_receipt_rc=0' ] || STOP; for x in phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 phase_L_leg_rc=0; do g=0; k=$(grep -c -x -F -- "$x" "$EVID/H/linux-ledger.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; done
+for f in linux-ledger.txt linux-suite-ledger.txt linux-observer-name-proof.txt linux-nofile.txt linux-run-head-receipt.txt container-payload.rc container-copy-out.rc ctest-linux-H.log ctest-linux-H.rc ctest-linux-H.junit.xml biv_subprocess_tests-linux.xml biv_repo_git_tests-linux.xml biv_repo_engine_tests-linux.xml biv_tests-linux.xml biv_probe_tests-linux.xml bytes-H.tsv pack-linux-H.json pack-linux-H.rc pack-linux-H.ok membership-linux-H.json readtrace-H.tsv readtrace-H.rows readtrace-control-H.reduced readtrace-control-H.expected; do [ -s "$EVID/H/$f" ] || STOP; done; [ "$(cat "$EVID/H/container-payload.rc")" = container_payload_rc=0 ] || STOP; [ "$(cat "$EVID/H/container-copy-out.rc")" = 'copy_out_rc=0 payload_receipt_rc=0' ] || STOP; for x in phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 phase_L_leg_rc=0; do g=0; k=$(grep -c -x -F -- "$x" "$EVID/H/linux-ledger.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; done
 w=0; printf '%s=0\n' nofile_hard_read_rc nofile_raise_rc nofile_soft_read_rc nofile_soft_equals_hard_rc nofile_receipt_write_rc venv_rc requirements_rc configure_rc build_rc observer_name_proof_create_rc observer_name_input_nonempty_rc observer_name_present_rc observer_name_proof_write_rc observer_name_proof_nonempty_rc biv_subprocess_tests_producer_rc biv_subprocess_tests_xml_nonempty_rc biv_repo_git_tests_producer_rc biv_repo_git_tests_xml_nonempty_rc biv_repo_engine_tests_producer_rc biv_repo_engine_tests_xml_nonempty_rc biv_tests_producer_rc biv_tests_xml_nonempty_rc biv_probe_tests_producer_rc biv_probe_tests_xml_nonempty_rc ctest_H_log_nonempty_rc ctest_H_receipt_write_rc > "$EVID/H/ledger-required.raw" || w=$?; [ "$w" -eq 0 ] || STOP; o=0; LC_ALL=C sort "$EVID/H/ledger-required.raw" > "$EVID/H/ledger-required.expected" || o=$?; [ "$o" -eq 0 ] && [ -s "$EVID/H/ledger-required.expected" ] || STOP; g=0; grep -E '^(nofile_hard_read_rc|nofile_raise_rc|nofile_soft_read_rc|nofile_soft_equals_hard_rc|nofile_receipt_write_rc|venv_rc|requirements_rc|configure_rc|build_rc|observer_name_proof_create_rc|observer_name_input_nonempty_rc|observer_name_present_rc|observer_name_proof_write_rc|observer_name_proof_nonempty_rc|biv_subprocess_tests_producer_rc|biv_subprocess_tests_xml_nonempty_rc|biv_repo_git_tests_producer_rc|biv_repo_git_tests_xml_nonempty_rc|biv_repo_engine_tests_producer_rc|biv_repo_engine_tests_xml_nonempty_rc|biv_tests_producer_rc|biv_tests_xml_nonempty_rc|biv_probe_tests_producer_rc|biv_probe_tests_xml_nonempty_rc|ctest_H_log_nonempty_rc|ctest_H_receipt_write_rc)=' "$EVID/H/linux-suite-ledger.txt" > "$EVID/H/ledger-required.txt" || g=$?; [ "$g" -eq 0 ] || STOP; o=0; LC_ALL=C sort "$EVID/H/ledger-required.txt" > "$EVID/H/ledger-required.sorted" || o=$?; [ "$o" -eq 0 ] || STOP; c=0; cmp "$EVID/H/ledger-required.sorted" "$EVID/H/ledger-required.expected" || c=$?; [ "$c" -eq 0 ] || STOP; a=0; ntot=$(awk 'END { print NR }' "$EVID/H/linux-suite-ledger.txt") || a=$?; [ "$a" -eq 0 ] && [ "$ntot" -eq 28 ] || STOP; g=0; grep -E '^ctest_H_producer_rc=[0-9]+$' "$EVID/H/linux-suite-ledger.txt" > "$EVID/H/ctest-key.txt" || g=$?; [ "$g" -eq 0 ] || STOP; a=0; k=$(awk 'END { print NR }' "$EVID/H/ctest-key.txt") || a=$?; [ "$a" -eq 0 ] && [ "$k" -eq 1 ] || STOP; s=0; sed 's/^ctest_H_producer_rc=//' "$EVID/H/ctest-key.txt" > "$EVID/H/ctest-key.value" || s=$?; [ "$s" -eq 0 ] && [ -s "$EVID/H/ctest-key.value" ] || STOP; [ "$(cat "$EVID/H/ctest-linux-H.rc")" = "$(cat "$EVID/H/ctest-key.value")" ] || STOP; g=0; k=$(grep -c -x -F 'suite_aggregate_rc=0 ledger_write_failed=0' "$EVID/H/linux-suite-ledger.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
-[ "$(cat "$EVID/H/pack-linux-H.ok")" = 1 ] || STOP; case "$(cat "$EVID/H/pack-linux-H.rc")" in 0|2) ;; *) STOP;; esac; g=0; k=$(grep -c -F -- ' "count": 6,' "$EVID/H/membership-linux-H.json") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+c=0; cmp "$EVID/H/readtrace-control-H.reduced" "$EVID/H/readtrace-control-H.expected" || c=$?; [ "$c" -eq 0 ] || STOP; [ "$(cat "$EVID/H/pack-linux-H.ok")" = 1 ] || STOP; case "$(cat "$EVID/H/pack-linux-H.rc")" in 0|2) ;; *) STOP;; esac; g=0; k=$(grep -c -F -- ' "count": 6,' "$EVID/H/membership-linux-H.json") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
 c=0; cat -- "$EVID/H/linux-container.log" "$EVID/H/phase-R-base.log" "$EVID/H/phase-R-assets.log" "$EVID/H/phase-T-transition.log" "$EVID/H/phase-S-suite.log" "$EVID/H/phase-L-leg.log" "$EVID/H/linux-venv.log" "$EVID/H/linux-requirements.log" "$EVID/H/linux-configure.log" "$EVID/H/linux-build.log" "$EVID/H/ctest-linux-H.log" "$EVID/H/pack-linux-H.stderr" "$EVID"/H/*-linux.stderr > "$EVID/H/all-logs-H-linux.txt" || c=$?; [ "$c" -eq 0 ] && [ -f "$EVID/H/all-logs-H-linux.txt" ] || STOP; g=0; secret_hits=$(grep -c -E 'sk-[A-Za-z0-9]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[abprs]-' "$EVID/H/all-logs-H-linux.txt") || g=$?; [ "$g" -le 1 ] || STOP; printf 'pattern=census-alternation cat_rc=%s grep_rc=%s hits=%s\n' "$c" "$g" "$secret_hits" > "$EVID/H/token-scan-linux.txt"; [ "$secret_hits" -eq 0 ] || STOP; s=0; sed 's/$/ absent/' "$EVID/observer-unset-names.txt" > "$EVID/H/linux-observer-name-proof.expected" || s=$?; [ "$s" -eq 0 ] && [ -s "$EVID/H/linux-observer-name-proof.expected" ] || STOP; d=0; diff "$EVID/H/linux-observer-name-proof.expected" "$EVID/H/linux-observer-name-proof.txt" > "$EVID/H/linux-observer-name-proof.delta" || d=$?; [ "$d" -eq 0 ] || STOP
 h=0; shasum -a 256 "$EVID"/H/*-linux.xml > "$EVID/H/xml-sha256-linux.txt" || h=$?; [ "$h" -eq 0 ] && [ -s "$EVID/H/xml-sha256-linux.txt" ] || STOP
 u=0; python3 "$EVID/tuples.py" linux "$EVID"/H/biv_subprocess_tests-linux.xml "$EVID"/H/biv_repo_git_tests-linux.xml "$EVID"/H/biv_repo_engine_tests-linux.xml "$EVID"/H/biv_tests-linux.xml "$EVID"/H/biv_probe_tests-linux.xml > "$EVID/H/tuples-linux.txt" || u=$?; [ "$u" -eq 0 ] && [ -s "$EVID/H/tuples-linux.txt" ] || STOP
 # Step 2
 o=0; docker run --rm --platform linux/amd64 --init -v "${LLVM_DIR}:/llvm-mirror:ro" -v "${MAIN}:/repo-ro:ro" -v "${EVID}:/evidence" ubuntu:24.04 bash /evidence/linux-container.sh "$B" B > "$EVID/B/linux-container.log" 2>&1 || o=$?; printf '%s\n' "$o" > "$EVID/B/linux-container.rc"; [ "$o" -eq 0 ] && [ -s "$EVID/B/linux-container.log" ] || STOP
-for f in linux-ledger.txt linux-suite-ledger.txt linux-observer-name-proof.txt linux-nofile.txt linux-run-head-receipt.txt container-payload.rc container-copy-out.rc ctest-linux-B.log ctest-linux-B.rc ctest-linux-B.junit.xml biv_subprocess_tests-linux.xml biv_repo_git_tests-linux.xml biv_repo_engine_tests-linux.xml biv_tests-linux.xml biv_probe_tests-linux.xml bytes-B.tsv pack-linux-B.json pack-linux-B.rc pack-linux-B.ok membership-linux-B.json strace-B.size; do [ -s "$EVID/B/$f" ] || STOP; done; [ "$(cat "$EVID/B/container-payload.rc")" = container_payload_rc=0 ] || STOP; [ "$(cat "$EVID/B/container-copy-out.rc")" = 'copy_out_rc=0 payload_receipt_rc=0' ] || STOP; for x in phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 phase_L_leg_rc=0; do g=0; k=$(grep -c -x -F -- "$x" "$EVID/B/linux-ledger.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; done
+for f in linux-ledger.txt linux-suite-ledger.txt linux-observer-name-proof.txt linux-nofile.txt linux-run-head-receipt.txt container-payload.rc container-copy-out.rc ctest-linux-B.log ctest-linux-B.rc ctest-linux-B.junit.xml biv_subprocess_tests-linux.xml biv_repo_git_tests-linux.xml biv_repo_engine_tests-linux.xml biv_tests-linux.xml biv_probe_tests-linux.xml bytes-B.tsv pack-linux-B.json pack-linux-B.rc pack-linux-B.ok membership-linux-B.json readtrace-B.tsv readtrace-B.rows readtrace-control-B.reduced readtrace-control-B.expected; do [ -s "$EVID/B/$f" ] || STOP; done; [ "$(cat "$EVID/B/container-payload.rc")" = container_payload_rc=0 ] || STOP; [ "$(cat "$EVID/B/container-copy-out.rc")" = 'copy_out_rc=0 payload_receipt_rc=0' ] || STOP; for x in phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 phase_L_leg_rc=0; do g=0; k=$(grep -c -x -F -- "$x" "$EVID/B/linux-ledger.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; done
 w=0; printf '%s=0\n' nofile_hard_read_rc nofile_raise_rc nofile_soft_read_rc nofile_soft_equals_hard_rc nofile_receipt_write_rc venv_rc requirements_rc configure_rc build_rc observer_name_proof_create_rc observer_name_input_nonempty_rc observer_name_present_rc observer_name_proof_write_rc observer_name_proof_nonempty_rc biv_subprocess_tests_producer_rc biv_subprocess_tests_xml_nonempty_rc biv_repo_git_tests_producer_rc biv_repo_git_tests_xml_nonempty_rc biv_repo_engine_tests_producer_rc biv_repo_engine_tests_xml_nonempty_rc biv_tests_producer_rc biv_tests_xml_nonempty_rc biv_probe_tests_producer_rc biv_probe_tests_xml_nonempty_rc ctest_B_log_nonempty_rc ctest_B_receipt_write_rc > "$EVID/B/ledger-required.raw" || w=$?; [ "$w" -eq 0 ] || STOP; o=0; LC_ALL=C sort "$EVID/B/ledger-required.raw" > "$EVID/B/ledger-required.expected" || o=$?; [ "$o" -eq 0 ] && [ -s "$EVID/B/ledger-required.expected" ] || STOP; g=0; grep -E '^(nofile_hard_read_rc|nofile_raise_rc|nofile_soft_read_rc|nofile_soft_equals_hard_rc|nofile_receipt_write_rc|venv_rc|requirements_rc|configure_rc|build_rc|observer_name_proof_create_rc|observer_name_input_nonempty_rc|observer_name_present_rc|observer_name_proof_write_rc|observer_name_proof_nonempty_rc|biv_subprocess_tests_producer_rc|biv_subprocess_tests_xml_nonempty_rc|biv_repo_git_tests_producer_rc|biv_repo_git_tests_xml_nonempty_rc|biv_repo_engine_tests_producer_rc|biv_repo_engine_tests_xml_nonempty_rc|biv_tests_producer_rc|biv_tests_xml_nonempty_rc|biv_probe_tests_producer_rc|biv_probe_tests_xml_nonempty_rc|ctest_B_log_nonempty_rc|ctest_B_receipt_write_rc)=' "$EVID/B/linux-suite-ledger.txt" > "$EVID/B/ledger-required.txt" || g=$?; [ "$g" -eq 0 ] || STOP; o=0; LC_ALL=C sort "$EVID/B/ledger-required.txt" > "$EVID/B/ledger-required.sorted" || o=$?; [ "$o" -eq 0 ] || STOP; c=0; cmp "$EVID/B/ledger-required.sorted" "$EVID/B/ledger-required.expected" || c=$?; [ "$c" -eq 0 ] || STOP; a=0; ntot=$(awk 'END { print NR }' "$EVID/B/linux-suite-ledger.txt") || a=$?; [ "$a" -eq 0 ] && [ "$ntot" -eq 28 ] || STOP; g=0; grep -E '^ctest_B_producer_rc=[0-9]+$' "$EVID/B/linux-suite-ledger.txt" > "$EVID/B/ctest-key.txt" || g=$?; [ "$g" -eq 0 ] || STOP; a=0; k=$(awk 'END { print NR }' "$EVID/B/ctest-key.txt") || a=$?; [ "$a" -eq 0 ] && [ "$k" -eq 1 ] || STOP; s=0; sed 's/^ctest_B_producer_rc=//' "$EVID/B/ctest-key.txt" > "$EVID/B/ctest-key.value" || s=$?; [ "$s" -eq 0 ] && [ -s "$EVID/B/ctest-key.value" ] || STOP; [ "$(cat "$EVID/B/ctest-linux-B.rc")" = "$(cat "$EVID/B/ctest-key.value")" ] || STOP; g=0; k=$(grep -c -x -F 'suite_aggregate_rc=0 ledger_write_failed=0' "$EVID/B/linux-suite-ledger.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
-[ "$(cat "$EVID/B/pack-linux-B.ok")" = 1 ] || STOP; case "$(cat "$EVID/B/pack-linux-B.rc")" in 0|2) ;; *) STOP;; esac; g=0; k=$(grep -c -F -- ' "count": 6,' "$EVID/B/membership-linux-B.json") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+c=0; cmp "$EVID/B/readtrace-control-B.reduced" "$EVID/B/readtrace-control-B.expected" || c=$?; [ "$c" -eq 0 ] || STOP; [ "$(cat "$EVID/B/pack-linux-B.ok")" = 1 ] || STOP; case "$(cat "$EVID/B/pack-linux-B.rc")" in 0|2) ;; *) STOP;; esac; g=0; k=$(grep -c -F -- ' "count": 6,' "$EVID/B/membership-linux-B.json") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
 c=0; cat -- "$EVID/B/linux-container.log" "$EVID/B/phase-R-base.log" "$EVID/B/phase-R-assets.log" "$EVID/B/phase-T-transition.log" "$EVID/B/phase-S-suite.log" "$EVID/B/phase-L-leg.log" "$EVID/B/linux-venv.log" "$EVID/B/linux-requirements.log" "$EVID/B/linux-configure.log" "$EVID/B/linux-build.log" "$EVID/B/ctest-linux-B.log" "$EVID/B/pack-linux-B.stderr" "$EVID"/B/*-linux.stderr > "$EVID/B/all-logs-B-linux.txt" || c=$?; [ "$c" -eq 0 ] && [ -f "$EVID/B/all-logs-B-linux.txt" ] || STOP; g=0; secret_hits=$(grep -c -E 'sk-[A-Za-z0-9]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[abprs]-' "$EVID/B/all-logs-B-linux.txt") || g=$?; [ "$g" -le 1 ] || STOP; printf 'pattern=census-alternation cat_rc=%s grep_rc=%s hits=%s\n' "$c" "$g" "$secret_hits" > "$EVID/B/token-scan-linux.txt"; [ "$secret_hits" -eq 0 ] || STOP; s=0; sed 's/$/ absent/' "$EVID/observer-unset-names.txt" > "$EVID/B/linux-observer-name-proof.expected" || s=$?; [ "$s" -eq 0 ] && [ -s "$EVID/B/linux-observer-name-proof.expected" ] || STOP; d=0; diff "$EVID/B/linux-observer-name-proof.expected" "$EVID/B/linux-observer-name-proof.txt" > "$EVID/B/linux-observer-name-proof.delta" || d=$?; [ "$d" -eq 0 ] || STOP
 h=0; shasum -a 256 "$EVID"/B/*-linux.xml > "$EVID/B/xml-sha256-linux.txt" || h=$?; [ "$h" -eq 0 ] && [ -s "$EVID/B/xml-sha256-linux.txt" ] || STOP
 u=0; python3 "$EVID/tuples.py" linux "$EVID"/B/biv_subprocess_tests-linux.xml "$EVID"/B/biv_repo_git_tests-linux.xml "$EVID"/B/biv_repo_engine_tests-linux.xml "$EVID"/B/biv_tests-linux.xml "$EVID"/B/biv_probe_tests-linux.xml > "$EVID/B/tuples-linux.txt" || u=$?; [ "$u" -eq 0 ] && [ -s "$EVID/B/tuples-linux.txt" ] || STOP
@@ -656,7 +661,7 @@ exit 0
 
 ### Task 5 — fence proofs at H; the census of record at the BRANCH HEAD (B and H produced in-token, equal to each other and to the record of the pin); the IMPL return
 
-- [ ] **Step 1: V-LS proofs** — numstat B→C == the four paths (V-LS-1); the diff B→H over `adapter.hpp`, `secure_io.*`, the two adapter `.hpp`s, `src/core`, `src/cli`, `harness` except `e3.py`, `.github`, the CMake files, `tests/fixtures` EMPTY; the diff C→H over `src` and `tests` EMPTY; the numstat C→H == exactly the e3.py `2 2` row; the e3.py diff has exactly six `+`/`-` lines of which four are the 64-hex anchor literals, and each `+` literal equals the digest of H's corresponding adapter file (the re-pin is to the candidate's own bytes); `hunkwin.py`: every claude hunk inside old-side windows 197–198 (the head reader insertion) and 654–672 (the collect candidate path), every codex hunk inside 228–270 (`inspect_rollout_head`) and 1273–1291 (the collect candidate path) — the discover bodies (claude :570, codex :1155), the sqlite enrichment (codex :1117) and the install side are outside every window; occurrence counts equal at B and H for `sqlite3_` and `threads` (V-LS-3), `SessionIdWithoutId:` (S-LS-3), `has_terminal_tail_record(*text)` / `newest_rollout_timestamp(*text)` / `auto text = source_text(*source);` (V-LS-4 — the tail facts keep their full-text inputs), `no_cwd_record.push_back`, `auto main_text = source_text(*main_source);`, `apply_torn_tail_rule(…)`, the `inspect_transcript` signature (unchanged install-side parser); the two head readers present exactly once each → `fence-greps.txt`.
+- [ ] **Step 1: V-LS proofs** — numstat B→C == the four paths (V-LS-1); the diff B→H over `adapter.hpp`, `secure_io.*`, the two adapter `.hpp`s, `src/core`, `src/cli`, `harness` except `e3.py`, `.github`, the CMake files, `tests/fixtures` EMPTY; the diff C→H over `src` and `tests` EMPTY; the numstat C→H == exactly the e3.py `2 2` row; the e3.py `-U0` diff is EXACTLY two hunks (`@@` lines = 2) with FOUR ± content lines, all four the 64-hex anchor literals, plus the two `---`/`+++` file-header lines (m-3's V-RP-2 count, reconciled), and each `+` literal equals the digest of H's corresponding adapter file (V-RP-3); m-3's evidence set copied into `H/` (`e3-H.diff`, `adapters-at-C.sha256`); the `harness/` walk at H: the two OLD digests hit nothing (S-RP-2), the adapter path strings appear only in `e3.py` and `test_e3_asserts.py`; `hunkwin.py`: every claude hunk inside old-side windows 197–198 (the head reader insertion) and 654–672 (the collect candidate path), every codex hunk inside 228–270 (`inspect_rollout_head`) and 1273–1291 (the collect candidate path) — the discover bodies (claude :570, codex :1155), the sqlite enrichment (codex :1117) and the install side are outside every window; occurrence counts equal at B and H for `sqlite3_` and `threads` (V-LS-3), `SessionIdWithoutId:` (S-LS-3), `has_terminal_tail_record(*text)` / `newest_rollout_timestamp(*text)` / `auto text = source_text(*source);` (V-LS-4 — the tail facts keep their full-text inputs), `no_cwd_record.push_back`, `auto main_text = source_text(*main_source);`, `apply_torn_tail_rule(…)`, the `inspect_transcript` signature (unchanged install-side parser); the two head readers present exactly once each → `fence-greps.txt`.
 - [ ] **Step 2: the census at B and at H** — for each: the tree arm `git grep -n -E <alternation> <sha> -- .` reduced to `path:line` in `git grep`'s own order; the history arm `git rev-list <sha> | xargs git grep -l -E <alternation>` (two producers, a file between them) reduced with `LC_ALL=C sort -u`; the raw outputs under `census-raw/` (EXCLUDED from the record); `diff` tree B vs H EMPTY and history B vs H EMPTY (the act adds no location; the nine SECTIONs carry no credential-shaped string); B's tree rows == the record's `path:line` rows and B's history paths == the record's history paths (the classification A=3 / B=64 / C=2 inherited by equality) → `census-summary.txt`.
 - [ ] **Step 3: the IMPL return** — the receipts listed (`receipts-root.txt`, `receipts-B.txt`, `receipts-H.txt`); no-mutation proofs; the implementer files the IMPL return TO the pair Planner; no push.
 
@@ -673,7 +678,7 @@ H=$(cat "$EVID/H.txt") || STOP; C=$(cat "$EVID/C.txt") || STOP; e=0; git cat-fil
 r=0; git diff --numstat "$B" "$C" > "$EVID/fence-touched.numstat" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/fence-touched.numstat" ] || STOP; s=0; awk '{print $3}' "$EVID/fence-touched.numstat" > "$EVID/fence-touched.paths" || s=$?; [ "$s" -eq 0 ] || STOP; o=0; LC_ALL=C sort "$EVID/fence-touched.paths" > "$EVID/fence-touched.sorted" || o=$?; [ "$o" -eq 0 ] || STOP; d=0; diff "$EVID/touched.expected" "$EVID/fence-touched.sorted" > "$EVID/fence-touched.delta" || d=$?; [ "$d" -eq 0 ] || STOP
 d=0; git diff --quiet "$B" "$H" -- src/adapters/adapter.hpp src/adapters/secure_io.cpp src/adapters/secure_io.hpp src/adapters/claude_code/claude_code.hpp src/adapters/codex/codex.hpp src/core src/cli harness ':!harness/bivharness/e3.py' .github CMakeLists.txt CMakePresets.json tests/fixtures tests/CMakeLists.txt || d=$?; [ "$d" -eq 0 ] || STOP
 d=0; git diff --quiet "$C" "$H" -- src tests || d=$?; [ "$d" -eq 0 ] || STOP; r=0; git diff --numstat "$C" "$H" > "$EVID/harness-touched.numstat" || r=$?; [ "$r" -eq 0 ] || STOP; d=0; diff "$EVID/H/repin.expected" "$EVID/harness-touched.numstat" > "$EVID/harness-touched.delta" || d=$?; [ "$d" -eq 0 ] || STOP
-r=0; git diff -U0 "$C" "$H" -- harness/bivharness/e3.py > "$EVID/e3-H.diff" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/e3-H.diff" ] || STOP; g=0; k=$(grep -c -E '^[-+] {8}"[0-9a-f]{64}",$' "$EVID/e3-H.diff") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 4 ] || STOP; g=0; k=$(grep -c -E '^[-+]' "$EVID/e3-H.diff") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 6 ] || STOP
+r=0; git diff -U0 "$C" "$H" -- harness/bivharness/e3.py > "$EVID/e3-H.diff" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/e3-H.diff" ] || STOP; g=0; k=$(grep -c -E '^[-+] {8}"[0-9a-f]{64}",$' "$EVID/e3-H.diff") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 4 ] || STOP; g=0; k=$(grep -c -E '^@@ ' "$EVID/e3-H.diff") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 2 ] || STOP; g=0; k=$(grep -c -E '^[-+] ' "$EVID/e3-H.diff") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 4 ] || STOP; g=0; k=$(grep -c -E '^(---|\+\+\+) ' "$EVID/e3-H.diff") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 2 ] || STOP; printf 'e3_diff hunks=2 plus_minus_content_lines=4 file_header_lines=2\n' > "$EVID/H/e3-diff-shape.txt"
 for q in src/adapters/claude_code/claude_code.cpp src/adapters/codex/codex.cpp; do w=0; git show "${H}:${q}" > "$EVID/H-$(basename "$q")" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/H-$(basename "$q")" ] || STOP; done
 r=0; git diff -U0 "$B" "$C" -- src/adapters/claude_code/claude_code.cpp > "$EVID/claude-H.diff" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/claude-H.diff" ] || STOP; h=0; python3 "$EVID/hunkwin.py" "$EVID/claude-H.diff" 197-198,654-672 > "$EVID/claude-H.hunks.txt" || h=$?; [ "$h" -eq 0 ] && [ -s "$EVID/claude-H.hunks.txt" ] || STOP
 r=0; git diff -U0 "$B" "$C" -- src/adapters/codex/codex.cpp > "$EVID/codex-H.diff" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/codex-H.diff" ] || STOP; h=0; python3 "$EVID/hunkwin.py" "$EVID/codex-H.diff" 228-270,1273-1291 > "$EVID/codex-H.hunks.txt" || h=$?; [ "$h" -eq 0 ] && [ -s "$EVID/codex-H.hunks.txt" ] || STOP
@@ -681,6 +686,10 @@ r=0; git diff -U0 "$B" "$C" -- src/adapters/codex/codex.cpp > "$EVID/codex-H.dif
 for pat in 'no_cwd_record.push_back' 'auto main_text = source_text(*main_source);' 'apply_torn_tail_rule(artifacts, artifact_sources, live.live, torn_tails);' 'TranscriptFacts inspect_transcript(const std::string_view transcript) {'; do g=0; kb=$(grep -c -F -- "$pat" "$EVID/base-claude_code.cpp") || g=$?; [ "$g" -eq 0 ] || STOP; g=0; kh=$(grep -c -F -- "$pat" "$EVID/H-claude_code.cpp") || g=$?; [ "$g" -eq 0 ] || STOP; printf 'claude %s base=%s H=%s\n' "$pat" "$kb" "$kh" >> "$EVID/fence-greps.txt"; [ "$kb" -eq "$kh" ] || STOP; done
 g=0; k=$(grep -c -F -- 'first_transcript_cwd(*main_source)' "$EVID/H-claude_code.cpp") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; g=0; k=$(grep -c -F -- 'inspect_rollout_head_stream(*source)' "$EVID/H-codex.cpp") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; g=0; k=$(grep -c -F -- 'has_terminal_tail_record(*text)' "$EVID/H-codex.cpp") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; printf 'head_readers_present=2 tail_fact_full_text_site=1\n' >> "$EVID/fence-greps.txt"
 for q in claude_code.cpp codex.cpp; do h=0; shasum -a 256 "$EVID/H-$q" > "$EVID/H-$q.sha" || h=$?; [ "$h" -eq 0 ] || STOP; dg=$(cut -d' ' -f1 "$EVID/H-$q.sha") || STOP; g=0; k=$(grep -c -F -- "+        \"$dg\"," "$EVID/e3-H.diff") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; printf 'e3 anchor %s re-pinned to %s\n' "$q" "$dg" >> "$EVID/fence-greps.txt"; done
+c=0; cp -p "$EVID/e3-H.diff" "$EVID/H/e3-H.diff" || c=$?; [ "$c" -eq 0 ] || STOP; h=0; (cd "$EVID" && shasum -a 256 H-claude_code.cpp H-codex.cpp > H/adapters-at-C.sha256) || h=$?; [ "$h" -eq 0 ] && [ -s "$EVID/H/adapters-at-C.sha256" ] || STOP
+s=0; sed -n 's/.* old=\([0-9a-f]*\) new=.*/\1/p' "$EVID/H/repin.txt" > "$EVID/H/repin-old-digests.txt" || s=$?; [ "$s" -eq 0 ] || STOP; a=0; n=$(awk 'END { print NR }' "$EVID/H/repin-old-digests.txt") || a=$?; [ "$a" -eq 0 ] && [ "$n" -eq 2 ] || STOP
+: > "$EVID/H/harness-walk-old-digests.txt"; while read -r od; do w=0; git grep -n -F -- "$od" "$H" -- harness > "$EVID/H/harness-walk-$od.txt" || w=$?; [ "$w" -eq 1 ] && [ ! -s "$EVID/H/harness-walk-$od.txt" ] || STOP; printf '%s hits=0\n' "$od" >> "$EVID/H/harness-walk-old-digests.txt"; done < "$EVID/H/repin-old-digests.txt"
+w=0; git grep -n -F -e 'src/adapters/claude_code/claude_code.cpp' -e 'src/adapters/codex/codex.cpp' "$H" -- harness > "$EVID/H/harness-walk-adapter-paths.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/H/harness-walk-adapter-paths.txt" ] || STOP; s=0; sed -E 's/^[0-9a-f]{40}://' "$EVID/H/harness-walk-adapter-paths.txt" > "$EVID/H/harness-walk-adapter-paths.rows" || s=$?; [ "$s" -eq 0 ] || STOP; g=0; k=$(grep -c -v -E '^harness/(bivharness/e3\.py|selftest/test_e3_asserts\.py):' "$EVID/H/harness-walk-adapter-paths.rows") || g=$?; [ "$g" -eq 1 ] && [ "$k" -eq 0 ] || STOP
 # Step 2
 ALT='sk-[A-Za-z0-9]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[abprs]-'
 for L in B H; do if [ "$L" = B ]; then X=$B; else X=$H; fi; r=0; git grep -n -E "$ALT" "$X" -- . > "$EVID/census-raw/tree-$L.raw" || r=$?; [ "$r" -le 1 ] || STOP; s=0; sed -E 's/^[0-9a-f]{40}://' "$EVID/census-raw/tree-$L.raw" > "$EVID/census-raw/tree-$L.stripped" || s=$?; [ "$s" -eq 0 ] || STOP; s=0; sed -E 's/^([^:]+:[0-9]+):.*$/\1/' "$EVID/census-raw/tree-$L.stripped" > "$EVID/census-tree-$L.txt" || s=$?; [ "$s" -eq 0 ] || STOP; r=0; git rev-list "$X" > "$EVID/census-raw/rl-$L.txt" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/census-raw/rl-$L.txt" ] || STOP; x=0; xargs git grep -l -E "$ALT" < "$EVID/census-raw/rl-$L.txt" > "$EVID/census-raw/hist-$L.raw" || x=$?; [ "$x" -le 1 ] || STOP; s=0; sed -E 's/^[0-9a-f]{40}://' "$EVID/census-raw/hist-$L.raw" > "$EVID/census-raw/hist-$L.paths" || s=$?; [ "$s" -eq 0 ] || STOP; o=0; LC_ALL=C sort -u "$EVID/census-raw/hist-$L.paths" > "$EVID/census-history-$L.txt" || o=$?; [ "$o" -eq 0 ] || STOP; done
@@ -739,7 +748,7 @@ exit 0
 ### Task 7 — FINALIZE the tracked record `results/r449-<token>/` (the evidence-of-record SET = the home MINUS the declared SCRATCH: `work/`, `census-raw/`, the strace traces, the finalizer's own receipts), manifest, the SITREP UP
 
 - [ ] **Step 1: preconditions** — Task 6 done/exit/proof receipts present; push class a; PR created; the results dir absent.
-- [ ] **Step 2: the set** — `finalize.py list` → `final-set.txt` (no `work/`, `census-raw/` or strace path in it — proven).
+- [ ] **Step 2: the set** — `finalize.py list` → `final-set.txt` (no `work/` or `census-raw/` path in it — proven).
 - [ ] **Step 3: the copy** — the set copied path-for-path under `results/r449-<token>/`.
 - [ ] **Step 4: manifest + verdict** — `SHA256SUMS` (`LC_ALL=C sort -k2`), `finalize.py check` rc 0, `shasum -c` rc 0, the record token-scanned with the full alternation (0 hits) → `final-record.txt`; the pair Planner commits the record path-scoped, no trailer.
 
@@ -1159,41 +1168,86 @@ if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2])
 ```
 
-**`strace_bytes.py`** (trace → bytes read per file, no content):
+**`readtrace.c`** (the LEG 1/2 instrument — in-process read accounting; validated by a must-be-YES control in Phase L):
 
-<!-- BLOCK: strace_bytes.py -->
+<!-- BLOCK: readtrace.c -->
+```c
+/* readtrace.c — LEG 1/2 instrument: an in-process read accountant (LD_PRELOAD; no ptrace, so valid under CPU emulation where strace is not).
+   Wraps read/pread/pread64 from libc, resolves the fd's path via /proc/self/fd/N at each call, and sums the BYTES RETURNED per path for paths
+   under READTRACE_PREFIX; at process exit appends "path<TAB>bytes" rows to READTRACE_OUT. No content is ever recorded — only counts.
+   Validated in Phase L by a must-be-YES control (dd over one store file → its row equals its size) before the pack run is read. */
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+typedef ssize_t (*read_fn)(int, void*, size_t);
+typedef ssize_t (*pread_fn)(int, void*, size_t, off_t);
+static read_fn real_read;
+static pread_fn real_pread;
+static pread_fn real_pread64;
+struct ent { char path[1024]; unsigned long long bytes; };
+static struct ent table[16384];
+static int count;
+static pthread_mutex_t mu = PTHREAD_MUTEX_INITIALIZER;
+static void account(int fd, ssize_t r) {
+  if (r <= 0) return;
+  char link[64]; char path[1024];
+  snprintf(link, sizeof link, "/proc/self/fd/%d", fd);
+  ssize_t l = readlink(link, path, sizeof path - 1);
+  if (l <= 0) return;
+  path[l] = 0;
+  const char* pre = getenv("READTRACE_PREFIX");
+  if (pre && strncmp(path, pre, strlen(pre)) != 0) return;
+  pthread_mutex_lock(&mu);
+  for (int i = 0; i < count; i++) {
+    if (strcmp(table[i].path, path) == 0) { table[i].bytes += (unsigned long long)r; pthread_mutex_unlock(&mu); return; }
+  }
+  if (count < 16384) { strncpy(table[count].path, path, sizeof table[count].path - 1); table[count].bytes = (unsigned long long)r; count++; }
+  pthread_mutex_unlock(&mu);
+}
+ssize_t read(int fd, void* buf, size_t n) {
+  if (!real_read) real_read = (read_fn)dlsym(RTLD_NEXT, "read");
+  ssize_t r = real_read(fd, buf, n); account(fd, r); return r;
+}
+ssize_t pread(int fd, void* buf, size_t n, off_t off) {
+  if (!real_pread) real_pread = (pread_fn)dlsym(RTLD_NEXT, "pread");
+  ssize_t r = real_pread(fd, buf, n, off); account(fd, r); return r;
+}
+ssize_t pread64(int fd, void* buf, size_t n, off_t off) {
+  if (!real_pread64) real_pread64 = (pread_fn)dlsym(RTLD_NEXT, "pread64");
+  ssize_t r = real_pread64(fd, buf, n, off); account(fd, r); return r;
+}
+__attribute__((destructor)) static void readtrace_dump(void) {
+  const char* out = getenv("READTRACE_OUT");
+  if (!out) return;
+  FILE* f = fopen(out, "a");
+  if (!f) return;
+  for (int i = 0; i < count; i++) fprintf(f, "%s\t%llu\n", table[i].path, table[i].bytes);
+  fclose(f);
+}
+```
+
+**`readtrace_reduce.py`** (shim rows → one path<TAB>bytes row per file under the prefix):
+
+<!-- BLOCK: readtrace_reduce.py -->
 ```python
 #!/usr/bin/env python3
-# strace_bytes.py <strace.log> <prefix> — reduces an `strace -f -e trace=openat,read,pread64 -o <log>` trace of one `biv pack` run to
-# bytes READ per file under <prefix> (structure only: no file content is ever in the trace — read/pread64 payloads are elided by strace's
-# default string cut and are NOT parsed here; only the return value = byte count). Output: path-relative-to-prefix<TAB>bytes_read, sorted by
-# path, one row per file opened under <prefix>. Handles -f traces (pid-prefixed lines) and unfinished/resumed syscall pairs.
-import re, sys
-log, prefix = sys.argv[1], sys.argv[2].rstrip("/") + "/"
-fd_path = {}      # (pid, fd) -> path
-unfinished = {}   # pid -> partial line
-bytes_read = {}
-op = re.compile(r'^(?:(\d+)\s+)?(\S+?)\((.*)\)\s+=\s+(-?\d+|\?)')
-for raw in open(log, encoding="utf-8", errors="replace"):
-    line = raw.rstrip("\n")
-    m = re.match(r'^(\d+)\s+(.*)$', line); pid, rest = (m.group(1), m.group(2)) if m else ("0", line)
-    if rest.endswith("<unfinished ...>"):
-        unfinished[pid] = rest[: -len("<unfinished ...>")]; continue
-    if rest.startswith("<... ") and " resumed>" in rest:
-        rest = unfinished.pop(pid, "") + rest.split(" resumed>", 1)[1]
-    m = op.match(pid + " " + rest) if False else re.match(r'^(\S+?)\((.*)\)\s+=\s+(-?\d+|\?)', rest)
-    if not m: continue
-    call, args, ret = m.group(1), m.group(2), m.group(3)
-    if call == "openat":
-        pm = re.search(r'"((?:[^"\\]|\\.)*)"', args)
-        if pm and ret.lstrip("-").isdigit() and int(ret) >= 0:
-            path = pm.group(1)
-            if path.startswith(prefix): fd_path[(pid, ret)] = path[len(prefix):]
-    elif call in ("read", "pread64"):
-        fd = args.split(",", 1)[0].strip()
-        p = fd_path.get((pid, fd))
-        if p is not None and ret.isdigit(): bytes_read[p] = bytes_read.get(p, 0) + int(ret)
-for p in sorted(bytes_read): print("%s\t%d" % (p, bytes_read[p]))
+# readtrace_reduce.py <trace.tsv> <prefix> — reduces the readtrace shim's appended rows ("<abs path>\t<bytes>", one set per process exit) to ONE row
+# per file under <prefix>: path-relative-to-prefix<TAB>bytes_read, summed across processes, sorted by path. No content is involved at any point.
+import sys
+trace, prefix = sys.argv[1], sys.argv[2].rstrip("/") + "/"
+acc = {}
+for line in open(trace, encoding="utf-8", errors="replace"):
+    line = line.rstrip("\n")
+    if "\t" not in line: continue
+    p, b = line.rsplit("\t", 1)
+    if not p.startswith(prefix) or not b.isdigit(): continue
+    rel = p[len(prefix):]; acc[rel] = acc.get(rel, 0) + int(b)
+for p in sorted(acc): print("%s\t%d" % (p, acc[p]))
 ```
 
 **`leg12_verdict.py`** (LEG 1 / LEG 2 grading by class):
@@ -1876,7 +1930,7 @@ print("\n".join(out))
 <!-- BLOCK: linux-container.sh -->
 ```bash
 #!/usr/bin/env bash
-# linux-container.sh <expected-head> <label B|H> — Phases R / T / S / L inside ubuntu:24.04 (linux/amd64, --init); /llvm-mirror and /repo-ro read-only, /evidence writable.
+# linux-container.sh <expected-head> <label B|H> — Phases R / T / S / L (L = the readtrace shim around biv pack over S, after a must-be-YES control) inside ubuntu:24.04 (linux/amd64, --init); /llvm-mirror and /repo-ro read-only, /evidence writable.
 # The container exits 0 ONLY IF Phase R, T and S all exited 0 AND the payload/copy-out receipts wrote and copied; the ctest rc is carried as DATA by Phase S.
 set -u
 WORK_ROOT=/work
@@ -1978,21 +2032,28 @@ printf 'phase_S_suite_rc=%s\n' "$phase_s_suite" >> "$LEDGER" || phase_s_record_r
 [ "$phase_s_record_rc" -eq 0 ] || STOP
 [ "$phase_s_suite" -eq 0 ] || STOP
 phase_l_leg_fn() {
-  [ -d /evidence/work/ws/proj ] && [ -s /evidence/synth-manifest.json ] || return 51
+  [ -d /evidence/work/ws/proj ] && [ -s /evidence/synth-manifest.json ] && [ -s /evidence/readtrace.c ] || return 51
   cp -a /evidence/work "$WORK_ROOT/synth" || return 52
   rm -f "$WORK_ROOT"/synth/ws/proj.bvpk "$WORK_ROOT"/synth/ws/proj-*.bvpk || return 53
   mkdir -p "$WORK_ROOT/synth/tmp" || return 54
-  chown -R 1001:1001 "$WORK_ROOT/synth" || return 55
-  runuser -u suite -- env HOME=/work/synth/home CODEX_HOME=/work/synth/codex-home CLAUDE_CONFIG_DIR=/work/synth/claude-config TMPDIR=/work/synth/tmp strace -f -s 0 -e trace=open,openat,openat2,read,pread64 -o "$OUT/strace-$LABEL.log" "$REPO_ROOT/build/ci/biv" pack /work/synth/ws/proj --json > "$OUT/pack-linux-$LABEL.json" 2> "$OUT/pack-linux-$LABEL.stderr" || pack_rc=$?
-  printf '%s\n' "${pack_rc-0}" > "$OUT/pack-linux-$LABEL.rc" || return 56
-  case "${pack_rc-0}" in 0|2) ;; *) return 57;; esac
-  grep -c -F '"ok": true' "$OUT/pack-linux-$LABEL.json" > "$OUT/pack-linux-$LABEL.ok" || return 58
-  [ -s "$OUT/strace-$LABEL.log" ] || return 59
-  python3 /evidence/strace_bytes.py "$OUT/strace-$LABEL.log" /work/synth > "$OUT/bytes-$LABEL.tsv" || return 60
-  [ -s "$OUT/bytes-$LABEL.tsv" ] || return 61
-  python3 /evidence/membership.py /work/synth/ws/proj.bvpk "$OUT/membership-linux-$LABEL.json" > "$OUT/membership-linux-$LABEL.log" 2>&1 || return 62
-  [ -s "$OUT/membership-linux-$LABEL.json" ] || return 63
-  wc -c < "$OUT/strace-$LABEL.log" > "$OUT/strace-$LABEL.size" || return 64
+  gcc -shared -fPIC -O2 -o "$WORK_ROOT/readtrace.so" /evidence/readtrace.c -ldl || return 55
+  chown -R 1001:1001 "$WORK_ROOT/synth" "$WORK_ROOT/readtrace.so" || return 56
+  control_file=$(runuser -u suite -- python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); r=[f for f in m["files"] if f["class"]=="codex-bulk" and not f["selected"]][0]; print(r["path"], r["size"])' /evidence/synth-manifest.json) || return 57
+  control_path=${control_file% *}; control_size=${control_file##* }
+  runuser -u suite -- env LD_PRELOAD="$WORK_ROOT/readtrace.so" READTRACE_OUT="$OUT/readtrace-control-$LABEL.tsv" READTRACE_PREFIX="$WORK_ROOT/synth" dd if="$WORK_ROOT/synth/$control_path" of=/dev/null bs=8192 > "$OUT/readtrace-control-$LABEL.log" 2>&1 || return 58
+  python3 /evidence/readtrace_reduce.py "$OUT/readtrace-control-$LABEL.tsv" "$WORK_ROOT/synth" > "$OUT/readtrace-control-$LABEL.reduced" || return 59
+  printf '%s\t%s\n' "$control_path" "$control_size" > "$OUT/readtrace-control-$LABEL.expected" || return 60
+  cmp "$OUT/readtrace-control-$LABEL.reduced" "$OUT/readtrace-control-$LABEL.expected" || return 61
+  runuser -u suite -- env HOME=/work/synth/home CODEX_HOME=/work/synth/codex-home CLAUDE_CONFIG_DIR=/work/synth/claude-config TMPDIR=/work/synth/tmp LD_PRELOAD="$WORK_ROOT/readtrace.so" READTRACE_OUT="$OUT/readtrace-$LABEL.tsv" READTRACE_PREFIX="$WORK_ROOT/synth" "$REPO_ROOT/build/ci/biv" pack /work/synth/ws/proj --json > "$OUT/pack-linux-$LABEL.json" 2> "$OUT/pack-linux-$LABEL.stderr" || pack_rc=$?
+  printf '%s\n' "${pack_rc-0}" > "$OUT/pack-linux-$LABEL.rc" || return 62
+  case "${pack_rc-0}" in 0|2) ;; *) return 63;; esac
+  grep -c -F '"ok": true' "$OUT/pack-linux-$LABEL.json" > "$OUT/pack-linux-$LABEL.ok" || return 64
+  [ -s "$OUT/readtrace-$LABEL.tsv" ] || return 65
+  python3 /evidence/readtrace_reduce.py "$OUT/readtrace-$LABEL.tsv" "$WORK_ROOT/synth" > "$OUT/bytes-$LABEL.tsv" || return 66
+  [ -s "$OUT/bytes-$LABEL.tsv" ] || return 67
+  python3 /evidence/membership.py /work/synth/ws/proj.bvpk "$OUT/membership-linux-$LABEL.json" > "$OUT/membership-linux-$LABEL.log" 2>&1 || return 68
+  [ -s "$OUT/membership-linux-$LABEL.json" ] || return 69
+  wc -l < "$OUT/readtrace-$LABEL.tsv" > "$OUT/readtrace-$LABEL.rows" || return 70
 }
 phase_l_leg=0
 pack_rc=0
@@ -2173,7 +2234,7 @@ exactly the two literals to the lane commit's digests and nothing else — m-3's
 
 1. At C: numstat B→C == exactly the four touchable paths; the diff B→H over every non-touchable path set (harness except e3.py) EMPTY; C→H touches only e3.py's two anchor literals, re-pinned to H's own adapter digests; every hunk inside the declared windows; every V-LS-3 / V-LS-4 / S-LS-3 occurrence count equal at B and H; the two head readers present.
 2. V-LS-2: `B/membership-B.json` == `H/membership-H.json` (macOS) and `B/membership-linux-B.json` == `H/membership-linux-H.json` (Linux), whole normalized records, `diff` rc 0; the `no_cwd` mention counts equal; every existing assertion of the two collect suites green at B and at H on both targets; the nine SECTIONs green (observed run: 9).
-3. LEG 1 / LEG 2: `VERDICT PASS violations=0` — every non-selected file of S with a completing line read within one 8 KiB chunk of that line's end at H and in full at B; the class `claude-cwd-no-enrichment` head-bounded at H (the O-1 discriminator); the two sealed whole-file classes read in full at both sides; every selected file read in full at both sides; the store totals and the H/B ratio printed.
+3. LEG 1 / LEG 2 (the shim's must-be-YES control `cmp`-equal in both containers first): `VERDICT PASS violations=0` — every non-selected file of S with a completing line read within one 8 KiB chunk of that line's end at H and in full at B; the class `claude-cwd-no-enrichment` head-bounded at H (the O-1 discriminator); the two sealed whole-file classes read in full at both sides; every selected file read in full at both sides; the store totals and the H/B ratio printed.
 4. LEG 3's cost receipt: the pack wall time over S at B and at H (medians of three), both recorded.
 5. COUNT-GATE: the ten `OverallResultsCases` cells at H == B's literal cells == B's observed cells on both targets (`cellgate.py` rc 0 twice); the skip sets unchanged; the `TEST_CASE` counts 15 / 25 unchanged.
 6. Acceptance of record at H: macOS `ctest --preset ci-macos -E '^safety-hardening$'` rc 0; the Linux bar in `pass-green` or `pass-r435-disclosed-registered-red` with the in-token base draw at B; the four container ledgers aggregate 0 (five phase keys each).
@@ -2198,5 +2259,6 @@ Any discover byte (R-4.50 landed it); any `SessionRecord` / `CollectReport` / `a
 ## Revision history
 
 - **rev0** (b07125a, 2026-09-13) — the SKELETON: the audit's architecture; the fence by reference; placeholders [C-1] / [C-2]; the runner protocol and the R-4.50 instruments carried; the two patchers drafted at B's bytes.
+- **rev3** (2026-09-13) — m-3's YES + V-RP-1..8 / S-RP-1..4 folded verbatim; the diff-line count reconciled (2 hunks, 4 ± content lines, 2 header lines); m-3's evidence set for H produced into `H/`; the LEG 1/2 instrument swapped from strace (invalid under CPU emulation — two scouts) to the `readtrace.c` shim with a must-be-YES control; `strace_bytes.py` dropped.
 - **rev2** (2026-09-13) — the rehearsal's Task 3 STOP folded: TWO commits (C product; H = m-3's S-CP-2 two-anchor re-pin, `e3pin_r449.py`, rule 4, m-3 byte review; m-3's word a pre-token gate); `SessionNoCwdRecord` count REQUIRED 5 at B and H; Task 5 proves the harness commit's exact shape; base file set + helper set extended.
 - **rev1** (2026-09-13) — C-1/C-2 RESOLVED per m-2 `170000` (master `171709`); the reconcile with `165828` (O-1 FOLDED: first-cwd head reader + today's full parse for the selected transcript; the sealed whole-file classes stated in LEG 1; class `claude-cwd-no-enrichment` in S); nine SECTIONs; the final patchers compile-checked at B (419/3; 9 sections run); the eight RUN blocks materialized; the corpus mirror dropped in favour of the suites as F's oracle; instruments `cellgate.py`, `pack_run.py`, `hunkwin.py`, `leg12_verdict.py`, Phase L in the container, `finalize.py` SCRATCH for the strace traces.
