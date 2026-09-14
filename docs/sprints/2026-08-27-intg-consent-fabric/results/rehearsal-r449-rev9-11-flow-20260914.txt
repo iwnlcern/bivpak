@@ -1,0 +1,88 @@
+# R-4.49 plan revision 9 (723c2d1) whole-protocol SCRATCH rehearsal 2026-09-14 01:07–02:02 — Tasks 0–6 GREEN through the controller; Task 7 STOPPED on its receipt self-scan (a two-file grep -c prints per-file counts) — folded in revision 11 (ec8c9b7), whose Task 7 runner was then re-exercised on THIS completed home through a fresh controller (02:04), followed by the POST-CONTROLLER finalize.py re-check the implementer's review 010344 asked for. Revisions 10/11 change no Task 0–6 runner byte (derived runners cmp-equal to rev9's).
+# The real checkout, its -v2 worktree and refs untouched (the rev9 flow's last line would have printed it; the STOP came first — verified separately: no intg/r449 ref, -v2 present at e8a1128d).
+== flow log (rev9)
+01:07:38 scratch=<SCRATCH> src_plan_sha=de9c354c8b704e7a
+01:07:39 origin.git main=4cf135ee97f57021c5fc5fd5343de6f655fb0d24 lane-main=723c2d126ae09134e2269df75578ff076cb06704 r450=8509157c41c5ef66595d655f39eee5107081bd32 v2=e8a1128d75cd4693d21269c4d040095df570f116
+01:07:40 MAIN' HEAD=723c2d126ae09134e2269df75578ff076cb06704 origin/main=4cf135ee97f57021c5fc5fd5343de6f655fb0d24 oldwt=e8a1128d75cd4693d21269c4d040095df570f116 record_file=present
+01:07:40 plan copy sha=ff00a0956a5ae9a2
+01:07:40 bootstrap (0) done: RUNNERS=/Users/jack/Programming/bivpak-evidence/r449-runners-mbiDCA blocks=32
+01:07:40 run-task.sh 0 START
+01:22:40 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:22:40 run-task.sh 1 START
+01:22:54 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:22:54 run-task.sh 2 START
+01:23:35 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:23:35 run-task.sh 3 START
+01:28:12 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:28:12 run-task.sh 4 START
+01:59:58 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+01:59:58 run-task.sh 5 START
+02:02:31 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+02:02:31 run-task.sh 6 START
+02:02:32 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+02:02:32 run-task.sh 7 START
+02:02:35 run-task.sh 7 exit=1 proof_tail=rc=0 task_exit=rc=1
+02:02:35 STOP at task 7 — see /tmp/r449/flow/task-rev9-7.out
+/Users/jack/Programming/bivpak-evidence/r449-runners-mbiDCA/task-7.sh: line 32: [: <EVID>/record-token-classes.txt:0
+<EVID>/record-token-files.txt:0: integer expression expected
+STOP-task-7 line=32
+task-7 exited 1 — STOP; the token ends here
+FLOW-STOPPED
+== Task 7 re-exercise (rev11 runner, rev9 home)
+task-7 done rc=0
+== POST-CONTROLLER re-check
+set=460 tree=460 manifest=460 equal=yes digests=ok copies=ok
+declared Task 7 controller receipts present in the home after the controller: 4 of 4 (excluded by finalize.py)
+== record-token-classes.txt (in the record)
+set_files_scanned=458 record_files_carrying_a_fixture_token_copy=6 distinct_matched_strings=1 product_fixture_token_set_size=1 foreign_matched_strings=0 class=B-fixture-copies-only note=matched strings live only under census-raw (excluded from the record); this receipt and record-token-files.txt carry paths and counts only and are the two files added to the set after this scan
+== record-token-files.txt (in the record)
+B/biv_tests-linux.xml
+B/biv_tests-macos.xml
+H/biv_tests-linux.xml
+H/biv_tests-macos.xml
+H/biv_tests-pre-commit.xml
+base-test_adapter_codex_collect.cpp
+== runners/final-record.txt + final-set.added
+results_dir=<SCRATCH>/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r449-rehearsal-r449-rev9 set=460 finalize_check_rc=0 shasum_c_rc=0 token_classes=B-fixture-copies-only foreign=0 post_controller_recheck=owed-by-the-pair-planner-before-commit
+record-token-classes.txt
+record-token-files.txt
+== H/leg12-summary.txt
+CLASS claude-bulk files=100 bytes_B=444743073 bytes_H=38581895
+CLASS claude-cwd-no-enrichment files=10 bytes_B=41950920 bytes_H=81920
+CLASS claude-no-cwd files=5 bytes_B=5248395 bytes_H=5248395
+CLASS codex-bulk files=1500 bytes_B=395555355 bytes_H=14651814
+CLASS codex-garbage-line1 files=20 bytes_B=5253380 bytes_H=163840
+CLASS codex-no-meta files=10 bytes_B=2623500 bytes_H=2623500
+TOTAL files=1645 bytes_B=895374623 bytes_H=61351364 ratio_H_over_B=0.0685
+VERDICT PASS violations=0
+== H/linux-selftest-bar.txt
+rcL=8 a_rows_rc=0 summary_H=parsed failed_H=4 names_H=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration,selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite,selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open, foreign_H= d_tripwire_lines=0 d_family_files_rc=0 population_H=1013 rcB=8 base_rows=1 base_rows_rc=0 summary_B=parsed failed_B=1 names_B=selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration, foreign_B= population_B=1013 bar=pass-r435-disclosed-registered-red
+== H/cost-receipt.txt
+LEG 3 cost receipt: biv pack over S (medians of three runs), macOS, B then H
+label=B runs=3 times_s=3.872,3.910,3.841 median_s=3.872 rcs=2,2,2 oks=True,True,True image=<EVID>/work/ws/proj-B.bvpk
+label=H runs=3 times_s=0.643,0.419,0.430 median_s=0.430 rcs=2,2,2 oks=True,True,True image=<EVID>/work/ws/proj-H.bvpk
+membership_delta=empty no_cwd_record_warnings_equal=yes
+== census-summary.txt + census-record.sha256
+census_at=a5eafc034e1e6affa31bc43d8e83f1b8c94fe716 tree_rows=69 history_paths=34 delta_vs_B=empty delta_B_vs_record_of_4cf135ee=empty record_sha256=858c6486e2ac7ba07dc73ad3b0ff532f03c34539fa8d933e2fa4d21d870e9a1c(accepted,R-4.50 packet rev5) classes=inherited_from_record(A=3,B=64,C=2) matched_text_in_record=none collation=LC_ALL=C
+858c6486e2ac7ba07dc73ad3b0ff532f03c34539fa8d933e2fa4d21d870e9a1c  <SCRATCH>/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/intg-r450-main-head-census-20260913.txt
+== H/e3-diff-shape.txt + H/repin.txt + H/harness-walk-old-digests.txt
+e3_diff hunks=2 plus_minus_content_lines=4 file_header_lines=2
+src/adapters/claude_code/claude_code.cpp old=4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51 new=37942a9c43d5f9b98e30884b6d04481fca68a27988bbc98f2a2d3a0f4dae1ea8
+src/adapters/codex/codex.cpp old=08480a19a7194f79078d01091f2f24d7d23abb8483c7a2bff0138d6de52e6d5d new=55d04bdccf0a43461c23e0e4baa2df4f16a4851008c0159f3b6a59a4952ada16
+4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51 hits=0
+08480a19a7194f79078d01091f2f24d7d23abb8483c7a2bff0138d6de52e6d5d hits=0
+== count gates
+biv_probe_tests macos literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests macos literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests macos literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests macos literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests macos literal_B=('419', '0', '0', '3') observed_B=('419', '0', '0', '3') observed_H=('419', '0', '0', '3') equal=yes
+biv_probe_tests linux literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_B=('421', '0', '0', '1') observed_B=('421', '0', '0', '1') observed_H=('421', '0', '0', '1') equal=yes
+baseline_linux_skips=1 observed_linux_skips=1
+== push/PR (scratch)
+class=a
+pr_rc=0
