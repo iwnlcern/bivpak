@@ -1,0 +1,80 @@
+# R-4.49 plan revision 8 (790aa1c) — whole-protocol SCRATCH rehearsal, 2026-09-14 00:03–00:53, Tasks 0–7 through the controller (run-flow.sh: scratch bare origin with main pinned at 4cf135ee; MAIN' at the docs-lane head; the -v2 worktree recreated in scratch at e8a1128d; plan copy differing only in the three absolute paths; gh shim at Task 6; the results copy written into the SCRATCH docs lane). The real checkout, its worktrees and refs untouched (last line).
+# Receipts below: the flow log; LEG 1/2 summary (B's binary vs H's over S); the Linux two-outcome bar; the LEG 3 cost receipt; the census summary at the branch head; the re-pin shape; the harness walk; the count gates; the finalizer record and token classification. Paths and counts only; no matched text.
+== flow log
+00:03:11 scratch=<SCRATCH> src_plan_sha=df6d1d7b40f8bfc9
+00:03:11 origin.git main=4cf135ee97f57021c5fc5fd5343de6f655fb0d24 lane-main=790aa1ce65796ca1a728e1dbc2ca78b93917b491 r450=8509157c41c5ef66595d655f39eee5107081bd32 v2=e8a1128d75cd4693d21269c4d040095df570f116
+00:03:12 MAIN' HEAD=790aa1ce65796ca1a728e1dbc2ca78b93917b491 origin/main=4cf135ee97f57021c5fc5fd5343de6f655fb0d24 oldwt=e8a1128d75cd4693d21269c4d040095df570f116 record_file=present
+00:03:12 plan copy sha=12192929fc3f8a2e
+00:03:12 bootstrap (0) done: RUNNERS=/Users/jack/Programming/bivpak-evidence/r449-runners-G2Z1NQ blocks=32
+00:03:12 run-task.sh 0 START
+00:17:34 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:17:34 run-task.sh 1 START
+00:17:46 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:17:46 run-task.sh 2 START
+00:18:16 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:18:16 run-task.sh 3 START
+00:22:09 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:22:09 run-task.sh 4 START
+00:51:09 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:51:09 run-task.sh 5 START
+00:53:17 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:53:17 run-task.sh 6 START
+00:53:19 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:53:19 run-task.sh 7 START
+00:53:23 run-task.sh 7 exit=0 proof_tail=rc=0 task_exit=rc=0
+00:53:23 EVID=<EVID> scratch_remote_head=60982728d77601d18f4735a2a4e08034dee6b48b
+00:53:23 REAL untouched: main=790aa1ce65796ca1a728e1dbc2ca78b93917b491 oldwt_present=yes oldwt_head=e8a1128d75cd4693d21269c4d040095df570f116 r449_branch=absent
+FLOW-COMPLETE
+== H/leg12-summary.txt
+CLASS claude-bulk files=100 bytes_B=444743073 bytes_H=38581895
+CLASS claude-cwd-no-enrichment files=10 bytes_B=41950920 bytes_H=81920
+CLASS claude-no-cwd files=5 bytes_B=5248395 bytes_H=5248395
+CLASS codex-bulk files=1500 bytes_B=395555355 bytes_H=14651814
+CLASS codex-garbage-line1 files=20 bytes_B=5253380 bytes_H=163840
+CLASS codex-no-meta files=10 bytes_B=2623500 bytes_H=2623500
+TOTAL files=1645 bytes_B=895374623 bytes_H=61351364 ratio_H_over_B=0.0685
+VERDICT PASS violations=0
+== H/linux-selftest-bar.txt
+rcL=8 a_rows_rc=0 summary_H=parsed failed_H=3 names_H=selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration,selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite,selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open, foreign_H= d_tripwire_lines=0 d_family_files_rc=0 population_H=1013 rcB=8 base_rows=1 base_rows_rc=0 summary_B=parsed failed_B=2 names_B=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration, foreign_B= population_B=1013 bar=pass-r435-disclosed-registered-red
+== H/cost-receipt.txt
+LEG 3 cost receipt: biv pack over S (medians of three runs), macOS, B then H
+label=B runs=3 times_s=3.809,3.785,3.754 median_s=3.785 rcs=2,2,2 oks=True,True,True image=<EVID>/work/ws/proj-B.bvpk
+label=H runs=3 times_s=0.603,0.421,0.420 median_s=0.421 rcs=2,2,2 oks=True,True,True image=<EVID>/work/ws/proj-H.bvpk
+membership_delta=empty no_cwd_record_warnings_equal=yes
+== census-summary.txt
+census_at=60982728d77601d18f4735a2a4e08034dee6b48b tree_rows=69 history_paths=34 delta_vs_B=empty delta_B_vs_record_of_4cf135ee=empty classes=inherited_from_record(A=3,B=64,C=2) matched_text_in_record=none collation=LC_ALL=C
+== H/e3-diff-shape.txt + H/repin.txt + H/harness-walk-old-digests.txt
+e3_diff hunks=2 plus_minus_content_lines=4 file_header_lines=2
+src/adapters/claude_code/claude_code.cpp old=4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51 new=37942a9c43d5f9b98e30884b6d04481fca68a27988bbc98f2a2d3a0f4dae1ea8
+src/adapters/codex/codex.cpp old=08480a19a7194f79078d01091f2f24d7d23abb8483c7a2bff0138d6de52e6d5d new=55d04bdccf0a43461c23e0e4baa2df4f16a4851008c0159f3b6a59a4952ada16
+4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51 hits=0
+08480a19a7194f79078d01091f2f24d7d23abb8483c7a2bff0138d6de52e6d5d hits=0
+== H/count-gate-macos.txt
+biv_probe_tests macos literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests macos literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests macos literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests macos literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests macos literal_B=('419', '0', '0', '3') observed_B=('419', '0', '0', '3') observed_H=('419', '0', '0', '3') equal=yes
+== H/count-gate-linux.txt
+biv_probe_tests linux literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_B=('421', '0', '0', '1') observed_B=('421', '0', '0', '1') observed_H=('421', '0', '0', '1') equal=yes
+== H/skipset-macos.txt + H/skipset-linux.txt
+expected n=3 observed n=3 same_set=yes only_in_B=[] only_in_observed=[]
+baseline_linux_skips=1 observed_linux_skips=1
+== H/test-case-census.txt + H/sections-run.txt + B/no-cwd-count.txt + H/no-cwd-count.txt
+claude_test_cases=15 codex_test_cases=25
+r449_sections_run=9
+no_cwd_record_warnings=5
+no_cwd_record_warnings=5
+== worktree-dispose.txt + cutpoint.txt
+disposed=<SCRATCH>/bivpak-intg-r450-discover-parity head_was=e8a1128d75cd4693d21269c4d040095df570f116 branch_was=intg/r450-discover-parity-v2 remove_rc=0 refs_unchanged=yes remote_heads=2
+unpublished_commits_in_lineage=0 expected=0 cut_point=4cf135ee97f57021c5fc5fd5343de6f655fb0d24
+== runners/final-record.txt + final-token-classes.txt
+results_dir=<SCRATCH>/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r449-rehearsal-r449-rev8 set=457 finalize_check_rc=0 shasum_c_rc=0 token_classes=B-fixture-copies-only foreign=0
+record_files_carrying_a_fixture_token_copy=6 distinct_matched_strings=1 product_fixture_token_set_size=1 foreign_matched_strings=0 class=B-fixture-copies-only matched_text_in_record_files=inherited-from-the-product-fixture (paths listed in final-token-files.txt; matched strings only under census-raw, excluded)
+== push-class.txt + pr.rc
+class=a
+pr_rc=0
