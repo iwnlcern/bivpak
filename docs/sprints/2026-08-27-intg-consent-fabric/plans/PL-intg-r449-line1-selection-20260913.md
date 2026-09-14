@@ -1,6 +1,8 @@
-# R-4.49 line-1 selection — Implementation Plan (revision 7 — assembled 2026-09-13; a Task 5 awk literal fixed (an unescaped slash inside a bracket expression, rejected by BSD awk) after Tasks 5–7 were exercised against the rev5 evidence home; rev6: the rev5 rehearsal's Task 4 STOP folded: the Linux skip set is compared as a COUNT (the workflow's Linux block names no skips); every other Task 4 gate GREEN in that run — the two-outcome bar `pass-r435-disclosed-registered-red`, LEG 1/2 `VERDICT PASS`, the Linux count gate equal, Phase L green on both sides)
+# R-4.49 line-1 selection — Implementation Plan (revision 8 — assembled 2026-09-14; Task 7's record token scan is a CLASSIFICATION (the record legitimately carries copies of the product's own synthetic fixture token — the census population's class B), not a zero-hit gate; rev7: a Task 5 awk literal fixed (an unescaped slash inside a bracket expression, rejected by BSD awk) after Tasks 5–7 were exercised against the rev5 evidence home; rev6: the rev5 rehearsal's Task 4 STOP folded: the Linux skip set is compared as a COUNT (the workflow's Linux block names no skips); every other Task 4 gate GREEN in that run — the two-outcome bar `pass-r435-disclosed-registered-red`, LEG 1/2 `VERDICT PASS`, the Linux count gate equal, Phase L green on both sides)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task, IN DOCUMENT ORDER, through the per-task runner protocol below and nothing else. Steps use checkbox (`- [ ]`) syntax for tracking. Nothing in this document is authority: the implementation token is a separate bare `DISPATCH IMPL` relay from the pair Planner after the exact-hash approve; the branch push and the PR are the R-4.51 clause (2) vehicle; the merge is the operator's condition-4 token; the landing is R-4.52; nothing here releases.
+
+**Revision 8 (2026-09-14).** Tasks 5 and 6 exercised GREEN on the rev5 evidence home (the census at H: 69 tree rows / 34 history paths, equal to B and to the record of the pin; the push to the scratch remote class a; the PR through the shim); Task 7 STOPPED on the record token scan I had added in rev1 as a zero-hit gate: the evidence-of-record set carries the Catch2 XML outputs and the base copy of `tests/test_adapter_codex_collect.cpp`, all of which quote the product's ONE synthetic fixture token — the very class B ("64 byte-identical copies of one synthetic fixture token: JUnit outputs, census intermediates, quotations") the R-4.50 census population classified at the landing. A zero-hit gate over the record is therefore wrong by construction. FOLDED: Task 7 classifies instead — the set of matched strings in the record (`grep -o`, sorted `LC_ALL=C`, kept under `census-raw/`, EXCLUDED from the record) must be a SUBSET of the product's fixture-token set read from B's tree (`git grep -o` over the two class-A files); a foreign matched string is a STOP; the record carries only the file list and the counts (`final-token-classes.txt`), never the matched text — the R-4.53 rule kept.
 
 **Revision 7 (2026-09-13).** Tasks 5–7 exercised against the rev5 evidence home with rev6's runners (scratch, the Task 0–4 done-markers supplied): Task 5's fence proofs, hunk windows, occurrence-count parity, the re-pin shape (2 hunks / 4 ± lines / 2 headers; the `+` literals equal to the adapters' digests), the census at B and at H (both arms; H == B; B's tree == the record's 69 rows) all PASSED; the record HISTORY extraction STOPPED on an `awk` literal — an unescaped `/` inside a bracket expression, which BSD awk reads as the end of the regex. FOLDED: the slash escaped. Re-exercised before the full re-run (receipt on the carrier).
 
@@ -760,13 +762,14 @@ exit 0
 - [ ] **Step 1: preconditions** — Task 6 done/exit/proof receipts present; push class a; PR created; the results dir absent.
 - [ ] **Step 2: the set** — `finalize.py list` → `final-set.txt` (no `work/` or `census-raw/` path in it — proven).
 - [ ] **Step 3: the copy** — the set copied path-for-path under `results/r449-<token>/`.
-- [ ] **Step 4: manifest + verdict** — `SHA256SUMS` (`LC_ALL=C sort -k2`), `finalize.py check` rc 0, `shasum -c` rc 0, the record token-scanned with the full alternation (0 hits) → `final-record.txt`; the pair Planner commits the record path-scoped, no trailer.
+- [ ] **Step 4: manifest + verdict** — `SHA256SUMS` (`LC_ALL=C sort -k2`), `finalize.py check` rc 0, `shasum -c` rc 0, the record's matched strings CLASSIFIED (every one a copy of the product's own fixture token read from B's tree; a foreign string = STOP; matched text kept under `census-raw/`, out of the record) → `final-token-classes.txt`, `final-record.txt`; the pair Planner commits the record path-scoped, no trailer.
 
 <!-- RUN: task-7 -->
 ```bash
 # Runner plumbing (Task 7)
 WORKTREE=/Users/jack/Programming/bivpak-intg-r449-line1-selection
 MAIN=/Users/jack/Programming/bivpak
+B=4cf135ee97f57021c5fc5fd5343de6f655fb0d24
 cd "$WORKTREE" || STOP
 v=0; (cd "$EVID" && shasum -a 256 -c helpers.sha256 > helpers.verify-7.txt 2>&1) || v=$?; [ "$v" -eq 0 ] || STOP
 # Step 1
@@ -783,8 +786,13 @@ c=0; while IFS= read -r f; do d=$(dirname "$f") && mkdir -p "$RESDIR/$d" && cp -
 h=0; (cd "$RESDIR" && find . -type f ! -name SHA256SUMS -exec shasum -a 256 {} + > "$RUNNERS/final-manifest.unsorted") || h=$?; [ "$h" -eq 0 ] && [ -s "$RUNNERS/final-manifest.unsorted" ] || STOP; o=0; LC_ALL=C sort -k2 "$RUNNERS/final-manifest.unsorted" > "$RESDIR/SHA256SUMS" || o=$?; [ "$o" -eq 0 ] && [ -s "$RESDIR/SHA256SUMS" ] || STOP
 k=0; python3 "$EVID/finalize.py" check "$EVID" "$RESDIR" "$RESDIR/SHA256SUMS" > "$RUNNERS/final-verdict.txt" 2>&1 || k=$?; printf 'finalize_check_rc=%s\n' "$k" > "$RUNNERS/final-verdict.rc"; [ "$k" -eq 0 ] && [ -s "$RUNNERS/final-verdict.txt" ] || STOP
 v=0; (cd "$RESDIR" && shasum -a 256 -c --quiet SHA256SUMS) > "$RUNNERS/final-shasum-c.txt" 2>&1 || v=$?; printf 'shasum_c_rc=%s\n' "$v" > "$RUNNERS/final-shasum-c.rc"; [ "$v" -eq 0 ] || STOP
-g=0; k=$(grep -r -l -E 'sk-[A-Za-z0-9]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[abprs]-' "$RESDIR" > "$RUNNERS/final-token-scan.txt") || g=$?; [ "$g" -eq 1 ] && [ ! -s "$RUNNERS/final-token-scan.txt" ] || STOP
-w=0; printf 'results_dir=%s set=%s finalize_check_rc=0 shasum_c_rc=0 token_scan_hits=0\n' "$RESDIR" "$n" > "$RUNNERS/final-record.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$RUNNERS/final-record.txt" ] || STOP
+ALT='sk-[A-Za-z0-9]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[abprs]-'
+r=0; git grep -h -o -E "$ALT" "$B" -- tests/test_adapter_codex_collect.cpp tests/test_cli.cpp > "$EVID/census-raw/fixture-tokens.raw" || r=$?; [ "$r" -eq 0 ] && [ -s "$EVID/census-raw/fixture-tokens.raw" ] || STOP; o=0; LC_ALL=C sort -u "$EVID/census-raw/fixture-tokens.raw" > "$EVID/census-raw/fixture-tokens.set" || o=$?; [ "$o" -eq 0 ] && [ -s "$EVID/census-raw/fixture-tokens.set" ] || STOP
+g=0; grep -r -o -h -E "$ALT" "$RESDIR" > "$EVID/census-raw/record-hits.raw" || g=$?; [ "$g" -le 1 ] || STOP; o=0; LC_ALL=C sort -u "$EVID/census-raw/record-hits.raw" > "$EVID/census-raw/record-hits.set" || o=$?; [ "$o" -eq 0 ] || STOP
+c=0; LC_ALL=C comm -23 "$EVID/census-raw/record-hits.set" "$EVID/census-raw/fixture-tokens.set" > "$EVID/census-raw/record-hits.foreign" || c=$?; [ "$c" -eq 0 ] && [ ! -s "$EVID/census-raw/record-hits.foreign" ] || STOP
+g=0; grep -r -l -E "$ALT" "$RESDIR" > "$RUNNERS/final-token-files.txt" || g=$?; [ "$g" -le 1 ] || STOP; a=0; nf=$(awk 'END { print NR }' "$RUNNERS/final-token-files.txt") || a=$?; nd=$(awk 'END { print NR }' "$EVID/census-raw/record-hits.set") || a=$?; nt=$(awk 'END { print NR }' "$EVID/census-raw/fixture-tokens.set") || a=$?; [ "$a" -eq 0 ] || STOP
+w=0; printf 'record_files_carrying_a_fixture_token_copy=%s distinct_matched_strings=%s product_fixture_token_set_size=%s foreign_matched_strings=0 class=B-fixture-copies-only matched_text_in_record_files=inherited-from-the-product-fixture (paths listed in final-token-files.txt; matched strings only under census-raw, excluded)\n' "$nf" "$nd" "$nt" > "$RUNNERS/final-token-classes.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$RUNNERS/final-token-classes.txt" ] || STOP
+w=0; printf 'results_dir=%s set=%s finalize_check_rc=0 shasum_c_rc=0 token_classes=B-fixture-copies-only foreign=0\n' "$RESDIR" "$n" > "$RUNNERS/final-record.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$RUNNERS/final-record.txt" ] || STOP
 exit 0
 ```
 
@@ -2276,6 +2284,7 @@ Any discover byte (R-4.50 landed it); any `SessionRecord` / `CollectReport` / `a
 ## Revision history
 
 - **rev0** (b07125a, 2026-09-13) — the SKELETON: the audit's architecture; the fence by reference; placeholders [C-1] / [C-2]; the runner protocol and the R-4.50 instruments carried; the two patchers drafted at B's bytes.
+- **rev8** (2026-09-14) — Task 7's record token scan turned into a classification against the product's fixture-token set (class-B copies are legitimate; foreign = STOP; matched text out of the record); Tasks 5–6 exercised green.
 - **rev7** (2026-09-13) — Task 5's awk bracket-expression slash escaped (BSD awk); Tasks 5–7 exercised on the rev5 evidence home.
 - **rev6** (2026-09-13) — the rev5 rehearsal's last-line STOP folded: Linux skip set compared as a count (no names in the workflow's Linux block); all other Task 4 gates green in that run (bar pass-r435-disclosed-registered-red; LEG 1/2 PASS; Linux count gate equal).
 - **rev5** (2026-09-13) — the rev4 rehearsal's Task 4 STOP folded: `safety-tidy-analyzer` red at H on two constructs per streaming reader → the sanctioned per-byte `static_cast<char>` idiom and `string_view::substr` framing; verified with clang-tidy 22.1.8 locally (control reproduces the container's errors; fixed files clean) and the macOS suite; the first real LEG 1/2 verdict recorded on the carrier.
