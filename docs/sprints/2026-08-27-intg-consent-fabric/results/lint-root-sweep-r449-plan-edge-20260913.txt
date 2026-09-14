@@ -6,6 +6,7 @@
 #   end 17:48:38
 #   SWEEP-DONE
 # total_lines=779 error_lines=721 warn_lines=58 lines_naming_the_scout_draft=0 lines_naming_intg-r449=3
+# The 3 lines naming intg-r449 are the two filed AUDIT relays and the SITREP (165304 / 165305 / 165828), all of the ROOT-WIDE class "commission machine engaged but relay is not consumed by any Task 9.5a stage" (563 hits across every intg relay in this root; the inherited state) — not an edge finding; none names the SCOUT draft.
 # VERDICT: the SCOUT edge fired NOTHING — structural green for the R-4.49 PLAN carrier's cross-repo design edge under the new identity; no waiver word owed. The fired set below is the inherited root state (pre-existing classes), unchanged by the draft.
 == fired classes (message text after the path; counts)
  563 commission machine engaged but relay is not consumed by any Task 9.5a stage (DD-v29-master-authority-20260809 cross-seat rule 3)
