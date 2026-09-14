@@ -749,11 +749,22 @@ v=0; (cd "$EVID" && shasum -a 256 -c helpers.sha256 > helpers.verify-6.txt 2>&1)
 # Step 1
 H=$(cat "$EVID/H.txt") || STOP; C=$(cat "$EVID/C.txt") || STOP; [ "$(git rev-parse HEAD)" = "$H" ] && [ "$(git rev-parse "${H}^")" = "$C" ] && [ "$(git rev-parse "${C}^")" = "$B" ] || STOP
 [ -s "$RUNNERS/task-6-go.txt" ] || STOP; a=0; ng=$(awk 'END { print NR }' "$RUNNERS/task-6-go.txt") || a=$?; [ "$a" -eq 0 ] && [ "$ng" -eq 1 ] || STOP; GOP=$(sed -n '1p' "$RUNNERS/task-6-go.txt") || STOP; case "$GOP" in /*) GO=$GOP;; *) GO=$MAIN/$GOP;; esac; [ -s "$GO" ] || STOP
-GOD=$(cd "$(dirname "$GO")" && pwd -P) || STOP; RR=$(cd "$MAIN/.relays/intg/intg-r449" && pwd -P) || STOP; [ "$GOD" = "$RR" ] || STOP; GOB=$(basename "$GO") || STOP; case "$GOB" in SITREP-pair-planner-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].md) :;; *) STOP;; esac; g=0; k=$(grep -c -F -- "intg-r449/$GOB" "$MAIN/.relays/intg/INDEX.md") || g=$?; [ "$g" -eq 0 ] && [ "$k" -ge 1 ] || STOP
-for pat in '^FROM: intg\.pair-planner$' '^TO: intg\.pair-implementer$' '^PHASE: SITREP$' '^TASK6_GO: yes$'; do g=0; k=$(grep -c -E "$pat" "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; done
-g=0; k=$(grep -c -x -F -- "TASK6_H: $H" "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP; g=0; k=$(grep -c -x -F -- "TASK6_C: $C" "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
-PDC=$(cd "$MAIN/../pdc/master/relays" && pwd -P) || STOP; M2P=$(sed -n -E 's/^OWNER_REVIEW_C: ([^ |]+) \| FROM=(m-2\.(planner|implementer)|master\.master-planner) \| VERDICT=no-red$/\1/p' "$GO") || STOP; M2F=$(sed -n -E 's/^OWNER_REVIEW_C: [^ |]+ \| FROM=([^ |]+) \| VERDICT=no-red$/\1/p' "$GO") || STOP; [ -n "$M2P" ] && [ -n "$M2F" ] || STOP; case "$M2P" in /*) M2=$M2P;; *) M2=$MAIN/$M2P;; esac; [ -s "$M2" ] || STOP; M2D=$(cd "$(dirname "$M2")" && pwd -P) || STOP; case "$M2D" in "$PDC"/*) :;; *) STOP;; esac
-M3P=$(sed -n -E 's/^OWNER_REVIEW_H: ([^ |]+) \| FROM=(m-3\.(planner|implementer)|master\.master-planner) \| VERDICT=no-red$/\1/p' "$GO") || STOP; M3F=$(sed -n -E 's/^OWNER_REVIEW_H: [^ |]+ \| FROM=([^ |]+) \| VERDICT=no-red$/\1/p' "$GO") || STOP; [ -n "$M3P" ] && [ -n "$M3F" ] || STOP; case "$M3P" in /*) M3=$M3P;; *) M3=$MAIN/$M3P;; esac; [ -s "$M3" ] || STOP; M3D=$(cd "$(dirname "$M3")" && pwd -P) || STOP; case "$M3D" in "$PDC"/*) :;; *) STOP;; esac
+GOD=$(cd "$(dirname "$GO")" && pwd -P) || STOP; RR=$(cd "$MAIN/.relays/intg/intg-r449" && pwd -P) || STOP; [ "$GOD" = "$RR" ] || STOP
+GOB=$(basename "$GO") || STOP; case "$GOB" in SITREP-pair-planner-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].md) :;; *) STOP;; esac
+g=0; k=$(grep -c -F -- "intg-r449/$GOB" "$MAIN/.relays/intg/INDEX.md") || g=$?; [ "$g" -eq 0 ] && [ "$k" -ge 1 ] || STOP
+g=0; k=$(grep -c -E '^FROM: intg\.pair-planner$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+g=0; k=$(grep -c -E '^TO: intg\.pair-implementer$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+g=0; k=$(grep -c -E '^PHASE: SITREP$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+g=0; k=$(grep -c -E '^TASK6_GO: yes$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+g=0; k=$(grep -c -x -F -- "TASK6_C: $C" "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+g=0; k=$(grep -c -x -F -- "TASK6_H: $H" "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+PDC=$(cd "$MAIN/../pdc/master/relays" && pwd -P) || STOP
+M2P=$(sed -n -E 's/^OWNER_REVIEW_C: ([^ |]+) \| FROM=(m-2\.(planner|implementer)|master\.master-planner) \| VERDICT=no-red$/\1/p' "$GO") || STOP; M2F=$(sed -n -E 's/^OWNER_REVIEW_C: [^ |]+ \| FROM=([^ |]+) \| VERDICT=no-red$/\1/p' "$GO") || STOP; [ -n "$M2P" ] && [ -n "$M2F" ] || STOP
+case "$M2P" in /*) M2=$M2P;; *) M2=$MAIN/$M2P;; esac; [ -s "$M2" ] || STOP
+M2D=$(cd "$(dirname "$M2")" && pwd -P) || STOP; case "$M2D" in "$PDC"/*) :;; *) STOP;; esac
+M3P=$(sed -n -E 's/^OWNER_REVIEW_H: ([^ |]+) \| FROM=(m-3\.(planner|implementer)|master\.master-planner) \| VERDICT=no-red$/\1/p' "$GO") || STOP; M3F=$(sed -n -E 's/^OWNER_REVIEW_H: [^ |]+ \| FROM=([^ |]+) \| VERDICT=no-red$/\1/p' "$GO") || STOP; [ -n "$M3P" ] && [ -n "$M3F" ] || STOP
+case "$M3P" in /*) M3=$M3P;; *) M3=$MAIN/$M3P;; esac; [ -s "$M3" ] || STOP
+M3D=$(cd "$(dirname "$M3")" && pwd -P) || STOP; case "$M3D" in "$PDC"/*) :;; *) STOP;; esac
 g=0; k=$(grep -c -x -F -- "FROM: $M2F" "$M2") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
 g=0; k=$(grep -c -E '^PHASE: [A-Z-]+$' "$M2") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
 g=0; k=$(grep -c -x -F -- "R449_REVIEW_OBJECT: C=$C" "$M2") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
@@ -2323,7 +2334,7 @@ Any discover byte (R-4.50 landed it); any `SessionRecord` / `CollectReport` / `a
 ## Revision history
 
 - **rev0** (b07125a, 2026-09-13) — the SKELETON: the audit's architecture; the fence by reference; placeholders [C-1] / [C-2]; the runner protocol and the R-4.50 instruments carried; the two patchers drafted at B's bytes.
-- **rev14** (2026-09-14) — the implementer's `052443` folded: the Task 6 gate reads each owner review's OWN object/scope/verdict lines and refuses red-shaped dispositions; the GO relay bound to the engine cycle directory + INDEX, the owner reviews to the master relay root; master adjudication the named alternative; the pre-write claim narrowed; negative controls in isolated homes with the fired line quoted; the positive path one uninterrupted token; the PR body names the owner seats; one owner-review predicate per runner line, so a negative control's fired `STOP line=N` names the predicate.
+- **rev14** (2026-09-14) — the implementer's `052443` folded: the Task 6 gate reads each owner review's OWN object/scope/verdict lines and refuses red-shaped dispositions; the GO relay bound to the engine cycle directory + INDEX, the owner reviews to the master relay root; master adjudication the named alternative; the pre-write claim narrowed; negative controls in isolated homes with the fired line quoted; the positive path one uninterrupted token; the PR body names the owner seats; ONE gate predicate per runner line (dir bind, name shape, INDEX row, each header line, each sha, each owner-review resolution step and predicate), so a negative control's fired `STOP line=N` names the predicate.
 - **rev13** (2026-09-14) — the implementer's `040639` folded: protocol (e) (the declared continuation line; controller refusal); the Task 6 gate reads the GO relay's machine block and each owner review's author seat/phase/sha before any write; negative controls rehearsed.
 - **rev12** (2026-09-14) — the implementer's `023545` folded: m-3's pre-vehicle review of H a mechanical Task 6 gate (`task-6-go.txt`); the PR body names the readtrace shim; the protocol's finalizer sentence; acceptance 7 narrowed.
 - **rev11** (2026-09-14) — the rev9 rehearsal (Tasks 0–6 GREEN; Task 7 STOP at the receipts' own alternation scan: `grep -c` over two files prints `file:count` rows, not an integer) folded: one grep per receipt file; Task 7 re-exercised on the rev9 home with the post-controller re-check.
