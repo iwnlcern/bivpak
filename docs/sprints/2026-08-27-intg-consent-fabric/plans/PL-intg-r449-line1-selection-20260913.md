@@ -1,6 +1,8 @@
-# R-4.49 line-1 selection — Implementation Plan (revision 4 — assembled 2026-09-13; the shim scout's finding folded: Phase L packs S IN PLACE on the evidence home mounted at its host path, because S's cwd values and project keys are host paths; rev3's fence fold and shim instrument stand)
+# R-4.49 line-1 selection — Implementation Plan (revision 5 — assembled 2026-09-13; the rev4 rehearsal's Task 4 STOP folded: the Linux `safety-tidy-analyzer` row rejected two constructs in each streaming reader (a `reinterpret_cast` and a pointer arithmetic), now written in the adapters' own sanctioned idiom; rev4's in-place Phase L and rev3's fence stand)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task, IN DOCUMENT ORDER, through the per-task runner protocol below and nothing else. Steps use checkbox (`- [ ]`) syntax for tracking. Nothing in this document is authority: the implementation token is a separate bare `DISPATCH IMPL` relay from the pair Planner after the exact-hash approve; the branch push and the PR are the R-4.51 clause (2) vehicle; the merge is the operator's condition-4 token; the landing is R-4.52; nothing here releases.
+
+**Revision 5 (2026-09-13).** The rev4 scratch rehearsal ran **Tasks 0–3 GREEN** and, in Task 4, BOTH containers through Phases R/T/S/L green (Phase L in place on the host-path mount: 1,646 accounting rows on each side, the must-be-YES control equal, six members on each side, the Linux membership delta EMPTY) and produced the first REAL LEG 1/2 verdict (B's binary vs H's over S) — then STOPPED at the two-outcome bar because the Linux `ctest` at H carried TWO failed rows, `harness-selftest` (the disclosed R-4.35 family, admitted) and **`safety-tidy-analyzer`**: clang-tidy 22 with `WarningsAsErrors: '*'` rejected, in EACH streaming reader, `carry.append(reinterpret_cast<const char*>(chunk.data()), chunk.size())` (`cppcoreguidelines-pro-type-reinterpret-cast`) and `carry.data() + start` (`cppcoreguidelines-pro-bounds-pointer-arithmetic`) — a CANDIDATE defect in the plan's own patcher code, caught by the rehearsal, not by any review. FOLDED: both readers now use the adapters' own sanctioned idiom (`source_text`'s per-byte `static_cast<char>` push, and `std::string_view{carry}.substr(start, newline - start)` for the line frame). Verified at the planner's seat with the SAME clang-tidy major (Homebrew LLVM 22.1.8, the repo's `.clang-tidy`, the `ci-macos` compile database with the SDK sysroot), the instrument validated first: the OLD patcher output reproduces exactly the container's two errors (must-be-YES), the base files read clean (must-be-NO), the FIXED files read clean (0 errors, 0 warnings) — and the whole `biv_tests` re-run green on the fixed bytes (receipt on the carrier). The Linux row's inclusion in the bar is unchanged: at H only `harness-selftest` may stand red, and only under the (a)–(h) reading.
 
 **Revision 4 (2026-09-13).** The shim scout (a throwaway container building `biv` on the candidate branch and packing S under the `readtrace.c` shim): the INSTRUMENT is valid — 1,646 rows, the must-be-YES control row equal to its file's size, out-of-root claude transcripts read 8,192 bytes and the sealed no-cwd class read in full — but `biv pack` reported ZERO members in the container with or without the shim. Cause: S's cwd values and the claude project-key directory encode the HOST path of `$EVID/work/ws/proj`, and rev3's Phase L packed a COPY at `/work/synth`, so no transcript's cwd lay under the source root. FOLDED: the container mounts the evidence home a SECOND time at its own host path (`-v "$EVID:$EVID"`; the path is argument 3 of `linux-container.sh`) and Phase L packs S IN PLACE there (no copy, no chown); the images are renamed `proj-linux-<label>.bvpk` beside the macOS ones; the shim prefix is the host-path `work`. The rev2 rehearsal's Linux membership check would have compared two EMPTY memberships as equal — the count-6 gate on each side is what makes that impossible (kept, and the reason it exists).
 
@@ -1396,11 +1398,13 @@ expected<std::optional<std::string>> first_transcript_cwd(const SessionRecord::A
     return cwd.has_value();
   };
   auto read = source.stream([&](const std::span<const std::byte> chunk) -> expected<void> {
-    carry.append(reinterpret_cast<const char*>(chunk.data()), chunk.size());
+    for (const auto byte : chunk) {
+      carry.push_back(static_cast<char>(byte));
+    }
     std::size_t start = 0;
     for (auto newline = carry.find('\\n', start); newline != std::string::npos;
          newline = carry.find('\\n', start)) {
-      const std::string_view line{carry.data() + start, newline - start};
+      const std::string_view line = std::string_view{carry}.substr(start, newline - start);
       start = newline + 1;
       if (absorb(line)) {
         break;
@@ -1598,11 +1602,13 @@ expected<RolloutFacts> inspect_rollout_head_stream(const SessionRecord::Artifact
   std::string carry;
   bool complete = false;
   auto read = source.stream([&](const std::span<const std::byte> chunk) -> expected<void> {
-    carry.append(reinterpret_cast<const char*>(chunk.data()), chunk.size());
+    for (const auto byte : chunk) {
+      carry.push_back(static_cast<char>(byte));
+    }
     std::size_t start = 0;
     for (auto newline = carry.find('\\n', start); newline != std::string::npos;
          newline = carry.find('\\n', start)) {
-      const std::string_view line{carry.data() + start, newline - start};
+      const std::string_view line = std::string_view{carry}.substr(start, newline - start);
       start = newline + 1;
       if (absorb_rollout_line(facts, line)) {
         complete = true;
@@ -2266,6 +2272,7 @@ Any discover byte (R-4.50 landed it); any `SessionRecord` / `CollectReport` / `a
 ## Revision history
 
 - **rev0** (b07125a, 2026-09-13) — the SKELETON: the audit's architecture; the fence by reference; placeholders [C-1] / [C-2]; the runner protocol and the R-4.50 instruments carried; the two patchers drafted at B's bytes.
+- **rev5** (2026-09-13) — the rev4 rehearsal's Task 4 STOP folded: `safety-tidy-analyzer` red at H on two constructs per streaming reader → the sanctioned per-byte `static_cast<char>` idiom and `string_view::substr` framing; verified with clang-tidy 22.1.8 locally (control reproduces the container's errors; fixed files clean) and the macOS suite; the first real LEG 1/2 verdict recorded on the carrier.
 - **rev4** (2026-09-13) — the shim scout's zero-member finding folded: Phase L packs S in place on the evidence home mounted at its host path (arg 3 of the container script); images renamed `proj-linux-<label>.bvpk`; the shim validated (1,646 rows; control equal; head-bounded reads visible).
 - **rev3** (2026-09-13) — m-3's YES + V-RP-1..8 / S-RP-1..4 folded verbatim; the diff-line count reconciled (2 hunks, 4 ± content lines, 2 header lines); m-3's evidence set for H produced into `H/`; the LEG 1/2 instrument swapped from strace (invalid under CPU emulation — two scouts) to the `readtrace.c` shim with a must-be-YES control; `strace_bytes.py` dropped.
 - **rev2** (2026-09-13) — the rehearsal's Task 3 STOP folded: TWO commits (C product; H = m-3's S-CP-2 two-anchor re-pin, `e3pin_r449.py`, rule 4, m-3 byte review; m-3's word a pre-token gate); `SessionNoCwdRecord` count REQUIRED 5 at B and H; Task 5 proves the harness commit's exact shape; base file set + helper set extended.
