@@ -1,0 +1,230 @@
+# R-4.49 plan revision 15 (349c363, sha256 39b8966b…) whole-protocol SCRATCH rehearsal 2026-09-14 15:22–16:20:35 — ONE uninterrupted token: Tasks 0–5 through the controller; then TWELVE NEGATIVE CONTROLS of the Task 6 owner-review gate (protocol (e)), EACH in a throwaway controller on an ISOLATED rsync copy of the home (minus work/ and census-raw/) so no proof-copy residue can reach the positive path; each control records its exit, the fired 'STOP-task-6 line=N' and the runner line at N (the gate is ONE predicate per line, so N names the predicate); then the positive Task 6 (first and only attempt), Task 7, and the POST-CONTROLLER finalize.py re-check. The scratch GO relays were filed into the SCRATCH clone's cycle directory with rows appended to the SCRATCH clone's INDEX.md only; the scratch owner reviews live under <SCRATCH>/pdc/master/relays/ (MAIN'/../pdc). The real checkout, its -v2 worktree, its INDEX and refs untouched (last lines). Expected fired lines — 1: controller no-continuation; 2 (no TASK6_GO): 27; 3 (wrong owner seat): 43; 4 (sha mismatch): 29; 5 (RED owner verdict under a no-red pointer): 47; 6 (affirmative verdict beside STATUS: MUST-REVISE): 48; 7 (GO outside the cycle dir): 21; 8 (GO not in the INDEX): 23; 9 (pointer names a disallowed seat): 34; 10 (owner review outside the master root): 36; 11 (a FULLY-FORMED no-red review authored by master.master-planner — object, scope, verdict and FOR lines all present — under a pointer naming master): 34, the seat predicate; 12 (continuation names a missing file): controller target-missing.
+== flow log
+15:22:25 scratch=<SCRATCH> src_plan_sha=39b8966b7edd065b
+15:22:26 origin.git main=4cf135ee97f57021c5fc5fd5343de6f655fb0d24 lane-main=349c363f16f44da56746060b62332fb7975f3085 r450=8509157c41c5ef66595d655f39eee5107081bd32 v2=e8a1128d75cd4693d21269c4d040095df570f116
+15:22:28 MAIN' HEAD=349c363f16f44da56746060b62332fb7975f3085 origin/main=4cf135ee97f57021c5fc5fd5343de6f655fb0d24 oldwt=e8a1128d75cd4693d21269c4d040095df570f116 record_file=present
+15:22:28 plan copy sha=4125cb9166ecaf3d
+15:22:28 bootstrap (0) done: RUNNERS=<RUNNERS> blocks=32
+15:22:28 run-task.sh 0 START
+15:38:28 run-task.sh 0 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:38:28 run-task.sh 1 START
+15:38:40 run-task.sh 1 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:38:41 run-task.sh 2 START
+15:39:10 run-task.sh 2 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:39:10 run-task.sh 3 START
+15:43:11 run-task.sh 3 exit=0 proof_tail=rc=0 task_exit=rc=0
+15:43:11 run-task.sh 4 START
+16:18:06 run-task.sh 4 exit=0 proof_tail=rc=0 task_exit=rc=0
+16:18:06 run-task.sh 5 START
+16:20:17 run-task.sh 5 exit=0 proof_tail=rc=0 task_exit=rc=0
+16:20:17 run-task.sh 6 START
+16:20:17 positive home size minus work/ census-raw/ (the isolated-copy payload):  71M
+16:20:17 scratch GO relays filed in the SCRATCH cycle dir <SCRATCH>/bivpak/.relays/intg/intg-r449 (rows appended to the SCRATCH clone's INDEX only: 9); scratch owner reviews under <SCRATCH>/pdc/master/relays/intg-r449-line1-selection-act; the real INDEX untouched
+16:20:18 NEGATIVE CONTROL 1-no-continuation [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-oNvCsi]: run-task.sh 6 exit=1 (expected nonzero) last='STOP-controller-task-6-no-continuation' fired_line=none fired_text='<controller refused before materialization>' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:19 NEGATIVE CONTROL 2-no-TASK6_GO [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-wDaB66]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=27 fired_text='g=0; k=$(grep -c -E '^TASK6_GO: yes$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:20 NEGATIVE CONTROL 3-wrong-owner-seat [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-a0Jz7v]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=43 fired_text='g=0; k=$(grep -c -x -F -- "FROM: $M3F" "$M3") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:21 NEGATIVE CONTROL 4-sha-mismatch [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-BdG9lW]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=29 fired_text='g=0; k=$(grep -c -x -F -- "TASK6_H: $H" "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:22 NEGATIVE CONTROL 5-red-owner-verdict [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-YRwET0]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=47 fired_text='g=0; k=$(grep -c -x -F -- 'R449_REVIEW_VERDICT: no-red' "$M3") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:23 NEGATIVE CONTROL 6-red-status-line [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-Dw1OIz]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=48 fired_text='g=0; k=$(grep -c -i -E '^([A-Z0-9_]*VERDICT|STATUS): *(must-revise|reject|reject-narrow|red|blocked|pending|hold|human-decision-required)' "$M3") || g' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:24 NEGATIVE CONTROL 7-go-outside-cycle-dir [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-Ww5Sjl]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=21 fired_text='GOD=$(cd "$(dirname "$GO")" && pwd -P) || STOP; RR=$(cd "$MAIN/.relays/intg/intg-r449" && pwd -P) || STOP; [ "$GOD" = "$RR" ] || STOP' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:25 NEGATIVE CONTROL 8-go-not-in-index [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-wBC8ef]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=23 fired_text='g=0; k=$(grep -c -F -- "intg-r449/$GOB" "$MAIN/.relays/intg/INDEX.md") || g=$?; [ "$g" -eq 0 ] && [ "$k" -ge 1 ] || STOP' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:26 NEGATIVE CONTROL 9-pointer-names-disallowed-seat [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-rZIkmx]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=34 fired_text='M3P=$(sed -n -E 's/^OWNER_REVIEW_H: ([^ |]+) \| FROM=(m-3\.(planner|implementer)) \| VERDICT=no-red$/\1/p' "$GO") || STOP; M3F=$(sed -n -E 's/^OWNER_R' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:27 NEGATIVE CONTROL 10-owner-review-outside-master-root [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-AKrLlX]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=36 fired_text='M3D=$(cd "$(dirname "$M3")" && pwd -P) || STOP; case "$M3D" in "$PDC"/*) :;; *) STOP;; esac' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:28 NEGATIVE CONTROL 11-master-substitute-fully-formed [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-epYbHt]: run-task.sh 6 exit=1 (expected nonzero) last='task-6 exited 1 — STOP; the token ends here' fired_line=34 fired_text='M3P=$(sed -n -E 's/^OWNER_REVIEW_H: ([^ |]+) \| FROM=(m-3\.(planner|implementer)) \| VERDICT=no-red$/\1/p' "$GO") || STOP; M3F=$(sed -n -E 's/^OWNER_R' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:28 NEGATIVE CONTROL 12-continuation-names-missing-file [isolated home /Users/jack/Programming/bivpak-evidence/r449-neghome-cERwWG]: run-task.sh 6 exit=1 (expected nonzero) last='STOP-controller-task-6-continuation-target-missing' fired_line=none fired_text='<controller refused before materialization>' task6_record_written=no push-url-written=no positive_home_task6_residue=0 remote-branch=absent
+16:20:28 task-6-go.txt written (one line: the positive scratch GO relay in the scratch cycle directory, indexed); the positive home carries no Task 6 residue: 0
+16:20:29 run-task.sh 6 exit=0 proof_tail=rc=0 task_exit=rc=0
+16:20:29 run-task.sh 7 START
+16:20:35 run-task.sh 7 exit=0 proof_tail=rc=0 task_exit=rc=0
+16:20:35 POST-CONTROLLER finalize.py check on the completed home: rc=0 set=461 tree=461 manifest=461 equal=yes digests=ok copies=ok
+16:20:35 record receipts: set_files_scanned=459 record_files_carrying_a_fixture_token_copy=6 distinct_matched_strings=1 product_fixture_token_set_size=1 foreign_matched_strings=0 class=B-fixture-copies-only note=matched string
+16:20:35 runners receipts present in the home after the controller: 4 of 4 (declared FINALIZER_RECEIPTS, excluded by finalize.py)
+16:20:35 EVID=<EVID> scratch_remote_head=0937d032a50d417925654dfb00a3ea4e629d68b7
+16:20:35 REAL untouched: main=349c363f16f44da56746060b62332fb7975f3085 oldwt_present=yes oldwt_head=e8a1128d75cd4693d21269c4d040095df570f116 r449_branch=absent
+FLOW-COMPLETE
+== derived task-6 runner, lines 20-48 (the gate; numbering as in the fired lines)
+20: [ -s "$RUNNERS/task-6-go.txt" ] || STOP; a=0; ng=$(awk 'END { print NR }' "$RUNNERS/task-6-go.txt") || a=$?; [ "$a" -eq 0 ] && [ "$ng" -eq 1 ] || STOP; GOP=$(sed -n '1p' "$RUNNERS/task-6-go.txt") || STOP; case "$GOP" in /*) GO=$GOP;; *) GO=$MAIN/$GOP;; esac; [ -s "$GO" ] || STOP
+21: GOD=$(cd "$(dirname "$GO")" && pwd -P) || STOP; RR=$(cd "$MAIN/.relays/intg/intg-r449" && pwd -P) || STOP; [ "$GOD" = "$RR" ] || STOP
+22: GOB=$(basename "$GO") || STOP; case "$GOB" in SITREP-pair-planner-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].md) :;; *) STOP;; esac
+23: g=0; k=$(grep -c -F -- "intg-r449/$GOB" "$MAIN/.relays/intg/INDEX.md") || g=$?; [ "$g" -eq 0 ] && [ "$k" -ge 1 ] || STOP
+24: g=0; k=$(grep -c -E '^FROM: intg\.pair-planner$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+25: g=0; k=$(grep -c -E '^TO: intg\.pair-implementer$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+26: g=0; k=$(grep -c -E '^PHASE: SITREP$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+27: g=0; k=$(grep -c -E '^TASK6_GO: yes$' "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+28: g=0; k=$(grep -c -x -F -- "TASK6_C: $C" "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+29: g=0; k=$(grep -c -x -F -- "TASK6_H: $H" "$GO") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+30: PDC=$(cd "$MAIN/../pdc/master/relays" && pwd -P) || STOP
+31: M2P=$(sed -n -E 's/^OWNER_REVIEW_C: ([^ |]+) \| FROM=(m-2\.(planner|implementer)) \| VERDICT=no-red$/\1/p' "$GO") || STOP; M2F=$(sed -n -E 's/^OWNER_REVIEW_C: [^ |]+ \| FROM=([^ |]+) \| VERDICT=no-red$/\1/p' "$GO") || STOP; [ -n "$M2P" ] && [ -n "$M2F" ] || STOP
+32: case "$M2P" in /*) M2=$M2P;; *) M2=$MAIN/$M2P;; esac; [ -s "$M2" ] || STOP
+33: M2D=$(cd "$(dirname "$M2")" && pwd -P) || STOP; case "$M2D" in "$PDC"/*) :;; *) STOP;; esac
+34: M3P=$(sed -n -E 's/^OWNER_REVIEW_H: ([^ |]+) \| FROM=(m-3\.(planner|implementer)) \| VERDICT=no-red$/\1/p' "$GO") || STOP; M3F=$(sed -n -E 's/^OWNER_REVIEW_H: [^ |]+ \| FROM=([^ |]+) \| VERDICT=no-red$/\1/p' "$GO") || STOP; [ -n "$M3P" ] && [ -n "$M3F" ] || STOP
+35: case "$M3P" in /*) M3=$M3P;; *) M3=$MAIN/$M3P;; esac; [ -s "$M3" ] || STOP
+36: M3D=$(cd "$(dirname "$M3")" && pwd -P) || STOP; case "$M3D" in "$PDC"/*) :;; *) STOP;; esac
+37: g=0; k=$(grep -c -x -F -- "FROM: $M2F" "$M2") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+38: g=0; k=$(grep -c -E '^PHASE: [A-Z-]+$' "$M2") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+39: g=0; k=$(grep -c -x -F -- "R449_REVIEW_OBJECT: C=$C" "$M2") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+40: g=0; k=$(grep -c -x -F -- 'R449_REVIEW_SCOPE: V-LS-1..6' "$M2") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+41: g=0; k=$(grep -c -x -F -- 'R449_REVIEW_VERDICT: no-red' "$M2") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+42: g=0; k=$(grep -c -i -E '^([A-Z0-9_]*VERDICT|STATUS): *(must-revise|reject|reject-narrow|red|blocked|pending|hold|human-decision-required)' "$M2") || g=$?; [ "$g" -eq 1 ] && [ "$k" -eq 0 ] || STOP
+43: g=0; k=$(grep -c -x -F -- "FROM: $M3F" "$M3") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+44: g=0; k=$(grep -c -E '^PHASE: [A-Z-]+$' "$M3") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+45: g=0; k=$(grep -c -x -F -- "R449_REVIEW_OBJECT: H=$H" "$M3") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+46: g=0; k=$(grep -c -x -F -- 'R449_REVIEW_SCOPE: V-RP-1..8 S-RP-1..4' "$M3") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+47: g=0; k=$(grep -c -x -F -- 'R449_REVIEW_VERDICT: no-red' "$M3") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP
+48: g=0; k=$(grep -c -i -E '^([A-Z0-9_]*VERDICT|STATUS): *(must-revise|reject|reject-narrow|red|blocked|pending|hold|human-decision-required)' "$M3") || g=$?; [ "$g" -eq 1 ] && [ "$k" -eq 0 ] || STOP
+== POST-CONTROLLER re-check
+set=461 tree=461 manifest=461 equal=yes digests=ok copies=ok
+== record receipts
+set_files_scanned=459 record_files_carrying_a_fixture_token_copy=6 distinct_matched_strings=1 product_fixture_token_set_size=1 foreign_matched_strings=0 class=B-fixture-copies-only note=matched strings live only under census-raw (excluded from the record); this receipt and record-token-files.txt carry paths and counts only and are the two files added to the set after this scan
+B/biv_tests-linux.xml
+B/biv_tests-macos.xml
+H/biv_tests-linux.xml
+H/biv_tests-macos.xml
+H/biv_tests-pre-commit.xml
+base-test_adapter_codex_collect.cpp
+go=<SCRATCH>/bivpak/.relays/intg/intg-r449/SITREP-pair-planner-20260914-060101.md
+m2_review_of_C=<SCRATCH>/pdc/master/relays/intg-r449-line1-selection-act/DESIGN-m2-planner-20260914-060001.md FROM=m-2.planner
+m3_review_of_H=<SCRATCH>/pdc/master/relays/intg-r449-line1-selection-act/DESIGN-m3-planner-20260914-060002.md FROM=m-3.planner
+== scratch GO relay (positive), the two scratch owner reviews, and control 11's master-authored file
+ROLE: Pair Planner
+PHASE: SITREP
+FROM: intg.pair-planner
+TO: intg.pair-implementer
+SUBJECT: scratch GO for Task 6
+TASK6_GO: yes
+TASK6_C: de633c10b5a29588a19c83c86b941e443b973cf7
+TASK6_H: 0937d032a50d417925654dfb00a3ea4e629d68b7
+OWNER_REVIEW_C: <SCRATCH>/pdc/master/relays/intg-r449-line1-selection-act/DESIGN-m2-planner-20260914-060001.md | FROM=m-2.planner | VERDICT=no-red
+OWNER_REVIEW_H: <SCRATCH>/pdc/master/relays/intg-r449-line1-selection-act/DESIGN-m3-planner-20260914-060002.md | FROM=m-3.planner | VERDICT=no-red
+ROLE: Planner
+PHASE: DESIGN
+FROM: m-2.planner
+TO: master.master-planner
+SUBJECT: scratch byte review C=de633c10b5a29588a19c83c86b941e443b973cf7
+R449_REVIEW_OBJECT: C=de633c10b5a29588a19c83c86b941e443b973cf7
+R449_REVIEW_SCOPE: V-LS-1..6
+R449_REVIEW_VERDICT: no-red
+ROLE: Planner
+PHASE: DESIGN
+FROM: m-3.planner
+TO: master.master-planner
+SUBJECT: scratch byte review H=0937d032a50d417925654dfb00a3ea4e629d68b7
+R449_REVIEW_OBJECT: H=0937d032a50d417925654dfb00a3ea4e629d68b7
+R449_REVIEW_SCOPE: V-RP-1..8 S-RP-1..4
+R449_REVIEW_VERDICT: no-red
+ROLE: Master Planner
+PHASE: PLAN
+FROM: master.master-planner
+TO: intg.pair-planner
+SUBJECT: scratch FULLY-FORMED master substitute for H
+R449_REVIEW_OBJECT: H=0937d032a50d417925654dfb00a3ea4e629d68b7
+R449_REVIEW_SCOPE: V-RP-1..8 S-RP-1..4
+R449_REVIEW_VERDICT: no-red
+R449_REVIEW_FOR: m-3
+== H/leg12-summary.txt
+CLASS claude-bulk files=100 bytes_B=444680036 bytes_H=38576864
+CLASS claude-cwd-no-enrichment files=10 bytes_B=41950930 bytes_H=81920
+CLASS claude-no-cwd files=5 bytes_B=5248395 bytes_H=5248395
+CLASS codex-bulk files=1500 bytes_B=395556861 bytes_H=14651823
+CLASS codex-garbage-line1 files=20 bytes_B=5253400 bytes_H=163840
+CLASS codex-no-meta files=10 bytes_B=2623500 bytes_H=2623500
+TOTAL files=1645 bytes_B=895313122 bytes_H=61346342 ratio_H_over_B=0.0685
+VERDICT PASS violations=0
+== H/linux-selftest-bar.txt
+rcL=8 a_rows_rc=0 summary_H=parsed failed_H=2 names_H=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open, foreign_H= d_tripwire_lines=0 d_family_files_rc=0 population_H=1013 rcB=8 base_rows=1 base_rows_rc=0 summary_B=parsed failed_B=1 names_B=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop, foreign_B= population_B=1013 bar=pass-r435-disclosed-registered-red
+== H/cost-receipt.txt
+LEG 3 cost receipt: biv pack over S (medians of three runs), macOS, B then H
+label=B runs=3 times_s=3.762,3.820,3.696 median_s=3.762 rcs=2,2,2 oks=True,True,True image=<EVID>/work/ws/proj-B.bvpk
+label=H runs=3 times_s=0.851,0.517,0.439 median_s=0.517 rcs=2,2,2 oks=True,True,True image=<EVID>/work/ws/proj-H.bvpk
+membership_delta=empty no_cwd_record_warnings_equal=yes
+== census-summary.txt + census-record.sha256
+census_at=0937d032a50d417925654dfb00a3ea4e629d68b7 tree_rows=69 history_paths=34 delta_vs_B=empty delta_B_vs_record_of_4cf135ee=empty record_sha256=858c6486e2ac7ba07dc73ad3b0ff532f03c34539fa8d933e2fa4d21d870e9a1c(accepted,R-4.50 packet rev5) classes=inherited_from_record(A=3,B=64,C=2) matched_text_in_record=none collation=LC_ALL=C
+858c6486e2ac7ba07dc73ad3b0ff532f03c34539fa8d933e2fa4d21d870e9a1c  <SCRATCH>/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/intg-r450-main-head-census-20260913.txt
+== re-pin shape + walk
+e3_diff hunks=2 plus_minus_content_lines=4 file_header_lines=2
+src/adapters/claude_code/claude_code.cpp old=4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51 new=37942a9c43d5f9b98e30884b6d04481fca68a27988bbc98f2a2d3a0f4dae1ea8
+src/adapters/codex/codex.cpp old=08480a19a7194f79078d01091f2f24d7d23abb8483c7a2bff0138d6de52e6d5d new=55d04bdccf0a43461c23e0e4baa2df4f16a4851008c0159f3b6a59a4952ada16
+4e105052a17b7e0d99bfeca28ac45cac1f6ed3c5ba0e9ba9ec62a34e530a3a51 hits=0
+08480a19a7194f79078d01091f2f24d7d23abb8483c7a2bff0138d6de52e6d5d hits=0
+== count gates + skips
+biv_probe_tests macos literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests macos literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests macos literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests macos literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests macos literal_B=('419', '0', '0', '3') observed_B=('419', '0', '0', '3') observed_H=('419', '0', '0', '3') equal=yes
+biv_probe_tests linux literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_B=('421', '0', '0', '1') observed_B=('421', '0', '0', '1') observed_H=('421', '0', '0', '1') equal=yes
+expected n=3 observed n=3 same_set=yes only_in_B=[] only_in_observed=[]
+baseline_linux_skips=1 observed_linux_skips=1
+== census/sections/no-cwd/dispose/cutpoint
+claude_test_cases=15 codex_test_cases=25
+r449_sections_run=9
+no_cwd_record_warnings=5
+no_cwd_record_warnings=5
+disposed=<SCRATCH>/bivpak-intg-r450-discover-parity head_was=e8a1128d75cd4693d21269c4d040095df570f116 branch_was=intg/r450-discover-parity-v2 remove_rc=0 refs_unchanged=yes remote_heads=2
+unpublished_commits_in_lineage=0 expected=0 cut_point=4cf135ee97f57021c5fc5fd5343de6f655fb0d24
+== push/PR (scratch) + finalizer
+class=a
+pr_rc=0
+results_dir=<SCRATCH>/bivpak/docs/sprints/2026-08-27-intg-consent-fabric/results/r449-rehearsal-r449-rev15 set=461 finalize_check_rc=0 shasum_c_rc=0 token_classes=B-fixture-copies-only foreign=0 post_controller_recheck=owed-by-the-pair-planner-before-commit
+record-token-classes.txt
+record-token-files.txt
+== pr-body.md (scratch)
+R-4.49 line-1 selection (m-2 fence 142000 §2 / rev2 144700; the operator grant 152118 "lets fix both please", 2 of 2): candidacy in both collect paths is decided from a HEAD-BOUNDED streamed read that stops at the predicate today's parsers already implement — the FIRST cwd-bearing record for claude (sealed ADDENDUM-1 §A1; no cwd anywhere = whole file + no_cwd_record, sealed) and the FIRST session_meta record for codex (sealed c1 §4) — and the whole-file read + the unchanged whole-text parsers run only for an in-root candidate. m-2 C-1/C-2 rulings (DESIGN-m2-planner-20260913-170000): selection identity by construction; the act is read-bounding only. ONE PR, TWO COMMITS, TWO OWNERS (the R-4.50 arm A shape): C = the lane's product commit under m-2's fence (SECTIONs inside existing TEST_CASEs; case census unchanged); H = m-3's harness commit (C-2 rule 4): the two S-CP-2 _ADAPTER_SOURCE_ANCHORS literals re-pinned to C's adapter digests, nothing else.
+
+Design pin: m2-r450-discover-fence-rev2-20260903 sha256 f2216ee606a03b0b5b0b7f4562fed52a7349219c28990e6ee3e89b0cc25e8c6f
+Plan pin: intg-r449-line1-selection-plan-20260913 sha256 4125cb9166ecaf3dafe2f5e648b61519e84073e9b7811ff23dc81b695d6bdf20
+
+B=4cf135ee97f57021c5fc5fd5343de6f655fb0d24 (origin/main, the R-4.50 landing merge)
+C=de633c10b5a29588a19c83c86b941e443b973cf7 (C^ = B; the product commit)
+H=0937d032a50d417925654dfb00a3ea4e629d68b7 (H^ = C; the harness commit)
+
+C touched (numstat):
+69	6	src/adapters/claude_code/claude_code.cpp
+89	34	src/adapters/codex/codex.cpp
+93	0	tests/test_adapter_claude_collect.cpp
+81	0	tests/test_adapter_codex_collect.cpp
+
+H touched (numstat):
+2	2	harness/bivharness/e3.py
+
+COUNT-GATE (the ten OverallResultsCases cells: literal at B == observed at B == observed at H):
+biv_probe_tests macos literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests macos literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests macos literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests macos literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests macos literal_B=('419', '0', '0', '3') observed_B=('419', '0', '0', '3') observed_H=('419', '0', '0', '3') equal=yes
+biv_probe_tests linux literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_B=('421', '0', '0', '1') observed_B=('421', '0', '0', '1') observed_H=('421', '0', '0', '1') equal=yes
+
+LEG 1 / LEG 2 (bytes read per store file — the readtrace.c LD_PRELOAD read accountant inside the Linux parity container, validated first by a must-be-YES dd control, B vs H over the synthetic store S in place):
+CLASS claude-bulk files=100 bytes_B=444680036 bytes_H=38576864
+CLASS claude-cwd-no-enrichment files=10 bytes_B=41950930 bytes_H=81920
+CLASS claude-no-cwd files=5 bytes_B=5248395 bytes_H=5248395
+CLASS codex-bulk files=1500 bytes_B=395556861 bytes_H=14651823
+CLASS codex-garbage-line1 files=20 bytes_B=5253400 bytes_H=163840
+CLASS codex-no-meta files=10 bytes_B=2623500 bytes_H=2623500
+TOTAL files=1645 bytes_B=895313122 bytes_H=61346342 ratio_H_over_B=0.0685
+VERDICT PASS violations=0
+
+LEG 3 (whole-record membership identity over S at B and at H, macOS and Linux: deltas empty) and the cost receipt:
+LEG 3 cost receipt: biv pack over S (medians of three runs), macOS, B then H
+label=B runs=3 times_s=3.762,3.820,3.696 median_s=3.762 rcs=2,2,2 oks=True,True,True image=<EVID>/work/ws/proj-B.bvpk
+label=H runs=3 times_s=0.851,0.517,0.439 median_s=0.517 rcs=2,2,2 oks=True,True,True image=<EVID>/work/ws/proj-H.bvpk
+membership_delta=empty no_cwd_record_warnings_equal=yes
+
+Linux acceptance at H (two-outcome bar):
+rcL=8 a_rows_rc=0 summary_H=parsed failed_H=2 names_H=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open, foreign_H= d_tripwire_lines=0 d_family_files_rc=0 population_H=1013 rcB=8 base_rows=1 base_rows_rc=0 summary_B=parsed failed_B=1 names_B=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop, foreign_B= population_B=1013 bar=pass-r435-disclosed-registered-red
+
+Census at the branch head (both arms; paths only):
+census_at=0937d032a50d417925654dfb00a3ea4e629d68b7 tree_rows=69 history_paths=34 delta_vs_B=empty delta_B_vs_record_of_4cf135ee=empty record_sha256=858c6486e2ac7ba07dc73ad3b0ff532f03c34539fa8d933e2fa4d21d870e9a1c(accepted,R-4.50 packet rev5) classes=inherited_from_record(A=3,B=64,C=2) matched_text_in_record=none collation=LC_ALL=C
+
+Owner reviews RETURNED through master before this PR (named in the pair Planner's go relay SITREP-pair-planner-20260914-060101.md): m-2 V-LS-1..6 of C — DESIGN-m2-planner-20260914-060001.md (m-2.planner); m-3 V-RP-1..8 of H — DESIGN-m3-planner-20260914-060002.md (m-3.planner); the four-condition merge bar and the operator's condition-4 token follow.
+
+This PR is the vehicle under R-4.51 clause (2); the evidence of record is the local suites on both targets, the Docker parity leg, the three-leg witness, the owner byte review and the operator's token — a red remote CI is cited nowhere. Merge is local under the operator's token; the landing push of main follows under the R-4.52 landing rule as the merge packet's own step.
