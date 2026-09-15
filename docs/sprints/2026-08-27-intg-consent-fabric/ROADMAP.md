@@ -57,3 +57,4 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 
 - `DEVIATIONS.md` — the pair-local deviations ledger (Stock -> Ours -> Why -> Status), required by charter LAYOUT.
 - `OBLIGATIONS.md` — the boot-read register of master/RESIDUALS.md rows binding this commission (charter rule 5 projection; the registry wins on conflict).
+- 2026-09-15: 2b plan rev2 → the implementer's exact-hash MUST-REVISE (140509, MUST-2B-01..11) → rev3 (7715890, sha b6e837f2…; RECONCILE §R5 disposes all eleven) filed as `intg-substep2b-plan-3` (144707) with the canonical cross-repo design edge declared (M rev8 at pdc 1e987860, owner m-1, root master/relays); the root-mode relay-lint measurement started 14:28:59 with the fired set to be archived at `results/lint-root-sweep-s2b-plan-edge-20260915.txt`; SITREP 144857 UP (Q15 the edge's authority axis; Q14 closed at this seat; Q8–Q13 unchanged).
