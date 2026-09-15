@@ -226,46 +226,95 @@ void normalize_torn_jsonl_artifacts_impl(std::vector<std::string>& artifacts,
   }
 }
 
+// R-4.49 (sealed c1 §4; fence 142000 §2): ONE rollout line absorbed into the head facts — the FIRST session_meta record
+// completes the head (exactly the rule inspect_rollout_head has always applied); any other line is skipped.
+bool absorb_rollout_line(RolloutFacts& facts, const std::string_view line) {
+  simdjson::padded_string padded{line};
+  simdjson::dom::parser parser;
+  auto object = parse_json_object(parser, padded);
+  if (!object) {
+    return false;
+  }
+  auto type = object_string(*object, "type");
+  if (!type || *type != "session_meta") {
+    return false;
+  }
+  auto payload = object_object(*object, "payload");
+  if (!payload) {
+    return false;
+  }
+  if (!facts.id.has_value()) {
+    facts.id = object_string(*payload, "id");
+  }
+  if (!facts.session_id.has_value()) facts.session_id = object_string(*payload, "session_id");
+  if (!facts.cwd.has_value()) {
+    facts.cwd = object_string(*payload, "cwd");
+  }
+  if (!facts.cli_version.has_value()) {
+    facts.cli_version = object_string(*payload, "cli_version");
+  }
+  if (const auto direct = object_string(*payload, "parent_thread_id");
+      direct.has_value()) {
+    facts.parent_ids.push_back(*direct);
+  }
+  if (const auto nested = nested_parent_id(*payload); nested.has_value()) {
+    facts.parent_ids.push_back(*nested);
+  }
+  if (!facts.parent_ids.empty()) {
+    facts.parent_id = facts.parent_ids.front();
+  }
+  return true;
+}
+
 RolloutFacts inspect_rollout_head(const std::string_view rollout) {
   RolloutFacts facts;
   std::istringstream input{std::string{rollout}};
   std::string line;
   while (std::getline(input, line)) {
-    simdjson::padded_string padded{line};
-    simdjson::dom::parser parser;
-    auto object = parse_json_object(parser, padded);
-    if (!object) {
-      continue;
+    if (absorb_rollout_line(facts, line)) {
+      return facts;
     }
-    auto type = object_string(*object, "type");
-    if (!type || *type != "session_meta") {
-      continue;
+  }
+  return facts;
+}
+
+// R-4.49: the HEAD-BOUNDED read for candidacy — streamed, stopped at the end of the first session_meta line (observed on the
+// evidence host: line 1 of 1,503/1,503 rollouts; at most 22,552 bytes); a rollout with no session_meta record is read to EOF and
+// is not a candidate, as today. Sentinel-stop over secure_io::ReadHandle::stream; a real stream error propagates.
+constexpr std::string_view kHeadCompleteSentinel = "r449-head-complete";
+
+expected<RolloutFacts> inspect_rollout_head_stream(const SessionRecord::ArtifactSource& source) {
+  RolloutFacts facts;
+  std::string carry;
+  bool complete = false;
+  auto read = source.stream([&](const std::span<const std::byte> chunk) -> expected<void> {
+    for (const auto byte : chunk) {
+      carry.push_back(static_cast<char>(byte));
     }
-    auto payload = object_object(*object, "payload");
-    if (!payload) {
-      continue;
+    std::size_t start = 0;
+    for (auto newline = carry.find('\n', start); newline != std::string::npos;
+         newline = carry.find('\n', start)) {
+      const std::string_view line = std::string_view{carry}.substr(start, newline - start);
+      start = newline + 1;
+      if (absorb_rollout_line(facts, line)) {
+        complete = true;
+        break;
+      }
     }
-    if (!facts.id.has_value()) {
-      facts.id = object_string(*payload, "id");
+    carry.erase(0, start);
+    if (complete) {
+      return std::unexpected(BivError{ErrKind::InternalError, {}, std::string{kHeadCompleteSentinel}});
     }
-    if (!facts.session_id.has_value()) facts.session_id = object_string(*payload, "session_id");
-    if (!facts.cwd.has_value()) {
-      facts.cwd = object_string(*payload, "cwd");
+    return {};
+  });
+  if (!read) {
+    if (complete && read.error().detail == kHeadCompleteSentinel) {
+      return facts;
     }
-    if (!facts.cli_version.has_value()) {
-      facts.cli_version = object_string(*payload, "cli_version");
-    }
-    if (const auto direct = object_string(*payload, "parent_thread_id");
-        direct.has_value()) {
-      facts.parent_ids.push_back(*direct);
-    }
-    if (const auto nested = nested_parent_id(*payload); nested.has_value()) {
-      facts.parent_ids.push_back(*nested);
-    }
-    if (!facts.parent_ids.empty()) {
-      facts.parent_id = facts.parent_ids.front();
-    }
-    return facts;
+    return std::unexpected(read.error());
+  }
+  if (!carry.empty()) {
+    absorb_rollout_line(facts, carry);
   }
   return facts;
 }
@@ -1270,11 +1319,12 @@ class CodexAdapter final : public AgentAdapter {
             if (!source) {
               return std::unexpected(source.error());
             }
-            auto text = source_text(*source);
-            if (!text) {
-              return std::unexpected(text.error());
+            // R-4.49: candidacy from the HEAD only; the full read moves below the cwd filter (in-root candidates only).
+            auto head = inspect_rollout_head_stream(*source);
+            if (!head) {
+              return std::unexpected(head.error());
             }
-            auto facts = inspect_rollout_head(*text);
+            auto facts = std::move(*head);
             const bool in_source_root =
                 facts.cwd.has_value() &&
                 rewrite::path_is_same_or_descendant(rewrite::PathMembership{
@@ -1287,6 +1337,11 @@ class CodexAdapter final : public AgentAdapter {
             }
             if (!facts.id || !in_source_root) {
               continue;
+            }
+            // R-4.49: the FULL read — for an in-root candidate only (V-LS-4: tail facts from the whole text).
+            auto text = source_text(*source);
+            if (!text) {
+              return std::unexpected(text.error());
             }
             const auto mtime = fs::last_write_time(path, ec);
             const auto db_update = db_updates.find(*facts.id);
