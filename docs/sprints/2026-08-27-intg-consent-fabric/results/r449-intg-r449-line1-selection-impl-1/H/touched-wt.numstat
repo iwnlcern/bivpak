@@ -1,0 +1,4 @@
+69	6	src/adapters/claude_code/claude_code.cpp
+89	34	src/adapters/codex/codex.cpp
+93	0	tests/test_adapter_claude_collect.cpp
+81	0	tests/test_adapter_codex_collect.cpp

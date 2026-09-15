@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Catch2TestRun name="biv_probe_tests" rng-seed="2877867673" xml-format-version="3" catch2-version="3.7.1">
+  <TestCase name="version probe owns one shared production timeout constant" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="113">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="UTF-8 sanitization preserves scalars and replaces invalid input" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="117">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe selects the first PATH executable and records provenance" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="134">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe gives a pinned executable precedence and records its exact path" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="157">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe does not fall back to PATH when a pinned executable is missing" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="180">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe distinguishes present non-executable pins from missing pins" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="213">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe does not fall back to PATH when a pinned executable cannot spawn" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="248">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe API states the sole sanctioned exec boundary" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="270">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe merges stdout and stderr" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="302">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe reports a nonzero child exit" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="316">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe reports an unresolvable executable as not found" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="330">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe leaves parsing adapter-owned" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="340">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe times out, reaps its direct child, and kills the process group" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="355">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe acknowledges a successfully detached descendant" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="386">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe preserves a UTF-8 scalar split across pipe reads" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="453">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe replaces invalid and incomplete UTF-8 from the child" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="468">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe caps on whole UTF-8 scalars and drains beyond pipe capacity" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="486">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe does not spin after pipe EOF before child exit" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="514">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe preserves clean exit while disposing a pipe-holding grandchild" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="580">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="post-KILL ownership transfers only after a reaper is established" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="687">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="post-KILL ownership falls back to blocking reap when handoff fails" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="719">
+    <Section name="0" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="743">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <Section name="2" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="743">
+      <OverallResults successes="7" failures="0" expectedFailures="0" skipped="false"/>
+    </Section>
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe enforces its wall timeout while the pipe stays readable" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="812">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe records post-call elapsed time across an EINTR retry" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="838">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="fatal readiness failure is a typed probe I/O outcome" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="914">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <TestCase name="version probe has one traced readiness primitive" filename="/Users/jack/Programming/bivpak-intg-r449-line1-selection/tests/test_probe.cpp" line="967">
+    <OverallResult success="true" skips="0"/>
+  </TestCase>
+  <OverallResults successes="296" failures="0" expectedFailures="0" skips="0"/>
+  <OverallResultsCases successes="25" failures="0" expectedFailures="0" skips="0"/>
+</Catch2TestRun>

@@ -1,0 +1,11 @@
+hunk old=228..228 ok
+hunk old=234..246 ok
+hunk old=248..256 ok
+hunk old=258..260 ok
+hunk old=262..263 ok
+hunk old=265..266 ok
+hunk old=268..268 ok
+hunk old=1273..1275 ok
+hunk old=1277..1277 ok
+hunk old=1290..1290 ok
+hunks=10 outside=0

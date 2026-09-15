@@ -1,0 +1,1 @@
+pattern=census-alternation cat_rc=0 grep_rc=1 hits=0

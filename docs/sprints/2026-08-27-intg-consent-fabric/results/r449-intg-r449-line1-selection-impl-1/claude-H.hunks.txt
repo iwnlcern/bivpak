@@ -1,0 +1,6 @@
+hunk old=197..197 ok
+hunk old=654..656 ok
+hunk old=658..659 ok
+hunk old=666..666 ok
+hunk old=669..669 ok
+hunks=5 outside=0

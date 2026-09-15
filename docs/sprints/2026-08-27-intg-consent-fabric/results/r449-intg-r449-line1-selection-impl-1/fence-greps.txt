@@ -1,0 +1,13 @@
+codex sqlite3_ base=10 H=10
+codex threads base=1 H=1
+codex SessionIdWithoutId: base=1 H=1
+codex has_terminal_tail_record(*text) base=1 H=1
+codex newest_rollout_timestamp(*text) base=1 H=1
+codex auto text = source_text(*source); base=1 H=1
+claude no_cwd_record.push_back base=1 H=1
+claude auto main_text = source_text(*main_source); base=2 H=2
+claude apply_torn_tail_rule(artifacts, artifact_sources, live.live, torn_tails); base=1 H=1
+claude TranscriptFacts inspect_transcript(const std::string_view transcript) { base=1 H=1
+head_readers_present=2 tail_fact_full_text_site=1
+e3 anchor claude_code.cpp re-pinned to 37942a9c43d5f9b98e30884b6d04481fca68a27988bbc98f2a2d3a0f4dae1ea8
+e3 anchor codex.cpp re-pinned to 55d04bdccf0a43461c23e0e4baa2df4f16a4851008c0159f3b6a59a4952ada16

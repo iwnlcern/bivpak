@@ -1,0 +1,9 @@
+harness(e3): re-pin the two S-CP-2 adapter source anchors to the R-4.49 candidate (m-3's commit)
+
+The C1 drift tripwire pins the whole-file sha256 of src/adapters/claude_code/claude_code.cpp and src/adapters/codex/codex.cpp;
+the R-4.49 lane commit changes both files, so harness-selftest reds at the candidate until the anchors move. This commit moves
+exactly the two literals to the lane commit's digests and nothing else — m-3's harness surface, routed and byte-reviewed by m-3.
+
+Lane commit re-pinned to: 6d64aab42637d437e0001d39da3e4fcf97b38855 (m-2 fence rev2 sha256 f2216ee606a03b0b5b0b7f4562fed52a7349219c28990e6ee3e89b0cc25e8c6f). Authority: m-3 C-2 rule 4 (143638) — a harness byte the act needs is m-3 surface, routed, under m-3 byte review, one commit; the R-4.50 arm A shape (one PR, two commits, two owners).
+Plan pin: intg-r449-line1-selection-plan-20260913 sha256 39b8966b7edd065b8612419d177648dfc11248ea0566c14f0ab16a875a98d5b6
+

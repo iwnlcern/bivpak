@@ -1,0 +1,24 @@
+[  1%] Built target biv_support
+[  2%] Built target simdjson
+[  2%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/claude_code/claude_code.cpp.o
+[  3%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/codex/codex.cpp.o
+[  4%] Linking CXX static library libbiv_adapters.a
+[  6%] Built target biv_adapters
+[ 23%] Built target libzstd_static
+[ 34%] Built target bivcore
+[ 35%] Linking CXX executable biv
+[ 36%] Built target biv
+[ 83%] Built target Catch2
+[ 84%] Built target Catch2WithMain
+[ 85%] Built target biv_subprocess_tests
+[ 86%] Built target biv_repo_git_test_seam
+[ 87%] Built target biv_repo_git_tests
+[ 87%] Linking CXX executable biv_repo_engine_tests
+[ 87%] Built target biv_repo_engine_tests
+[ 88%] Built target biv_probe_test_seam
+[ 88%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_adapter_claude_collect.cpp.o
+[ 88%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_adapter_codex_collect.cpp.o
+[ 89%] Linking CXX executable biv_tests
+[ 99%] Built target biv_tests
+[100%] Linking CXX executable biv_probe_tests
+[100%] Built target biv_probe_tests

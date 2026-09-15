@@ -1,0 +1,1 @@
+set_files_scanned=459 record_files_carrying_a_fixture_token_copy=6 distinct_matched_strings=1 product_fixture_token_set_size=1 foreign_matched_strings=0 class=B-fixture-copies-only note=matched strings live only under census-raw (excluded from the record); this receipt and record-token-files.txt carry paths and counts only and are the two files added to the set after this scan

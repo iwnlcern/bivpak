@@ -1,0 +1,5 @@
+biv_probe_tests linux literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_B=('421', '0', '0', '1') observed_B=('421', '0', '0', '1') observed_H=('421', '0', '0', '1') equal=yes

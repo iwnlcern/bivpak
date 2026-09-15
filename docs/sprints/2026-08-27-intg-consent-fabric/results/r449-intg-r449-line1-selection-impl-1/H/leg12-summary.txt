@@ -1,0 +1,8 @@
+CLASS claude-bulk files=100 bytes_B=444699770 bytes_H=38582048
+CLASS claude-cwd-no-enrichment files=10 bytes_B=41951050 bytes_H=81920
+CLASS claude-no-cwd files=5 bytes_B=5248395 bytes_H=5248395
+CLASS codex-bulk files=1500 bytes_B=395574933 bytes_H=14651931
+CLASS codex-garbage-line1 files=20 bytes_B=5253640 bytes_H=163840
+CLASS codex-no-meta files=10 bytes_B=2623500 bytes_H=2623500
+TOTAL files=1645 bytes_B=895351288 bytes_H=61351634 ratio_H_over_B=0.0685
+VERDICT PASS violations=0

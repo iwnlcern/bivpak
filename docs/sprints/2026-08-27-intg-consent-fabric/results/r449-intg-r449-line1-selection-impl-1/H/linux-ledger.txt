@@ -1,0 +1,5 @@
+phase_R_base_provision_rc=0
+phase_R_asset_provision_rc=0
+phase_T_transition_fixture_rc=0
+phase_S_suite_rc=0
+phase_L_leg_rc=0

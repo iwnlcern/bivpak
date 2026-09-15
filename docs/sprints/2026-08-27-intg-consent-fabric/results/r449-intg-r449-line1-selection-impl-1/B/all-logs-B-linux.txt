@@ -1,0 +1,1445 @@
+LINUX_FOUR_PHASE_COMPLETE B=4cf135ee97f57021c5fc5fd5343de6f655fb0d24
+Get:1 http://archive.ubuntu.com/ubuntu noble InRelease [256 kB]
+Get:2 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+Get:3 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1531 kB]
+Get:4 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+Get:5 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1242 kB]
+Get:6 http://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+Get:7 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1796 kB]
+Get:8 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [50.0 kB]
+Get:9 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages [1808 kB]
+Get:10 http://archive.ubuntu.com/ubuntu noble/multiverse amd64 Packages [331 kB]
+Get:11 http://archive.ubuntu.com/ubuntu noble/restricted amd64 Packages [117 kB]
+Get:12 http://archive.ubuntu.com/ubuntu noble/universe amd64 Packages [19.3 MB]
+Get:13 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1565 kB]
+Get:14 http://archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [55.8 kB]
+Get:15 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [2152 kB]
+Get:16 http://archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1913 kB]
+Get:17 http://archive.ubuntu.com/ubuntu noble-backports/universe amd64 Packages [35.9 kB]
+Get:18 http://archive.ubuntu.com/ubuntu noble-backports/main amd64 Packages [48.9 kB]
+Get:19 http://archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Packages [671 B]
+Fetched 32.6 MB in 5s (6799 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  adduser binutils-common binutils-x86-64-linux-gnu cmake-data cpp cpp-13
+  cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu g++-13 g++-13-x86-64-linux-gnu
+  g++-x86-64-linux-gnu gcc gcc-13 gcc-13-base gcc-13-x86-64-linux-gnu
+  gcc-x86-64-linux-gnu git-man libarchive13t64 libasan8 libatomic1 libbinutils
+  libbrotli1 libbsd0 libc-bin libc-dev-bin libc6 libc6-dev libcbor0.10
+  libcc1-0 libcrypt-dev libctf-nobfd0 libctf0 libcurl3t64-gnutls libcurl4t64
+  libedit2 liberror-perl libexpat1 libfido2-1 libgcc-13-dev libgdbm-compat4t64
+  libgdbm6t64 libgomp1 libgprofng0 libgssapi-krb5-2 libhwasan0 libicu74
+  libisl23 libitm1 libjansson4 libjsoncpp25 libk5crypto3 libkeyutils1
+  libkrb5-3 libkrb5support0 libldap2 liblsan0 libmpc3 libmpfr6 libnghttp2-14
+  libperl5.38t64 libpsl5t64 libpython3-stdlib libpython3.12-minimal
+  libpython3.12-stdlib libquadmath0 libreadline8t64 librhash0 librtmp1
+  libsasl2-2 libsasl2-modules-db libsframe1 libsqlite3-0 libssh-4
+  libstdc++-13-dev libtsan2 libubsan1 libunwind8 libuv1t64 libxml2
+  linux-libc-dev media-types netbase openssl perl perl-modules-5.38
+  python3-minimal python3-pip-whl python3-pkg-resources python3-setuptools
+  python3-setuptools-whl python3-wheel python3.12 python3.12-minimal
+  python3.12-venv readline-common rpcsvc-proto tzdata
+Suggested packages:
+  liblocale-gettext-perl cron quota ecryptfs-utils binutils-doc gprofng-gui
+  cmake-doc cmake-format elpa-cmake-mode ninja-build cpp-doc gcc-13-locales
+  cpp-13-doc g++-multilib g++-13-multilib gcc-13-doc gcc-multilib manpages-dev
+  autoconf automake libtool flex bison gdb gcc-doc gcc-13-multilib
+  gdb-x86-64-linux-gnu gettext-base git-daemon-run | git-daemon-sysvinit
+  git-doc git-email git-gui gitk gitweb git-cvs git-mediawiki git-svn lrzip
+  manpages glibc-doc locales libnss-nis libnss-nisplus gdbm-l10n krb5-doc
+  krb5-user sqlite3-doc libstdc++-13-doc make-doc keychain libpam-ssh
+  monkeysphere ssh-askpass perl-doc libterm-readline-gnu-perl
+  | libterm-readline-perl-perl libtap-harness-archive-perl python3-doc
+  python3-tk python-setuptools-doc python3.12-doc binfmt-support readline-doc
+Recommended packages:
+  patch less manpages manpages-dev libc-devtools krb5-locales libldap-common
+  publicsuffix libsasl2-modules xauth build-essential python3-dev
+The following NEW packages will be installed:
+  adduser binutils binutils-common binutils-x86-64-linux-gnu ca-certificates
+  cmake cmake-data cpp cpp-13 cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu g++
+  g++-13 g++-13-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-13 gcc-13-base
+  gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu git git-man libarchive13t64
+  libasan8 libatomic1 libbinutils libbrotli1 libbsd0 libc-dev-bin libc6-dev
+  libcbor0.10 libcc1-0 libcrypt-dev libctf-nobfd0 libctf0 libcurl3t64-gnutls
+  libcurl4t64 libedit2 liberror-perl libexpat1 libfido2-1 libgcc-13-dev
+  libgdbm-compat4t64 libgdbm6t64 libgomp1 libgprofng0 libgssapi-krb5-2
+  libhwasan0 libicu74 libisl23 libitm1 libjansson4 libjsoncpp25 libk5crypto3
+  libkeyutils1 libkrb5-3 libkrb5support0 libldap2 liblsan0 libmpc3 libmpfr6
+  libnghttp2-14 libperl5.38t64 libpsl5t64 libpython3-stdlib
+  libpython3.12-minimal libpython3.12-stdlib libquadmath0 libreadline8t64
+  librhash0 librtmp1 libsasl2-2 libsasl2-modules-db libsframe1 libsqlite3-0
+  libsqlite3-dev libssh-4 libstdc++-13-dev libtsan2 libubsan1 libunwind8
+  libuv1t64 libxml2 linux-libc-dev make media-types netbase openssh-client
+  openssl perl perl-modules-5.38 python3 python3-minimal python3-pip
+  python3-pip-whl python3-pkg-resources python3-setuptools
+  python3-setuptools-whl python3-venv python3-wheel python3.12
+  python3.12-minimal python3.12-venv readline-common rpcsvc-proto strace
+  tzdata zstd
+The following packages will be upgraded:
+  libc-bin libc6
+2 upgraded, 108 newly installed, 0 to remove and 1 not upgraded.
+Need to get 131 MB of archives.
+After this operation, 474 MB of additional disk space will be used.
+Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc6 amd64 2.39-0ubuntu8.9 [3264 kB]
+Get:2 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc-bin amd64 2.39-0ubuntu8.9 [682 kB]
+Get:3 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3.12-minimal amd64 3.12.3-1ubuntu0.17 [839 kB]
+Get:4 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libexpat1 amd64 2.6.1-2ubuntu0.4 [88.2 kB]
+Get:5 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3.12-minimal amd64 3.12.3-1ubuntu0.17 [2335 kB]
+Get:6 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3-minimal amd64 3.12.3-0ubuntu2.1 [27.4 kB]
+Get:7 http://archive.ubuntu.com/ubuntu noble/main amd64 media-types all 10.1.0 [27.5 kB]
+Get:8 http://archive.ubuntu.com/ubuntu noble/main amd64 netbase all 6.4 [13.1 kB]
+Get:9 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 tzdata all 2026c-0ubuntu0.24.04.1 [280 kB]
+Get:10 http://archive.ubuntu.com/ubuntu noble/main amd64 readline-common all 8.2-4build1 [56.5 kB]
+Get:11 http://archive.ubuntu.com/ubuntu noble/main amd64 libreadline8t64 amd64 8.2-4build1 [153 kB]
+Get:12 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsqlite3-0 amd64 3.45.1-1ubuntu2.7 [701 kB]
+Get:13 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3.12-stdlib amd64 3.12.3-1ubuntu0.17 [2071 kB]
+Get:14 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3.12 amd64 3.12.3-1ubuntu0.17 [651 kB]
+Get:15 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libpython3-stdlib amd64 3.12.3-0ubuntu2.1 [10.1 kB]
+Get:16 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3 amd64 3.12.3-0ubuntu2.1 [23.0 kB]
+Get:17 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 perl-modules-5.38 all 5.38.2-3.2ubuntu0.4 [3110 kB]
+Get:18 http://archive.ubuntu.com/ubuntu noble/main amd64 libgdbm6t64 amd64 1.23-5.1build1 [34.4 kB]
+Get:19 http://archive.ubuntu.com/ubuntu noble/main amd64 libgdbm-compat4t64 amd64 1.23-5.1build1 [6710 B]
+Get:20 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libperl5.38t64 amd64 5.38.2-3.2ubuntu0.4 [4870 kB]
+Get:21 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 perl amd64 5.38.2-3.2ubuntu0.4 [231 kB]
+Get:22 http://archive.ubuntu.com/ubuntu noble/main amd64 adduser all 3.137ubuntu1 [101 kB]
+Get:23 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 openssl amd64 3.0.13-0ubuntu3.15 [1003 kB]
+Get:24 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 ca-certificates all 20260601~24.04.1 [139 kB]
+Get:25 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libbsd0 amd64 0.12.1-1build1.1 [41.2 kB]
+Get:26 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libkrb5support0 amd64 1.20.1-6ubuntu2.8 [34.7 kB]
+Get:27 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libk5crypto3 amd64 1.20.1-6ubuntu2.8 [81.9 kB]
+Get:28 http://archive.ubuntu.com/ubuntu noble/main amd64 libkeyutils1 amd64 1.6.3-3build1 [9490 B]
+Get:29 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libkrb5-3 amd64 1.20.1-6ubuntu2.8 [348 kB]
+Get:30 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgssapi-krb5-2 amd64 1.20.1-6ubuntu2.8 [143 kB]
+Get:31 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libicu74 amd64 74.2-1ubuntu3.1 [10.9 MB]
+Get:32 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libxml2 amd64 2.9.14+dfsg-1.3ubuntu3.8 [764 kB]
+Get:33 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3-pkg-resources all 68.1.2-2ubuntu1.2 [168 kB]
+Get:34 http://archive.ubuntu.com/ubuntu noble/main amd64 libcbor0.10 amd64 0.10.2-1.2ubuntu2 [25.8 kB]
+Get:35 http://archive.ubuntu.com/ubuntu noble/main amd64 libedit2 amd64 3.1-20230828-1build1 [97.6 kB]
+Get:36 http://archive.ubuntu.com/ubuntu noble/main amd64 libfido2-1 amd64 1.14.0-1build3 [83.5 kB]
+Get:37 http://archive.ubuntu.com/ubuntu noble/main amd64 libjansson4 amd64 2.14-2build2 [32.8 kB]
+Get:38 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libnghttp2-14 amd64 1.59.0-1ubuntu0.4 [74.6 kB]
+Get:39 http://archive.ubuntu.com/ubuntu noble/main amd64 libpsl5t64 amd64 0.21.2-1.1build1 [57.1 kB]
+Get:40 http://archive.ubuntu.com/ubuntu noble/main amd64 libuv1t64 amd64 1.48.0-1.1build1 [97.3 kB]
+Get:41 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 openssh-client amd64 1:9.6p1-3ubuntu13.19 [908 kB]
+Get:42 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libunwind8 amd64 1.6.2-3build1.1 [55.3 kB]
+Get:43 http://archive.ubuntu.com/ubuntu noble/main amd64 strace amd64 6.8-0ubuntu2 [584 kB]
+Get:44 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils-common amd64 2.42-4ubuntu2.10 [240 kB]
+Get:45 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsframe1 amd64 2.42-4ubuntu2.10 [15.7 kB]
+Get:46 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libbinutils amd64 2.42-4ubuntu2.10 [577 kB]
+Get:47 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libctf-nobfd0 amd64 2.42-4ubuntu2.10 [98.0 kB]
+Get:48 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libctf0 amd64 2.42-4ubuntu2.10 [94.5 kB]
+Get:49 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgprofng0 amd64 2.42-4ubuntu2.10 [849 kB]
+Get:50 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils-x86-64-linux-gnu amd64 2.42-4ubuntu2.10 [2463 kB]
+Get:51 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 binutils amd64 2.42-4ubuntu2.10 [18.2 kB]
+Get:52 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libarchive13t64 amd64 3.7.2-2ubuntu0.8 [383 kB]
+Get:53 http://archive.ubuntu.com/ubuntu noble/main amd64 libbrotli1 amd64 1.1.0-2build2 [331 kB]
+Get:54 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsasl2-modules-db amd64 2.1.28+dfsg1-5ubuntu3.1 [20.4 kB]
+Get:55 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsasl2-2 amd64 2.1.28+dfsg1-5ubuntu3.1 [53.2 kB]
+Get:56 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libldap2 amd64 2.6.10+dfsg-0ubuntu0.24.04.1 [198 kB]
+Get:57 http://archive.ubuntu.com/ubuntu noble/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-2build7 [56.3 kB]
+Get:58 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libssh-4 amd64 0.10.6-2ubuntu0.5 [191 kB]
+Get:59 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libcurl4t64 amd64 8.5.0-2ubuntu10.13 [343 kB]
+Get:60 http://archive.ubuntu.com/ubuntu noble/main amd64 libjsoncpp25 amd64 1.9.5-6build1 [82.8 kB]
+Get:61 http://archive.ubuntu.com/ubuntu noble/main amd64 librhash0 amd64 1.4.3-3build1 [129 kB]
+Get:62 http://archive.ubuntu.com/ubuntu noble/main amd64 cmake-data all 3.28.3-1build7 [2155 kB]
+Get:63 http://archive.ubuntu.com/ubuntu noble/main amd64 cmake amd64 3.28.3-1build7 [11.2 MB]
+Get:64 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13-base amd64 13.3.0-6ubuntu2~24.04.1 [51.6 kB]
+Get:65 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libisl23 amd64 0.26-3build1.1 [680 kB]
+Get:66 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libmpfr6 amd64 4.2.1-1build1.1 [353 kB]
+Get:67 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libmpc3 amd64 1.3.1-1build1.1 [54.6 kB]
+Get:68 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 cpp-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [10.7 MB]
+Get:69 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 cpp-13 amd64 13.3.0-6ubuntu2~24.04.1 [1042 B]
+Get:70 http://archive.ubuntu.com/ubuntu noble/main amd64 cpp-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [5326 B]
+Get:71 http://archive.ubuntu.com/ubuntu noble/main amd64 cpp amd64 4:13.2.0-7ubuntu1 [22.4 kB]
+Get:72 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libcc1-0 amd64 14.2.0-4ubuntu2~24.04.1 [48.0 kB]
+Get:73 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgomp1 amd64 14.2.0-4ubuntu2~24.04.1 [148 kB]
+Get:74 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libitm1 amd64 14.2.0-4ubuntu2~24.04.1 [29.7 kB]
+Get:75 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libatomic1 amd64 14.2.0-4ubuntu2~24.04.1 [10.5 kB]
+Get:76 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libasan8 amd64 14.2.0-4ubuntu2~24.04.1 [3027 kB]
+Get:77 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 liblsan0 amd64 14.2.0-4ubuntu2~24.04.1 [1322 kB]
+Get:78 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libtsan2 amd64 14.2.0-4ubuntu2~24.04.1 [2772 kB]
+Get:79 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libubsan1 amd64 14.2.0-4ubuntu2~24.04.1 [1184 kB]
+Get:80 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libhwasan0 amd64 14.2.0-4ubuntu2~24.04.1 [1641 kB]
+Get:81 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libquadmath0 amd64 14.2.0-4ubuntu2~24.04.1 [153 kB]
+Get:82 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgcc-13-dev amd64 13.3.0-6ubuntu2~24.04.1 [2681 kB]
+Get:83 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [21.1 MB]
+Get:84 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 gcc-13 amd64 13.3.0-6ubuntu2~24.04.1 [494 kB]
+Get:85 http://archive.ubuntu.com/ubuntu noble/main amd64 gcc-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [1212 B]
+Get:86 http://archive.ubuntu.com/ubuntu noble/main amd64 gcc amd64 4:13.2.0-7ubuntu1 [5018 B]
+Get:87 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc-dev-bin amd64 2.39-0ubuntu8.9 [20.4 kB]
+Get:88 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 linux-libc-dev amd64 6.8.0-139.139 [1527 kB]
+Get:89 http://archive.ubuntu.com/ubuntu noble/main amd64 libcrypt-dev amd64 1:4.4.36-4build1 [112 kB]
+Get:90 http://archive.ubuntu.com/ubuntu noble/main amd64 rpcsvc-proto amd64 1.4.2-0ubuntu7 [67.4 kB]
+Get:91 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libc6-dev amd64 2.39-0ubuntu8.9 [2126 kB]
+Get:92 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libstdc++-13-dev amd64 13.3.0-6ubuntu2~24.04.1 [2420 kB]
+Get:93 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 g++-13-x86-64-linux-gnu amd64 13.3.0-6ubuntu2~24.04.1 [12.2 MB]
+Get:94 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 g++-13 amd64 13.3.0-6ubuntu2~24.04.1 [16.0 kB]
+Get:95 http://archive.ubuntu.com/ubuntu noble/main amd64 g++-x86-64-linux-gnu amd64 4:13.2.0-7ubuntu1 [964 B]
+Get:96 http://archive.ubuntu.com/ubuntu noble/main amd64 g++ amd64 4:13.2.0-7ubuntu1 [1100 B]
+Get:97 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libcurl3t64-gnutls amd64 8.5.0-2ubuntu10.13 [335 kB]
+Get:98 http://archive.ubuntu.com/ubuntu noble/main amd64 liberror-perl all 0.17029-2 [25.6 kB]
+Get:99 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 git-man all 1:2.43.0-1ubuntu7.3 [1100 kB]
+Get:100 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 git amd64 1:2.43.0-1ubuntu7.3 [3680 kB]
+Get:101 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libsqlite3-dev amd64 3.45.1-1ubuntu2.7 [911 kB]
+Get:102 http://archive.ubuntu.com/ubuntu noble/main amd64 make amd64 4.3-4.1build2 [180 kB]
+Get:103 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 python3-setuptools all 68.1.2-2ubuntu1.2 [397 kB]
+Get:104 http://archive.ubuntu.com/ubuntu noble/universe amd64 python3-wheel all 0.42.0-2 [53.1 kB]
+Get:105 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3-pip all 24.0+dfsg-1ubuntu1.3 [1320 kB]
+Get:106 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3-pip-whl all 24.0+dfsg-1ubuntu1.3 [1707 kB]
+Get:107 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3-setuptools-whl all 68.1.2-2ubuntu1.2 [716 kB]
+Get:108 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3.12-venv amd64 3.12.3-1ubuntu0.17 [5684 B]
+Get:109 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 python3-venv amd64 3.12.3-0ubuntu2.1 [1032 B]
+Get:110 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 zstd amd64 1.5.5+dfsg2-2build1.1 [644 kB]
+debconf: delaying package configuration, since apt-utils is not installed
+Fetched 131 MB in 37s (3557 kB/s)
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4381 files and directories currently installed.)
+Preparing to unpack .../libc6_2.39-0ubuntu8.9_amd64.deb ...
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.38.2 /usr/local/share/perl/5.38.2 /usr/lib/x86_64-linux-gnu/perl5/5.38 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.38 /usr/share/perl/5.38 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)
+debconf: falling back to frontend: Teletype
+Unpacking libc6:amd64 (2.39-0ubuntu8.9) over (2.39-0ubuntu8.8) ...
+Setting up libc6:amd64 (2.39-0ubuntu8.9) ...
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.38.2 /usr/local/share/perl/5.38.2 /usr/lib/x86_64-linux-gnu/perl5/5.38 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.38 /usr/share/perl/5.38 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)
+debconf: falling back to frontend: Teletype
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4381 files and directories currently installed.)
+Preparing to unpack .../libc-bin_2.39-0ubuntu8.9_amd64.deb ...
+Unpacking libc-bin (2.39-0ubuntu8.9) over (2.39-0ubuntu8.8) ...
+Setting up libc-bin (2.39-0ubuntu8.9) ...
+Selecting previously unselected package libpython3.12-minimal:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4381 files and directories currently installed.)
+Preparing to unpack .../libpython3.12-minimal_3.12.3-1ubuntu0.17_amd64.deb ...
+Unpacking libpython3.12-minimal:amd64 (3.12.3-1ubuntu0.17) ...
+Selecting previously unselected package libexpat1:amd64.
+Preparing to unpack .../libexpat1_2.6.1-2ubuntu0.4_amd64.deb ...
+Unpacking libexpat1:amd64 (2.6.1-2ubuntu0.4) ...
+Selecting previously unselected package python3.12-minimal.
+Preparing to unpack .../python3.12-minimal_3.12.3-1ubuntu0.17_amd64.deb ...
+Unpacking python3.12-minimal (3.12.3-1ubuntu0.17) ...
+Setting up libpython3.12-minimal:amd64 (3.12.3-1ubuntu0.17) ...
+Setting up libexpat1:amd64 (2.6.1-2ubuntu0.4) ...
+Setting up python3.12-minimal (3.12.3-1ubuntu0.17) ...
+Selecting previously unselected package python3-minimal.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4700 files and directories currently installed.)
+Preparing to unpack .../0-python3-minimal_3.12.3-0ubuntu2.1_amd64.deb ...
+Unpacking python3-minimal (3.12.3-0ubuntu2.1) ...
+Selecting previously unselected package media-types.
+Preparing to unpack .../1-media-types_10.1.0_all.deb ...
+Unpacking media-types (10.1.0) ...
+Selecting previously unselected package netbase.
+Preparing to unpack .../2-netbase_6.4_all.deb ...
+Unpacking netbase (6.4) ...
+Selecting previously unselected package tzdata.
+Preparing to unpack .../3-tzdata_2026c-0ubuntu0.24.04.1_all.deb ...
+Unpacking tzdata (2026c-0ubuntu0.24.04.1) ...
+Selecting previously unselected package readline-common.
+Preparing to unpack .../4-readline-common_8.2-4build1_all.deb ...
+Unpacking readline-common (8.2-4build1) ...
+Selecting previously unselected package libreadline8t64:amd64.
+Preparing to unpack .../5-libreadline8t64_8.2-4build1_amd64.deb ...
+Adding 'diversion of /lib/x86_64-linux-gnu/libhistory.so.8 to /lib/x86_64-linux-gnu/libhistory.so.8.usr-is-merged by libreadline8t64'
+Adding 'diversion of /lib/x86_64-linux-gnu/libhistory.so.8.2 to /lib/x86_64-linux-gnu/libhistory.so.8.2.usr-is-merged by libreadline8t64'
+Adding 'diversion of /lib/x86_64-linux-gnu/libreadline.so.8 to /lib/x86_64-linux-gnu/libreadline.so.8.usr-is-merged by libreadline8t64'
+Adding 'diversion of /lib/x86_64-linux-gnu/libreadline.so.8.2 to /lib/x86_64-linux-gnu/libreadline.so.8.2.usr-is-merged by libreadline8t64'
+Unpacking libreadline8t64:amd64 (8.2-4build1) ...
+Selecting previously unselected package libsqlite3-0:amd64.
+Preparing to unpack .../6-libsqlite3-0_3.45.1-1ubuntu2.7_amd64.deb ...
+Unpacking libsqlite3-0:amd64 (3.45.1-1ubuntu2.7) ...
+Selecting previously unselected package libpython3.12-stdlib:amd64.
+Preparing to unpack .../7-libpython3.12-stdlib_3.12.3-1ubuntu0.17_amd64.deb ...
+Unpacking libpython3.12-stdlib:amd64 (3.12.3-1ubuntu0.17) ...
+Selecting previously unselected package python3.12.
+Preparing to unpack .../8-python3.12_3.12.3-1ubuntu0.17_amd64.deb ...
+Unpacking python3.12 (3.12.3-1ubuntu0.17) ...
+Selecting previously unselected package libpython3-stdlib:amd64.
+Preparing to unpack .../9-libpython3-stdlib_3.12.3-0ubuntu2.1_amd64.deb ...
+Unpacking libpython3-stdlib:amd64 (3.12.3-0ubuntu2.1) ...
+Setting up python3-minimal (3.12.3-0ubuntu2.1) ...
+Selecting previously unselected package python3.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5706 files and directories currently installed.)
+Preparing to unpack .../0-python3_3.12.3-0ubuntu2.1_amd64.deb ...
+Unpacking python3 (3.12.3-0ubuntu2.1) ...
+Selecting previously unselected package perl-modules-5.38.
+Preparing to unpack .../1-perl-modules-5.38_5.38.2-3.2ubuntu0.4_all.deb ...
+Unpacking perl-modules-5.38 (5.38.2-3.2ubuntu0.4) ...
+Selecting previously unselected package libgdbm6t64:amd64.
+Preparing to unpack .../2-libgdbm6t64_1.23-5.1build1_amd64.deb ...
+Unpacking libgdbm6t64:amd64 (1.23-5.1build1) ...
+Selecting previously unselected package libgdbm-compat4t64:amd64.
+Preparing to unpack .../3-libgdbm-compat4t64_1.23-5.1build1_amd64.deb ...
+Unpacking libgdbm-compat4t64:amd64 (1.23-5.1build1) ...
+Selecting previously unselected package libperl5.38t64:amd64.
+Preparing to unpack .../4-libperl5.38t64_5.38.2-3.2ubuntu0.4_amd64.deb ...
+Unpacking libperl5.38t64:amd64 (5.38.2-3.2ubuntu0.4) ...
+Selecting previously unselected package perl.
+Preparing to unpack .../5-perl_5.38.2-3.2ubuntu0.4_amd64.deb ...
+Unpacking perl (5.38.2-3.2ubuntu0.4) ...
+Selecting previously unselected package adduser.
+Preparing to unpack .../6-adduser_3.137ubuntu1_all.deb ...
+Unpacking adduser (3.137ubuntu1) ...
+Setting up adduser (3.137ubuntu1) ...
+Selecting previously unselected package openssl.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7787 files and directories currently installed.)
+Preparing to unpack .../00-openssl_3.0.13-0ubuntu3.15_amd64.deb ...
+Unpacking openssl (3.0.13-0ubuntu3.15) ...
+Selecting previously unselected package ca-certificates.
+Preparing to unpack .../01-ca-certificates_20260601~24.04.1_all.deb ...
+Unpacking ca-certificates (20260601~24.04.1) ...
+Selecting previously unselected package libbsd0:amd64.
+Preparing to unpack .../02-libbsd0_0.12.1-1build1.1_amd64.deb ...
+Unpacking libbsd0:amd64 (0.12.1-1build1.1) ...
+Selecting previously unselected package libkrb5support0:amd64.
+Preparing to unpack .../03-libkrb5support0_1.20.1-6ubuntu2.8_amd64.deb ...
+Unpacking libkrb5support0:amd64 (1.20.1-6ubuntu2.8) ...
+Selecting previously unselected package libk5crypto3:amd64.
+Preparing to unpack .../04-libk5crypto3_1.20.1-6ubuntu2.8_amd64.deb ...
+Unpacking libk5crypto3:amd64 (1.20.1-6ubuntu2.8) ...
+Selecting previously unselected package libkeyutils1:amd64.
+Preparing to unpack .../05-libkeyutils1_1.6.3-3build1_amd64.deb ...
+Unpacking libkeyutils1:amd64 (1.6.3-3build1) ...
+Selecting previously unselected package libkrb5-3:amd64.
+Preparing to unpack .../06-libkrb5-3_1.20.1-6ubuntu2.8_amd64.deb ...
+Unpacking libkrb5-3:amd64 (1.20.1-6ubuntu2.8) ...
+Selecting previously unselected package libgssapi-krb5-2:amd64.
+Preparing to unpack .../07-libgssapi-krb5-2_1.20.1-6ubuntu2.8_amd64.deb ...
+Unpacking libgssapi-krb5-2:amd64 (1.20.1-6ubuntu2.8) ...
+Selecting previously unselected package libicu74:amd64.
+Preparing to unpack .../08-libicu74_74.2-1ubuntu3.1_amd64.deb ...
+Unpacking libicu74:amd64 (74.2-1ubuntu3.1) ...
+Selecting previously unselected package libxml2:amd64.
+Preparing to unpack .../09-libxml2_2.9.14+dfsg-1.3ubuntu3.8_amd64.deb ...
+Unpacking libxml2:amd64 (2.9.14+dfsg-1.3ubuntu3.8) ...
+Selecting previously unselected package python3-pkg-resources.
+Preparing to unpack .../10-python3-pkg-resources_68.1.2-2ubuntu1.2_all.deb ...
+Unpacking python3-pkg-resources (68.1.2-2ubuntu1.2) ...
+Selecting previously unselected package libcbor0.10:amd64.
+Preparing to unpack .../11-libcbor0.10_0.10.2-1.2ubuntu2_amd64.deb ...
+Unpacking libcbor0.10:amd64 (0.10.2-1.2ubuntu2) ...
+Selecting previously unselected package libedit2:amd64.
+Preparing to unpack .../12-libedit2_3.1-20230828-1build1_amd64.deb ...
+Unpacking libedit2:amd64 (3.1-20230828-1build1) ...
+Selecting previously unselected package libfido2-1:amd64.
+Preparing to unpack .../13-libfido2-1_1.14.0-1build3_amd64.deb ...
+Unpacking libfido2-1:amd64 (1.14.0-1build3) ...
+Selecting previously unselected package libjansson4:amd64.
+Preparing to unpack .../14-libjansson4_2.14-2build2_amd64.deb ...
+Unpacking libjansson4:amd64 (2.14-2build2) ...
+Selecting previously unselected package libnghttp2-14:amd64.
+Preparing to unpack .../15-libnghttp2-14_1.59.0-1ubuntu0.4_amd64.deb ...
+Unpacking libnghttp2-14:amd64 (1.59.0-1ubuntu0.4) ...
+Selecting previously unselected package libpsl5t64:amd64.
+Preparing to unpack .../16-libpsl5t64_0.21.2-1.1build1_amd64.deb ...
+Unpacking libpsl5t64:amd64 (0.21.2-1.1build1) ...
+Selecting previously unselected package libuv1t64:amd64.
+Preparing to unpack .../17-libuv1t64_1.48.0-1.1build1_amd64.deb ...
+Unpacking libuv1t64:amd64 (1.48.0-1.1build1) ...
+Selecting previously unselected package openssh-client.
+Preparing to unpack .../18-openssh-client_1%3a9.6p1-3ubuntu13.19_amd64.deb ...
+Unpacking openssh-client (1:9.6p1-3ubuntu13.19) ...
+Selecting previously unselected package libunwind8:amd64.
+Preparing to unpack .../19-libunwind8_1.6.2-3build1.1_amd64.deb ...
+Unpacking libunwind8:amd64 (1.6.2-3build1.1) ...
+Selecting previously unselected package strace.
+Preparing to unpack .../20-strace_6.8-0ubuntu2_amd64.deb ...
+Unpacking strace (6.8-0ubuntu2) ...
+Selecting previously unselected package binutils-common:amd64.
+Preparing to unpack .../21-binutils-common_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking binutils-common:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libsframe1:amd64.
+Preparing to unpack .../22-libsframe1_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libsframe1:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libbinutils:amd64.
+Preparing to unpack .../23-libbinutils_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libbinutils:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libctf-nobfd0:amd64.
+Preparing to unpack .../24-libctf-nobfd0_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libctf-nobfd0:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libctf0:amd64.
+Preparing to unpack .../25-libctf0_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libctf0:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libgprofng0:amd64.
+Preparing to unpack .../26-libgprofng0_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking libgprofng0:amd64 (2.42-4ubuntu2.10) ...
+Selecting previously unselected package binutils-x86-64-linux-gnu.
+Preparing to unpack .../27-binutils-x86-64-linux-gnu_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking binutils-x86-64-linux-gnu (2.42-4ubuntu2.10) ...
+Selecting previously unselected package binutils.
+Preparing to unpack .../28-binutils_2.42-4ubuntu2.10_amd64.deb ...
+Unpacking binutils (2.42-4ubuntu2.10) ...
+Selecting previously unselected package libarchive13t64:amd64.
+Preparing to unpack .../29-libarchive13t64_3.7.2-2ubuntu0.8_amd64.deb ...
+Unpacking libarchive13t64:amd64 (3.7.2-2ubuntu0.8) ...
+Selecting previously unselected package libbrotli1:amd64.
+Preparing to unpack .../30-libbrotli1_1.1.0-2build2_amd64.deb ...
+Unpacking libbrotli1:amd64 (1.1.0-2build2) ...
+Selecting previously unselected package libsasl2-modules-db:amd64.
+Preparing to unpack .../31-libsasl2-modules-db_2.1.28+dfsg1-5ubuntu3.1_amd64.deb ...
+Unpacking libsasl2-modules-db:amd64 (2.1.28+dfsg1-5ubuntu3.1) ...
+Selecting previously unselected package libsasl2-2:amd64.
+Preparing to unpack .../32-libsasl2-2_2.1.28+dfsg1-5ubuntu3.1_amd64.deb ...
+Unpacking libsasl2-2:amd64 (2.1.28+dfsg1-5ubuntu3.1) ...
+Selecting previously unselected package libldap2:amd64.
+Preparing to unpack .../33-libldap2_2.6.10+dfsg-0ubuntu0.24.04.1_amd64.deb ...
+Unpacking libldap2:amd64 (2.6.10+dfsg-0ubuntu0.24.04.1) ...
+Selecting previously unselected package librtmp1:amd64.
+Preparing to unpack .../34-librtmp1_2.4+20151223.gitfa8646d.1-2build7_amd64.deb ...
+Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2build7) ...
+Selecting previously unselected package libssh-4:amd64.
+Preparing to unpack .../35-libssh-4_0.10.6-2ubuntu0.5_amd64.deb ...
+Unpacking libssh-4:amd64 (0.10.6-2ubuntu0.5) ...
+Selecting previously unselected package libcurl4t64:amd64.
+Preparing to unpack .../36-libcurl4t64_8.5.0-2ubuntu10.13_amd64.deb ...
+Unpacking libcurl4t64:amd64 (8.5.0-2ubuntu10.13) ...
+Selecting previously unselected package libjsoncpp25:amd64.
+Preparing to unpack .../37-libjsoncpp25_1.9.5-6build1_amd64.deb ...
+Unpacking libjsoncpp25:amd64 (1.9.5-6build1) ...
+Selecting previously unselected package librhash0:amd64.
+Preparing to unpack .../38-librhash0_1.4.3-3build1_amd64.deb ...
+Unpacking librhash0:amd64 (1.4.3-3build1) ...
+Selecting previously unselected package cmake-data.
+Preparing to unpack .../39-cmake-data_3.28.3-1build7_all.deb ...
+Unpacking cmake-data (3.28.3-1build7) ...
+Selecting previously unselected package cmake.
+Preparing to unpack .../40-cmake_3.28.3-1build7_amd64.deb ...
+Unpacking cmake (3.28.3-1build7) ...
+Selecting previously unselected package gcc-13-base:amd64.
+Preparing to unpack .../41-gcc-13-base_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking gcc-13-base:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package libisl23:amd64.
+Preparing to unpack .../42-libisl23_0.26-3build1.1_amd64.deb ...
+Unpacking libisl23:amd64 (0.26-3build1.1) ...
+Selecting previously unselected package libmpfr6:amd64.
+Preparing to unpack .../43-libmpfr6_4.2.1-1build1.1_amd64.deb ...
+Unpacking libmpfr6:amd64 (4.2.1-1build1.1) ...
+Selecting previously unselected package libmpc3:amd64.
+Preparing to unpack .../44-libmpc3_1.3.1-1build1.1_amd64.deb ...
+Unpacking libmpc3:amd64 (1.3.1-1build1.1) ...
+Selecting previously unselected package cpp-13-x86-64-linux-gnu.
+Preparing to unpack .../45-cpp-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package cpp-13.
+Preparing to unpack .../46-cpp-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking cpp-13 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package cpp-x86-64-linux-gnu.
+Preparing to unpack .../47-cpp-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package cpp.
+Preparing to unpack .../48-cpp_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking cpp (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package libcc1-0:amd64.
+Preparing to unpack .../49-libcc1-0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libcc1-0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libgomp1:amd64.
+Preparing to unpack .../50-libgomp1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libgomp1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libitm1:amd64.
+Preparing to unpack .../51-libitm1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libitm1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libatomic1:amd64.
+Preparing to unpack .../52-libatomic1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libatomic1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libasan8:amd64.
+Preparing to unpack .../53-libasan8_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libasan8:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package liblsan0:amd64.
+Preparing to unpack .../54-liblsan0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking liblsan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libtsan2:amd64.
+Preparing to unpack .../55-libtsan2_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libtsan2:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libubsan1:amd64.
+Preparing to unpack .../56-libubsan1_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libubsan1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libhwasan0:amd64.
+Preparing to unpack .../57-libhwasan0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libhwasan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libquadmath0:amd64.
+Preparing to unpack .../58-libquadmath0_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libquadmath0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libgcc-13-dev:amd64.
+Preparing to unpack .../59-libgcc-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking libgcc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package gcc-13-x86-64-linux-gnu.
+Preparing to unpack .../60-gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package gcc-13.
+Preparing to unpack .../61-gcc-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking gcc-13 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package gcc-x86-64-linux-gnu.
+Preparing to unpack .../62-gcc-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package gcc.
+Preparing to unpack .../63-gcc_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking gcc (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package libc-dev-bin.
+Preparing to unpack .../64-libc-dev-bin_2.39-0ubuntu8.9_amd64.deb ...
+Unpacking libc-dev-bin (2.39-0ubuntu8.9) ...
+Selecting previously unselected package linux-libc-dev:amd64.
+Preparing to unpack .../65-linux-libc-dev_6.8.0-139.139_amd64.deb ...
+Unpacking linux-libc-dev:amd64 (6.8.0-139.139) ...
+Selecting previously unselected package libcrypt-dev:amd64.
+Preparing to unpack .../66-libcrypt-dev_1%3a4.4.36-4build1_amd64.deb ...
+Unpacking libcrypt-dev:amd64 (1:4.4.36-4build1) ...
+Selecting previously unselected package rpcsvc-proto.
+Preparing to unpack .../67-rpcsvc-proto_1.4.2-0ubuntu7_amd64.deb ...
+Unpacking rpcsvc-proto (1.4.2-0ubuntu7) ...
+Selecting previously unselected package libc6-dev:amd64.
+Preparing to unpack .../68-libc6-dev_2.39-0ubuntu8.9_amd64.deb ...
+Unpacking libc6-dev:amd64 (2.39-0ubuntu8.9) ...
+Selecting previously unselected package libstdc++-13-dev:amd64.
+Preparing to unpack .../69-libstdc++-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking libstdc++-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package g++-13-x86-64-linux-gnu.
+Preparing to unpack .../70-g++-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking g++-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package g++-13.
+Preparing to unpack .../71-g++-13_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking g++-13 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package g++-x86-64-linux-gnu.
+Preparing to unpack .../72-g++-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking g++-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package g++.
+Preparing to unpack .../73-g++_4%3a13.2.0-7ubuntu1_amd64.deb ...
+Unpacking g++ (4:13.2.0-7ubuntu1) ...
+Selecting previously unselected package libcurl3t64-gnutls:amd64.
+Preparing to unpack .../74-libcurl3t64-gnutls_8.5.0-2ubuntu10.13_amd64.deb ...
+Unpacking libcurl3t64-gnutls:amd64 (8.5.0-2ubuntu10.13) ...
+Selecting previously unselected package liberror-perl.
+Preparing to unpack .../75-liberror-perl_0.17029-2_all.deb ...
+Unpacking liberror-perl (0.17029-2) ...
+Selecting previously unselected package git-man.
+Preparing to unpack .../76-git-man_1%3a2.43.0-1ubuntu7.3_all.deb ...
+Unpacking git-man (1:2.43.0-1ubuntu7.3) ...
+Selecting previously unselected package git.
+Preparing to unpack .../77-git_1%3a2.43.0-1ubuntu7.3_amd64.deb ...
+Unpacking git (1:2.43.0-1ubuntu7.3) ...
+Selecting previously unselected package libsqlite3-dev:amd64.
+Preparing to unpack .../78-libsqlite3-dev_3.45.1-1ubuntu2.7_amd64.deb ...
+Unpacking libsqlite3-dev:amd64 (3.45.1-1ubuntu2.7) ...
+Selecting previously unselected package make.
+Preparing to unpack .../79-make_4.3-4.1build2_amd64.deb ...
+Unpacking make (4.3-4.1build2) ...
+Selecting previously unselected package python3-setuptools.
+Preparing to unpack .../80-python3-setuptools_68.1.2-2ubuntu1.2_all.deb ...
+Unpacking python3-setuptools (68.1.2-2ubuntu1.2) ...
+Selecting previously unselected package python3-wheel.
+Preparing to unpack .../81-python3-wheel_0.42.0-2_all.deb ...
+Unpacking python3-wheel (0.42.0-2) ...
+Selecting previously unselected package python3-pip.
+Preparing to unpack .../82-python3-pip_24.0+dfsg-1ubuntu1.3_all.deb ...
+Unpacking python3-pip (24.0+dfsg-1ubuntu1.3) ...
+Selecting previously unselected package python3-pip-whl.
+Preparing to unpack .../83-python3-pip-whl_24.0+dfsg-1ubuntu1.3_all.deb ...
+Unpacking python3-pip-whl (24.0+dfsg-1ubuntu1.3) ...
+Selecting previously unselected package python3-setuptools-whl.
+Preparing to unpack .../84-python3-setuptools-whl_68.1.2-2ubuntu1.2_all.deb ...
+Unpacking python3-setuptools-whl (68.1.2-2ubuntu1.2) ...
+Selecting previously unselected package python3.12-venv.
+Preparing to unpack .../85-python3.12-venv_3.12.3-1ubuntu0.17_amd64.deb ...
+Unpacking python3.12-venv (3.12.3-1ubuntu0.17) ...
+Selecting previously unselected package python3-venv.
+Preparing to unpack .../86-python3-venv_3.12.3-0ubuntu2.1_amd64.deb ...
+Unpacking python3-venv (3.12.3-0ubuntu2.1) ...
+Selecting previously unselected package zstd.
+Preparing to unpack .../87-zstd_1.5.5+dfsg2-2build1.1_amd64.deb ...
+Unpacking zstd (1.5.5+dfsg2-2build1.1) ...
+Setting up media-types (10.1.0) ...
+Setting up python3-setuptools-whl (68.1.2-2ubuntu1.2) ...
+Setting up libkeyutils1:amd64 (1.6.3-3build1) ...
+Setting up libgdbm6t64:amd64 (1.23-5.1build1) ...
+Setting up libgdbm-compat4t64:amd64 (1.23-5.1build1) ...
+Setting up libcbor0.10:amd64 (0.10.2-1.2ubuntu2) ...
+Setting up libbrotli1:amd64 (1.1.0-2build2) ...
+Setting up libsqlite3-0:amd64 (3.45.1-1ubuntu2.7) ...
+Setting up libuv1t64:amd64 (1.48.0-1.1build1) ...
+Setting up binutils-common:amd64 (2.42-4ubuntu2.10) ...
+Setting up libpsl5t64:amd64 (0.21.2-1.1build1) ...
+Setting up libnghttp2-14:amd64 (1.59.0-1ubuntu0.4) ...
+Setting up linux-libc-dev:amd64 (6.8.0-139.139) ...
+Setting up libctf-nobfd0:amd64 (2.42-4ubuntu2.10) ...
+Setting up libgomp1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libunwind8:amd64 (1.6.2-3build1.1) ...
+Setting up libsframe1:amd64 (2.42-4ubuntu2.10) ...
+Setting up libjansson4:amd64 (2.14-2build2) ...
+Setting up libkrb5support0:amd64 (1.20.1-6ubuntu2.8) ...
+Setting up libsasl2-modules-db:amd64 (2.1.28+dfsg1-5ubuntu3.1) ...
+Setting up tzdata (2026c-0ubuntu0.24.04.1) ...
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+Configuring tzdata
+------------------
+
+Please select the geographic area in which you live. Subsequent configuration
+questions will narrow this down by presenting a list of cities, representing
+the time zones in which they are located.
+
+  1. Africa      4. Arctic    7. Australia  10. Pacific
+  2. America     5. Asia      8. Europe     11. Etc
+  3. Antarctica  6. Atlantic  9. Indian     12. Legacy
+Geographic area: 
+Use of uninitialized value $_[1] in join or string at /usr/share/perl5/Debconf/DbDriver/Stack.pm line 112.
+
+Current default time zone: '/UTC'
+Local time is now:      Tue Sep 15 00:34:19 UTC 2026.
+Universal Time is now:  Tue Sep 15 00:34:19 UTC 2026.
+Run 'dpkg-reconfigure tzdata' if you wish to change it.
+
+Use of uninitialized value $val in substitution (s///) at /usr/share/perl5/Debconf/Format/822.pm line 84, <GEN6> line 4.
+Use of uninitialized value $val in concatenation (.) or string at /usr/share/perl5/Debconf/Format/822.pm line 85, <GEN6> line 4.
+Setting up rpcsvc-proto (1.4.2-0ubuntu7) ...
+Setting up gcc-13-base:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up make (4.3-4.1build2) ...
+Setting up libmpfr6:amd64 (4.2.1-1build1.1) ...
+Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2build7) ...
+Setting up strace (6.8-0ubuntu2) ...
+Setting up perl-modules-5.38 (5.38.2-3.2ubuntu0.4) ...
+Setting up libquadmath0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libmpc3:amd64 (1.3.1-1build1.1) ...
+Setting up libatomic1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libjsoncpp25:amd64 (1.9.5-6build1) ...
+Setting up libk5crypto3:amd64 (1.20.1-6ubuntu2.8) ...
+Setting up libsasl2-2:amd64 (2.1.28+dfsg1-5ubuntu3.1) ...
+Setting up libubsan1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libicu74:amd64 (74.2-1ubuntu3.1) ...
+Setting up libhwasan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up librhash0:amd64 (1.4.3-3build1) ...
+Setting up libcrypt-dev:amd64 (1:4.4.36-4build1) ...
+Setting up libasan8:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up git-man (1:2.43.0-1ubuntu7.3) ...
+Setting up netbase (6.4) ...
+Setting up cmake-data (3.28.3-1build7) ...
+Setting up libkrb5-3:amd64 (1.20.1-6ubuntu2.8) ...
+Setting up libperl5.38t64:amd64 (5.38.2-3.2ubuntu0.4) ...
+Setting up libtsan2:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libbinutils:amd64 (2.42-4ubuntu2.10) ...
+Setting up libfido2-1:amd64 (1.14.0-1build3) ...
+Setting up libisl23:amd64 (0.26-3build1.1) ...
+Setting up libc-dev-bin (2.39-0ubuntu8.9) ...
+Setting up openssl (3.0.13-0ubuntu3.15) ...
+Setting up libbsd0:amd64 (0.12.1-1build1.1) ...
+Setting up readline-common (8.2-4build1) ...
+Setting up libxml2:amd64 (2.9.14+dfsg-1.3ubuntu3.8) ...
+Setting up zstd (1.5.5+dfsg2-2build1.1) ...
+Setting up libcc1-0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libldap2:amd64 (2.6.10+dfsg-0ubuntu0.24.04.1) ...
+Setting up liblsan0:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libitm1:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up libctf0:amd64 (2.42-4ubuntu2.10) ...
+Setting up cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Setting up libedit2:amd64 (3.1-20230828-1build1) ...
+Setting up ca-certificates (20260601~24.04.1) ...
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+Updating certificates in /etc/ssl/certs...
+121 added, 0 removed; done.
+Setting up perl (5.38.2-3.2ubuntu0.4) ...
+Setting up libgprofng0:amd64 (2.42-4ubuntu2.10) ...
+Setting up libgssapi-krb5-2:amd64 (1.20.1-6ubuntu2.8) ...
+Setting up libssh-4:amd64 (0.10.6-2ubuntu0.5) ...
+Setting up libreadline8t64:amd64 (8.2-4build1) ...
+Setting up libgcc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up libc6-dev:amd64 (2.39-0ubuntu8.9) ...
+Setting up libarchive13t64:amd64 (3.7.2-2ubuntu0.8) ...
+Setting up libstdc++-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up binutils-x86-64-linux-gnu (2.42-4ubuntu2.10) ...
+Setting up cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Setting up libpython3.12-stdlib:amd64 (3.12.3-1ubuntu0.17) ...
+Setting up cpp-13 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up libcurl4t64:amd64 (8.5.0-2ubuntu10.13) ...
+Setting up python3-pip-whl (24.0+dfsg-1ubuntu1.3) ...
+Setting up openssh-client (1:9.6p1-3ubuntu13.19) ...
+Setting up gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Setting up python3.12 (3.12.3-1ubuntu0.17) ...
+Setting up libcurl3t64-gnutls:amd64 (8.5.0-2ubuntu10.13) ...
+Setting up binutils (2.42-4ubuntu2.10) ...
+Setting up liberror-perl (0.17029-2) ...
+Setting up libsqlite3-dev:amd64 (3.45.1-1ubuntu2.7) ...
+Setting up gcc-13 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up git (1:2.43.0-1ubuntu7.3) ...
+Setting up cpp (4:13.2.0-7ubuntu1) ...
+Setting up cmake (3.28.3-1build7) ...
+Setting up libpython3-stdlib:amd64 (3.12.3-0ubuntu2.1) ...
+Setting up g++-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1) ...
+Setting up gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Setting up python3.12-venv (3.12.3-1ubuntu0.17) ...
+Setting up python3 (3.12.3-0ubuntu2.1) ...
+running python rtupdate hooks for python3.12...
+running python post-rtupdate hooks for python3.12...
+Setting up python3-wheel (0.42.0-2) ...
+Setting up gcc (4:13.2.0-7ubuntu1) ...
+Setting up python3-venv (3.12.3-0ubuntu2.1) ...
+Setting up g++-x86-64-linux-gnu (4:13.2.0-7ubuntu1) ...
+Setting up python3-pkg-resources (68.1.2-2ubuntu1.2) ...
+Setting up g++-13 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up python3-setuptools (68.1.2-2ubuntu1.2) ...
+Setting up python3-pip (24.0+dfsg-1ubuntu1.3) ...
+Setting up g++ (4:13.2.0-7ubuntu1) ...
+update-alternatives: using /usr/bin/g++ to provide /usr/bin/c++ (c++) in auto mode
+update-alternatives: warning: skip creation of /usr/share/man/man1/c++.1.gz because associated file /usr/share/man/man1/g++.1.gz (of link group c++) doesn't exist
+Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+Processing triggers for ca-certificates (20260601~24.04.1) ...
+Updating certificates in /etc/ssl/certs...
+0 added, 0 removed; done.
+Running hooks in /etc/ca-certificates/update.d...
+done.
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  libgc1 libobjc-13-dev libobjc4 libyaml-0-2 libz3-4 python3-yaml
+Suggested packages:
+  clang-22-doc wasi-libc
+Recommended packages:
+  llvm-22-dev libclang-rt-22-dev
+The following NEW packages will be installed:
+  clang-22 clang-tidy-22 clang-tools-22 libclang-common-22-dev libclang-cpp22
+  libclang1-22 libgc1 libllvm22 libobjc-13-dev libobjc4 libyaml-0-2 libz3-4
+  llvm-22-linker-tools python3-yaml
+0 upgraded, 14 newly installed, 0 to remove and 1 not upgraded.
+Need to get 6341 kB/76.1 MB of archives.
+After this operation, 338 MB of additional disk space will be used.
+Get:1 /llvm-mirror/libllvm22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb libllvm22 amd64 1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78 [32.3 MB]
+Get:2 /llvm-mirror/libclang-cpp22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb libclang-cpp22 amd64 1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78 [14.4 MB]
+Get:3 /llvm-mirror/libclang-common-22-dev_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb libclang-common-22-dev amd64 1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78 [805 kB]
+Get:4 /llvm-mirror/llvm-22-linker-tools_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb llvm-22-linker-tools amd64 1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78 [1349 kB]
+Get:5 /llvm-mirror/libclang1-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb libclang1-22 amd64 1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78 [8601 kB]
+Get:6 /llvm-mirror/clang-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb clang-22 amd64 1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78 [179 kB]
+Get:7 /llvm-mirror/clang-tools-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb clang-tools-22 amd64 1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78 [9951 kB]
+Get:8 /llvm-mirror/clang-tidy-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb clang-tidy-22 amd64 1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78 [2194 kB]
+Get:9 http://archive.ubuntu.com/ubuntu noble/main amd64 libyaml-0-2 amd64 0.2.5-1build1 [51.5 kB]
+Get:10 http://archive.ubuntu.com/ubuntu noble/main amd64 python3-yaml amd64 6.0.1-2build2 [123 kB]
+Get:11 http://archive.ubuntu.com/ubuntu noble/universe amd64 libz3-4 amd64 4.8.12-3.1build1 [5836 kB]
+Get:12 http://archive.ubuntu.com/ubuntu noble/main amd64 libgc1 amd64 1:8.2.6-1build1 [90.3 kB]
+Get:13 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 libobjc4 amd64 14.2.0-4ubuntu2~24.04.1 [47.1 kB]
+Get:14 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 libobjc-13-dev amd64 13.3.0-6ubuntu2~24.04.1 [194 kB]
+debconf: delaying package configuration, since apt-utils is not installed
+Fetched 6341 kB in 2s (2556 kB/s)
+Selecting previously unselected package libyaml-0-2:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 17185 files and directories currently installed.)
+Preparing to unpack .../00-libyaml-0-2_0.2.5-1build1_amd64.deb ...
+Unpacking libyaml-0-2:amd64 (0.2.5-1build1) ...
+Selecting previously unselected package python3-yaml.
+Preparing to unpack .../01-python3-yaml_6.0.1-2build2_amd64.deb ...
+Unpacking python3-yaml (6.0.1-2build2) ...
+Selecting previously unselected package libz3-4:amd64.
+Preparing to unpack .../02-libz3-4_4.8.12-3.1build1_amd64.deb ...
+Unpacking libz3-4:amd64 (4.8.12-3.1build1) ...
+Selecting previously unselected package libllvm22:amd64.
+Preparing to unpack .../03-libllvm22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb ...
+Unpacking libllvm22:amd64 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Selecting previously unselected package libclang-cpp22.
+Preparing to unpack .../04-libclang-cpp22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb ...
+Unpacking libclang-cpp22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Selecting previously unselected package libgc1:amd64.
+Preparing to unpack .../05-libgc1_1%3a8.2.6-1build1_amd64.deb ...
+Unpacking libgc1:amd64 (1:8.2.6-1build1) ...
+Selecting previously unselected package libobjc4:amd64.
+Preparing to unpack .../06-libobjc4_14.2.0-4ubuntu2~24.04.1_amd64.deb ...
+Unpacking libobjc4:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Selecting previously unselected package libobjc-13-dev:amd64.
+Preparing to unpack .../07-libobjc-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb ...
+Unpacking libobjc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Selecting previously unselected package libclang-common-22-dev:amd64.
+Preparing to unpack .../08-libclang-common-22-dev_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb ...
+Unpacking libclang-common-22-dev:amd64 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Selecting previously unselected package llvm-22-linker-tools.
+Preparing to unpack .../09-llvm-22-linker-tools_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb ...
+Unpacking llvm-22-linker-tools (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Selecting previously unselected package libclang1-22.
+Preparing to unpack .../10-libclang1-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb ...
+Unpacking libclang1-22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Selecting previously unselected package clang-22.
+Preparing to unpack .../11-clang-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb ...
+Unpacking clang-22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Selecting previously unselected package clang-tools-22.
+Preparing to unpack .../12-clang-tools-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb ...
+Unpacking clang-tools-22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Selecting previously unselected package clang-tidy-22.
+Preparing to unpack .../13-clang-tidy-22_22.1.8.++20260613092238+e80beda6e255-1.exp1.20260613092253.78_amd64.deb ...
+Unpacking clang-tidy-22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Setting up libyaml-0-2:amd64 (0.2.5-1build1) ...
+Setting up libclang-common-22-dev:amd64 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Setting up python3-yaml (6.0.1-2build2) ...
+Setting up libz3-4:amd64 (4.8.12-3.1build1) ...
+Setting up libgc1:amd64 (1:8.2.6-1build1) ...
+Setting up libllvm22:amd64 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Setting up libclang1-22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Setting up libobjc4:amd64 (14.2.0-4ubuntu2~24.04.1) ...
+Setting up llvm-22-linker-tools (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Setting up libclang-cpp22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Setting up libobjc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...
+Setting up clang-22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Setting up clang-tools-22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Setting up clang-tidy-22 (1:22.1.8~++20260613092238+e80beda6e255-1~exp1~20260613092253.78) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+Cloning into '/work/repo'...
+done.
+Collecting jsonschema==4.25.1 (from -r harness/requirements.lock (line 1))
+  Downloading jsonschema-4.25.1-py3-none-any.whl.metadata (7.6 kB)
+Collecting pytest==8.4.2 (from -r harness/requirements.lock (line 2))
+  Downloading pytest-8.4.2-py3-none-any.whl.metadata (7.7 kB)
+Collecting zstandard==0.25.0 (from -r harness/requirements.lock (line 3))
+  Downloading zstandard-0.25.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.3 kB)
+Collecting attrs>=22.2.0 (from jsonschema==4.25.1->-r harness/requirements.lock (line 1))
+  Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+Collecting jsonschema-specifications>=2023.03.6 (from jsonschema==4.25.1->-r harness/requirements.lock (line 1))
+  Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting referencing>=0.28.4 (from jsonschema==4.25.1->-r harness/requirements.lock (line 1))
+  Downloading referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting rpds-py>=0.7.1 (from jsonschema==4.25.1->-r harness/requirements.lock (line 1))
+  Downloading rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+Collecting iniconfig>=1 (from pytest==8.4.2->-r harness/requirements.lock (line 2))
+  Downloading iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting packaging>=20 (from pytest==8.4.2->-r harness/requirements.lock (line 2))
+  Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Collecting pluggy<2,>=1.5 (from pytest==8.4.2->-r harness/requirements.lock (line 2))
+  Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+Collecting pygments>=2.7.2 (from pytest==8.4.2->-r harness/requirements.lock (line 2))
+  Downloading pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting typing-extensions>=4.4.0 (from referencing>=0.28.4->jsonschema==4.25.1->-r harness/requirements.lock (line 1))
+  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Downloading jsonschema-4.25.1-py3-none-any.whl (90 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 90.0/90.0 kB 2.4 MB/s eta 0:00:00
+Downloading pytest-8.4.2-py3-none-any.whl (365 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 365.8/365.8 kB 10.9 MB/s eta 0:00:00
+Downloading zstandard-0.25.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 44.7 MB/s eta 0:00:00
+Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 67.5/67.5 kB 29.2 MB/s eta 0:00:00
+Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Downloading packaging-26.3-py3-none-any.whl (129 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 130.0/130.0 kB 49.7 MB/s eta 0:00:00
+Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
+Downloading pygments-2.21.0-py3-none-any.whl (1.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 68.7 MB/s eta 0:00:00
+Downloading referencing-0.37.0-py3-none-any.whl (26 kB)
+Downloading rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (366 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 366.2/366.2 kB 59.1 MB/s eta 0:00:00
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.6/45.6 kB 18.0 MB/s eta 0:00:00
+Installing collected packages: zstandard, typing-extensions, rpds-py, pygments, pluggy, packaging, iniconfig, attrs, referencing, pytest, jsonschema-specifications, jsonschema
+Successfully installed attrs-26.1.0 iniconfig-2.3.0 jsonschema-4.25.1 jsonschema-specifications-2025.9.1 packaging-26.3 pluggy-1.6.0 pygments-2.21.0 pytest-8.4.2 referencing-0.37.0 rpds-py-2026.6.3 typing-extensions-4.16.0 zstandard-0.25.0
+Preset CMake variables:
+
+  CMAKE_BUILD_TYPE="RelWithDebInfo"
+  CMAKE_CXX_FLAGS="-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fstack-clash-protection"
+  CMAKE_EXE_LINKER_FLAGS="-Wl,-z,relro,-z,now"
+  CMAKE_EXPORT_COMPILE_COMMANDS="ON"
+  CMAKE_POSITION_INDEPENDENT_CODE="ON"
+
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found SQLite3: /usr/include (found version "3.45.1") 
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- The C compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Looking for fork
+-- Looking for fork - found
+-- Looking for wait
+-- Looking for wait - found
+-- Adding -Og to compile flag
+-- The ASM compiler identification is GNU
+-- Found assembler: /usr/bin/cc
+-- ZSTD VERSION: 1.5.6
+-- Performing Test C_FLAG_WALL
+-- Performing Test C_FLAG_WALL - Success
+-- Performing Test CXX_FLAG_WALL
+-- Performing Test CXX_FLAG_WALL - Success
+-- Performing Test C_FLAG_WEXTRA
+-- Performing Test C_FLAG_WEXTRA - Success
+-- Performing Test CXX_FLAG_WEXTRA
+-- Performing Test CXX_FLAG_WEXTRA - Success
+-- Performing Test C_FLAG_WUNDEF
+-- Performing Test C_FLAG_WUNDEF - Success
+-- Performing Test CXX_FLAG_WUNDEF
+-- Performing Test CXX_FLAG_WUNDEF - Success
+-- Performing Test C_FLAG_WSHADOW
+-- Performing Test C_FLAG_WSHADOW - Success
+-- Performing Test CXX_FLAG_WSHADOW
+-- Performing Test CXX_FLAG_WSHADOW - Success
+-- Performing Test C_FLAG_WCAST_ALIGN
+-- Performing Test C_FLAG_WCAST_ALIGN - Success
+-- Performing Test CXX_FLAG_WCAST_ALIGN
+-- Performing Test CXX_FLAG_WCAST_ALIGN - Success
+-- Performing Test C_FLAG_WCAST_QUAL
+-- Performing Test C_FLAG_WCAST_QUAL - Success
+-- Performing Test CXX_FLAG_WCAST_QUAL
+-- Performing Test CXX_FLAG_WCAST_QUAL - Success
+-- Performing Test C_FLAG_WSTRICT_PROTOTYPES
+-- Performing Test C_FLAG_WSTRICT_PROTOTYPES - Success
+-- Performing Test LD_FLAG_Z_NOEXECSTACK
+-- Performing Test LD_FLAG_Z_NOEXECSTACK - Success
+-- Performing Test C_FLAG_QUNUSED_ARGUMENTS
+-- Performing Test C_FLAG_QUNUSED_ARGUMENTS - Failed
+-- Performing Test CXX_FLAG_QUNUSED_ARGUMENTS
+-- Performing Test CXX_FLAG_QUNUSED_ARGUMENTS - Failed
+-- Performing Test C_FLAG_WA_NOEXECSTACK
+-- Performing Test C_FLAG_WA_NOEXECSTACK - Success
+-- Performing Test CXX_FLAG_WA_NOEXECSTACK
+-- Performing Test CXX_FLAG_WA_NOEXECSTACK - Success
+-- CMAKE_INSTALL_PREFIX: /usr/local
+-- CMAKE_INSTALL_LIBDIR: lib
+-- ZSTD_LEGACY_SUPPORT defined!
+-- ZSTD_MULTITHREAD_SUPPORT is enabled
+-- Performing Test HAVE_FLAG__ffile_prefix_map__work_repo_build_ci__deps_catch2_src__
+-- Performing Test HAVE_FLAG__ffile_prefix_map__work_repo_build_ci__deps_catch2_src__ - Success
+-- clang-tidy: /usr/bin/clang-tidy-22 (LLVM major 22)
+-- clang-tidy probe cmd: /usr/bin/clang-tidy-22 --checks=-*,misc-unused-alias-decls,clang-diagnostic-* --config={WarningsAsErrors: ''} --quiet /work/repo/build/ci/harness/tidy_probe.cpp -- -std=c++23
+-- clang-tidy resolved libstdc++ _GLIBCXX_RELEASE=13
+-- Configuring done (19.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /work/repo/build/ci
+[  0%] Building CXX object CMakeFiles/biv_support.dir/src/core/support/portability.cpp.o
+[  1%] Building CXX object CMakeFiles/biv_support.dir/src/core/support/subprocess.cpp.o
+[  1%] Linking CXX static library libbiv_support.a
+[  1%] Built target biv_support
+[  1%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/common/debug.c.o
+[  2%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/common/entropy_common.c.o
+[  2%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/common/error_private.c.o
+[  2%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/common/fse_decompress.c.o
+[  3%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/common/pool.c.o
+[  3%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/common/threading.c.o
+[  4%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/common/xxhash.c.o
+[  4%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/common/zstd_common.c.o
+[  5%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/fse_compress.c.o
+[  5%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/hist.c.o
+[  6%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/huf_compress.c.o
+[  6%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_compress.c.o
+[  6%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_compress_literals.c.o
+[  7%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_compress_sequences.c.o
+[  7%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_compress_superblock.c.o
+[  8%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_double_fast.c.o
+[  8%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_fast.c.o
+[  9%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_lazy.c.o
+[  9%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_ldm.c.o
+[ 10%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstd_opt.c.o
+[ 10%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/compress/zstdmt_compress.c.o
+[ 10%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/decompress/huf_decompress.c.o
+[ 11%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/decompress/zstd_ddict.c.o
+[ 11%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/decompress/zstd_decompress.c.o
+[ 12%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/decompress/zstd_decompress_block.c.o
+[ 12%] Building ASM object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/decompress/huf_decompress_amd64.S.o
+[ 13%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/dictBuilder/cover.c.o
+[ 13%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/dictBuilder/divsufsort.c.o
+[ 14%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/dictBuilder/fastcover.c.o
+[ 14%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/dictBuilder/zdict.c.o
+[ 14%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/legacy/zstd_v01.c.o
+In function 'ZSTDv01_decodeLiteralsBlock',
+    inlined from 'ZSTD_decompressBlock' at /work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1899:17:
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1505:20: warning: 'litbp.origSize' may be used uninitialized [-Wmaybe-uninitialized]
+ 1505 |             size_t rleSize = litbp.origSize;
+      |                    ^~~~~~~
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c: In function 'ZSTD_decompressBlock':
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1489:23: note: 'litbp.origSize' was declared here
+ 1489 |     blockProperties_t litbp;
+      |                       ^~~~~
+In function 'ZSTDv01_decodeLiteralsBlock',
+    inlined from 'ZSTD_decompressBlock' at /work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1899:17:
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1496:5: warning: '*(unsigned int *)((char *)&litbp + offsetof(blockProperties_t, blockType))' may be used uninitialized [-Wmaybe-uninitialized]
+ 1496 |     switch(litbp.blockType)
+      |     ^~~~~~
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c: In function 'ZSTD_decompressBlock':
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1489:23: note: '*(unsigned int *)((char *)&litbp + offsetof(blockProperties_t, blockType))' was declared here
+ 1489 |     blockProperties_t litbp;
+      |                       ^~~~~
+In function 'ZSTD_decompressSequences',
+    inlined from 'ZSTD_decompressBlock' at /work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1904:12:
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1850:35: warning: 'dumpsLength' may be used uninitialized [-Wmaybe-uninitialized]
+ 1850 |         seqState.dumpsEnd = dumps + dumpsLength;
+      |                             ~~~~~~^~~~~~~~~~~~~
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c: In function 'ZSTD_decompressBlock':
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1826:23: note: 'dumpsLength' was declared here
+ 1826 |     size_t errorCode, dumpsLength;
+      |                       ^~~~~~~~~~~
+In function 'ZSTD_decompressSequences',
+    inlined from 'ZSTD_decompressBlock' at /work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1904:12:
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1850:35: warning: 'dumps' may be used uninitialized [-Wmaybe-uninitialized]
+ 1850 |         seqState.dumpsEnd = dumps + dumpsLength;
+      |                             ~~~~~~^~~~~~~~~~~~~
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c: In function 'ZSTD_decompressBlock':
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1830:17: note: 'dumps' was declared here
+ 1830 |     const BYTE* dumps;
+      |                 ^~~~~
+In function 'ZSTD_decompressSequences',
+    inlined from 'ZSTD_decompressBlock' at /work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1904:12:
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1858:83: warning: 'nbSeq' may be used uninitialized [-Wmaybe-uninitialized]
+ 1858 |         for ( ; (FSE_reloadDStream(&(seqState.DStream)) <= FSE_DStream_completed) && (nbSeq>0) ; )
+      |                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c: In function 'ZSTD_decompressBlock':
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1829:9: note: 'nbSeq' was declared here
+ 1829 |     int nbSeq;
+      |         ^~~~~
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c: In function 'ZSTDv01_decompressDCtx':
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1936:9: warning: '*(unsigned int *)((char *)&blockProperties + offsetof(blockProperties_t, blockType))' may be used uninitialized [-Wmaybe-uninitialized]
+ 1936 |         switch(blockProperties.blockType)
+      |         ^~~~~~
+/work/repo/build/ci/_deps/zstd-src/lib/legacy/zstd_v01.c:1918:23: note: '*(unsigned int *)((char *)&blockProperties + offsetof(blockProperties_t, blockType))' was declared here
+ 1918 |     blockProperties_t blockProperties;
+      |                       ^~~~~~~~~~~~~~~
+[ 15%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/legacy/zstd_v02.c.o
+[ 15%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/legacy/zstd_v03.c.o
+[ 16%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/legacy/zstd_v04.c.o
+[ 16%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/legacy/zstd_v05.c.o
+[ 17%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/legacy/zstd_v06.c.o
+[ 17%] Building C object _deps/zstd-build/lib/CMakeFiles/libzstd_static.dir/__/__/__/lib/legacy/zstd_v07.c.o
+[ 18%] Linking C static library libzstd.a
+[ 18%] Built target libzstd_static
+[ 18%] Building CXX object _deps/simdjson-build/CMakeFiles/simdjson.dir/src/simdjson.cpp.o
+[ 19%] Linking CXX static library libsimdjson.a
+[ 19%] Built target simdjson
+[ 19%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/version_floor.cpp.o
+[ 19%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/secure_io.cpp.o
+[ 20%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/rewrite_common.cpp.o
+[ 20%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/registry.cpp.o
+[ 21%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/claude_code/claude_code.cpp.o
+[ 21%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/claude_code/install.cpp.o
+[ 22%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/codex/codex.cpp.o
+[ 22%] Building CXX object CMakeFiles/biv_adapters.dir/src/adapters/codex/install.cpp.o
+[ 23%] Linking CXX static library libbiv_adapters.a
+[ 23%] Built target biv_adapters
+[ 24%] Building CXX object CMakeFiles/bivcore.dir/src/core/json/writer.cpp.o
+[ 24%] Building CXX object CMakeFiles/bivcore.dir/src/core/container/tar_writer.cpp.o
+[ 25%] Building CXX object CMakeFiles/bivcore.dir/src/core/container/tar_reader.cpp.o
+[ 25%] Building CXX object CMakeFiles/bivcore.dir/src/core/container/zstd_stream.cpp.o
+[ 26%] Building CXX object CMakeFiles/bivcore.dir/src/core/ignore/matcher.cpp.o
+[ 26%] Building CXX object CMakeFiles/bivcore.dir/src/core/manifest/checksums.cpp.o
+[ 27%] Building CXX object CMakeFiles/bivcore.dir/src/core/manifest/manifest.cpp.o
+[ 27%] Building CXX object CMakeFiles/bivcore.dir/src/core/open/open.cpp.o
+[ 28%] Building CXX object CMakeFiles/bivcore.dir/src/core/open/render.cpp.o
+[ 28%] Building CXX object CMakeFiles/bivcore.dir/src/core/open/sessions.cpp.o
+[ 28%] Building CXX object CMakeFiles/bivcore.dir/src/core/pack/pack.cpp.o
+[ 29%] Building CXX object CMakeFiles/bivcore.dir/src/core/repo/classify.cpp.o
+[ 29%] Building CXX object CMakeFiles/bivcore.dir/src/core/repo/capture.cpp.o
+[ 30%] Building CXX object CMakeFiles/bivcore.dir/src/core/repo/discover.cpp.o
+[ 30%] Building CXX object CMakeFiles/bivcore.dir/src/core/repo/eligibility.cpp.o
+[ 31%] Building CXX object CMakeFiles/bivcore.dir/src/core/repo/git.cpp.o
+[ 31%] Building CXX object CMakeFiles/bivcore.dir/src/core/repo/git_exec.cpp.o
+[ 32%] Building CXX object CMakeFiles/bivcore.dir/src/core/repo/restore.cpp.o
+[ 32%] Building CXX object CMakeFiles/bivcore.dir/src/core/report/envelope.cpp.o
+[ 32%] Building CXX object CMakeFiles/bivcore.dir/src/core/scan/scan.cpp.o
+[ 33%] Building CXX object CMakeFiles/bivcore.dir/src/core/support/probe.cpp.o
+[ 33%] Building CXX object CMakeFiles/bivcore.dir/src/core/support/sha256.cpp.o
+[ 34%] Building CXX object CMakeFiles/bivcore.dir/src/core/support/error.cpp.o
+[ 34%] Building CXX object CMakeFiles/bivcore.dir/src/core/support/version.cpp.o
+[ 35%] Linking CXX static library libbivcore.a
+[ 35%] Built target bivcore
+[ 35%] Building CXX object CMakeFiles/biv.dir/src/cli/main.cpp.o
+[ 36%] Building CXX object CMakeFiles/biv.dir/src/cli/args.cpp.o
+[ 36%] Building CXX object CMakeFiles/biv.dir/src/cli/url_consent.cpp.o
+[ 37%] Linking CXX executable biv
+[ 37%] Built target biv
+[ 37%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/benchmark/catch_chronometer.cpp.o
+[ 37%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/benchmark/detail/catch_analyse.cpp.o
+[ 38%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/benchmark/detail/catch_benchmark_function.cpp.o
+[ 38%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/benchmark/detail/catch_run_for_at_least.cpp.o
+[ 39%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/benchmark/detail/catch_stats.cpp.o
+[ 39%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/generators/catch_generator_exception.cpp.o
+[ 40%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/generators/catch_generators.cpp.o
+[ 40%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/generators/catch_generators_random.cpp.o
+[ 41%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_automake.cpp.o
+[ 41%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_common_base.cpp.o
+[ 41%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_compact.cpp.o
+[ 42%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_console.cpp.o
+[ 42%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_cumulative_base.cpp.o
+[ 43%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_event_listener.cpp.o
+[ 43%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_helpers.cpp.o
+[ 44%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_json.cpp.o
+[ 44%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_junit.cpp.o
+[ 45%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_multi.cpp.o
+[ 45%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_registrars.cpp.o
+[ 45%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_sonarqube.cpp.o
+[ 46%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_streaming_base.cpp.o
+[ 46%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_tap.cpp.o
+[ 47%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_teamcity.cpp.o
+[ 47%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/reporters/catch_reporter_xml.cpp.o
+[ 48%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/interfaces/catch_interfaces_capture.cpp.o
+[ 48%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/interfaces/catch_interfaces_config.cpp.o
+[ 49%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/interfaces/catch_interfaces_exception.cpp.o
+[ 49%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/interfaces/catch_interfaces_generatortracker.cpp.o
+[ 49%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/interfaces/catch_interfaces_registry_hub.cpp.o
+[ 50%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/interfaces/catch_interfaces_reporter.cpp.o
+[ 50%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/interfaces/catch_interfaces_reporter_factory.cpp.o
+[ 51%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/interfaces/catch_interfaces_testcase.cpp.o
+[ 51%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_approx.cpp.o
+[ 52%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_assertion_result.cpp.o
+[ 52%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_config.cpp.o
+[ 53%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_get_random_seed.cpp.o
+[ 53%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_message.cpp.o
+[ 53%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_registry_hub.cpp.o
+[ 54%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_session.cpp.o
+[ 54%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_tag_alias_autoregistrar.cpp.o
+[ 55%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_test_case_info.cpp.o
+[ 55%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_test_spec.cpp.o
+[ 56%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_timer.cpp.o
+[ 56%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_tostring.cpp.o
+[ 57%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_totals.cpp.o
+[ 57%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_translate_exception.cpp.o
+[ 57%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/catch_version.cpp.o
+[ 58%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_assertion_handler.cpp.o
+[ 58%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_case_insensitive_comparisons.cpp.o
+[ 59%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_clara.cpp.o
+[ 59%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_commandline.cpp.o
+[ 60%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_console_colour.cpp.o
+[ 60%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_context.cpp.o
+[ 61%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_debug_console.cpp.o
+[ 61%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_debugger.cpp.o
+[ 62%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_decomposer.cpp.o
+[ 62%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_enforce.cpp.o
+[ 62%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_enum_values_registry.cpp.o
+[ 63%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_errno_guard.cpp.o
+[ 63%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_exception_translator_registry.cpp.o
+[ 64%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_fatal_condition_handler.cpp.o
+[ 64%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_floating_point_helpers.cpp.o
+[ 65%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_getenv.cpp.o
+[ 65%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_istream.cpp.o
+[ 66%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_jsonwriter.cpp.o
+[ 66%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_lazy_expr.cpp.o
+[ 66%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_leak_detector.cpp.o
+[ 67%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_list.cpp.o
+[ 67%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_message_info.cpp.o
+[ 68%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_output_redirect.cpp.o
+[ 68%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_parse_numbers.cpp.o
+[ 69%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_polyfills.cpp.o
+[ 69%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_random_number_generator.cpp.o
+[ 70%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_random_seed_generation.cpp.o
+[ 70%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_reporter_registry.cpp.o
+[ 70%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_reporter_spec_parser.cpp.o
+[ 71%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_reusable_string_stream.cpp.o
+[ 71%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_run_context.cpp.o
+[ 72%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_section.cpp.o
+[ 72%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_singletons.cpp.o
+[ 73%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_source_line_info.cpp.o
+[ 73%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_startup_exception_registry.cpp.o
+[ 74%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_stdstreams.cpp.o
+[ 74%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_string_manip.cpp.o
+[ 74%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_stringref.cpp.o
+[ 75%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_tag_alias_registry.cpp.o
+[ 75%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_test_case_info_hasher.cpp.o
+[ 76%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_test_case_registry_impl.cpp.o
+[ 76%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_test_case_tracker.cpp.o
+[ 77%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_test_failure_exception.cpp.o
+[ 77%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_test_registry.cpp.o
+[ 78%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_test_spec_parser.cpp.o
+[ 78%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_textflow.cpp.o
+[ 78%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_uncaught_exceptions.cpp.o
+[ 79%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_wildcard_pattern.cpp.o
+[ 79%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/internal/catch_xmlwriter.cpp.o
+[ 80%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/catch_matchers.cpp.o
+[ 80%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/catch_matchers_container_properties.cpp.o
+[ 81%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/catch_matchers_exception.cpp.o
+[ 81%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/catch_matchers_floating_point.cpp.o
+[ 82%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/catch_matchers_predicate.cpp.o
+[ 82%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/catch_matchers_quantifiers.cpp.o
+[ 82%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/catch_matchers_string.cpp.o
+[ 83%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/catch_matchers_templated.cpp.o
+[ 83%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2.dir/catch2/matchers/internal/catch_matchers_impl.cpp.o
+[ 84%] Linking CXX static library libCatch2.a
+[ 84%] Built target Catch2
+[ 84%] Building CXX object _deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/catch2/internal/catch_main.cpp.o
+[ 85%] Linking CXX static library libCatch2Main.a
+[ 85%] Built target Catch2WithMain
+[ 85%] Building CXX object CMakeFiles/biv_subprocess_tests.dir/tests/test_subprocess.cpp.o
+[ 86%] Linking CXX executable biv_subprocess_tests
+[ 86%] Built target biv_subprocess_tests
+[ 87%] Building CXX object CMakeFiles/biv_repo_git_test_seam.dir/src/core/repo/git.cpp.o
+[ 87%] Linking CXX static library libbiv_repo_git_test_seam.a
+[ 87%] Built target biv_repo_git_test_seam
+[ 88%] Building CXX object CMakeFiles/biv_repo_git_tests.dir/tests/test_repo_git.cpp.o
+[ 88%] Linking CXX executable biv_repo_git_tests
+[ 88%] Built target biv_repo_git_tests
+[ 89%] Building CXX object CMakeFiles/biv_repo_engine_tests.dir/tests/test_repo_engine.cpp.o
+[ 89%] Linking CXX executable biv_repo_engine_tests
+[ 89%] Built target biv_repo_engine_tests
+[ 89%] Building CXX object CMakeFiles/biv_probe_test_seam.dir/src/core/support/probe.cpp.o
+[ 89%] Linking CXX static library libbiv_probe_test_seam.a
+[ 89%] Built target biv_probe_test_seam
+[ 90%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_smoke.cpp.o
+[ 90%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_json_writer.cpp.o
+[ 91%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_checksums.cpp.o
+[ 91%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_ignore.cpp.o
+[ 91%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_manifest.cpp.o
+[ 92%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_scan.cpp.o
+[ 92%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_portability.cpp.o
+[ 93%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_support.cpp.o
+[ 93%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_tar_writer.cpp.o
+[ 94%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_tar_reader.cpp.o
+[ 94%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_pack.cpp.o
+[ 95%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_open.cpp.o
+[ 95%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_envelope.cpp.o
+[ 95%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_cli.cpp.o
+[ 96%] Building CXX object CMakeFiles/biv_tests.dir/src/cli/url_consent.cpp.o
+[ 96%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_adapters_registry.cpp.o
+[ 97%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_adapter_claude_collect.cpp.o
+[ 97%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_adapter_claude_install.cpp.o
+[ 98%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_adapter_codex_collect.cpp.o
+[ 98%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_adapter_codex_install.cpp.o
+[ 99%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_sessions.cpp.o
+[ 99%] Building CXX object CMakeFiles/biv_tests.dir/tests/test_render.cpp.o
+[ 99%] Linking CXX executable biv_tests
+[ 99%] Built target biv_tests
+[100%] Building CXX object CMakeFiles/biv_probe_tests.dir/tests/test_probe.cpp.o
+[100%] Linking CXX executable biv_probe_tests
+[100%] Built target biv_probe_tests
+Test project /work/repo/build/ci
+      Start  1: subprocess
+ 1/19 Test  #1: subprocess .......................   Passed    0.75 sec
+      Start  2: repo_git
+ 2/19 Test  #2: repo_git .........................   Passed    0.87 sec
+      Start  3: repo_engine
+ 3/19 Test  #3: repo_engine ......................   Passed   33.16 sec
+      Start 12: generated_envelope_reset
+ 4/19 Test #12: generated_envelope_reset .........   Passed    0.03 sec
+      Start  4: biv_tests
+ 5/19 Test  #4: biv_tests ........................   Passed    7.22 sec
+      Start  5: probe
+ 6/19 Test  #5: probe ............................   Passed    8.37 sec
+      Start  6: open_no_rewrite_gate
+ 7/19 Test  #6: open_no_rewrite_gate .............   Passed    0.04 sec
+      Start  7: core_adapter_purity_selftest
+ 8/19 Test  #7: core_adapter_purity_selftest .....   Passed    0.10 sec
+      Start  8: version_floor_mirror
+ 9/19 Test  #8: version_floor_mirror .............   Passed    0.11 sec
+      Start  9: errno_table_gate
+10/19 Test  #9: errno_table_gate .................   Passed    3.49 sec
+      Start 10: probe_envelope_schema
+11/19 Test #10: probe_envelope_schema ............   Passed    0.18 sec
+      Start 11: generated_envelope_conforms
+12/19 Test #11: generated_envelope_conforms ......   Passed    0.18 sec
+      Start 13: harness-selftest
+13/19 Test #13: harness-selftest .................***Failed   26.37 sec
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0
+rootdir: /work/repo/harness
+collected 1013 items
+
+selftest/test_artifact.py ....                                           [  0%]
+selftest/test_cli.py .......                                             [  1%]
+selftest/test_cmake.py ......                                            [  1%]
+selftest/test_compare.py ...............................                 [  4%]
+selftest/test_e3_asserts.py ............................................ [  9%]
+.....................................F..........................F....... [ 16%]
+........................................................................ [ 23%]
+.................................................................F...... [ 30%]
+........................................................................ [ 37%]
+........................................................................ [ 44%]
+........................................................................ [ 51%]
+........................................................................ [ 58%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 80%]
+.................................................................ss...s. [ 87%]
+...................                                                      [ 89%]
+selftest/test_envelope.py ......                                         [ 89%]
+selftest/test_fixtures.py ............                                   [ 90%]
+selftest/test_host2_credentials.py ................................      [ 94%]
+selftest/test_manifest.py ..........                                     [ 95%]
+selftest/test_precheck.py ....                                           [ 95%]
+selftest/test_probe_isolation.py .....                                   [ 95%]
+selftest/test_report.py ......                                           [ 96%]
+selftest/test_run_clang_tidy.py ....                                     [ 96%]
+selftest/test_scenario.py ...............                                [ 98%]
+selftest/test_scenario_env.py ..                                         [ 98%]
+selftest/test_specs.py ...                                               [ 98%]
+selftest/test_store_isolation.py ...........                             [100%]
+
+=================================== FAILURES ===================================
+______ test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd687050>
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_c1_zero_session_control_r0')
+
+    def test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop(
+        monkeypatch, tmp_path
+    ):
+        profile_root = tmp_path / "profiles"
+        sessions = profile_root / "codex" / "sessions"
+        sessions.mkdir(parents=True)
+        (profile_root / "claude-code").mkdir(parents=True)
+        mutation = _insert_session_when_scandir_stops(monkeypatch, sessions)
+    
+        failures = e3._c1_zero_session_failures(
+            profile_root,
+            _valid_two_agent_spec(),
+        )
+    
+        assert mutation["inserted"]
+>       assert any("changed during enumeration" in failure for failure in failures)
+E       assert False
+E        +  where False = any(<generator object test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop.<locals>.<genexpr> at 0x7ffffd626e90>)
+
+selftest/test_e3_asserts.py:1727: AssertionError
+_______ test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a1370>
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_run_e3_session_inserted_a0')
+stable_test_root = PosixPath('/home/suite/.cache/bivharness-selftest/9826-test_run_e3_session_inserted_a0')
+
+    def test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open(
+        monkeypatch, tmp_path, stable_test_root
+    ):
+        spec_path, seen = _configure_exit_contract_case(
+            monkeypatch,
+            tmp_path,
+            pack_result=_successful_pack(),
+        )
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
+        spec["host2_profile_root"] = "host2/profiles"
+        spec_path.write_text(json.dumps(spec), encoding="utf-8")
+        profile_root = stable_test_root / "scratch" / "host2/profiles"
+        sessions = profile_root / "codex" / "sessions"
+        mutation = _insert_session_when_scandir_stops(monkeypatch, sessions)
+    
+        def create_isolated_session_directories(value, *_args):
+            for agent in value["agents"]:
+                store = profile_root / agent["id"]
+                store.mkdir(parents=True)
+                for location in e3.SESSION_LOCATIONS[agent["id"]]:
+                    path = store / location
+                    if location == "session_index.jsonl":
+                        path.write_bytes(b"")
+                    else:
+                        path.mkdir()
+            return {agent["id"]: {} for agent in value["agents"]}
+    
+        monkeypatch.setattr(
+            e3,
+            "setup_host2_credentials",
+            create_isolated_session_directories,
+        )
+    
+        result = e3.run_e3(
+            spec_path,
+            Path("biv"),
+            stable_test_root / "scratch",
+        )
+    
+        assert mutation["inserted"]
+        assert result.status is Status.INVALID
+        assert result.detail == "e3-post-materialization-invalid"
+>       assert seen == ["pack"]
+E       AssertionError: assert ['pack', 'open'] == ['pack']
+E         
+E         Left contains one more item: 'open'
+E         Use -v to get more diff
+
+selftest/test_e3_asserts.py:2176: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Capture-window candidate diff (disclosure only):
+/home/suite/.cache/bivharness-selftest/9826-test_run_e3_session_inserted_a0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9826-test_run_e3_session_inserted_a0/scratch/seed-ws/codex-seed.jsonl
+Ownership-proven cleanup candidates (not deleted):
+/home/suite/.cache/bivharness-selftest/9826-test_run_e3_session_inserted_a0/scratch/seed-ws/claude-code-seed.jsonl
+/home/suite/.cache/bivharness-selftest/9826-test_run_e3_session_inserted_a0/scratch/seed-ws/codex-seed.jsonl
+___ test_credential_scanner_detects_entry_added_after_directory_enumeration ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffffd6a68a0>
+tmp_path = PosixPath('/tmp/pytest-of-suite/pytest-0/test_credential_scanner_detect1')
+
+    def test_credential_scanner_detects_entry_added_after_directory_enumeration(
+        monkeypatch, tmp_path
+    ):
+        scanner = e3._CredentialScanner()
+        (tmp_path / "existing").write_bytes(b"ordinary")
+        real_scandir = e3.os.scandir
+        mutated = False
+    
+        class MutatingScandir:
+            def __init__(self, descriptor):
+                self._entries = real_scandir(descriptor)
+    
+            def __enter__(self):
+                return self
+    
+            def __exit__(self, *args):
+                self._entries.close()
+    
+            def __iter__(self):
+                return self
+    
+            def __next__(self):
+                nonlocal mutated
+                try:
+                    return next(self._entries)
+                except StopIteration:
+                    if not mutated:
+                        (tmp_path / "late-addition").write_bytes(b"ordinary")
+                        mutated = True
+                    raise
+    
+        monkeypatch.setattr(e3.os, "scandir", MutatingScandir)
+    
+>       assert scanner.scan_tree(tmp_path, set())
+E       AssertionError: assert False
+E        +  where False = scan_tree(PosixPath('/tmp/pytest-of-suite/pytest-0/test_credential_scanner_detect1'), set())
+E        +    where scan_tree = _CredentialScanner().scan_tree
+E        +    and   set() = set()
+
+selftest/test_e3_asserts.py:5102: AssertionError
+=========================== short test summary info ============================
+FAILED selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop
+FAILED selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open
+FAILED selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration
+================== 3 failed, 1007 passed, 3 skipped in 26.11s ==================
+
+      Start 14: harness-e2
+14/19 Test #14: harness-e2 .......................   Passed    1.35 sec
+      Start 15: safety-build-werror
+15/19 Test #15: safety-build-werror ..............   Passed    1.75 sec
+      Start 16: safety-asan-ubsan
+16/19 Test #16: safety-asan-ubsan ................***Skipped   0.04 sec
+      Start 17: safety-tidy-analyzer
+17/19 Test #17: safety-tidy-analyzer .............   Passed   55.67 sec
+      Start 18: safety-hardening
+18/19 Test #18: safety-hardening .................   Passed    0.16 sec
+      Start 19: safety-fuzz-smoke
+19/19 Test #19: safety-fuzz-smoke ................***Skipped   0.04 sec
+
+95% tests passed, 1 tests failed out of 19
+
+Label Time Summary:
+build           =   1.75 sec*proc (1 test)
+e2              =   1.35 sec*proc (1 test)
+hardening       =   0.16 sec*proc (1 test)
+harness         =  27.71 sec*proc (2 tests)
+harness-skip    =   0.08 sec*proc (2 tests)
+safety          =  57.58 sec*proc (3 tests)
+selftest        =  26.37 sec*proc (1 test)
+tidy            =  55.67 sec*proc (1 test)
+
+Total Test time (real) = 139.92 sec
+
+The following tests did not run:
+	 16 - safety-asan-ubsan (Skipped)
+	 19 - safety-fuzz-smoke (Skipped)
+
+The following tests FAILED:
+	 13 - harness-selftest (Failed)
+Errors while running CTest

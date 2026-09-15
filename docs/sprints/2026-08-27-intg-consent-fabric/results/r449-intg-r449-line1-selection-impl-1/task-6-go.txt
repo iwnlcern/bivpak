@@ -1,0 +1,3 @@
+go=/Users/jack/Programming/bivpak/.relays/intg/intg-r449/SITREP-pair-planner-20260914-191911.md
+m2_review_of_C=/Users/jack/Programming/bivpak/../pdc/master/relays/intg-r449-line1-selection-act/DESIGN-REVIEW-m2-planner-20260914-191300.md FROM=m-2.planner
+m3_review_of_H=/Users/jack/Programming/bivpak/../pdc/master/relays/intg-r449-line1-selection-act/DESIGN-planner-20260914-191148.md FROM=m-3.planner

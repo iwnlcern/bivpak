@@ -1,0 +1,65 @@
+{
+  "envelope_version": 1,
+  "app_version": "0.1.0",
+  "ok": true,
+  "verb": "pack",
+  "exit_code": 2,
+  "warnings": [
+    {
+      "kind": "SessionNoCwdRecord",
+      "path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config/projects/-Users-jack-Programming-bivpak-evidence-r449-intg-r449-line1-selection-impl-1-CjLgkC-work-ws-proj/736632cc-1d70-40a6-b8f0-c7475e28e12b.jsonl"
+    },
+    {
+      "kind": "SessionNoCwdRecord",
+      "path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config/projects/-Users-jack-Programming-bivpak-evidence-r449-intg-r449-line1-selection-impl-1-CjLgkC-work-ws-proj/d7ab1c71-69e5-4772-ba57-1d0b19ba8c26.jsonl"
+    },
+    {
+      "kind": "SessionNoCwdRecord",
+      "path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config/projects/-Users-jack-Programming-bivpak-evidence-r449-intg-r449-line1-selection-impl-1-CjLgkC-work-ws-proj/95240193-00d7-467b-96d0-a116c3200426.jsonl"
+    },
+    {
+      "kind": "SessionNoCwdRecord",
+      "path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config/projects/-Users-jack-Programming-bivpak-evidence-r449-intg-r449-line1-selection-impl-1-CjLgkC-work-ws-proj/50670a37-f1dd-4d9c-885b-a1137ed08078.jsonl"
+    },
+    {
+      "kind": "SessionNoCwdRecord",
+      "path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config/projects/-Users-jack-Programming-bivpak-evidence-r449-intg-r449-line1-selection-impl-1-CjLgkC-work-ws-proj/f78b6ea5-b616-4ec8-b103-f251959f99f9.jsonl"
+    },
+    {
+      "kind": "SessionLiveAtPack",
+      "path": "c8e04639-e752-411e-9f42-3a9018720192"
+    },
+    {
+      "kind": "SessionLiveAtPack",
+      "path": "cdf2610d-ca1b-44d5-958e-2b4fe4d88659"
+    },
+    {
+      "kind": "SessionLiveAtPack",
+      "path": "d0542e96-3b94-4e59-a82a-9f5a3095aa56"
+    }
+  ],
+  "advisories": [],
+  "result": {
+    "image_path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj.bvpk",
+    "source_path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+    "source_path_flavor": "posix",
+    "image_id": "2019c24c-79e9-4374-a7ca-6752f0691ae2",
+    "member_count": 6,
+    "payload_bytes": 0,
+    "manifest": {
+      "format_version": 1,
+      "repos": [],
+      "agent_sessions": [
+        {
+          "agent": "claude-code",
+          "session_count": 3
+        },
+        {
+          "agent": "codex",
+          "session_count": 3
+        }
+      ]
+    }
+  },
+  "error": null
+}

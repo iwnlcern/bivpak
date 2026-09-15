@@ -1,0 +1,5 @@
+HOME=/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/home
+CODEX_HOME=/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/codex-home
+CLAUDE_CONFIG_DIR=/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config
+TMPDIR=/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/tmp
+source=/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj

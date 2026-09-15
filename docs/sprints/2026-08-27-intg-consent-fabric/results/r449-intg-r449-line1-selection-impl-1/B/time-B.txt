@@ -1,0 +1,1 @@
+label=B runs=3 times_s=4.042,3.883,3.953 median_s=3.953 rcs=2,2,2 oks=True,True,True image=/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj-B.bvpk

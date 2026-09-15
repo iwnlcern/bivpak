@@ -1,0 +1,13 @@
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/bivharness/e3.py:74:        "src/adapters/claude_code/claude_code.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/bivharness/e3.py:78:        "src/adapters/codex/codex.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:1891:            "src/adapters/claude_code/claude_code.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:1898:            "src/adapters/codex/codex.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:1905:            "src/adapters/claude_code/claude_code.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:1912:            "src/adapters/codex/codex.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:1919:            "src/adapters/codex/codex.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:1926:            "src/adapters/claude_code/claude_code.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:1941:            "src/adapters/codex/codex.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:1979:    source = repo / "src/adapters/codex/codex.cpp"
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:2015:            "src/adapters/claude_code/claude_code.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:2020:            "src/adapters/codex/codex.cpp",
+b74ec570e22646bfee6a0c554bcb766fffa6da19:harness/selftest/test_e3_asserts.py:2184:    source = repo / "src/adapters/claude_code/claude_code.cpp"

@@ -1,0 +1,4 @@
+src/adapters/claude_code/claude_code.cpp
+src/adapters/codex/codex.cpp
+tests/test_adapter_claude_collect.cpp
+tests/test_adapter_codex_collect.cpp

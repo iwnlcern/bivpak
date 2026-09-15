@@ -1,0 +1,9 @@
+adapters(claude, codex): decide candidacy from a head-bounded read; full reads only for selected sessions (R-4.49)
+
+Both collect paths read every store file in full before the cwd filter. Now each candidate is streamed and the stream stops at
+the line that completes the head predicate today's parsers already implement: the FIRST cwd-bearing record for a claude
+transcript (sealed ADDENDUM-1 §A1; a transcript with no cwd anywhere is still read to EOF and reported as no_cwd_record) and the
+FIRST session_meta record for a codex rollout (sealed c1 §4). The whole-file read and the unchanged whole-text parsers run only
+for an in-root candidate, so membership, edges, record fields, warnings and tail facts are byte-identical (m-2 C-1/C-2 rulings
+2026-09-13: selection identity by construction; the act is read-bounding only). No discover, secure_io, schema, sqlite, manifest
+or harness byte. Witness SECTIONs inside existing TEST_CASEs (the Catch2 case census is unchanged).

@@ -1,0 +1,1 @@
+e3_diff hunks=2 plus_minus_content_lines=4 file_header_lines=2

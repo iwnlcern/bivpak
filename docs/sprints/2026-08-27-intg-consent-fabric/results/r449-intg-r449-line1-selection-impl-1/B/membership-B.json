@@ -1,0 +1,137 @@
+{
+ "count": 6,
+ "sessions": [
+  {
+   "agent": "claude-code",
+   "agent_version_at_pack": "2.1.202",
+   "artifacts": [
+    "agents/claude-code/579372a5-51ad-4dab-b6af-13bc2661543f.jsonl"
+   ],
+   "children": [],
+   "live_at_pack": false,
+   "normalization_scheme": "claude-cwd/v1",
+   "normalized_path_key": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_session_ids": {
+    "primary": "579372a5-51ad-4dab-b6af-13bc2661543f"
+   },
+   "path_flavor": "posix",
+   "provenance": {
+    "archived": false,
+    "discovery_tier": "env",
+    "locator": "sessions_root",
+    "store_root": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config"
+   }
+  },
+  {
+   "agent": "claude-code",
+   "agent_version_at_pack": "2.1.202",
+   "artifacts": [
+    "agents/claude-code/cb3198da-94e0-48b9-b4bc-ae95e5e1466c.jsonl"
+   ],
+   "children": [],
+   "live_at_pack": false,
+   "normalization_scheme": "claude-cwd/v1",
+   "normalized_path_key": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_session_ids": {
+    "primary": "cb3198da-94e0-48b9-b4bc-ae95e5e1466c"
+   },
+   "path_flavor": "posix",
+   "provenance": {
+    "archived": false,
+    "discovery_tier": "env",
+    "locator": "sessions_root",
+    "store_root": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config"
+   }
+  },
+  {
+   "agent": "claude-code",
+   "agent_version_at_pack": "2.1.202",
+   "artifacts": [
+    "agents/claude-code/ddfafdac-4fa3-4899-bce5-c498a9d95e91.jsonl"
+   ],
+   "children": [],
+   "live_at_pack": false,
+   "normalization_scheme": "claude-cwd/v1",
+   "normalized_path_key": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_session_ids": {
+    "primary": "ddfafdac-4fa3-4899-bce5-c498a9d95e91"
+   },
+   "path_flavor": "posix",
+   "provenance": {
+    "archived": false,
+    "discovery_tier": "env",
+    "locator": "sessions_root",
+    "store_root": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/claude-config"
+   }
+  },
+  {
+   "agent": "codex",
+   "agent_version_at_pack": "0.142.5",
+   "artifacts": [
+    "agents/codex/c8e04639-e752-411e-9f42-3a9018720192.jsonl"
+   ],
+   "children": [],
+   "live_at_pack": true,
+   "normalization_scheme": "codex-cwd/v1",
+   "normalized_path_key": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_session_ids": {
+    "primary": "c8e04639-e752-411e-9f42-3a9018720192"
+   },
+   "path_flavor": "posix",
+   "provenance": {
+    "archived": false,
+    "discovery_tier": "env",
+    "locator": "sessions_root",
+    "store_root": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/codex-home"
+   }
+  },
+  {
+   "agent": "codex",
+   "agent_version_at_pack": "0.142.5",
+   "artifacts": [
+    "agents/codex/cdf2610d-ca1b-44d5-958e-2b4fe4d88659.jsonl"
+   ],
+   "children": [],
+   "live_at_pack": true,
+   "normalization_scheme": "codex-cwd/v1",
+   "normalized_path_key": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_session_ids": {
+    "primary": "cdf2610d-ca1b-44d5-958e-2b4fe4d88659"
+   },
+   "path_flavor": "posix",
+   "provenance": {
+    "archived": false,
+    "discovery_tier": "env",
+    "locator": "sessions_root",
+    "store_root": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/codex-home"
+   }
+  },
+  {
+   "agent": "codex",
+   "agent_version_at_pack": "0.142.5",
+   "artifacts": [
+    "agents/codex/d0542e96-3b94-4e59-a82a-9f5a3095aa56.jsonl"
+   ],
+   "children": [],
+   "live_at_pack": true,
+   "normalization_scheme": "codex-cwd/v1",
+   "normalized_path_key": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_path": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/ws/proj",
+   "original_session_ids": {
+    "primary": "d0542e96-3b94-4e59-a82a-9f5a3095aa56"
+   },
+   "path_flavor": "posix",
+   "provenance": {
+    "archived": false,
+    "discovery_tier": "env",
+    "locator": "sessions_root",
+    "store_root": "/Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/work/codex-home"
+   }
+  }
+ ]
+}

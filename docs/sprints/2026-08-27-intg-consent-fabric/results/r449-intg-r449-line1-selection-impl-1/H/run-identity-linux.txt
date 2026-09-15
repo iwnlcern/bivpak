@@ -1,0 +1,67 @@
+run_id=H-linux-b74ec570e22646bfee6a0c554bcb766fffa6da19
+platform=ubuntu:24.04 linux/amd64 --init
+H=b74ec570e22646bfee6a0c554bcb766fffa6da19
+expected=b74ec570e22646bfee6a0c554bcb766fffa6da19 observed=b74ec570e22646bfee6a0c554bcb766fffa6da19
+phase_R_base_provision_rc=0
+phase_R_asset_provision_rc=0
+phase_T_transition_fixture_rc=0
+phase_S_suite_rc=0
+phase_L_leg_rc=0
+nofile_hard_read_rc=0
+nofile_raise_rc=0
+nofile_soft_read_rc=0
+nofile_soft_equals_hard_rc=0
+nofile_receipt_write_rc=0
+venv_rc=0
+requirements_rc=0
+configure_rc=0
+build_rc=0
+observer_name_proof_create_rc=0
+observer_name_input_nonempty_rc=0
+observer_name_present_rc=0
+observer_name_proof_write_rc=0
+observer_name_proof_nonempty_rc=0
+biv_subprocess_tests_producer_rc=0
+biv_subprocess_tests_xml_nonempty_rc=0
+biv_repo_git_tests_producer_rc=0
+biv_repo_git_tests_xml_nonempty_rc=0
+biv_repo_engine_tests_producer_rc=0
+biv_repo_engine_tests_xml_nonempty_rc=0
+biv_tests_producer_rc=0
+biv_tests_xml_nonempty_rc=0
+biv_probe_tests_producer_rc=0
+biv_probe_tests_xml_nonempty_rc=0
+ctest_H_producer_rc=8
+ctest_H_log_nonempty_rc=0
+ctest_H_receipt_write_rc=0
+suite_aggregate_rc=0 ledger_write_failed=0
+soft=1048576 hard=1048576
+ANTHROPIC_API_KEY absent
+OPENAI_API_KEY absent
+CODEX_ACCESS_TOKEN absent
+biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0 xml_sha256=04758a49d33d5ec4c25dc1a64e93dab0eb80671b99882aa30d489d08e9397791
+biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0 xml_sha256=52ca317ae846d38685c553114eb1a27e67964690cec124758c5f2ce14556a044
+biv_repo_engine_tests linux successes=60 failures=0 expectedFailures=0 skips=0 xml_sha256=cfef054fd4dbcbef45e9fd7f09586515a075cb9d46a5ba49b7036a8734666de8
+biv_tests linux successes=421 failures=0 expectedFailures=0 skips=1 xml_sha256=b68a61a3356c7ada1a82cee736f3005420f6c97e8377fd598842d6f92af6859d
+biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0 xml_sha256=f208d35aaff290079572cfa1112b5f52022533d03b64caa4701c1ed685f5fdf6
+expected_skips_observed linux n=1 threshold-parity per-agent distribution self-activates at R-4.29
+f208d35aaff290079572cfa1112b5f52022533d03b64caa4701c1ed685f5fdf6  /Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/H/biv_probe_tests-linux.xml
+cfef054fd4dbcbef45e9fd7f09586515a075cb9d46a5ba49b7036a8734666de8  /Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/H/biv_repo_engine_tests-linux.xml
+52ca317ae846d38685c553114eb1a27e67964690cec124758c5f2ce14556a044  /Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/H/biv_repo_git_tests-linux.xml
+04758a49d33d5ec4c25dc1a64e93dab0eb80671b99882aa30d489d08e9397791  /Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/H/biv_subprocess_tests-linux.xml
+b68a61a3356c7ada1a82cee736f3005420f6c97e8377fd598842d6f92af6859d  /Users/jack/Programming/bivpak-evidence/r449-intg-r449-line1-selection-impl-1-CjLgkC/H/biv_tests-linux.xml
+pattern=census-alternation cat_rc=0 grep_rc=1 hits=0
+rcL=8 a_rows_rc=0 summary_H=parsed failed_H=3 names_H=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration,selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite, foreign_H= d_tripwire_lines=0 d_family_files_rc=0 population_H=1013 rcB=8 base_rows=1 base_rows_rc=0 summary_B=parsed failed_B=3 names_B=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop,selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration,selftest/test_e3_asserts.py::test_run_e3_session_inserted_at_scandir_stop_reds_c1_before_open, foreign_B= population_B=1013 bar=pass-r435-disclosed-registered-red
+biv_probe_tests linux literal_B=('25', '0', '0', '0') observed_B=('25', '0', '0', '0') observed_H=('25', '0', '0', '0') equal=yes
+biv_repo_engine_tests linux literal_B=('60', '0', '0', '0') observed_B=('60', '0', '0', '0') observed_H=('60', '0', '0', '0') equal=yes
+biv_repo_git_tests linux literal_B=('6', '0', '0', '0') observed_B=('6', '0', '0', '0') observed_H=('6', '0', '0', '0') equal=yes
+biv_subprocess_tests linux literal_B=('12', '0', '0', '0') observed_B=('12', '0', '0', '0') observed_H=('12', '0', '0', '0') equal=yes
+biv_tests linux literal_B=('421', '0', '0', '1') observed_B=('421', '0', '0', '1') observed_H=('421', '0', '0', '1') equal=yes
+CLASS claude-bulk files=100 bytes_B=444699770 bytes_H=38582048
+CLASS claude-cwd-no-enrichment files=10 bytes_B=41951050 bytes_H=81920
+CLASS claude-no-cwd files=5 bytes_B=5248395 bytes_H=5248395
+CLASS codex-bulk files=1500 bytes_B=395574933 bytes_H=14651931
+CLASS codex-garbage-line1 files=20 bytes_B=5253640 bytes_H=163840
+CLASS codex-no-meta files=10 bytes_B=2623500 bytes_H=2623500
+TOTAL files=1645 bytes_B=895351288 bytes_H=61351634 ratio_H_over_B=0.0685
+VERDICT PASS violations=0
