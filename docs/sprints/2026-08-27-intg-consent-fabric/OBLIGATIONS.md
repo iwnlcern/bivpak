@@ -116,3 +116,12 @@ Row CLOSED; surviving and binding: the release-checklist clause (first checklist
 - **The D3 engine facts** (INVOKES-GIT, ARTIFACT-PRESENT) → m-1: either exposed without an engine byte (a named field/predicate + the sealed clause making it the engine's fact) or a THIRD engine diff — which is NEVER an in-lane edit: the vehicle is m-1's fence rev3 + the reviewer's binding approve + one more `DESIGN_SOURCE_COMMIT` re-pin on the plan carrier. T-NET HOLDS on that word; rev6's manifest-derivation sentence stays withdrawn.
 - **A10 drift accepted** (rev3 `d3a2da80` at ef4ae52d dead unreviewed; rev4 `718fd6ec` at HEAD); the terms bind at the lock and re-verify against the locked pin before any byte.
 - **Transport:** m-3.implementer's E-VERSION-MISMATCH is the Codex plugin-cache client vs the Claude plugin-cache daemon identity; the remedy is in master's m-3 relay; this seat's submits are unaffected.
+
+## Bound 2026-09-16 by master's status carry (`intg-2b-wiring-act/PLAN-master-planner-20260916-135421.md`)
+
+- **HOLD rev7** until: m-1.implementer's binding approve of fence rev3 (`131522`) + master's named re-pin sha; A10 rev6's re-approve; A11 rev5's approve. Then plan-7 files (IN_REPLY_TO 085404) with `DESIGN_SOURCE_COMMIT` re-pinned, the exact-hash review resumes, and the root sweep re-runs once.
+- **V-2b-1 rev3 = THREE engine commits** c1a/c1b/c1c; the token's unconditional prefix is `c1a c1b c1c c2 c3 c4a c5`; c1c's authority is fence rev3 itself, reviewed — never inferred, never in-lane.
+- **The `--offline` rule of record** is the predicate partition (fence rev3 §2; A10 rev6): FALSE ⇒ `restore_entry` is CALLED (zero git); TRUE ⇒ offline-pointer row. 074712 §2's "never called" is corrected by its author.
+- **MUST-2B-16/17 CLOSED** at A10 rev5/rev6 and A11 rev5 respectively (binding at their locks); the failure inventory is the orchestrator's byte; the envelope invariant stays.
+- **A9 rev2 is binding** (134001) and carried to the Master Reviewer; c3h/c6a bind at its lock.
+- **m-3's fence origin of record is 134813** (A6 design-id; 130818 is history).
