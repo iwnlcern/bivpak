@@ -98,3 +98,11 @@ Row CLOSED; surviving and binding: the release-checklist clause (first checklist
 - **m-1's fence of record is rev2 `171041` + approve `044559`** (042531 immutable, superseded in substance). Plan rev4 executes it: two engine commits c1a/c1b at the head of history; the PACK and OPEN receipts separately; W-O1..3 / W-D1..4; V-2b-5 rev2 (scan.cpp's `.biv` payload skip AS LANDED — ADDENDUM-I unsealed, R-4.55, owner m-1); R-4.1 arm (i) scoped to the git-aware promisor lane.
 - **A9 / A6 are not declared edges** until m-3's binding re-files land; the A9 kind/CLI bytes stay contingent on the LOCK id (T-KIND gate file).
 - **Gate ledger FINAL:** (i) IN; (ii) m-4 IN, m-1 IN at rev2, m-3 IN, m-2 not a touch; (iii) in-as-scoped.
+
+## Bound 2026-09-16 by master's rulings carry (`intg-2b-wiring-act/PLAN-master-planner-20260916-080937.md`, pdc 66ad802b)
+
+- **Three contingent lock ids**, each binding at ITS lock whichever revision locks: A9 `m3-addendum-9-20260915` → c6a; A10 `m3-addendum-10-20260916` (rev2 `81e2abca…`) → c4b; A11 `m3-addendum-11-20260916` (rev1 `26161c41…`) → c6b. Gate files `$RUNNERS/m3-addendum-{9,10,11}-lock.txt` (lock id + doc sha256 + routing relay), carried by the pair Planner; the implementer re-hashes at the named pdc path.
+- **Token order:** c1a c1b c2 c3 c4a c5 proceed under the token; c6a/c4b/c6b hold at their contingency and land in lock order after c5; c7–c9 after all three.
+- **RULED words carried in-plan** (no lock): Q11 (074712 §1; R-4.57 registered, owner m-1 — dirty/nested/submodule retire with Arms 2/3/4 by addendum), Q10 (074712 §2), Q13 apply half (074712 §2; grounded on sealed §1.2/§2.3/§2.6/D, not ADDENDUM-I — R-4.55), Q14 (m-3 §6), Q12 (A9 rev2, at lock).
+- **R-4.58:** an overlay row's `local-refs.bundle` is NOT extracted under `open --offline`; m-1's addendum question; the pair does NOT add it.
+- **Standing rule, second half** (m-3's adoption, master concurs): a PHASE DESIGN relay carries DESIGN_DOC_ID + DESIGN_RECORD_KIND only as the design origin routed for review.
