@@ -1,4 +1,4 @@
-# Sub-step 2b — wiring `biv pack` and `biv open` to the repo engine and the landed consent fabric at product scope — Implementation Plan (rev6)
+# Sub-step 2b — wiring `biv pack` and `biv open` to the repo engine and the landed consent fabric at product scope — Implementation Plan (rev7)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -17,7 +17,7 @@
 ## Identity
 
 ```text
-PLAN artifact      docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-substep2b-20260915.md  (this file; rev6)
+PLAN artifact      docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-substep2b-20260915.md  (this file; rev7)
 PLAN_LOCK_ID       intg-substep2b-plan-20260915 @ sha256 <the artifact's own sha256, carried on the PLAN relay>
 DESIGN record      design-doc — the sealed set above; primary lock m1-addendum-M-2966b839-lock-20260825 (post-stamp 57d89625…),
                    consumed locks m3-addendum-6-c41d015f-lock-20260825 (post-stamp 7ce2251d…), m3-addendum-7-4c40fe37-lock-20260827
@@ -31,7 +31,8 @@ LOCK IDS           THREE contingent lock ids, each binding at ITS lock whichever
                    → c6a; A10 (`m3-addendum-10-20260916`) → c4b; A11 (`m3-addendum-11-20260916`) → c6b; gate files $RUNNERS/m3-addendum-9-lock.txt /
                    m3-addendum-10-lock.txt / m3-addendum-11-lock.txt (lock id + doc sha256 + the routing relay, carried by the pair Planner)
 TOKEN              the pair Planner's bare dispatch token, PARENT = the implementer's exact-hash approve of THIS artifact; under it c1a, c1b, c2, c3,
-                   c4a, c5 proceed (they consume NO A9/A10/A11 row); c6a, c4b, c6b each HOLD at their contingency; c7–c9 after all three
+                   c4a, c5 proceed (they consume NO A9/A10/A11 row — c3 is the CLI WITHOUT the two help lines and the golden re-pin);
+                   c3h (the help lines + golden, A9 lock), c6a, c4b, c6b each HOLD at their contingency; c7–c9 after all four
 VEHICLE            ONE push of intg/substep2b-wiring (class a), ONE PR against main; `main` is NEVER pushed by this plan
 LANDING            the operator's bare merge token under .relays/intg from the operator's seat; the landing census FOR the merge head is Task 12's
                    (POST-merge, under that token; Task 11 is the PRE-merge rehearsal at H0 + the landing declaration; Task 10 is the vehicle); R-4.52
@@ -111,7 +112,9 @@ No-consumer action: an engine need beyond Task 1, a RepoEntry ↔ schema mismatc
 c1a engine: run_eligibility gains the offline mode, COMPOSED with N/G/H (m-1 S-2b-1 rev2; V-2b-1 rev2)   Task 1   src/core/repo/eligibility.*, tests/test_repo_engine.cpp
 c1b engine: discover.cpp's `.biv` discovery skip root-scoped (m-1 V-2b-1 rev2 §2; W-D1..3)             Task 1   src/core/repo/discover.cpp, tests/test_repo_engine.cpp
 c2  fabric: A8 consent-render policy inside the four renderers + the generated clause-5 table    Task 2   src/cli/url_consent.*, src/cli/consent_display_table.hpp, tools/, tests/test_url_consent.cpp, CMakeLists.txt
-c3  cli: flags (--offline pack/open, --network open, conflict), help lines, hook install,        Task 3   src/cli/args.*, src/cli/main.cpp, src/core/pack/pack.hpp, src/core/open/open.hpp,
+c3  cli: flags (--offline pack/open, --network open, conflict), hook install, flag read,        Task 3   src/cli/args.*, src/cli/main.cpp, src/core/pack/pack.hpp, src/core/open/open.hpp,
+         B-predicate dedup, stderr writers, split PTY helper — NO help-line byte, NO golden re-pin              tests/test_cli.cpp, tests/cli_run.hpp
+c3h cli: the two help lines at A9's locked position + the a6·18 golden re-pin — CONTINGENT on A9's lock    Task 3   src/cli/args.cpp (help_text only), tests/test_cli.cpp (the golden)
                                                                                                           tests/test_cli.cpp, tests/cli_run.hpp
          flag read, B-predicate dedup, stderr writers (notice / per-entry lines / guidance)
 c4a open: repos/ member class + stage routing; restore_entry per row (§2.2 order); in-memory rows;   Task 4   src/core/open/*, src/core/report/envelope.*, src/cli/main.cpp, src/cli/url_consent.*,
@@ -131,8 +134,10 @@ c7  tests: the re-execution of every open-side leg against product-packed images
 c8  harness: m-3's ONE harness commit (arm-A shape; authored at m-3's seat; applied verbatim)     Task 8   harness/scenarios/** only
 c9  ci: count cells (IFF a case tuple moved at H0 on either platform) — committed INSIDE the       Task 9   .github/workflows/s2-harness.yml only
          Task 9 runner by cellpatch.py after both platform observations
-ORDER RULE: c1a c1b c2 c3 c4a c5 are the token's UNCONDITIONAL prefix; c6a, c4b, c6b land AFTER c5 in the order their locks land (each its own
-commit, each citing its lock id + doc sha256); c7 lands after the LAST of them (its A10/A11 legs need their bytes); c8, c9 after c7. Veto 9
+ORDER RULE: c1a c1b c2 c3 c4a c5 are the token's UNCONDITIONAL prefix (every one of them lands as a COMMIT with no working-tree residue — a
+working-tree partial is not a history prefix; MUST-2B-14); c3h, c6a, c4b, c6b land AFTER c5 in the order their locks land (each its own
+commit, each citing its lock id + doc sha256; c3h and c6a share A9's lock and land c3h then c6a); c7 lands after the LAST of them (its
+A9/A10/A11 legs need their bytes); c8, c9 after c7. Veto 9
 holds regardless of that order (none of them touches src/core/repo).
 H0 = the branch head after c8 (the object every suite observation and owner census is taken on); H = the FINAL head after c9 (== H0 iff no cell
 moved); the runner proves `git diff H0 H -- . ':!.github/workflows/s2-harness.yml'` EMPTY so every H0 receipt carries to H, and writes H.txt LAST.
@@ -224,9 +229,9 @@ T-KIND   HOLD (A9 lock → c6a) — the UnclaimedGitEntry kind NAME / exit-map R
          lock.txt. Without the lock the candidate HOLDS c6a — it does NOT narrow. CARRIERS (MUST-A9-1, A8-R2): the detail is rendered ONCE
          by a renderer in url_consent.cpp with `<path>` and `<reason>` through consent_display, and that ONE string is both `error.detail`
          and the stream line; `error.path` carries the member path through machine_text.
-T-HELP   HOLD (A9 lock) — the two help lines: A9 rev2 places them directly AFTER `  --accept-url-divergence` and BEFORE `  --agent-bin`
-         (Q12 answered in-doc; MUST-A9-2). Task 3 inserts NOTHING into help_text until $RUNNERS/m3-help-order.txt holds A9's LOCKED lines
-         verbatim; the golden re-pin follows the same bytes. Every other Task 3 step proceeds.
+T-HELP   HOLD (A9 lock → c3h) — the two help lines: A9 rev2 places them directly AFTER `  --accept-url-divergence` and BEFORE `  --agent-bin`
+         (Q12 answered in-doc; MUST-A9-2). c3 (unconditional) touches NO help byte and leaves the golden green; c3h inserts the lines and
+         re-pins the golden ONLY from $RUNNERS/m3-help-order.txt (A9's LOCKED lines verbatim), landing after c5 in lock order (MUST-2B-14).
 T-LIST   SEALED-as-measured — `--offline` / `--network` on `list` / `info`: the stubs return without examining trailing tokens
          (args.cpp:283-290); A9 rev2 PRESERVES the R-6.2 deferral verbatim. Task 3 touches NO list/info byte; the a6·14-shaped control
          asserts the stubs' outcome is byte-identical with and without the flags.
@@ -303,6 +308,25 @@ T-A11    HOLD (A11 lock → c6b) — the NINE wire kinds appended to ErrKind and
          is "true"; `<N-3> more` iff N > 3); the open-side failed row (A10.1) carries kind + detail = the same sentence; the enum,
          to_string, the exit-map rows, the envelope arm and the tests land in ONE commit (V-A11-4; R-4.32); the selftest pins recomputed
          in it. url_divergence_refused stays as A6 sealed it (A11.6 (2)).
+A10-REV  A10 has moved rev2 → rev3 (d3a2da80) → rev4 (718fd6ec, 2026-09-16 08:57, under m-3.implementer's review) since rev6 quoted rev2: the
+         c4b bytes are re-planned from rev4 at the NEXT filed revision and bind at the LOCK — rev4's changes the terms already anticipate:
+         the D3 TRIGGER is a GIT-INVOKING open, WHICH rows invoke git is an ENGINE FACT exposed per row (m-1's; asked through master —
+         S-A10-1: the CLI never derives it; the T-NET derivation sentence of rev6 is WITHDRAWN); DECLINED = the sealed --offline rule itself
+         (every row an offline-pointer row; artifact presence the only varying fact; sha "(no commits)" iff unborn, never null);
+         reconstruct = a RENDERED COMMAND for POSIX sh with every operand SINGLE-QUOTED on the raw bytes, emitted ONLY when copy-safe
+         (valid UTF-8 and A8-R1 the identity on every operand), else a FALLBACK line (`<relpath>: bundle at <bundle_path> — no copy-paste
+         command: …`) and no `reconstruct` in JSON; A9.4's bundle template SUPERSEDED at A10's lock.
+ROUTED   three review findings on A10/A11 (065734's successor 085404: MUST-2B-15/16/17) are OWNER cells, routed UP by SITREP — the plan
+         HOLDS the affected c4b/c6b bytes on them in addition to the locks: (15) executable copy-text needs a shell-word encoder composed
+         with A8 — A10 rev4 §A10.6 now cuts exactly that (single-quoted operands; copy-safe predicate; fallback) — closes at A10's review;
+         (16) the G unborn-with-refs full row has NO working reconstruct form (`git checkout '<branch>'` exits 1 on an unborn branch; the
+         clone form maps side refs to refs/remotes/origin/*) — an A10 addition owed by m-3 (an unborn form, or the fallback line for that
+         row); (17) A11.2 OPEN ROWS + A10.1 require `result.repos` (the completed rows + the failed row) TOGETHER with the failed-mid-apply
+         `error`, but at the pin `execute_open` returns `expected<OpenReport>` (error = BivError only) and `envelope.cpp:541-543` writes
+         `result: null` whenever `error` is present — no carrier exists; the typed report+error carrier, its layer ownership and the
+         envelope call are m-3's (with m-1's seam) — until that word lands, c6b's open-side composition writes the failed row IN MEMORY
+         and the error as today, and NO envelope byte for the rows-with-error case; a discriminator (non-null `result.repos` AND non-null
+         `error` in one envelope, row detail byte-identical to error detail) is written the revision that carries the word.
 T-K      FX-M-1 leg (k) (carrier fail-closed) has no product input that constructs an invocation; it stays at the engine seam as the
          floor and E2's census (every product path carries exactly one endpoint) is its product-scope form — REGISTERED under S-6 with
          m-1 as owner, never silent.
@@ -648,12 +672,12 @@ git commit -m "cli: A8 consent-render policy inside the four url_consent rendere
 git rev-parse HEAD > "$EVID/commits.c2.txt"
 ```
 
-### Task 3 — c3, the CLI: `--offline` / `--network` (m-3 §4 verbatim), the hook truth table, the stderr writers, the flag read, the B-predicate dedup
+### Task 3 — c3 (unconditional) + c3h (A9 lock): the CLI — `--offline` / `--network` (m-3 §4 verbatim), the hook truth table, the stderr writers, the flag read, the B-predicate dedup (c3); the two help lines + the golden re-pin (c3h)
 
 **Files:** Modify `src/cli/args.hpp`, `src/cli/args.cpp`, `src/cli/main.cpp`, `tests/test_cli.cpp`; Create `tests/cli_run.hpp` (the run helpers moved from `test_cli.cpp` + `run_cmd_pty_split`).
 **Interfaces:** Produces `Command.offline`, `Command.network` (bool — parsed here; CONSUMED by Task 4's c4b as the D3 non-interactive consent per T-NET; until c4b lands the flag reaches nothing, honestly); `biv::pack::PackOptions{bool offline}` and `biv::open::OpenOptions.offline` are DECLARED here (Tasks 4/5 consume them; until then pack/open ignore the field — the flag reaches nothing, honestly); `install_url_divergence_hook(const Command&) -> ConsentRun` in `main.cpp` (a `biv::repo::UrlDivergenceRun` + the notice writer); `emit_entry_refusals(const std::vector<UrlDivergenceEntryRefusal>&, std::ostream& err)` (per-entry lines in row order + ONE guidance line); `run_cmd_pty_split(args, cwd, input) -> RunResult{code, out, err, tty{stdin,stdout,stderr}}` in `tests/cli_run.hpp`.
 
-- [ ] **Step 0: the T-HELP gate** — `[ -s "$RUNNERS/m3-help-order.txt" ]` holding A9's LOCKED `help_text` lines VERBATIM (the exact bytes of the two new lines and their neighbours, plus the lock id and doc sha256 — copied from the lock, never chosen here); absent → Steps 1–4 proceed for everything EXCEPT the help-line insertion and the golden re-pin, whose BYTES ARE NOT WRITTEN; the task's commit WAITS on the word (the working tree holds the rest, green).
+- [ ] **Step 0: the split (MUST-2B-14)** — c3 (Steps 1–5) carries EVERYTHING of this task EXCEPT the two help lines and the a6·18 golden re-pin, and COMMITS unconditionally under the token (the `help_text` byte string and the golden test are UNTOUCHED in c3 — the existing golden stays green because no help byte moved). c3h (Steps 6–8) inserts the two lines and re-pins the golden ONLY when `[ -s "$RUNNERS/m3-help-order.txt" ]` holds A9's LOCKED `help_text` lines VERBATIM (the exact bytes of the two new lines and their neighbours, plus the lock id and doc sha256 — copied from the lock, never chosen here); it lands after c5 in lock order (T-HELP). No working-tree residue exists between the two.
 - [ ] **Step 1: the failing tests** — `tests/test_cli.cpp`: (i) `biv pack --offline <dir>` parses (`Command.offline == true`); `biv open --offline <image>`; `biv open --network <image>`; `biv open --offline --network <image>` → exit 5 UsageError with detail `conflicting-flags`; `biv list --offline` / `biv info --network` → EXACTLY the flagless `biv list` / `biv info` outcome (exit, stream bytes, JSON) — the stub ignores trailing tokens at the pin (T-LIST; a6·14's shape); `biv pack --network <dir>` → `unknown-flag` (open only). (ii) the help golden: `biv open --help` byte-whole with the two new lines at m-3's position (T-HELP). (iii) `run_cmd_pty_split` discriminator: a child `sh -c 'test -t 0; echo $?; test -t 1; echo $?; test -t 2; echo $?'` → stdout `0\n1\n0\n` (stdin TTY, stdout NOT, stderr TTY), captured stdout via the pipe and stderr via the pty master SEPARATELY (must-be-YES); the existing `run_cmd_pty` on the same child → `0\n0\n0\n` (must-be-NO: the one-pty topology is DIFFERENT). (iv) the hook truth table is NOT yet reachable (no engine path) — its legs are Task 7's; here a unit case over `install_url_divergence_hook` asserts: flag set → `run.hook` non-empty and returns `proceed` on a synthetic `UrlDivergence`; flag absent + `interactive_url_hook_installable()` false (the test process has no TTY under ctest) → `run.hook` EMPTY.
 - [ ] **Step 2: run to verify failure** — `./build/ci-macos/biv_tests '[cli-flags]'` FAILS (`--offline` → unknown-flag).
 - [ ] **Step 3: the implementation** —
@@ -704,12 +728,22 @@ SplitRunResult run_cmd_pty_split(const std::string& args, const std::filesystem:
 ```
 
 - [ ] **Step 4: run to verify pass** — `./build/ci-macos/biv_tests` rc 0; `ctest --preset ci-macos -E '^safety-hardening$'` rc 0; `grep -c 'isatty(STDIN_FILENO)' src/cli/main.cpp` == 0 (recorded; V-A7-1 one predicate).
-- [ ] **Step 5: commit (after the T-HELP word)** —
+- [ ] **Step 5: commit c3 (unconditional; no help byte)** —
 
 ```bash
 git add src/cli/args.hpp src/cli/args.cpp src/cli/main.cpp tests/test_cli.cpp tests/cli_run.hpp src/core/pack/pack.hpp src/core/open/open.hpp
-git commit -m "cli: --offline (pack, open) and --network (open) per m-3 130818 s4; conflicting-flags; help lines; url-divergence hook truth table (flag | stdin&&stderr TTY | none); stderr writers for notice, per-entry refusals and the one guidance line; PROMPT B/A TTY predicate deduped onto interactive_url_hook_installable; split-stream PTY helper"
+git commit -m "cli: --offline (pack, open) and --network (open) per m-3 130818 s4; conflicting-flags; url-divergence hook truth table (flag | stdin&&stderr TTY | none); stderr writers for notice, per-entry refusals and the one guidance line; PROMPT B/A TTY predicate deduped onto interactive_url_hook_installable; split-stream PTY helper (help lines + golden: c3h at A9's lock)"
 git rev-parse HEAD > "$EVID/commits.c3.txt"
+```
+
+- [ ] **Step 6 (c3h, AFTER the T-HELP gate holds; lands after c5 in lock order): the failing test** — `tests/test_cli.cpp`: the a6·18 golden becomes the eleven-line order A9's lock states (usage, --dest, --consent, --accept-url-divergence, --offline, --network, --agent-bin, --rename, --abort-on-collision, --verify, --json at rev2 — copied from `$RUNNERS/m3-help-order.txt`, never typed here) with a split-adjacency mutant (`--offline` before `--accept-url-divergence` ⇒ RED).
+- [ ] **Step 7 (c3h): the implementation** — `args.cpp` `help_text(Verb::open)`: EXACTLY the two lines from the gate file inserted at EXACTLY the position it states; nothing else moves.
+- [ ] **Step 8 (c3h): run to verify pass, then commit** — `./build/ci-macos/biv_tests '[cli]'` rc 0; `git diff --stat` names only `src/cli/args.cpp` and `tests/test_cli.cpp`.
+
+```bash
+git add src/cli/args.cpp tests/test_cli.cpp
+git commit -m "cli: the two help lines at A9's locked position (after --accept-url-divergence, before --agent-bin); a6.18 golden re-pinned -- m-3 addendum 9 <lock id> @ <doc sha256>"
+git rev-parse HEAD > "$EVID/commits.c3h.txt"
 ```
 
 ### Task 4 — c4a (sealed) + c4b (A10 lock): the `repos/` member class, `restore_entry` per row in §2.2 order, the in-memory rows, `--offline` D4 listing (c4a); `result.repos` + schema, the D2/D3 network-consent surface, the durable offline artifact + `bundle_path`/`reconstruct` (c4b) (A2 D4; m-3 §4 OPEN; restore-apply §1/§2.2; V-2b-7/V-2b-8; A10 rev2 at its lock)
@@ -2276,6 +2310,7 @@ exit "$suite_aggregate_rc"
 
 ## Revision history
 
+- rev7 (2026-09-16, WORKING — filed only after the routed owner words settle, per the implementer's 085404): MUST-2B-14 — c3 is split: c3 (unconditional: flags, conflict rule, hook truth table, stderr writers, B-predicate dedup, split PTY helper — no help byte, no golden re-pin) and c3h (A9 lock: the two help lines + the golden), so the token's prefix `c1a c1b c2 c3 c4a c5` is a real commit prefix with no working-tree residue; identity, ORDER, topology, T-HELP and Task 3 say one thing. The A10 revision drift (rev2 → rev4 718fd6ec) recorded as the A10-REV term (D3 trigger = an engine-exposed per-row fact, S-A10-1; DECLINED = the --offline rule; single-quoted POSIX-sh reconstruct with the copy-safe predicate and the fallback line); MUST-2B-15/16/17 recorded as ROUTED owner cells holding the affected c4b/c6b bytes. No engine byte moves.
 - rev6 (2026-09-16): folds master `080937` — every open owner cell RULED (m-1 `074712`: Q11 fences = whole-operation typed refusals, `unmerged` permanent, `dirty`/`nested`/`submodule` transitional → R-4.57, Task 5 may start; Q10 promisor pack-only whole-operation both arms; Q13 apply half — the durable artifact at `<dest>/.biv/repos/<id>/repo.bundle` via the §2.1 staging; the ten-kind table; the ARM-1 fact; m-3 `075225`/`080308` + ADDENDUM 10 rev2 `81e2abca`: Q8 `--network` NOT inert — D3 executes; Q9 `result.repos` rows; Q13 UX half — the two reconstruct forms; ADDENDUM 11 rev1 `26161c41`: the nine engine-error wire kinds). THREE contingent lock ids (A9 → c6a, A10 → c4b, A11 → c6b), each binding at ITS lock; c4 splits into c4a (sealed) + c4b (A10), c6 into c6a (A9) + c6b (A11); the token's unconditional prefix is c1a c1b c2 c3 c4a c5; the terms T-JSON / T-STAGE / T-NET / T-FENCE / T-PROM rewritten as RULED/HOLD-at-lock terms with the addenda's bytes quoted; new T-A11 and T-ARM (registered Arm 2/3/4 legs: patch round trip, nested/two-row images, leaves-first + parents-before-children at product scope, submodules). ARM-1 REALITY applied to every fixture: packed repos are CLEAN with `.gitignore`d penumbra (an untracked file is the dirty fence at classify.cpp:347-357); the MUST-2B-02 leg corrected to the real-bundle + local-refs round trip; W-D1's product form is the nested-fence refusal naming the nested repository (the any-depth-skip mutant packs it silently); the open-side parents-before-children witness is hand-built (synthetic manifest) and labelled so; the rev5 offline "drain, never materialize" routing stands at c4a and gains the durable placement at c4b. Runner proofs unchanged (3/13/4/2). No engine byte moves.
 - rev5 (2026-09-16): folds the implementer's exact-hash MUST-REVISE of rev4 (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260916-065734.md`): MUST-2B-04 — T-STAGE: `apply_archive` gains an `std::optional<path> stage` parameter that ROUTES `repos/` members (online: extracted into the stage dir; offline: drained + verified, never materialized; the stage path never touched under `--offline`) with a product discriminator (a pre-created FILE at the stage path: offline exits 0 and leaves it unchanged; online reports `OpenPartialPresent`; the extract-regardless mutant reds); T-FENCE: the product STOP branch is REMOVED — Task 5 does not start until `$RUNNERS/m1-fence-word.txt` holds m-1's disposition, the candidate HOLDS at c4, and the fence branch is transcribed from the word in the revision that carries it. MUST-2B-12 — ONE canonical root representation (`ScanExclusions::canonical`: `"."`/`""` → `""`), a root-claimed fast path in `scan()` (payload + prune list EMPTY, nothing read), pack canonicalizes discover's relpaths, the unit test uses the PRODUCTION value with the fast-path mutant named, and Task 7's workspace-root leg is the product discriminator. MUST-2B-13 — the identity block, the CEN row and Task 12 now say the landing census FOR the merge head is Task 12's (POST-merge, after the operator's token); Task 11 is the pre-merge rehearsal + declaration; Task 10 the vehicle; the `--offline` variant in Task 5 Step 1 is scoped to the fixture's born non-shallow repo. No other section changes.
 - rev4 (2026-09-16): folds m-1's fence rev2 (`master/relays/intg-2b-wiring-act/DESIGN-planner-20260915-171041.md`, approved by m-1.implementer `044559` at pdc `631aae82` — master 051652): c1 becomes TWO engine commits at the head of history — c1a (the offline mode placed AFTER the unborn/shallow return, binding the born non-shallow lane only; R-4.1 arm (i) scoped to the git-aware promisor lane) and c1b (`discover.cpp`'s `.biv` discovery skip root-scoped; nested `.biv` walked; `.git` dirs and symlinks unwalked; marker test unchanged) — veto 9 mechanical over both; the PACK (COND-6 no-network) and OPEN (N-R4 parity, `restore_entry` never called under `--offline`) receipts as separate evidence rows RCPT-P / E4+RCPT-O; witnesses W-O1..3 and W-D1..4 in `tests/test_repo_engine.cpp` and re-executed at Task 7's product scope (W-D3's provenance half and W-D4's negative-membership status per 044559); V-2b-5 rev2 — `scan.cpp`'s any-depth `.biv` payload skip stays AS LANDED (a runner gate); T-PROM scoped. The plan-4 carrier floats DESIGN_SOURCE_COMMIT to `631aae82…` (the M edge measured PASS by `xroot_authority` at that tree). No other section changes; the A9 terms stay contingent on the LOCK id (rev2 `40eaea22` passed its pair gate on the merits; the binding re-file is pending).
