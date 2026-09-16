@@ -1,23 +1,23 @@
-# Sub-step 2b — wiring `biv pack` and `biv open` to the repo engine and the landed consent fabric at product scope — Implementation Plan (rev3)
+# Sub-step 2b — wiring `biv pack` and `biv open` to the repo engine and the landed consent fabric at product scope — Implementation Plan (rev4)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** connect both product verbs to the landed repo engine (`src/core/repo`) and the landed consent fabric (`src/cli/url_consent.cpp`), executing SEALED text only — M rev8 / N / O (m-1), A6 rev14 / A7 rev2 / A8 rev8 / A2 D4 (m-3), SR-URL rev5 (m-4), the R-4.47 bar — so that `biv pack` discovers, classifies, gates, captures and records repositories, `biv open` restores them per entry, PROMPT D fires at both encounters through the A6/A7/A8 fabric, `--offline` reaches the engine on both verbs, and every deferred witness (FX-M-1 (a)–(o) incl. (d) + (a)-interactive; FX-A6 a6·1–13 + a6·16's divergence half; FX-A7 a7·1–5; FX-A8 a8·1–a8·6; FX-N (a)/(g); R-4.48 (ii)–(iv)) executes at product scope.
 
-**Architecture:** ONE candidate branch cut from the PUBLISHED PIN `186adf7d67171bd7afe621f39b657a1a113ce299`, commits in the veto-9 MECHANICAL order (the one pre-authorized engine commit FIRST; every call-site commit after it; no commit spans both sets), three product tranches A (fabric + CLI plumbing, zero engine reach) → B (open restore path) → C (pack pipeline, the shipped `.git` refusal RETIRED into the narrowed `UnclaimedGitEntry` class), then m-3's harness commit (arm-A shape), then the count-cell companion commit iff a case tuple moved. Every open-side witness first run on a hand-built image is RE-EXECUTED against a `biv pack`-produced image after tranche C, inside the candidate, before the packet (master 041518's condition). The landing rides a PR from the pushed remote branch (R-4.51 (2)); the R-4.49 census instrument is reused at its exact pin with a population written FOR the merge head.
+**Architecture:** ONE candidate branch cut from the PUBLISHED PIN `186adf7d67171bd7afe621f39b657a1a113ce299`, commits in the veto-9 MECHANICAL order (the TWO pre-authorized engine commits c1a/c1b FIRST — m-1 V-2b-1 rev2 — every call-site commit after them; no commit spans both sets), three product tranches A (fabric + CLI plumbing, zero engine reach) → B (open restore path) → C (pack pipeline, the shipped `.git` refusal RETIRED into the narrowed `UnclaimedGitEntry` class), then m-3's harness commit (arm-A shape), then the count-cell companion commit iff a case tuple moved. Every open-side witness first run on a hand-built image is RE-EXECUTED against a `biv pack`-produced image after tranche C, inside the candidate, before the packet (master 041518's condition). The landing rides a PR from the pushed remote branch (R-4.51 (2)); the R-4.49 census instrument is reused at its exact pin with a population written FOR the merge head.
 
 **Tech Stack:** C++23 (`std::expected`), CMake presets `ci-macos` / `ci` (Linux parity container Ubuntu 24.04 `--platform linux/amd64 --init`), Catch2 v3.7.1, the pytest harness under `harness/` (python3.12 venv from `harness/requirements.lock`), bash 3.2-compatible runner blocks, `gh` for the PR.
 
 **Spec (the sealed texts this plan executes; every path under `../pdc/`):** `master/domains/m-1-format-engine/design/2026-08-23-ADDENDUM-M-url-effective-endpoint-consent.md` (M rev8: M-R1..R8 :259-415, FX-M-1 :416-516); `…/2026-08-26-ADDENDUM-N-shallow-payload-only-cell.md` (N; flags-to-wiring-team :320-329; FX-N); `…/2026-09-01-ADDENDUM-O-writer-validity-contract.md` (O; FX-O); `…/2026-07-02-pack-engine.md` (§1.1 Phase D/C, §1.2, §1.3, §2 incl. COND-6, §4); `…/2026-07-02-restore-apply-contract.md` (§1, §2.2); `…/2026-07-04-ADDENDUM-D-offline-and-n3.md` (:78 `offline-pointer`); `…/2026-08-07-ADDENDUM-I-biv-member-refusal.md` (I-R1, I-R2a); `master/domains/m-3-restore-cli/design/2026-08-24-addendum-6-url-consent-consumer-surface.md` (A6 rev14: A6-R1..R9 :380-685, FX-A6 :686-822); `…/2026-08-26-addendum-7-consent-interaction-companion.md` (A7 rev2: A7-R1..R5 :57-138, FX-A7 :139-175); `…/2026-08-29-addendum-8-display-encoding-companion.md` (A8 rev8: A8-R1..R4 :92-256, FX-A8 :257-352); `…/2026-07-04-addendum-2-n24-honest-network-offline.md` (A2 D4 :77-127, D5); `master/domains/m-4-hostile-image/design/2026-08-23-sr-url-effective-endpoint-consent.md` (SR-URL rev5); the R-4.47 bar (`master/relays/m4-reachability-rereview/DESIGN-REVIEW-planner-20260827-204641.md` §1).
 
-**Owner fences this plan is graded against (each read WHOLE by the implementer before Task 0; nothing in them is paraphrased here as authority):** m-1 `master/relays/intg-2b-wiring-act/DESIGN-planner-20260915-042531.md` (vetoes 1–9 with veto 9 mechanical; V-M-INT-1..5; V-2b-1..9; S-2b-1..8; the FX partition; §4 evidence set); m-3 `…/DESIGN-planner-20260915-130818.md` (V-A6-1..6, V-A7-1..4, V-A8-1..5, R-4.48 (ii)–(iv) as vetoes with witnesses; the R4 absence bar in its positive form; TC-1..3; S-1..S-6; §3 the kind; §4 the `--offline`/`--network` cut verbatim; §5 the golden-harness repos bar; §6 the harness-selftest population rule); m-4 `…/DESIGN-planner-20260915-035001.md` (the carry; the E-split; the C-2 pre-warning); m-2 `…/DESIGN-m2-planner-20260915-125200.md` (Q4 NOT a touch on the stated shape — the human open summary moves no session line; a deviation routes back); master `…/PLAN-master-planner-20260915-041518.md` (Q1 both verbs; the re-execution condition; Q5/Q6), `…-043301.md` (`--offline` IN both verbs), `…-131404.md` (all gates IN; the three dispositions; the plan-face list).
+**Owner fences this plan is graded against (each read WHOLE by the implementer before Task 0; nothing in them is paraphrased here as authority):** m-1 `master/relays/intg-2b-wiring-act/DESIGN-planner-20260915-171041.md` (fence rev2 — the fence of record, approved by m-1.implementer `master/relays/intg-2b-wiring-act-m1-fence-review-r2/DESIGN-REVIEW-implementer-20260916-044559.md` at pdc `631aae8298801245f6281ae012cd06498576e671`; supersedes 042531 IN SUBSTANCE: S-2b-1 rev2 (offline COMPOSED with N/G/H — binds only the born non-shallow lane; R-4.1 arm (i) scoped to the git-aware promisor lane; the PACK and OPEN receipts named separately), V-2b-1 rev2 (TWO pre-authorized engine commits c1a/c1b), V-2b-5 rev2 (scan.cpp's `.biv` payload skip stays AS LANDED), witnesses W-O1..3 and W-D1..4; everything else of 042531 stands verbatim: vetoes 1–9 with veto 9 mechanical; V-M-INT-1..5; V-2b-2/4/6/7/8/9; S-2b-2..8; the FX partition; §4 evidence set); m-3 `…/DESIGN-planner-20260915-130818.md` (V-A6-1..6, V-A7-1..4, V-A8-1..5, R-4.48 (ii)–(iv) as vetoes with witnesses; the R4 absence bar in its positive form; TC-1..3; S-1..S-6; §3 the kind; §4 the `--offline`/`--network` cut verbatim; §5 the golden-harness repos bar; §6 the harness-selftest population rule); m-4 `…/DESIGN-planner-20260915-035001.md` (the carry; the E-split; the C-2 pre-warning); m-2 `…/DESIGN-m2-planner-20260915-125200.md` (Q4 NOT a touch on the stated shape — the human open summary moves no session line; a deviation routes back); master `…/PLAN-master-planner-20260915-041518.md` (Q1 both verbs; the re-execution condition; Q5/Q6), `…-043301.md` (`--offline` IN both verbs), `…-131404.md` (all gates IN; the three dispositions; the plan-face list).
 
 ---
 
 ## Identity
 
 ```text
-PLAN artifact      docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-substep2b-20260915.md  (this file; rev3)
+PLAN artifact      docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-substep2b-20260915.md  (this file; rev4)
 PLAN_LOCK_ID       intg-substep2b-plan-20260915 @ sha256 <the artifact's own sha256, carried on the PLAN relay>
 DESIGN record      design-doc — the sealed set above; primary lock m1-addendum-M-2966b839-lock-20260825 (post-stamp 57d89625…),
                    consumed locks m3-addendum-6-c41d015f-lock-20260825 (post-stamp 7ce2251d…), m3-addendum-7-4c40fe37-lock-20260827
@@ -26,6 +26,7 @@ BASE (B)           origin/main = 186adf7d67171bd7afe621f39b657a1a113ce299 — th
 BRANCH             intg/substep2b-wiring — does not exist yet (no local ref, no remote head); Task 0 cuts it with a FRESH worktree
 WORKTREE           /Users/jack/Programming/bivpak-intg-substep2b-wiring
 EVIDENCE HOME      $HOME/Programming/bivpak-evidence/s2b-<token>-XXXXXX (durable root; never the OS temp root; never inside a repository)
+ENGINE FENCE       m-1 rev2 `171041` + approve `044559` — pinned by the PLAN carrier's DESIGN_SOURCE_COMMIT 631aae8298801245f6281ae012cd06498576e671 (measured PASS by relay-lint's own xroot_authority at that tree)
 TOKEN              the pair Planner's bare dispatch token, PARENT = the implementer's exact-hash approve of THIS artifact
 VEHICLE            ONE push of intg/substep2b-wiring (class a), ONE PR against main; `main` is NEVER pushed by this plan
 LANDING            the operator's bare merge token under .relays/intg from the operator's seat; the census (Task 10) FOR the merge head; R-4.52
@@ -36,8 +37,8 @@ CLOSURE            the commission-closure SITREP is the LAST task (Task 11): fin
 ## Global constraints (each line binds every task)
 
 - SEALED TEXT ONLY: where M/N/O, A6/A7/A8/A2-D4, SR-URL and the owner cuts DETERMINE, execute byte-exactly; anything they defer or are silent on is a STOP UP the pair line (m-1 S-2b-1..8; m-3 S-1..S-6; M-R7; A6-R7; A7-R5) — never a keyboard call. A STOP is a SITREP to the pair Planner naming the cell; work continues on every task that does not depend on it.
-- VETO 9 MECHANICAL (m-1): in `git log --reverse B..H`, every commit touching `src/core/repo/**` precedes every commit touching `src/cli/**`, `src/core/pack/**`, `src/core/scan/**`, `src/core/open/**`; NO commit touches both sets. This plan has exactly ONE engine commit (Task 1) and it is the first commit above B.
-- ENGINE BYTES (V-2b-1): zero in `src/core/repo/**` beyond Task 1's one offline input to `run_eligibility`; any other engine need is a STOP (S-2b-5). FORMAT BYTES (V-2b-2): zero in `src/core/manifest/**`; the C-2 pack hunk (`pack.cpp` "manifest_json" propagation) byte-identical to a2f6fd1's.
+- VETO 9 MECHANICAL (m-1): in `git log --reverse B..H`, every commit touching `src/core/repo/**` precedes every commit touching `src/cli/**`, `src/core/pack/**`, `src/core/scan/**`, `src/core/open/**`; NO commit touches both sets. This plan has exactly TWO engine commits (Task 1: c1a then c1b, each its own commit) and they are the first two commits above B (V-2b-1 rev2).
+- ENGINE BYTES (V-2b-1 rev2): zero in `src/core/repo/**` beyond Task 1's TWO pre-authorized diffs — c1a `eligibility.{hpp,cpp}` (the offline mode, placed AFTER the unborn/shallow return at :154-156, binding the born non-shallow lane only) and c1b `discover.cpp` (the `.biv` DISCOVERY skip root-scoped; nested `.biv` walked; `.git`-named directories unwalked; symlinked directories unwalked; the marker test :56-70 unchanged); any other engine need is a STOP (S-2b-5; "no authority for a third engine change is inferred" — 044559). SCAN PAYLOAD RULE (V-2b-5 rev2): `scan.cpp`'s any-depth `.biv` payload skip (:140-142 at B) stays AS LANDED byte-for-byte — ADDENDUM-I is UNSEALED (R-4.55); a candidate touching it is red. FORMAT BYTES (V-2b-2): zero in `src/core/manifest/**`; the C-2 pack hunk (`pack.cpp` "manifest_json" propagation) byte-identical to a2f6fd1's.
 - RepoEntry PRODUCTION CENSUS (V-2b-4): zero writes to any RepoEntry field outside `src/core/repo` — pack copies the entries `classify`/`capture` return WHOLE into `manifest.repos`; `CaptureResult.artifacts` are written as members at their `archive_path` VERBATIM (no renaming, no path synthesis). The grep is Task 9's census; a hit is a STOP.
 - NON-BYPASS (m-4; S1): no direct git spawn in product code outside `src/core/repo`; every product network path flows through `invoke_git` with exactly ONE carrier endpoint; the hook is installed ONLY through the A6/A7/A8 fabric; consent binds the RAW in-memory value.
 - HOOK TRUTH TABLE (A7-R1/R2; R-4.47 V3; RECONCILE R4 I2B-02): `--accept-url-divergence` → the always-proceed hook regardless of TTY state; no flag AND `isatty(stdin) && isatty(stderr)` → the interactive PROMPT D hook; otherwise NO hook (the engine's absent-hook posture refuses, typed). `--json` appears in NO row. `--offline`/`--network` appear in NO row (V-OFF (3)). No environment or config override exists (A7-R1; proposing one is a STOP to master).
@@ -61,7 +62,8 @@ CLOSURE            the commission-closure SITREP is the LAST task (Task 11): fin
 
 ```text
 Writes (WORKTREE only, branch intg/substep2b-wiring, cut from B):
-  ENGINE (Task 1 only, the FIRST commit)   src/core/repo/eligibility.{hpp,cpp}; tests/test_repo_engine.cpp (the 19 call sites gain the mode)
+  ENGINE (Task 1 only, the FIRST TWO commits) c1a: src/core/repo/eligibility.{hpp,cpp}; tests/test_repo_engine.cpp (the 19 call sites gain the mode; W-O1..3)
+                                           c1b: src/core/repo/discover.cpp; tests/test_repo_engine.cpp (W-D1..3 engine halves; the :815 discover case is the W-D2 control)
   FABRIC (Task 2)                          src/cli/url_consent.{hpp,cpp}; src/cli/consent_display_table.hpp (GENERATED, checked in);
                                            tools/gen_consent_display_table.py (the generator); tests/test_url_consent.cpp (NEW; biv_tests source list
                                            in CMakeLists.txt gains it)
@@ -80,7 +82,7 @@ Writes (WORKTREE only, branch intg/substep2b-wiring, cut from B):
   HARNESS (Task 8, m-3's commit)           harness/scenarios/** ONLY, authored at m-3's seat, applied verbatim as ONE commit
   COUNT CELLS (Task 9 Step 5, iff moved)   .github/workflows/s2-harness.yml count cells ONLY
   DOCS LANE (host checkout, pair Planner)  docs/sprints/2026-08-27-intg-consent-fabric/** (this plan, receipts of record, census population)
-ZERO BYTES:   src/core/repo/** beyond Task 1; src/core/manifest/**; src/adapters/**; harness/bivharness/**; harness/selftest/** beyond the pin
+ZERO BYTES:   src/core/repo/** beyond Task 1's c1a/c1b; src/core/scan/scan.cpp's `.biv` payload skip (:140-142, V-2b-5 rev2); src/core/manifest/**; src/adapters/**; harness/bivharness/**; harness/selftest/** beyond the pin
               recapture the same-commit rule forces; src/core/open/render.cpp; every sealed design text; PROMPT A/B/C texts and predicates
               (A6-R6) beyond the V-A7-1 predicate substitution; build_preview / render_prompt_b (R-4.24)
 Reads:        the sealed texts and owner fences listed above; the product at B by git object
@@ -100,7 +102,8 @@ No-consumer action: an engine need beyond Task 1, a RepoEntry ↔ schema mismatc
 ## Commit topology (predeclared; `git log --reverse B..H` MUST read in this order)
 
 ```text
-c1  engine: run_eligibility gains the offline mode (m-1 S-2b-1 pre-authorized; V-2b-1)          Task 1   src/core/repo/eligibility.*, tests/test_repo_engine.cpp
+c1a engine: run_eligibility gains the offline mode, COMPOSED with N/G/H (m-1 S-2b-1 rev2; V-2b-1 rev2)   Task 1   src/core/repo/eligibility.*, tests/test_repo_engine.cpp
+c1b engine: discover.cpp's `.biv` discovery skip root-scoped (m-1 V-2b-1 rev2 §2; W-D1..3)             Task 1   src/core/repo/discover.cpp, tests/test_repo_engine.cpp
 c2  fabric: A8 consent-render policy inside the four renderers + the generated clause-5 table    Task 2   src/cli/url_consent.*, src/cli/consent_display_table.hpp, tools/, tests/test_url_consent.cpp, CMakeLists.txt
 c3  cli: flags (--offline pack/open, --network open, conflict), help lines, hook install,        Task 3   src/cli/args.*, src/cli/main.cpp, src/core/pack/pack.hpp, src/core/open/open.hpp,
                                                                                                           tests/test_cli.cpp, tests/cli_run.hpp
@@ -141,8 +144,19 @@ E2     the wiring census: every new product→engine   Task 9 Step 1            
        — its six network-class sites content-identical to B's)
 E3     fail-safe witness: divergence + no hook +      Task 7 (macOS) + Task 9 (Linux)  product-packed        E2     lane executes both platforms; m-4 reads receipts, may re-run macOS
        non-interactive ⇒ url_divergence_refused naming BOTH addresses
-E4     --offline parity (N (a) row identical with/    Task 7                           product-packed        E2     lands WITH E5 (m-4 rider)
-       without the flag; zero git for the entry by request trace)
+RCPT-P the PACK-side COND-6 no-network receipt (m-1 rev2 §1): Task 7                           product-packed        E2     m-1 §1 rev2 (the owner's receipt); m-4 reads
+       under --offline the request trace shows ZERO GitCallClass::network spawns for the whole pack; the manifest diff with/without
+       the flag touches ONLY born non-shallow rows' eligibility + capture_mode + the derived members (W-O1..3 shapes byte-identical)
+E4     the OPEN-side N-R4 parity receipt (m-1 rev2 §1; Task 7                           product-packed        E2     lands WITH E5 (m-4 rider); m-1 §1 rev2; m-3 A9.4 OPEN
+RCPT-O m-3's surface): the shallow entry's shallow_pointer row IDENTICAL with/without --offline, zero git for the entry; every
+       non-shallow row under --offline is an ADDENDUM-D offline-pointer row, MANIFEST-DERIVED, restore_entry NEVER called (zero
+       engine reach on the whole open by request trace — no open-side engine input exists)
+WIT-O  W-O1 born shallow / W-O2 unborn with a side ref / Task 1 (engine) + Task 7 (product) unit → product-packed E2     m-1 V-2b-9 rev2
+       W-O3 empty unborn: pack --offline leaves the N / G / H shape unchanged (single-coordinate arms beside the COND-6 positive)
+WIT-D  W-D1 nested .biv with a repo → discovered with  Task 1 (engine) + Task 7 (product) unit → product-packed E2     m-1 V-2b-9 rev2; m-4 (hostile class)
+       parent edge / W-D2 root .biv control → not discovered / W-D3 nested .biv declared in .bivignore → pruned (engine half) + the
+       pack-end prune summary names it (product half — discover() returns no printable report) / W-D4 the W-D1 repo's subtree absent
+       from the parent's payload census (a negative-membership observation credited WITH V-2b-5 + m-1's byte review, per 044559)
 E5     the unreachability grep FLIPS to exactly E2's  Task 9 Step 1                    grep at H             E1     lane produces; m-4 RE-EXECUTES
 R-T    the pack → open round trip (payload byte-      Task 7 (product-packed legs);    product-packed        E2/E3  m-3 §5 (the harness receipt, E3 through the real CLI); m-1 V-2b-8(iv) reads it
        compare; repos restored; manifest rows)        Task 8 (m-3's scenario)
@@ -208,7 +222,9 @@ T-FENCE  HOLD — a Classification whose fence != none at pack (classify.cpp:134
          product-scope disposition is m-1's word (Q11). Task 5 Step 0 records each fence site's trigger condition; Task 5 writes the pack
          pipeline for `fence == none` and NO fence branch; a fenced classification met while the word is absent is a STOP (the run
          cannot proceed past it) — the candidate HOLDS at c5 until $RUNNERS/m1-fence-word.txt holds the disposition per class.
-T-PROM   SEALED-as-recorded — `biv pack --offline` on a promisor source refuses through the engine's promisor_objects_unavailable class
+T-PROM   SEALED-as-recorded — `biv pack --offline` on a BORN NON-SHALLOW promisor source (the git-aware promisor lane, R-4.1 arm (i) SCOPED by
+         m-1 rev2 §1) refuses through the engine's promisor_objects_unavailable class; a SHALLOW promisor source is N's cell — a pointer
+         row with the promisor-source note, NEVER refused (W-O1's promisor arm)
          (m-1 S-2b-1, the owner's recorded choice); it surfaces exactly as every engine error surfaces today (InternalError + the
          `repo_engine_kind` fact) — no new kind is written. R-4.1's `PromisorSourceOffline(repo)` name is a REGISTERED residual (Q10 to m-3
          + m-1); a typed kind, if owed, is another A4-shaped addendum, never a lane byte.
@@ -320,17 +336,19 @@ h=0; (cd "$EVID/work/ucd" && shasum -a 256 UnicodeData.txt DerivedCoreProperties
 exit 0
 ```
 
-### Task 1 — c1, the ONE engine commit: `run_eligibility` gains the offline mode (m-1 S-2b-1, pre-authorized execution; V-2b-1)
+### Task 1 — c1a and c1b, the TWO pre-authorized engine commits (m-1 V-2b-1 rev2, fence `171041` §1–§2, approved `044559`): c1a `run_eligibility` gains the offline mode COMPOSED with N/G/H; c1b `discover.cpp`'s `.biv` discovery skip root-scoped
 
-**Files:** Modify `src/core/repo/eligibility.hpp`, `src/core/repo/eligibility.cpp`; Modify `tests/test_repo_engine.cpp` (the 19 existing `run_eligibility(` call sites gain `EligibilityMode::network`; two new cases).
-**Interfaces:** Produces `enum class EligibilityMode { network, offline };` and `expected<void> run_eligibility(const Git& git, RepoEntry& entry, EligibilityMode mode);` — no default argument (every caller states its mode; Task 5 passes the pack flag). Consumes nothing new.
-**Sealed content (pack-engine §2 COND-6; m-1 S-2b-1):** offline ⇒ no `ls-remote`, no refresh fetch; every repo `capture_mode: full`, `eligibility.result: offline_declared` (wire string already at `manifest.cpp:804`); a promisor source that cannot complete its objects REFUSES through `EngineErrorKind::promisor_objects_unavailable` (R-4.1 arm (i) HOLD). The unborn/shallow early return at the top of `run_eligibility` stays FIRST (N: the structural returns precede the probe; a shallow entry carries no eligibility cell).
+**Files (c1a):** Modify `src/core/repo/eligibility.hpp`, `src/core/repo/eligibility.cpp`; Modify `tests/test_repo_engine.cpp` (the 19 existing `run_eligibility(` call sites gain `EligibilityMode::network`; the two offline cases; the three W-O cases).
+**Files (c1b):** Modify `src/core/repo/discover.cpp`; Modify `tests/test_repo_engine.cpp` (the W-D cases; the existing `:815` discover case is kept byte-for-byte as the W-D2 regression control).
+**Interfaces:** Produces `enum class EligibilityMode { network, offline };` and `expected<void> run_eligibility(const Git& git, RepoEntry& entry, EligibilityMode mode);` — no default argument (every caller states its mode; Task 5 passes the pack flag). `discover(root, matcher)`'s signature is UNCHANGED. Consumes nothing new.
+**Sealed content (pack-engine §2 COND-6 as COMPOSED by m-1 rev2 §1 with N-R2/N-R3, G-R1/B2 and H):** the offline mode binds ONLY the lane that survives the existing first return (`eligibility.cpp:154-156`: `head_state == unborn || shallow` ⇒ `return {}` before any work) — born, non-shallow. In that lane offline ⇒ no `ls-remote`, no refresh fetch, `eligibility.result: offline_declared` (wire string already at `manifest.cpp:804`), `capture_mode: full`. A shallow row (N-R2: capture_mode ABSENT, eligibility ABSENT, local_refs EMPTY), an unborn row with refs (G: bundle + `unborn-head` + sha null + full) and an empty unborn row (H: no eligibility, no capture_mode) are UNCHANGED by the flag. R-4.1 arm (i) SCOPED: a born non-shallow PROMISOR source under offline REFUSES via `EngineErrorKind::promisor_objects_unavailable`; a SHALLOW promisor source is N's cell — never refused. A candidate whose offline branch PRECEDES the unborn/shallow return, or writes eligibility/capture_mode onto a shallow or payload-only-unborn row, is red.
+**Sealed content (pack-engine §1.1; m-1 rev2 §2):** the ONLY discovery prune is `.bivignore` ("DO recurse for nested repo discovery"); `<root>/.biv` (the reserved area, root-anchored) is never a repo container and is not walked; a NESTED directory named `.biv` IS walked like any other directory; directories named `.git` stay unwalked (a marker is not a container); symlinked directories stay unwalked; the matcher precedes the marker test (as landed, I-R2a order); the marker test (`:56-70`) is unchanged. No second discovery traversal in pack, no pack-side workaround — the correction is at the engine or nowhere.
 
-- [ ] **Step 1: the failing tests** — in `tests/test_repo_engine.cpp`, two cases using the existing `fake_network_git(...)` helper with a request trace:
+- [ ] **Step 1 (c1a): the failing tests** — in `tests/test_repo_engine.cpp`, using the existing `fake_network_git(...)` helper with a request trace (the sibling proven-remote case's arrangement):
 
 ```cpp
-TEST_CASE("run_eligibility offline: zero network calls, offline_declared, full") {
-  // arrange: a born entry with one remote, exactly as the existing proven-remote case builds it
+TEST_CASE("run_eligibility offline: zero network calls, offline_declared, full (COND-6 positive)") {
+  // arrange: a born, non-shallow entry with one remote, exactly as the existing proven-remote case builds it
   std::vector<biv::support::SpawnRequest> spawned;
   auto git = fake_network_git(root.path(), /*…as the sibling case…*/, [&](const biv::support::SpawnRequest& r) { spawned.push_back(r); });
   auto result = biv::repo::run_eligibility(git, entry, biv::repo::EligibilityMode::offline);
@@ -341,25 +359,49 @@ TEST_CASE("run_eligibility offline: zero network calls, offline_declared, full")
   CHECK_FALSE(entry.eligibility->proof.has_value());
   CHECK(spawned.empty());  // NAMED MUTANT: an offline path that still advertises ⇒ RED here
 }
-TEST_CASE("run_eligibility offline on a promisor source refuses typed") {
+TEST_CASE("run_eligibility offline on a born non-shallow promisor source refuses typed (R-4.1 arm (i), scoped)") {
   entry.promisor = true;
   auto result = biv::repo::run_eligibility(git, entry, biv::repo::EligibilityMode::offline);
   REQUIRE_FALSE(result.has_value());
-  CHECK(biv::repo::engine_error_kind(result.error()) == biv::repo::EngineErrorKind::promisor_objects_unavailable);  // use the existing facts accessor at types.hpp:93
+  CHECK(biv::repo::engine_error_kind(result.error()) == biv::repo::EngineErrorKind::promisor_objects_unavailable);  // the typed accessor at types.hpp:92-110
   CHECK(spawned.empty());
+}
+// W-O1..3 — the composed shapes: each snapshots the entry BEFORE the call and asserts NOTHING moved and NOTHING spawned.
+// NAMED MUTANT for all three: an offline branch placed BEFORE the unborn/shallow return writes full + offline_declared (or, for the
+// promisor arm, refuses) onto an entry N/G/H say it must not touch ⇒ RED.
+static void check_untouched_offline(biv::repo::Git& git, biv::repo::RepoEntry& entry, std::vector<biv::support::SpawnRequest>& spawned) {
+  const auto mode_before = entry.capture_mode; const bool elig_before = entry.eligibility.has_value();
+  const auto refs_before = entry.local_refs.size();
+  auto result = biv::repo::run_eligibility(git, entry, biv::repo::EligibilityMode::offline);
+  REQUIRE(result.has_value());
+  CHECK(entry.capture_mode == mode_before); CHECK(entry.eligibility.has_value() == elig_before);
+  CHECK(entry.local_refs.size() == refs_before); CHECK(spawned.empty());
+}
+TEST_CASE("W-O1: a born SHALLOW source under offline keeps the N-R2 shape; a shallow promisor is never refused") {
+  // arrange the entry as the existing shallow case does (entry.shallow set; capture_mode / eligibility absent)
+  check_untouched_offline(git, entry, spawned);
+  entry.promisor = true; check_untouched_offline(git, entry, spawned);  // N's cell: pointer row + promisor-source note, NEVER refused
+}
+TEST_CASE("W-O2: an UNBORN source with a side ref under offline keeps the G shape") {
+  // arrange as the existing any-ref unborn case does (head_state unborn; the side ref present)
+  check_untouched_offline(git, entry, spawned);
+}
+TEST_CASE("W-O3: an EMPTY unborn source under offline keeps the H shape") {
+  // arrange as the existing zero-ref unborn case does
+  check_untouched_offline(git, entry, spawned);
 }
 ```
 
-  Every existing call `run_eligibility(git, entry)` in the file becomes `run_eligibility(git, entry, biv::repo::EligibilityMode::network)` (19 sites; `grep -c 'run_eligibility(' tests/test_repo_engine.cpp` must read 21 after the edit).
-- [ ] **Step 2: run to verify failure** — `cmake --build --preset ci-macos` FAILS to compile (the enum and the third parameter do not exist). Expected: compile error naming `EligibilityMode`.
-- [ ] **Step 3: the implementation** — `eligibility.hpp`:
+  Every existing call `run_eligibility(git, entry)` in the file becomes `run_eligibility(git, entry, biv::repo::EligibilityMode::network)` (19 sites; `grep -c 'run_eligibility(' tests/test_repo_engine.cpp` must read 19 + the new calls after the edit — recorded, not assumed).
+- [ ] **Step 2 (c1a): run to verify failure** — `cmake --build --preset ci-macos` FAILS to compile (the enum and the third parameter do not exist). Expected: compile error naming `EligibilityMode`.
+- [ ] **Step 3 (c1a): the implementation** — `eligibility.hpp`:
 
 ```cpp
 enum class EligibilityMode { network, offline };
 expected<void> run_eligibility(const Git& git, RepoEntry& entry, EligibilityMode mode);
 ```
 
-  `eligibility.cpp`, inside `run_eligibility` AFTER the unborn/shallow early return and the HEAD-object check, BEFORE the remotes loop:
+  `eligibility.cpp`, inside `run_eligibility` AFTER the unborn/shallow early return (`:154-156`, UNTOUCHED and FIRST) and the HEAD-object check, BEFORE the remotes loop:
 
 ```cpp
   if (mode == EligibilityMode::offline) {
@@ -374,14 +416,86 @@ expected<void> run_eligibility(const Git& git, RepoEntry& entry, EligibilityMode
   }
 ```
 
-  (`eligibility` is the local `Eligibility{.method = "ls-remote-ancestry", …}` already constructed above the remotes check; the `method` literal is NOT changed by this act — if m-1's review wants a distinct offline method string that is m-1's word, S-2b-3 class.) No other line of `src/core/repo/**` moves.
-- [ ] **Step 4: run to verify pass** — `cmake --build --preset ci-macos && ./build/ci-macos/biv_repo_engine_tests` rc 0; `ctest --preset ci-macos -E '^safety-hardening$'` rc 0.
-- [ ] **Step 5: the veto-9 shape check, then commit** — `git status --porcelain` names exactly `src/core/repo/eligibility.hpp`, `src/core/repo/eligibility.cpp`, `tests/test_repo_engine.cpp`; `git diff --stat -- src/cli src/core/pack src/core/scan src/core/open src/core/manifest` EMPTY.
+  (`eligibility` is the local `Eligibility{.method = "ls-remote-ancestry", …}` already constructed above the remotes check; the `method` literal is NOT changed by this act — if m-1's review wants a distinct offline method string that is m-1's word, S-2b-3 class.) No other line of `src/core/repo/**` moves in c1a.
+- [ ] **Step 4 (c1a): run to verify pass** — `cmake --build --preset ci-macos && ./build/ci-macos/biv_repo_engine_tests` rc 0; `ctest --preset ci-macos -E '^safety-hardening$'` rc 0.
+- [ ] **Step 5 (c1a): the veto-9 shape check, then commit** — `git status --porcelain` names exactly `src/core/repo/eligibility.hpp`, `src/core/repo/eligibility.cpp`, `tests/test_repo_engine.cpp`; `git diff --stat -- src/cli src/core/pack src/core/scan src/core/open src/core/manifest src/core/repo/discover.cpp` EMPTY.
 
 ```bash
 git add src/core/repo/eligibility.hpp src/core/repo/eligibility.cpp tests/test_repo_engine.cpp
-git commit -m "repo: run_eligibility gains EligibilityMode (offline: no network, offline_declared + full; promisor source refuses typed) -- m-1 S-2b-1 pre-authorized engine input, first in history"
-git rev-parse HEAD > "$EVID/commits.c1.txt"
+git commit -m "repo: run_eligibility gains EligibilityMode (offline: no network, offline_declared + full on the born non-shallow lane only; the unborn/shallow return stays first; a born non-shallow promisor source refuses typed) -- m-1 S-2b-1 rev2 pre-authorized engine input c1a, first in history; W-O1..3"
+git rev-parse HEAD > "$EVID/commits.c1a.txt"
+```
+
+- [ ] **Step 6 (c1b): the failing tests** — in `tests/test_repo_engine.cpp`, beside the existing `repo discovery preserves prune ordering and records nested boundaries` case (`:815`, KEPT byte-for-byte: its root `.biv/private/.git` is the W-D2 control already in the suite):
+
+```cpp
+TEST_CASE("W-D1 / W-D2: repo discovery walks a NESTED .biv directory and keeps the ROOT .biv reserved") {
+  TempDir root{"discover-nested-biv"};
+  std::filesystem::create_directories(root.path() / "a/.git");
+  std::filesystem::create_directories(root.path() / "a/.biv/r/.git");   // W-D1: a nested .biv IS a container
+  std::filesystem::create_directories(root.path() / ".biv/r/.git");     // W-D2: the root reserved area is NOT walked
+  auto matcher = biv::ignore::Matcher::compile("", false);
+  REQUIRE(matcher.has_value());
+  auto result = biv::repo::discover(root.path(), *matcher);
+  REQUIRE(result.has_value());
+  REQUIRE(result->repos.size() == 2);
+  CHECK(result->repos[0].relpath == "a");
+  CHECK(result->repos[0].kind == biv::repo::RepoKind::repo);
+  CHECK_FALSE(result->repos[0].parent_index.has_value());
+  CHECK(result->repos[1].relpath == "a/.biv/r");
+  CHECK(result->repos[1].kind == biv::repo::RepoKind::nested);
+  CHECK(result->repos[1].parent_index == 0);                            // W-D1 binds the parent edge
+  // NAMED MUTANTS: the landed any-depth skip ⇒ size 1 (W-D1 red); a skip that forgets the root scope ⇒ size 3 (W-D2 red)
+}
+TEST_CASE("W-D3 (engine half): a nested .biv DECLARED in .bivignore is pruned by the matcher, not discovered") {
+  TempDir root{"discover-nested-biv-ignored"};
+  std::filesystem::create_directories(root.path() / "a/.git");
+  std::filesystem::create_directories(root.path() / "a/.biv/r/.git");
+  auto matcher = biv::ignore::Matcher::compile("a/.biv/\n", false);
+  REQUIRE(matcher.has_value());
+  auto result = biv::repo::discover(root.path(), *matcher);
+  REQUIRE(result.has_value());
+  REQUIRE(result->repos.size() == 1);
+  CHECK(result->repos[0].relpath == "a");
+  // the provenance half (the pack-end prune summary NAMES a/.biv) is Task 7's product-scope leg — discover() returns no printable
+  // report (044559); W-D1 is the discriminator between "pruned by the matcher" and "skipped by name"
+}
+TEST_CASE("unchanged rules: a .git-named directory is a marker and is never walked; a symlinked directory is never descended") {
+  TempDir root{"discover-marker-not-container"};
+  std::filesystem::create_directories(root.path() / "a/.git/modules/m/.git");   // inside a marker: never a boundary
+  std::filesystem::create_directories(root.path() / "elsewhere/r/.git");
+  std::filesystem::create_directory_symlink(root.path() / "elsewhere", root.path() / "a/link");  // a symlinked directory: not descended
+  auto matcher = biv::ignore::Matcher::compile("", false);
+  REQUIRE(matcher.has_value());
+  auto result = biv::repo::discover(root.path(), *matcher);
+  REQUIRE(result.has_value());
+  REQUIRE(result->repos.size() == 2);
+  CHECK(result->repos[0].relpath == "a");
+  CHECK(result->repos[1].relpath == "elsewhere/r");   // reached through its real path only
+}
+```
+
+- [ ] **Step 7 (c1b): run to verify failure** — `./build/ci-macos/biv_repo_engine_tests '*W-D1*'` FAILS: `repos.size() == 1` (the landed any-depth skip at `discover.cpp:43` never walks `a/.biv`). The `:815` case still PASSES (the control).
+- [ ] **Step 8 (c1b): the implementation** — `discover.cpp`: `walk(...)` gains a trailing `std::size_t depth` parameter (`discover()` passes `0`; the recursion passes `depth + 1`); the name test at `:43` becomes:
+
+```cpp
+    const auto name = child.path().filename();
+    if (name == ".git") {
+      continue;  // a marker, never a container (the marker test below reads it from its parent)
+    }
+    if (name == ".biv" && depth == 0) {
+      continue;  // <root>/.biv is the reserved area (I-R1 root-anchored); a NESTED .biv is walked like any directory (sealed §1.1)
+    }
+```
+
+  Everything else in `walk` — the not-a-directory / symlink `continue` before it, the matcher after it, the marker test and the recursion — stays byte-for-byte. No other line of `src/core/repo/**` moves in c1b.
+- [ ] **Step 9 (c1b): run to verify pass** — `cmake --build --preset ci-macos && ./build/ci-macos/biv_repo_engine_tests` rc 0 (W-D1/W-D2/W-D3 green; `:815` green); `ctest --preset ci-macos -E '^safety-hardening$'` rc 0.
+- [ ] **Step 10 (c1b): the veto-9 shape check, then commit** — `git status --porcelain` names exactly `src/core/repo/discover.cpp`, `tests/test_repo_engine.cpp`; `git diff --stat -- src/cli src/core/pack src/core/scan src/core/open src/core/manifest src/core/repo/eligibility.hpp src/core/repo/eligibility.cpp` EMPTY.
+
+```bash
+git add src/core/repo/discover.cpp tests/test_repo_engine.cpp
+git commit -m "repo: discover walks a nested .biv directory (the only discovery prune is .bivignore, sealed 1.1); <root>/.biv stays reserved; .git-named dirs stay markers; symlinks stay unwalked -- m-1 V-2b-1 rev2 pre-authorized engine input c1b, second in history; W-D1..3"
+git rev-parse HEAD > "$EVID/commits.c1b.txt"
 ```
 
 ### Task 2 — c2, the fabric: the A8 consent-render policy INSIDE the four renderers + the generated clause-5 table (A8-R1/R2; R-4.48 (ii)/(iii); m-3 §2)
@@ -598,7 +712,7 @@ git rev-parse HEAD > "$EVID/commits.c4.txt"
 
   `engine_to_pack_error(BivError e)`: iff `biv::repo::engine_error_kind(e) == biv::repo::EngineErrorKind::url_divergence_refused` (the TYPED accessor at types.hpp:92-110 — the wire fact is `url-divergence-refused`, hyphenated; MUST-2B-01) → `BivError{ErrKind::UrlDivergenceRefused, e.path /* the hook's repo */, {}, 0, {requested, effective, op copied from e.facts}}` (A6-R1's pack grain; M veto 4: never laundered); every other engine error returned UNCHANGED (today's typed engine-error path). Control in `tests/test_pack.cpp`: a pack-side divergence → `report.error().kind == ErrKind::UrlDivergenceRefused` with the three facts; NAMED MUTANT: an underscore string compare leaves the error as `InternalError` ⇒ RED. `leaves_first`: indices ordered so every entry precedes its `parent_id` (children first), stable by discovery order. `scratch_path = image_path.parent_path() / (image_path.filename() + ".scratch")` created before capture, removed by the cleanup lambda and at the end. Members: after the payload loop and BEFORE the agents loop (§4 "payload/repos/agents"): for each capture, for each artifact: `write_file_member(spool_writer, artifact.disk_path, artifact.archive_path.generic_string(), created.seconds)`; `emitted_members.insert(archive_path)` must succeed (else `ArchiveWriteFailed` `repo-member-duplicate`); `checksums.entries[archive_path] = extent; ++report.member_count`. The manifest: `.repos = entries` (WHOLE — V-2b-4; `PackReport.repos = entries` for the report). The C-2 propagation hunk (`if (!manifest_json) return cleanup_error(...)`) byte-unchanged.
   `main.cpp` pack: `biv::pack::pack(parsed->pack_dir, biv::pack::PackOptions{.offline = parsed->offline})` inside the `ScopedUrlDivergenceRun` from Task 3; the `UrlDivergenceRefused` detail fill from Task 3 now has a producer.
-- [ ] **Step 4: run to verify pass** — `./build/ci-macos/biv_tests` rc 0; `ctest --preset ci-macos -E '^safety-hardening$'` rc 0; `grep -n 'manifest_json' src/core/pack/pack.cpp` shows the C-2 hunk unchanged vs `git show a2f6fd1:src/core/pack/pack.cpp` (recorded diff of those lines EMPTY).
+- [ ] **Step 4: run to verify pass** — `./build/ci-macos/biv_tests` rc 0; `ctest --preset ci-macos -E '^safety-hardening$'` rc 0; `grep -n 'manifest_json' src/core/pack/pack.cpp` shows the C-2 hunk unchanged vs `git show a2f6fd1:src/core/pack/pack.cpp` (recorded diff of those lines EMPTY); V-2b-5 rev2: `git diff "$B" -- src/core/scan/scan.cpp | grep -c -F -- '".biv"'` reads 0 — the any-depth `.biv` payload skip (`:140-142` at B) is untouched (the `.git` name test above it is the ONLY changed test in that block).
 - [ ] **Step 5: the RepoEntry production census, then commit** — `python3 "$EVID/repoentry_census.py" src/cli src/core/pack src/core/scan src/core/open > "$EVID/code/repoentry-census.txt"` rc 0 (the TYPE-SCOPED census — §Instruments: every RepoEntry-typed binding enumerated; zero member writes on any of them; MUST-2B-06); its two controls run once here: a scratch copy with `entries[0].sha = "x";` injected → rc 5 (fires); a scratch copy with `warning.path = "x";` injected → rc 0 (does not) — receipts `repoentry-census-controls.txt`.
 
 ```bash
@@ -649,6 +763,8 @@ git rev-parse HEAD > "$EVID/commits.c6.txt"
   - **a7·1** stdin redirected (stderr TTY) → no prompt, typed refusal; **a7·2** stderr redirected (stdin TTY) → no prompt, typed refusal; **a7·3** `run_cmd_pty_split` + `--json`, flag absent, first encounter → PROMPT D renders on the pty (stderr), the answer honored, the envelope on the PIPE (stdout) records the outcome; the split helper's recorded TTY states are asserted (`stdin_tty && stderr_tty && !stdout_tty`); **a7·4** an image triggering PROMPT B AND a restore divergence → B completes before any D; the D prompts in entry encounter order; **a7·5** pack with two divergent remotes (distinct triples) → two prompts at the probe encounter points in order, each atomic (no other stderr byte between a prompt's question and its answer — asserted on the pty transcript).
   - **a8·5** arm A: values carrying the TEN valid rows → `error.facts` / refusal rows / advisories entries round-trip the RAW bytes exactly (C0 via JSON `\u00xx` decoding back byte-exact; multi-byte scalars byte-exact) while the stderr carriers hold the display-encoded form; arm B1: the lone `0x9b` in requested / effective / repo (each in turn) → PROMPT D shows U+FFFD, the decision binds the RAW triple (a second encounter of the SAME raw triple is memo-answered — no second prompt), and on EVERY carrier the source×branch matrix names the serialized value is VALID UTF-8 with the malformed octet visibly REPLACED (U+FFFD) — never the raw `0x9b`, never a display escape (A8-R1's malformed-value arm; `machine_text`); arm B2: `0x9b` in `op`/`relpath`/`repo_id` → no consent claim, the same replacement oracle on the carriers the matrix names for those coordinates. NAMED MUTANT (both arms): invalid-UTF-8 JSON output ⇒ RED; a `\u{…}`/`\u00xx` display spelling inside a machine field ⇒ RED. **a8·6**: a verb-reachable hostile effective address carrying the ten valid rows at the pty → the transcript adds no line, moves no cursor, contains no raw ESC/format scalar; `y` binds the raw triple (memo witness as in B1).
   - **N (a) WHOLE**: F-SHALLOW → `biv pack` → the manifest row carries the full N-R2 cluster (`shallow{boundary}`, no `capture_mode`, no `eligibility`, no `local_refs`, no `bundle`) → `biv open` → `result.repos[0].outcome == "shallow-pointer"`, ZERO git lines in the shim log for that entry (the log is per-run: with only the shallow entry in the image, the whole open shows zero git); **E4 parity**: the same open with `--offline` → the row IDENTICAL (field-by-field) and zero git; receipt `E4-parity.txt`. **N (g)**: F-PROMISOR-SHALLOW → `biv pack` → `notes[]` carries `{"kind":"promisor-source"}`.
+  - **RCPT-P (m-1 rev2 §1, the PACK receipt) + W-O1..3 at product scope**: F-MIXED (one born non-shallow repo with `origin` + F-SHALLOW + an unborn repo with a side ref + an empty unborn repo, all under one workspace) packed TWICE — with and without `--offline` — through the request-trace shim: under `--offline` the shim log has ZERO network-class lines (`ls-remote`/`fetch`) for the whole pack (receipt `RCPT-P-trace.txt`); the two manifests' `repos[]` differ ONLY in the born non-shallow row's `eligibility` + `capture_mode` + the derived `local_refs[].availability` members (receipt `RCPT-P-manifest-diff.txt`, the field-level diff); the shallow row (N-R2), the unborn-with-ref row (G) and the empty-unborn row (H) are byte-identical across the two packs (W-O1/W-O2/W-O3 receipts). A born non-shallow PROMISOR source under `--offline` → the engine's `promisor_objects_unavailable` surfaces as today's engine-error path (T-PROM); a SHALLOW promisor source under `--offline` → a pointer row with the promisor-source note, exit 0 (N's never-refuse).
+  - **W-D1..4 at product scope**: F-NESTED-BIV (`a/.git` + `a/.biv/r/.git`) → TWO rows, the child's `parent_id` set, members under `repos/<id>/…` for both, the child's bundle created before the parent's (leaves-first); F-ROOT-BIV (`.biv/r/.git` at the workspace root) → NO row for it (W-D2); F-NESTED-BIV-IGNORED (the same tree with `.bivignore` = `a/.biv/`) → ONE row and the pack-end prune summary NAMES `a/.biv` with its `.bivignore` source (W-D3's provenance half — the sealed §1.1 pack-end summary, the scanner's `PruneEntry`); W-D4: the parent row's payload census (the archive member listing under `payload/`) holds NO `a/.biv/r/**` node — recorded as a negative-membership observation credited together with V-2b-5's single-writer legs and m-1's byte review (044559), never alone.
   - **pack discovery legs**: F-NESTED → two rows, `parent_id` set on the child, capture leaves-first (the shim log shows the child's bundle creation before the parent's), members at `repos/<id>/…`; F-GITLINK → a boundary, no refusal; F-UNCLAIMED → `UnclaimedGitEntry` exit 3, `reason == "symlink"`, detail golden, nothing written; a repo under a `.bivignore`d dir → NOT discovered, the prune-summary advisory names the dir; a workspace-root repo → `payload/` EMPTY (V-2b-5).
   - **R-T** the round trip: F-REMOTE with a dirty worktree + an untracked file + a local branch → `biv pack` → `biv open` → the restored repo's `git status --porcelain=v2` equals the source's; HEAD/branch equal; the untracked penumbra file byte-equal; the local branch recreated (`local_refs[0].recreated == true`).
 - [ ] **Step 2: run to verify failure** — each new case fails before its fixture/assertion wiring exists (the file is new; the first build with the cases stubbed as `FAIL("not yet")` is the red state).
@@ -675,7 +791,7 @@ git rev-parse HEAD > "$EVID/commits.c7.txt"
 
 - [ ] **Step 0: the runner controls (must-be-NO for every guard this runner relies on)** — in subshells: `PIPEOK` on `false | cat` exits nonzero (`( set -o pipefail; false | cat; PIPEOK ctl ) 2>/dev/null; c1=$?; [ "$c1" -ne 0 ] || STOP`); a write into a read-only directory fails (`( printf x > "$EVID/work/ro/f" ) 2>/dev/null; c2=$?; [ "$c2" -ne 0 ] || STOP`); a producer that exits 1 after partial stdout is caught by the `x=$(cmd) || r=$?` form BEFORE its output is used (`r=0; x=$(printf 'partial\n'; exit 1) || r=$?; [ "$r" -eq 1 ] || STOP`). Each control's receipt to `$EVID/H/runner-controls.txt`.
 - [ ] **Step 1: E2, E5 and the closure** — `H0=$(git rev-parse HEAD) || STOP`; the E2 census (`git grep -n -E 'repo::(discover|classify|run_eligibility|capture|restore_entry)\(' HEAD -- src ':!src/core/repo'`, non-empty); the E5 grep (the SAME pattern that was EMPTY at B) → its `file:line` site set equals E2's (`d=0; diff "$EVID/H/E2-sites.txt" "$EVID/H/E5-sites.txt" > "$EVID/H/E5-flip.txt" || d=$?; [ "$d" -eq 0 ] || STOP`); the closure: `invoke_git(` outside `src/core/repo` EMPTY and the spawn primitives EMPTY outside `src/core/repo`/`src/core/support`; the network-class census compared by CONTENT (path + source text, line numbers stripped — Task 1 shifts eligibility.cpp's lines) — `d=0; diff "$EVID/H/network-class-B.content" "$EVID/H/network-class-H0.content" > "$EVID/H/network-class.delta" || d=$?; [ "$d" -eq 0 ] || STOP`.
-- [ ] **Step 2: veto 9; the type-scoped RepoEntry census; the C-2 hunk; the zero-byte fences; the fabric census; the A8 / predicate / hook censuses** — the commit walk (first commit engine-only; no later engine path; no commit spans both sets); `c=0; python3 "$EVID/repoentry_census.py" src/cli src/core/pack src/core/scan src/core/open > "$EVID/H/repoentry-census.txt" || c=$?; printf 'repoentry_census_rc=%s\n' "$c" > "$EVID/H/repoentry-census.rc"; [ "$c" -eq 0 ] || STOP` (rc 0 = zero member writes on any RepoEntry-typed binding; its two controls re-run here on scratch copies); the C-2 hunk: the four lines from `auto manifest_json = manifest::serialize(manifest_model);` at H0 `cmp`-equal to a2f6fd1's; `git diff --stat "$B" HEAD -- src/core/manifest src/adapters harness/bivharness src/core/open/render.cpp` EMPTY; the eighteen-path fabric census recorded; the A8 census (every `facts.` occurrence inside `url_consent.cpp` on a line that also calls `consent_display(` — the line-level proxy; the per-occurrence census is m-3's review); `g=0; k=$(grep -c 'isatty(' src/cli/main.cpp) || g=$?; [ "$g" -eq 1 ] && [ "$k" -eq 0 ] || STOP` (one predicate); the hook install function's body carries no `json`, `offline` or `network` token.
+- [ ] **Step 2: veto 9; the type-scoped RepoEntry census; the C-2 hunk; the zero-byte fences; the fabric census; the A8 / predicate / hook censuses** — the commit walk (the first TWO commits engine-only at their exact path sets — c1a eligibility.{hpp,cpp}+test, c1b discover.cpp+test; V-2b-5 rev2: the scan.cpp diff carries no `".biv"` line; no later engine path; no commit spans both sets); `c=0; python3 "$EVID/repoentry_census.py" src/cli src/core/pack src/core/scan src/core/open > "$EVID/H/repoentry-census.txt" || c=$?; printf 'repoentry_census_rc=%s\n' "$c" > "$EVID/H/repoentry-census.rc"; [ "$c" -eq 0 ] || STOP` (rc 0 = zero member writes on any RepoEntry-typed binding; its two controls re-run here on scratch copies); the C-2 hunk: the four lines from `auto manifest_json = manifest::serialize(manifest_model);` at H0 `cmp`-equal to a2f6fd1's; `git diff --stat "$B" HEAD -- src/core/manifest src/adapters harness/bivharness src/core/open/render.cpp` EMPTY; the eighteen-path fabric census recorded; the A8 census (every `facts.` occurrence inside `url_consent.cpp` on a line that also calls `consent_display(` — the line-level proxy; the per-occurrence census is m-3's review); `g=0; k=$(grep -c 'isatty(' src/cli/main.cpp) || g=$?; [ "$g" -eq 1 ] && [ "$k" -eq 0 ] || STOP` (one predicate); the hook install function's body carries no `json`, `offline` or `network` token.
 - [ ] **Step 3: the macOS observation at H0** — build; the five `-r xml` producers → `tuples.py` → `H/tuples-macos.txt`; `cellgate.py "$EVID/B-cells.txt" macos "$EVID/H/tuples-macos.txt"` (rc 0 or 5 — MOVED rows are data); the skip set UNCHANGED (`q=0; python3 "$EVID/skipset.py" "$EVID/B-cells.txt" "$EVID/H/tuples-macos.txt" macos > "$EVID/H/skipset-macos.txt" || q=$?; [ "$q" -eq 0 ] || STOP`); the `harness-e2` row on macOS (`ctest --preset ci-macos -R '^harness-e2$'` rc 0 → `H/harness-e2-macos.rc`).
 - [ ] **Step 4: the Linux parity leg for H0 and B; E3 Linux; harness-e2 Linux; the population rule** — the pinned clang-tidy-22 mirror assets (manifest from the workflow bytes; `gh release download`; sha256 verified); the container (`linux-container.sh`, Phases R/T/S) at H0 then at B; receipts (payload rc 0; the four phase rcs; the suite aggregate; nofile soft == hard); `tuples.py linux` for both; `cellgate.py … linux` (data) and the Linux skip set UNCHANGED (STOP otherwise); E3 from the H0 `biv_tests-linux.xml` (`[E3]`-tagged cases all successful); the `harness-e2` row status from the H0 ctest junit (`H/harness-e2-linux.txt`, must be passed); `selftest_summary.py` on both junits → the populations; EQUAL → the single-sample bar exactly as the R-4.49 plan computed it (`rcL`; the failed names ⊆ the r435 family; the base draw valid; `bar=pass-green|pass-r435-disclosed-registered-red` required — `case "$bar" in pass-green|pass-r435-disclosed-registered-red) :;; *) STOP;; esac`); NOT EQUAL → the 015244 interleaved series: N = 10 per tree, ALTERNATING B/H0, one fresh container per draw, every draw reduced by `selftest_summary.py`, then `series_verdict.py` (K-1 membership categorical → K-2 count ≥ 5 → K-3 shift = mean delta ≥ 1.0 OR complete separation; per-draw validity; per-test frequencies) → `VERDICT NOT-SHIFTED` required (`if [ "$p" -ne 0 ]; then [ "$(cat "$EVID/H/selftest-series.rc")" = series_rc=0 ] || STOP; fi`); the deselection arm is NOT pre-authorized for this candidate.
 - [ ] **Step 5: the companion count-cell commit INSIDE the runner, then the FINAL H** — iff any `MOVED` row on either platform: `cellpatch.py "$EVID/B-workflow.yml" "$EVID/H/tuples-macos.txt" "$EVID/H/tuples-linux.txt" > .github/workflows/s2-harness.yml` (rewrites ONLY the moved `successes`/`skips` literals of the named binaries in the named target block — a changed skip set already STOPped above), `cells.py` on the result → `H/H-cells.txt`, `cellgate.py "$EVID/H/H-cells.txt" <target> <tuples>` rc 0 for BOTH targets, the c9 commit (`ci: pin case counts at H (macOS/Linux) -- m-3 count-cell companion`); else no commit and `H-cells.txt` = `B-cells.txt`; either way `[ "$(cat "$EVID/H/count-gate-final-macos.rc")" = count_gate_final_macos_rc=0 ] && [ "$(cat "$EVID/H/count-gate-final-linux.rc")" = count_gate_final_linux_rc=0 ] || STOP`. Then `H=$(git rev-parse HEAD) || STOP`; `d=0; git diff --stat "$H0" "$H" -- . ':!.github/workflows/s2-harness.yml' > "$EVID/H/H0-H.delta" || d=$?; [ "$d" -eq 0 ] && [ ! -s "$EVID/H/H0-H.delta" ] || STOP` (every H0 receipt carries to H); `count-gate-final-<target>.rc` = 0 both; `H.txt` written LAST; `H0.txt` beside it.
@@ -717,16 +833,19 @@ g=0; git grep -n 'GitCallClass::network' "$B" -- src > "$EVID/work/nc-B.raw" || 
 d=0; diff "$EVID/H/network-class-B.content" "$EVID/H/network-class-H0.content" > "$EVID/H/network-class.delta" || d=$?; [ "$d" -eq 0 ] || STOP
 a=0; nnc=$(awk 'END { print NR }' "$EVID/H/network-class-H0.content") || a=$?; [ "$a" -eq 0 ] && [ "$nnc" -eq 6 ] || STOP
 # Step 2 — veto 9; RepoEntry census (type-scoped) + controls; C-2 hunk; zero-byte fences; fabric census; A8 / predicate / hook censuses
-: > "$EVID/H/veto9.txt"; first=1
+: > "$EVID/H/veto9.txt"; k=0
 for c in $(git log --reverse --format=%H "$B..HEAD"); do
   git diff-tree --no-commit-id --name-only -r "$c" > "$EVID/work/paths-$c.txt" || STOP
   e=0; ne=$(grep -c -E '^src/core/repo/' "$EVID/work/paths-$c.txt") || e=$?; [ "$e" -le 1 ] || STOP
   s=0; ns=$(grep -c -E '^(src/cli|src/core/pack|src/core/scan|src/core/open)/' "$EVID/work/paths-$c.txt") || s=$?; [ "$s" -le 1 ] || STOP
-  if [ "$first" -eq 1 ]; then [ "$ne" -ge 1 ] && [ "$ns" -eq 0 ] || STOP; o=0; grep -v -E '^(src/core/repo/eligibility\.(hpp|cpp)|tests/test_repo_engine\.cpp)$' "$EVID/work/paths-$c.txt" > "$EVID/work/paths-$c.other" || o=$?; [ "$o" -eq 1 ] && [ ! -s "$EVID/work/paths-$c.other" ] || STOP; first=0; else [ "$ne" -eq 0 ] || STOP; fi
+  k=$((k+1))
+  if [ "$k" -eq 1 ]; then [ "$ne" -ge 1 ] && [ "$ns" -eq 0 ] || STOP; o=0; grep -v -E '^(src/core/repo/eligibility\.(hpp|cpp)|tests/test_repo_engine\.cpp)$' "$EVID/work/paths-$c.txt" > "$EVID/work/paths-$c.other" || o=$?; [ "$o" -eq 1 ] && [ ! -s "$EVID/work/paths-$c.other" ] || STOP; elif [ "$k" -eq 2 ]; then [ "$ne" -ge 1 ] && [ "$ns" -eq 0 ] || STOP; o=0; grep -v -E '^(src/core/repo/discover\.cpp|tests/test_repo_engine\.cpp)$' "$EVID/work/paths-$c.txt" > "$EVID/work/paths-$c.other" || o=$?; [ "$o" -eq 1 ] && [ ! -s "$EVID/work/paths-$c.other" ] || STOP; else [ "$ne" -eq 0 ] || STOP; fi
   [ "$ne" -eq 0 ] || [ "$ns" -eq 0 ] || STOP
   printf '%s engine=%s callsite=%s\n' "$c" "$ne" "$ns" >> "$EVID/H/veto9.txt"
 done
 [ -s "$EVID/H/veto9.txt" ] || STOP
+a=0; nk=$(awk 'END { print NR }' "$EVID/H/veto9.txt") || a=$?; [ "$a" -eq 0 ] && [ "$nk" -ge 2 ] || STOP
+b=0; git diff "$B" HEAD -- src/core/scan/scan.cpp > "$EVID/H/scan-diff.txt" || b=$?; [ "$b" -le 1 ] || STOP; n=0; nb=$(grep -c -F -- '".biv"' "$EVID/H/scan-diff.txt") || n=$?; [ "$n" -le 1 ] && [ "$nb" -eq 0 ] || STOP
 c=0; python3 "$EVID/repoentry_census.py" src/cli src/core/pack src/core/scan src/core/open > "$EVID/H/repoentry-census.txt" || c=$?; printf 'repoentry_census_rc=%s\n' "$c" > "$EVID/H/repoentry-census.rc"; [ "$c" -eq 0 ] || STOP
 m=0; rm -rf "$EVID/work/rc-mutant" "$EVID/work/rc-control" && mkdir -p "$EVID/work/rc-mutant" "$EVID/work/rc-control" && cp -R src/core/pack "$EVID/work/rc-mutant/" && cp -R src/core/pack "$EVID/work/rc-control/" || m=$?; [ "$m" -eq 0 ] || STOP
 printf '\nvoid __census_mutant(std::vector<biv::repo::RepoEntry>& entries) { entries[0].sha = "x"; }\n' >> "$EVID/work/rc-mutant/pack/pack.cpp" || STOP
@@ -956,7 +1075,7 @@ exit 0
 
 ## Acceptance criteria (each measured, none inferred)
 
-1. `git log --reverse B..H` reads c1 (engine only) first; no later commit touches `src/core/repo/`; no commit spans both sets (`H/veto9.txt`); `git diff H0 H -- . ':!.github/workflows/s2-harness.yml'` EMPTY (every H0 receipt carries to H).
+1. `git log --reverse B..H` reads c1a then c1b (engine only, each at its exact path set) first; no later commit touches `src/core/repo/`; `git diff B HEAD -- src/core/scan/scan.cpp` carries no `".biv"` line (V-2b-5 rev2); no commit spans both sets (`H/veto9.txt`); `git diff H0 H -- . ':!.github/workflows/s2-harness.yml'` EMPTY (every H0 receipt carries to H).
 2. E2 census non-empty; E5's grep at H0 equals E2's site set exactly; the network-class census CONTENT-identical to B's (six engine sites; line numbers may move); `invoke_git(` and every spawn primitive absent outside `src/core/repo`/`src/core/support`.
 3. Every FX leg named in the evidence matrix has a `legs/<id>.txt` receipt with `provenance=product-packed verdict=PASS`, or a line in `legs/registered.txt` naming its S-6 owner; the open-side legs' hand-built interim receipts are NOT cited by the packet.
 4. a8·1–a8·4 pass on all eleven rows; the A8 census shows every bound value wrapped exactly once; `render.cpp` diff EMPTY; the table header carries `Unicode 15.0.0` + both input digests + the generator digest, and regenerating from `tools/` reproduces it byte-for-byte.
@@ -971,7 +1090,7 @@ exit 0
 
 ## Out of scope (an act here is a STOP, not a judgement)
 
-Any `src/core/repo` byte beyond Task 1; any `src/core/manifest` byte; any `src/adapters` or `harness/bivharness` byte; any `render.cpp` byte; any summary-line or warnings-row emission for consent (S-4); any persistence of an approval; any address classification or safety wording; any new argv/env/config surface beyond the two flags; any envelope member, kind, exit row or wording the sealed texts and the owner cuts do not determine (T-JSON's member and T-KIND's bytes wait on their words); a pack-level FX-O arm; the PR undraft; the merge; the push of `main`; any release act.
+Any `src/core/repo` byte beyond Task 1's c1a/c1b; any byte of scan.cpp's `.biv` payload skip (V-2b-5 rev2; ADDENDUM-I unsealed, R-4.55); any `src/core/manifest` byte; any `src/adapters` or `harness/bivharness` byte; any `render.cpp` byte; any summary-line or warnings-row emission for consent (S-4); any persistence of an approval; any address classification or safety wording; any new argv/env/config surface beyond the two flags; any envelope member, kind, exit row or wording the sealed texts and the owner cuts do not determine (T-JSON's member and T-KIND's bytes wait on their words); a pack-level FX-O arm; the PR undraft; the merge; the push of `main`; any release act.
 
 ## Anti-half-fix guards
 
@@ -2034,6 +2153,7 @@ exit "$suite_aggregate_rc"
 
 ## Revision history
 
+- rev4 (2026-09-16): folds m-1's fence rev2 (`master/relays/intg-2b-wiring-act/DESIGN-planner-20260915-171041.md`, approved by m-1.implementer `044559` at pdc `631aae82` — master 051652): c1 becomes TWO engine commits at the head of history — c1a (the offline mode placed AFTER the unborn/shallow return, binding the born non-shallow lane only; R-4.1 arm (i) scoped to the git-aware promisor lane) and c1b (`discover.cpp`'s `.biv` discovery skip root-scoped; nested `.biv` walked; `.git` dirs and symlinks unwalked; marker test unchanged) — veto 9 mechanical over both; the PACK (COND-6 no-network) and OPEN (N-R4 parity, `restore_entry` never called under `--offline`) receipts as separate evidence rows RCPT-P / E4+RCPT-O; witnesses W-O1..3 and W-D1..4 in `tests/test_repo_engine.cpp` and re-executed at Task 7's product scope (W-D3's provenance half and W-D4's negative-membership status per 044559); V-2b-5 rev2 — `scan.cpp`'s any-depth `.biv` payload skip stays AS LANDED (a runner gate); T-PROM scoped. The plan-4 carrier floats DESIGN_SOURCE_COMMIT to `631aae82…` (the M edge measured PASS by `xroot_authority` at that tree). No other section changes; the A9 terms stay contingent on the LOCK id (rev2 `40eaea22` passed its pair gate on the merits; the binding re-file is pending).
 - rev3 (2026-09-15): folds the implementer's exact-hash MUST-REVISE of rev2 (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260915-140509.md`, MUST-2B-01..11 — the dispositions are the R5 table in RECONCILE.md and the PLAN relay): the typed `engine_error_kind` accessor at both consuming boundaries with controls (01); the stage keeps the manifest-relative namespace, a real bundle + both patch classes restore, offline rows stated as three branches (02); `machine_text` on every A8 machine carrier with the malformed-replacement oracle, whole-byte-golden renderer tests (03); HOLD-before-bytes contingent terms, T-LIST added, no vocabulary alternatives (04); file lists, raw-core vs rendered-CLI test boundaries, no invented schema enum (05); `plan_blocks.py` lists two-digit tasks, prose gate spans bind every runner, `set -o pipefail` + `PIPEOK` + runner controls, the type-scoped RepoEntry census with controls, network class compared by content, closure greps, the C-2 hunk `cmp`, the A8/predicate/hook censuses executed (06); c9 inside the Task 9 runner with H written LAST and the H0→H delta proof (07); both-target harness receipts, the single-sample bar on the equal-population branch, the exact 015244 reducer with NOT-SHIFTED required (08); the exact owner set with distinct paths and ONE pinned push URL (09); the pinned instrument digest literal, `census_population.sh` producing the population on H0, H0 as history ref, classify-then-freeze in Task 11 (10); the canonical cross-repo design edge declared on the PLAN carrier and measured root-mode (11 — the measured fired set is reported on the carrier and UP).
 - rev2 (2026-09-15, same day, BEFORE any review verdict): folds m-3.implementer's MUST-REVISE of Addendum 9 rev1 (132531) — T-KIND names A9 and its lock; the detail template is rendered ONCE with encoded `<path>`/`<reason>` and RAW `error.path` (MUST-A9-1); T-HELP follows A9's revised, adjacency-preserving placement (MUST-A9-2); NEW T-LIST: list/info ignore trailing tokens at the pin (MUST-A9-3); the A9 renderers live in url_consent.cpp; `consent_display` is one consent-local encoder. rev1 was filed 134403 without reading 132531 — a re-sweep miss, disclosed.
 - rev1 (2026-09-15): the opening plan for sub-step 2b under the three pre-token gates (m-4 035001; m-1 042531 + master 043301; m-3 130818 + master 131404), master's Q1/Q5/Q6 ruling (041518) and the RECONCILE R4 corrections; filed for the implementer's exact-hash review.
