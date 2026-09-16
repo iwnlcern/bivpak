@@ -106,3 +106,13 @@ Row CLOSED; surviving and binding: the release-checklist clause (first checklist
 - **RULED words carried in-plan** (no lock): Q11 (074712 §1; R-4.57 registered, owner m-1 — dirty/nested/submodule retire with Arms 2/3/4 by addendum), Q10 (074712 §2), Q13 apply half (074712 §2; grounded on sealed §1.2/§2.3/§2.6/D, not ADDENDUM-I — R-4.55), Q14 (m-3 §6), Q12 (A9 rev2, at lock).
 - **R-4.58:** an overlay row's `local-refs.bundle` is NOT extracted under `open --offline`; m-1's addendum question; the pair does NOT add it.
 - **Standing rule, second half** (m-3's adoption, master concurs): a PHASE DESIGN relay carries DESIGN_DOC_ID + DESIGN_RECORD_KIND only as the design origin routed for review.
+
+## Bound 2026-09-16 by master's receipt of the rev6 routings (`intg-2b-wiring-act/PLAN-master-planner-20260916-090904.md`, pdc 801569d6; asks `090855` → m-3, `090900` → m-1)
+
+- **Standing:** rev7 (docs `19460b2`, sha `48a59462…`) files as `intg-substep2b-plan-7` only when MUST-2B-16, MUST-2B-17 and m-1's engine-fact word land; a task-changing word folds first; no token; the five prior gates stand.
+- **MUST-2B-15** closes at A10 rev4 §A10.6 under m-3.implementer's review; c4b is planned from the LOCKED A10 revision.
+- **MUST-2B-16** (unborn full row's reconstruct) → m-3: A10 rev5 owes an unborn form or the fallback for that class, with empty/absent and non-empty witnesses.
+- **MUST-2B-17** → m-3 (the envelope ruling: change the result-null-iff-error invariant with a typed carrier / keep it and carry §2.1's inventory in `error.facts` / other) + m-1 (the `execute_open` seam); confirmed by master at `open.hpp:79`, `main.cpp:353-356`, `envelope.cpp:541-543`. Interim rule: c6b keeps the failed row in memory and the error as today; NO envelope byte for that case; rows are never stringified into facts.
+- **The D3 engine facts** (INVOKES-GIT, ARTIFACT-PRESENT) → m-1: either exposed without an engine byte (a named field/predicate + the sealed clause making it the engine's fact) or a THIRD engine diff — which is NEVER an in-lane edit: the vehicle is m-1's fence rev3 + the reviewer's binding approve + one more `DESIGN_SOURCE_COMMIT` re-pin on the plan carrier. T-NET HOLDS on that word; rev6's manifest-derivation sentence stays withdrawn.
+- **A10 drift accepted** (rev3 `d3a2da80` at ef4ae52d dead unreviewed; rev4 `718fd6ec` at HEAD); the terms bind at the lock and re-verify against the locked pin before any byte.
+- **Transport:** m-3.implementer's E-VERSION-MISMATCH is the Codex plugin-cache client vs the Claude plugin-cache daemon identity; the remedy is in master's m-3 relay; this seat's submits are unaffected.
