@@ -125,3 +125,10 @@ Row CLOSED; surviving and binding: the release-checklist clause (first checklist
 - **MUST-2B-16/17 CLOSED** at A10 rev5/rev6 and A11 rev5 respectively (binding at their locks); the failure inventory is the orchestrator's byte; the envelope invariant stays.
 - **A9 rev2 is binding** (134001) and carried to the Master Reviewer; c3h/c6a bind at its lock.
 - **m-3's fence origin of record is 134813** (A6 design-id; 130818 is history).
+
+## Bound 2026-09-16 by master's A9 release (`intg-2b-wiring-act/PLAN-master-planner-20260916-170242.md`, pdc 4636fcef)
+
+- **A9 is SEALED:** `m3-addendum-9-40eaea22-lock-20260916` — pre-stamp pin `40eaea22…` @ pdc `c2f7a6c7` (Domain Reviewer binding 134001; Master Reviewer approve-for-owner-lock 141334), post-stamp `ae272647…`; both re-hashed at this seat and equal; ARCHITECTURE row line 46. **c3h and c6a are RELEASED** at this lock. The pair Planner writes `$RUNNERS/m3-addendum-9-lock.txt` and `$RUNNERS/m3-help-order.txt` at Task 0 from the locked file.
+- **Boundaries on the stamp (binding):** A10.6's supersession of A9.4's bundle line takes effect only on A10's OWN lock — A9.4's D4 header/row bytes are the golden until then and no bundle line is planned from A9; A9 relabels no sealed shallow / payload-only outcome; the 29-row witness is A9's replacement-stage result; all eleven A9 legs and mutants are owed at implementation; process green is not product-test green.
+- **The M origin is fence rev4 `161701`** (git-capable partition wording; c1c mechanism unchanged; W-G3 narrowed; W-G1c/W-G1n added); its binding approve asked of m-1.implementer (170247; its rev3 must-revise 140251 is a hand-carried draft — R-4.60 transport fault, remedy repeated). On the approve master names the sha and the plan carrier re-pins once more.
+- **HOLD rev7** (working ``, sha `356747b2c76df21c…`) until the rev4 approve + sha; A10 rev6 and A11 rev5 at m-3.implementer.
