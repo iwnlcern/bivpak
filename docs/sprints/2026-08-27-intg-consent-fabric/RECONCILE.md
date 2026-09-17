@@ -165,3 +165,14 @@ Verdict: MUST-REVISE on four executable contradictions; one is the planner's and
 | MUST-2B-17 | master's ruling (b) via 135413; A11 rev5 `33c69913` OPEN INVARIANT (m-3 140044/140045) | CLOSED: the result-null-iff-error invariant KEPT; the orchestrator writes `<target>.bvpk-open.partial/inventory.json` (rows, the failing row with kind + detail, the outcome, §2.2 order); `facts.partial_path` + `facts.repo_id`; no `result.repos` on failure; `execute_open`'s signature untouched (a fourth engine diff no fence authorizes); c6b's leg (h) rewritten; leg (m) the three carriers (A11 rev4) |
 | m-3 fence origin | `134813` approved binding 135230 (130818 history; §4 retired → A9.4 / A10.6) | the owner-fences line reads 134813 for the CLI half |
 | The M edge | fence rev3 is the new unique-latest origin — the declared edge fires until its approve; master names the sha then | identity ENGINE FENCE line; the plan-7 carrier re-pins once more; one root sweep after filing |
+
+## R12 — plan rev7 FILED on master's 010159 (2026-09-17 01:22; `intg-substep2b/PLAN-pair-planner-20260917-012204.md`, `intg-substep2b-plan-7`)
+
+| Item | Evidence checked | Rev7 (`a603108`, sha `03819d1f…`) |
+|---|---|---|
+| The M edge | pin `a1ce40a9` = m-1.planner's route of the approve; `…-m1-fence-review-r4/DESIGN-REVIEW-implementer-20260916-171135.md` present at the pin; 73 M-doc carriers, latest DESIGN origin 161701, unique-latest parented approve 171135; `xroot_authority` PASS at a1ce40a9 (must-be-YES) and FIRES `ordering` at 4636fcef / 74810810 (must-be-NO); the M blob 57d89625 at the pin | `DESIGN_SOURCE_COMMIT: a1ce40a9…` on the carrier; one root sweep started 01:22:04 with the filed carrier in scope |
+| MUST-2B-14 | 085404 | c3 / c3h split; ONE topology |
+| fence rev4 (c1c) | 161701 §1–§2; 171135; erratum 171446 (27 returns — re-run here: 27) | c1c RELEASED (gate file `$RUNNERS/m1-fence-rev4.txt` = approve path + pin + fence sha `cf3190ab…`); the git-capable wording; W-G1/G1c/G1n/G2/G3; the count rule (the grep at the candidate head) |
+| A9 | sealed (170242; 165214) | c3h / c6a released terms; the VP boundaries transcribed |
+| A10 rev6 / A11 rev5 | 17fda846 / 33c69913 unchanged at HEAD | contingent on their locks; MUST-2B-15/16/17 closed by owners; the failure inventory distinct from §2.3's quarantine inventory; `execute_open` untouched |
+| Order | 010159 | c1a c1b c1c c2 c3 c4a c5 → c3h c6a → c4b c6b (lock order) → c7 c8 c9 |

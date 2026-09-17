@@ -132,3 +132,10 @@ Row CLOSED; surviving and binding: the release-checklist clause (first checklist
 - **Boundaries on the stamp (binding):** A10.6's supersession of A9.4's bundle line takes effect only on A10's OWN lock — A9.4's D4 header/row bytes are the golden until then and no bundle line is planned from A9; A9 relabels no sealed shallow / payload-only outcome; the 29-row witness is A9's replacement-stage result; all eleven A9 legs and mutants are owed at implementation; process green is not product-test green.
 - **The M origin is fence rev4 `161701`** (git-capable partition wording; c1c mechanism unchanged; W-G3 narrowed; W-G1c/W-G1n added); its binding approve asked of m-1.implementer (170247; its rev3 must-revise 140251 is a hand-carried draft — R-4.60 transport fault, remedy repeated). On the approve master names the sha and the plan carrier re-pins once more.
 - **HOLD rev7** (working `ff071bf`, sha `509e1eca7bb4ff16…`) until the rev4 approve + sha; A10 rev6 and A11 rev5 at m-3.implementer.
+
+## Bound 2026-09-17 by master's pin (`intg-2b-wiring-act/PLAN-master-planner-20260917-010159.md`, pdc 990d7bd7)
+
+- **The pin:** `DESIGN_SOURCE_COMMIT: a1ce40a930b5fd01d905e8295c3a9e581455a1c7` on the plan-7 carrier (the third re-pin); the fence of record is m-1 rev4 `161701` + approve `171135`; T-NET RELEASES on it.
+- **The W-G3 count rule (m-1's erratum, adopted):** the acceptance count of `return`s in `restore_entry` is the grep's output at the candidate head, recorded beside the sites — never a number carried from a relay (27 at 186adf7d, re-run here).
+- **The MUST-2B-17 seam is closed by both owners:** the orchestrator writes `<target>.bvpk-partial/inventory.json` on failed-mid-apply; it lives and dies with the partial and is distinct from §2.3's quarantine inventory of a succeeded apply; `execute_open`'s signature does not move at 2b.
+- **Order:** rev7 → the implementer's exact-hash approve → the pair's token for the unconditional prefix `c1a c1b c1c c2 c3 c4a c5`; then c3h / c6a (A9 sealed); then c4b / c6b in lock order (A10 rev6 re-approve + VP; A11 rev5 review + VP); then c7–c9.
