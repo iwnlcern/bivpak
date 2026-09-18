@@ -176,3 +176,14 @@ Verdict: MUST-REVISE on four executable contradictions; one is the planner's and
 | A9 | sealed (170242; 165214) | c3h / c6a released terms; the VP boundaries transcribed |
 | A10 rev6 / A11 rev5 | 17fda846 / 33c69913 unchanged at HEAD | contingent on their locks; MUST-2B-15/16/17 closed by owners; the failure inventory distinct from §2.3's quarantine inventory; `execute_open` untouched |
 | Order | 010159 | c1a c1b c1c c2 c3 c4a c5 → c3h c6a → c4b c6b (lock order) → c7 c8 c9 |
+
+## R13 — rev7 exact-hash review reconciliation + rev8 FILED (2026-09-17/18; review `intg-substep2b/PLAN-REVIEW-pair-implementer-20260917-025941.md`; relay `intg-substep2b/PLAN-pair-planner-20260918-140706.md`, `intg-substep2b-plan-8`)
+
+| Finding | Reviewer's claim | Checked at | Verdict | Rev8 (`7bc661f`, sha `baf70d5d…`) |
+|---|---|---|---|---|
+| MUST-2B-18 | c3's steps still carried help-line / golden bytes double-assigned with c3h | rev7 Task 3 Steps 1–5 vs Steps 6–8 | agree | c3 carries NO help/golden byte: Step 1(ii) = unchanged-golden control; Step 3 `help_text` UNTOUCHED; the c3 commit block greps the `args.cpp` + `test_cli.cpp` diff for help/golden hunks and STOPs on any; c3h alone carries both |
+| MUST-2B-19 | T-STAGE / Task 4 carried A10's superseded double-quoted two-form reconstruct text, not rev6's | A10 rev6 §A10.6 + §A10.4 (j)–(m) at `17fda846` | agree | one single-quoted POSIX-sh idiom per stored HEAD state (born / unborn / detached), `git clone` for no row, copy-safe predicate + fallback line, legs (j)(k)(l)(m) verbatim; MUST-2B-15/16 now closed IN the plan |
+| MUST-2B-20 | lock baselines named stale revisions | RULE; Task 4 Step 0; Task 6b title + Step 0 | agree | baselined on A10 rev6 `17fda846` / A11 rev5 `33c69913` / A9 rev2 LOCKED; a differing locked byte = a new hash-bound revision |
+| MUST-2B-21 | the plan named `<target>.bvpk-open.partial` while A11 rev5 + 010159 name `<target>.bvpk-partial`; STEP4 DR-2 records the collision | A11 rev5 line 82; `open.cpp:637` at B; DR-2 line 52 | agree — an owner decision, not the pair's | HOLD term T-PARTIAL keyed on `partial_suffix=` in A11's lock file; no c6b byte names a suffix; ROUTED to master → m-1 / m-3 by SITREP `intg-substep2b/SITREP-pair-planner-20260918-141053.md` with both options pre-wired ((A) A11 adopts the landed spelling per DR-2; (B) `open.cpp:637` changes under c6b as an m-1-authorized byte → rev9) |
+| The M edge | — | `a1ce40a9` byte-identical to plan-7's | unchanged | not re-swept for rev8 (the 2026-09-17 sweep fired nothing on the rev7 carrier); disclosed in the relay |
+| Runner proofs | — | Task 0 / 1 / 4 / 6b extracts | 3/13/4/2, rc=0 ×4 | unchanged |
