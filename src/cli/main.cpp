@@ -15,6 +15,8 @@
 #include <unistd.h>
 
 #include "cli/args.hpp"
+#include "cli/url_consent.hpp"
+#include "core/repo/git_exec.hpp"
 #include "core/pack/pack.hpp"
 #include "core/open/render.hpp"
 #include "core/open/sessions.hpp"
@@ -26,6 +28,57 @@
 namespace {
 
 namespace fs = std::filesystem;
+
+struct ConsentRun {
+  biv::repo::UrlDivergenceRun run;
+};
+
+ConsentRun install_url_divergence_hook(const biv::cli::Command& parsed) {
+  ConsentRun consent;
+  auto facts_of = [](const biv::repo::UrlDivergence& d) {
+    return biv::cli::UrlDivergenceFacts{.op = d.operation,
+                                      .repo = d.repo.generic_string(),
+                                      .requested = d.requested,
+                                      .effective = d.effective};
+  };
+  auto notice = [facts_of](const biv::repo::UrlDivergence& d) {
+    std::cerr << biv::cli::render_accepted_notice(facts_of(d)) << std::flush;
+  };
+  if (parsed.accept_url_divergence) {
+    consent.run.hook = [notice](const biv::repo::UrlDivergence& d) {
+      notice(d);
+      return biv::repo::UrlDivergenceDecision::proceed;
+    };
+  } else if (biv::cli::interactive_url_hook_installable()) {
+    consent.run.hook = [facts_of, notice](const biv::repo::UrlDivergence& d) {
+      const bool yes = biv::cli::prompt_url_divergence(facts_of(d), std::cin, std::cerr);
+      if (yes) notice(d);
+      return yes ? biv::repo::UrlDivergenceDecision::proceed
+                 : biv::repo::UrlDivergenceDecision::refuse;
+    };
+  }
+  return consent;
+}
+
+void emit_entry_refusals(const std::vector<biv::UrlDivergenceEntryRefusal>& refusals,
+                         std::ostream& err) {
+  for (const auto& row : refusals) {
+    err << biv::cli::render_entry_refusal_line(
+        row.relpath, {.op = row.op, .repo = row.relpath,
+                      .requested = row.requested, .effective = row.effective});
+  }
+  if (!refusals.empty()) {
+    err << biv::cli::render_run_guidance_line(refusals.size()) << std::flush;
+  }
+}
+
+void record_accepted(const ConsentRun& consent,
+                     std::vector<biv::UrlDivergenceAcceptedEntry>& accepted) {
+  for (const auto& d : consent.run.accepted) {
+    accepted.push_back({.requested = d.requested, .effective = d.effective,
+                        .op = d.operation, .repo = d.repo.generic_string()});
+  }
+}
 
 int emit_error(std::string_view verb, const biv::BivError& error, bool json) {
   const int exit_code = biv::report::exit_for_error(error.kind);
@@ -65,7 +118,7 @@ std::filesystem::path default_dest_for(const std::filesystem::path& image) {
 std::optional<std::string> render_collision_prompt(
     const biv::open::OpenOptions& options, bool json) {
   if (json || options.collision != biv::open::Collision::refuse ||
-      ::isatty(STDIN_FILENO) == 0 || ::isatty(STDERR_FILENO) == 0) {
+      !biv::cli::interactive_url_hook_installable()) {
     return std::nullopt;
   }
   const auto dest = options.dest.value_or(default_dest_for(options.image)).lexically_normal();
@@ -211,9 +264,34 @@ int main(int argc, char** argv) {
 
     switch (parsed->verb) {
       case biv::cli::Verb::pack: {
-        auto report = biv::pack::pack(parsed->pack_dir);
+        SigpipeBlockGuard sigpipe_guard;
+        if (!sigpipe_guard.ready()) {
+          return emit_error("pack", biv::BivError{.kind = biv::ErrKind::InternalError,
+                            .detail = "consent-surface-write-failed"}, parsed->json);
+        }
+        auto consent = install_url_divergence_hook(*parsed);
+        auto report = [&] {
+          biv::repo::ScopedUrlDivergenceRun scoped{consent.run};
+          return biv::pack::pack(parsed->pack_dir);
+        }();
+        if (!std::cerr.good()) {
+          return emit_error("pack", biv::BivError{.kind = biv::ErrKind::InternalError,
+                            .detail = "consent-surface-write-failed"}, parsed->json);
+        }
         if (!report) {
+          auto& error = report.error();
+          if (error.kind == biv::ErrKind::UrlDivergenceRefused) {
+            error.detail = biv::cli::render_pack_refusal_detail(
+                {.op = error.facts.at("op"), .repo = error.path,
+                 .requested = error.facts.at("requested"),
+                 .effective = error.facts.at("effective")});
+          }
           return emit_error("pack", report.error(), parsed->json);
+        }
+        record_accepted(consent, report->url_divergence_accepted);
+        if (!sigpipe_guard.drain_if_ours_and_restore_for_success()) {
+          return emit_error("pack", biv::BivError{.kind = biv::ErrKind::InternalError,
+                            .detail = "consent-surface-write-failed"}, parsed->json);
         }
         const int exit_code = biv::report::exit_for_warnings(!report->warnings.empty());
         if (parsed->json) {
@@ -274,7 +352,7 @@ int main(int argc, char** argv) {
         const auto collision_prompt = render_collision_prompt(parsed->open_options, parsed->json);
         const bool prompt_requested = preview->any_sessions() &&
                                       !consent_specified(parsed->consent) && !parsed->json &&
-                                      ::isatty(STDIN_FILENO) != 0 && ::isatty(STDERR_FILENO) != 0;
+                                      biv::cli::interactive_url_hook_installable();
         const auto consent_prompt =
             prompt_requested
                 ? std::optional<std::string>{biv::open_render::render_prompt_b(*preview, manifest)}
@@ -350,10 +428,24 @@ int main(int argc, char** argv) {
                                           .detail = "consent-surface-write-failed"},
                             parsed->json);
         }
-        auto report = biv::open::execute_open(std::move(*plan),
-                                              biv::open::OpenDecisions{.collision = parsed->open_options.collision});
+        auto url_consent = install_url_divergence_hook(*parsed);
+        auto report = [&] {
+          biv::repo::ScopedUrlDivergenceRun scoped{url_consent.run};
+          return biv::open::execute_open(std::move(*plan),
+                                        biv::open::OpenDecisions{.collision = parsed->open_options.collision});
+        }();
+        if (!std::cerr.good()) {
+          return emit_error("open", biv::BivError{.kind = biv::ErrKind::InternalError,
+                            .detail = "consent-surface-write-failed"}, parsed->json);
+        }
         if (!report) {
           return emit_error("open", report.error(), parsed->json);
+        }
+        record_accepted(url_consent, report->url_divergence_accepted);
+        emit_entry_refusals(report->url_divergence_refusals, std::cerr);
+        if (!std::cerr.good()) {
+          return emit_error("open", biv::BivError{.kind = biv::ErrKind::InternalError,
+                            .detail = "consent-surface-write-failed"}, parsed->json);
         }
         auto sessions = biv::core_sessions::run_session_leg(*preview, consent, manifest,
                                                              std::filesystem::path{report->output_dir}, reader);

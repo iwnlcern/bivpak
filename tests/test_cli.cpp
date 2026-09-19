@@ -24,6 +24,7 @@
 #include <simdjson.h>
 
 #include "cli/args.hpp"
+#include "cli_run.hpp"
 #include "cli/url_consent.hpp"
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
@@ -34,14 +35,13 @@
 
 // The parser otherwise belongs only to the CLI executable target.
 #include "../src/cli/args.cpp"
+// Exercise the actual CLI hook installer without adding a product test API.
+#define main biv_cli_main_for_tests
+#include "../src/cli/main.cpp"
+#undef main
 
 namespace {
 
-struct RunResult {
-  int code{0};
-  std::string out;
-  std::string err;
-};
 
 std::filesystem::path make_tmp(std::string_view name) {
   auto base = std::filesystem::temp_directory_path() /
@@ -57,11 +57,6 @@ void write_file(const std::filesystem::path& path, std::string_view content) {
   out << content;
 }
 
-std::string read_text(const std::filesystem::path& path) {
-  std::ifstream in{path, std::ios::binary};
-  REQUIRE(in);
-  return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
-}
 
 std::vector<std::byte> bytes(std::string_view text) {
   std::vector<std::byte> out(text.size());
@@ -214,81 +209,6 @@ std::filesystem::path make_slice_e_consumer_image(
   return image;
 }
 
-RunResult run_cmd(const std::string& args, const std::filesystem::path& cwd) {
-  const auto out = cwd / "stdout.txt";
-  const auto err = cwd / "stderr.txt";
-  const std::string command = "cd '" + cwd.string() + "' && '" + std::string{BIV_BINARY_PATH} + "' " + args +
-                              " >'" + out.string() + "' 2>'" + err.string() + "'";
-  const int rc = std::system(command.c_str());
-  int code = rc;
-  if (WIFEXITED(rc)) {
-    code = WEXITSTATUS(rc);
-  }
-  return RunResult{.code = code, .out = read_text(out), .err = read_text(err)};
-}
-
-RunResult run_cmd_pty(const std::string& args, const std::filesystem::path& cwd,
-                      std::string_view input) {
-  const int master = ::posix_openpt(O_RDWR | O_NOCTTY);
-  REQUIRE(master >= 0);
-  REQUIRE(::grantpt(master) == 0);
-  REQUIRE(::unlockpt(master) == 0);
-  const char* const slave_name = ::ptsname(master);
-  REQUIRE(slave_name != nullptr);
-  const pid_t child = ::fork();
-  REQUIRE(child >= 0);
-  if (child == 0) {
-    const int slave = ::open(slave_name, O_RDWR);
-    if (slave < 0 || ::dup2(slave, STDIN_FILENO) < 0 || ::dup2(slave, STDOUT_FILENO) < 0 ||
-        ::dup2(slave, STDERR_FILENO) < 0 || ::chdir(cwd.c_str()) != 0) {
-      _exit(127);
-    }
-    (void)::close(slave);
-    (void)::close(master);
-    const std::string command = "exec '" + std::string{BIV_BINARY_PATH} + "' " + args;
-    ::execl("/bin/sh", "sh", "-c", command.c_str(), nullptr);
-    _exit(127);
-  }
-  REQUIRE(::write(master, input.data(), input.size()) == static_cast<ssize_t>(input.size()));
-  std::string output;
-  std::array<char, 4096> buffer{};
-  while (true) {
-    const ssize_t count = ::read(master, buffer.data(), buffer.size());
-    if (count > 0) {
-      output.append(buffer.data(), static_cast<size_t>(count));
-      continue;
-    }
-    if (count < 0 && errno == EINTR) {
-      continue;
-    }
-    if (count < 0 && errno == EIO) {
-      break;
-    }
-    REQUIRE(count == 0);
-    break;
-  }
-  REQUIRE(::close(master) == 0);
-  int status = 0;
-  while (::waitpid(child, &status, 0) < 0) {
-    REQUIRE(errno == EINTR);
-  }
-  REQUIRE(WIFEXITED(status));
-  return {.code = WEXITSTATUS(status), .out = output, .err = output};
-}
-
-RunResult run_cmd_closed_stderr(const std::string& args,
-                                const std::filesystem::path& cwd) {
-  const auto out = cwd / "stdout.txt";
-  const std::string command =
-      "cd '" + cwd.string() + "' && '" + std::string{BIV_BINARY_PATH} +
-      "' " + args + " >'" + out.string() + "' 2>&-";
-  const int rc = std::system(command.c_str());
-  int code = rc;
-  if (WIFEXITED(rc)) {
-    code = WEXITSTATUS(rc);
-  }
-  return RunResult{.code = code, .out = read_text(out), .err = ""};
-}
 
 std::string snapshot_metadata(const std::filesystem::path& path) {
   struct stat status{};
@@ -2174,4 +2094,137 @@ TEST_CASE(
       claude_probe, process_root / "bin" / "claude"));
   }
   std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c3 offline and network flags parse only for their supported verbs", "[cli-flags]") {
+  for (const std::string verb : {"pack", "open"}) {
+    std::vector<std::string> words{"biv", verb, "--offline", "source"};
+    std::vector<char*> argv;
+    for (auto& word : words) argv.push_back(word.data());
+    const auto parsed = biv::cli::parse_args(argv);
+    INFO(verb);
+    INFO((parsed ? "parsed" : parsed.error().detail));
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->offline);
+    CHECK_FALSE(parsed->network);
+  }
+  char prog[] = "biv", verb[] = "open", flag[] = "--network", image[] = "image.bvpk";
+  char* argv[] = {prog, verb, flag, image};
+  const auto parsed = biv::cli::parse_args(argv);
+  REQUIRE(parsed.has_value());
+  CHECK(parsed->network);
+  CHECK_FALSE(parsed->offline);
+}
+
+TEST_CASE("c3 conflicting flags and pack network are usage errors", "[cli-flags]") {
+  const auto root = make_tmp("c3-conflicting-flags");
+  for (const std::string flags : {"--offline --network", "--network --offline"}) {
+    const auto result = run_cmd("open " + flags + " missing.bvpk --json", root);
+    CHECK(result.code == 5);
+    simdjson::dom::parser parser;
+    simdjson::dom::element document;
+    REQUIRE(parser.parse(result.out).get(document) == simdjson::SUCCESS);
+    std::string_view kind, detail;
+    REQUIRE(document["error"]["kind"].get(kind) == simdjson::SUCCESS);
+    REQUIRE(document["error"]["detail"].get(detail) == simdjson::SUCCESS);
+    CHECK(kind == "UsageError");
+    CHECK(detail == "conflicting-flags");
+    CHECK(result.err.empty());
+  }
+  const auto pack = run_cmd("pack --network source", root);
+  CHECK(pack.code == 5);
+  CHECK(pack.out.empty());
+  CHECK(pack.err == "biv: UsageError: unknown-flag\n");
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c3 list and info ignore offline and network with exact stream parity", "[cli-flags]") {
+  const auto root = make_tmp("c3-stub-flags");
+  for (const std::string verb : {"list", "info"}) {
+    for (const std::string json : {"", " --json"}) {
+      const auto baseline = run_cmd(verb + json, root);
+      for (const std::string flag : {" --offline", " --network"}) {
+        const auto result = run_cmd(verb + flag + json, root);
+        CHECK(result.code == baseline.code);
+        CHECK(result.out == baseline.out);
+        CHECK(result.err == baseline.err);
+      }
+    }
+  }
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c3 split PTY captures distinct streams and child TTY facts", "[cli-flags][cli-pty]") {
+  const auto root = make_tmp("c3-split-pty");
+  const std::string command = "sh -c 'test -t 0; echo $?; test -t 1; echo $?; test -t 2; echo $?'";
+  const auto split = run_shell_pty_topology(command, root, "", true);
+  CHECK(split.code == 0);
+  CHECK(split.out == "0\n1\n0\n");
+  CHECK(split.err.empty());
+  CHECK(split.stdin_tty);
+  CHECK_FALSE(split.stdout_tty);
+  CHECK(split.stderr_tty);
+  const auto merged = run_shell_pty_topology(command, root, "", false);
+  CHECK(merged.code == 0);
+  CHECK(merged.out.empty());
+  CHECK(merged.err == "0\r\n0\r\n0\r\n");
+  CHECK(merged.stdin_tty);
+  CHECK(merged.stdout_tty);
+  CHECK(merged.stderr_tty);
+  const auto separated = run_shell_pty_topology("printf stdout; printf stderr >&2", root, "", true);
+  CHECK(separated.out == "stdout");
+  CHECK(separated.err == "stderr");
+  const auto cli = run_cmd_pty_split("open --help", root, "");
+  CHECK(cli.code == 0);
+  CHECK(cli.out == run_cmd("open --help", root).out);
+  CHECK(cli.err.empty());
+  CHECK(cli.stdin_tty);
+  CHECK_FALSE(cli.stdout_tty);
+  CHECK(cli.stderr_tty);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c3 hook installer obeys preapproval and absent noninteractive hook", "[cli-flags][cli-hook]") {
+  REQUIRE_FALSE(biv::cli::interactive_url_hook_installable());
+  biv::cli::Command parsed;
+  CHECK_FALSE(install_url_divergence_hook(parsed).run.hook);
+  parsed.json = true;
+  parsed.offline = true;
+  CHECK_FALSE(install_url_divergence_hook(parsed).run.hook);
+  parsed.offline = false;
+  parsed.network = true;
+  CHECK_FALSE(install_url_divergence_hook(parsed).run.hook);
+  parsed.accept_url_divergence = true;
+  auto consent = install_url_divergence_hook(parsed);
+  REQUIRE(consent.run.hook);
+  std::ostringstream captured;
+  struct RestoreBuffer {
+    std::streambuf* previous;
+    ~RestoreBuffer() { std::cerr.rdbuf(previous); }
+  } restore{std::cerr.rdbuf(captured.rdbuf())};
+  CHECK(consent.run.hook({"https://req", "https://eff", "fetch", "/w/repo"}) ==
+        biv::repo::UrlDivergenceDecision::proceed);
+  CHECK(captured.str() ==
+        "  fetch: contacting https://eff for /w/repo (requested: https://req — accepted for this run)\n");
+}
+
+TEST_CASE("c3 refusal writer preserves entry order and emits one run guidance", "[cli-flags][cli-hook]") {
+  std::ostringstream err;
+  emit_entry_refusals({}, err);
+  CHECK(err.str().empty());
+  emit_entry_refusals({{"repo-z", "z/file", "https://q1", "https://e1", "fetch"},
+                       {"repo-a", "a/file", "https://q2", "https://e2", "clone"}}, err);
+  CHECK(err.str() ==
+        "  z/file: restore failed — fetch would contact https://e1 instead of the requested https://q1; approval was not given.\n"
+        "  a/file: restore failed — clone would contact https://e2 instead of the requested https://q2; approval was not given.\n"
+        "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
+  ConsentRun consent;
+  consent.run.accepted.push_back({"https://q", "https://e", "fetch", "/w/repo"});
+  std::vector<biv::UrlDivergenceAcceptedEntry> accepted;
+  record_accepted(consent, accepted);
+  REQUIRE(accepted.size() == 1);
+  CHECK(accepted[0].requested == "https://q");
+  CHECK(accepted[0].effective == "https://e");
+  CHECK(accepted[0].op == "fetch");
+  CHECK(accepted[0].repo == "/w/repo");
 }

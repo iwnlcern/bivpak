@@ -24,6 +24,7 @@ struct OpenOptions {
   std::optional<std::filesystem::path> dest;
   Collision collision{Collision::refuse};
   bool verify{false};
+  bool offline{false};
 };
 
 struct OpenReport {

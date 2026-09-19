@@ -42,6 +42,10 @@ struct AgentSessionsSummary {
   size_t session_count{0};
 };
 
+struct PackOptions {
+  bool offline{false};
+};
+
 struct PackReport {
   std::string image_path;
   std::string source_path;

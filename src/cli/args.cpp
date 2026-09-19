@@ -171,6 +171,10 @@ expected<Command> parse_args(std::span<char* const> args) {
         command.accept_url_divergence = true;
         continue;
       }
+      if (tokens.at(i) == "--offline") {
+        command.offline = true;
+        continue;
+      }
       if (is_flag(tokens.at(i))) {
         return std::unexpected(usage("unknown-flag"));
       }
@@ -251,6 +255,10 @@ expected<Command> parse_args(std::span<char* const> args) {
         command.open_options.collision = biv::open::Collision::abort_preset;
       } else if (arg == "--accept-url-divergence") {
         command.accept_url_divergence = true;
+      } else if (arg == "--offline") {
+        command.offline = true;
+      } else if (arg == "--network") {
+        command.network = true;
       } else if (arg == "--verify") {
         command.open_options.verify = true;
       } else if (is_flag(arg)) {
@@ -260,6 +268,9 @@ expected<Command> parse_args(std::span<char* const> args) {
       } else {
         return std::unexpected(usage("too-many-args"));
       }
+    }
+    if (command.offline && command.network) {
+      return std::unexpected(usage("conflicting-flags"));
     }
     if (saw_rename && saw_abort) {
       return std::unexpected(usage("collision-mode-conflict"));
