@@ -150,7 +150,8 @@ void force_full(RepoEntry &entry, Eligibility eligibility) {
 
 } // namespace
 
-expected<void> run_eligibility(const Git &git, RepoEntry &entry) {
+expected<void> run_eligibility(const Git &git, RepoEntry &entry,
+                               const EligibilityMode mode) {
   if (entry.head_state == HeadState::unborn || entry.shallow) {
     return {};
   }
@@ -166,6 +167,16 @@ expected<void> run_eligibility(const Git &git, RepoEntry &entry) {
                           .result = EligibilityResult::no_remote,
                           .checked_at = git_checked_at_now(),
                           .proof = std::nullopt};
+  if (mode == EligibilityMode::offline) {
+    if (entry.promisor) {
+      return std::unexpected(make_engine_error(
+          EngineErrorKind::promisor_objects_unavailable, entry.relpath,
+          "offline pack of a promisor source cannot complete its objects"));
+    }
+    eligibility.result = EligibilityResult::offline_declared;
+    force_full(entry, std::move(eligibility));
+    return {};
+  }
   if (entry.remotes.empty()) {
     force_full(entry, std::move(eligibility));
     return {};

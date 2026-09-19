@@ -437,7 +437,8 @@ TEST_CASE("F-URL-1 real git a eligibility refuses a repo-local rewrite") {
   configure_url_rewrite(git, repo, requested, effective);
   requests.clear();
 
-  auto result = biv::repo::run_eligibility(git, classified->entry);
+  auto result = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
 
   REQUIRE_FALSE(result.has_value());
   CHECK(biv::repo::engine_error_kind(result.error()) ==
@@ -1222,6 +1223,143 @@ TEST_CASE("classification lets shallowness dominate dirt for an unborn source") 
   CHECK_FALSE(result->issue.has_value());
 }
 
+namespace {
+
+void check_untouched_offline(
+    biv::repo::Git &git, biv::repo::RepoEntry &entry,
+    std::vector<biv::support::SpawnRequest> &spawned) {
+  const auto mode_before = entry.capture_mode;
+  const bool eligibility_before = entry.eligibility.has_value();
+  const auto refs_before = entry.local_refs.size();
+
+  auto result = biv::repo::run_eligibility(
+      git, entry, biv::repo::EligibilityMode::offline);
+
+  REQUIRE(result.has_value());
+  CHECK(entry.capture_mode == mode_before);
+  CHECK(entry.eligibility.has_value() == eligibility_before);
+  CHECK(entry.local_refs.size() == refs_before);
+  CHECK(spawned.empty());
+}
+
+biv::repo::RepoEntry born_offline_entry() {
+  biv::repo::RepoEntry entry;
+  entry.id = "repo";
+  entry.relpath = "repo";
+  entry.sha = std::string(40U, '1');
+  entry.branch = "main";
+  entry.head_state = biv::repo::HeadState::branch;
+  entry.capture_mode = biv::repo::CaptureMode::overlay;
+  entry.remotes = {{.name = "origin",
+                    .url = "https://requested.invalid/repo.git"}};
+  return entry;
+}
+
+} // namespace
+
+TEST_CASE("run_eligibility offline: zero network calls, offline_declared, "
+          "full (COND-6 positive)") {
+  TempDir root{"eligibility-offline-full"};
+  std::vector<biv::support::SpawnRequest> spawned;
+  auto git = fake_network_git(
+      root.path(), "https://requested.invalid/repo.git",
+      [&](const auto &request) { spawned.push_back(request); });
+  spawned.clear();
+  auto entry = born_offline_entry();
+
+  auto result = biv::repo::run_eligibility(
+      git, entry, biv::repo::EligibilityMode::offline);
+
+  REQUIRE(result.has_value());
+  CHECK(entry.capture_mode == biv::repo::CaptureMode::full);
+  REQUIRE(entry.eligibility.has_value());
+  CHECK(entry.eligibility->result ==
+        biv::repo::EligibilityResult::offline_declared);
+  CHECK_FALSE(entry.eligibility->proof.has_value());
+  CHECK(spawned.empty());
+}
+
+TEST_CASE("run_eligibility offline on a born non-shallow promisor source "
+          "refuses typed (R-4.1 arm (i), scoped)") {
+  TempDir root{"eligibility-offline-promisor"};
+  std::vector<biv::support::SpawnRequest> spawned;
+  auto git = fake_network_git(
+      root.path(), "https://requested.invalid/repo.git",
+      [&](const auto &request) { spawned.push_back(request); });
+  spawned.clear();
+  auto entry = born_offline_entry();
+  entry.promisor = true;
+
+  auto result = biv::repo::run_eligibility(
+      git, entry, biv::repo::EligibilityMode::offline);
+
+  REQUIRE_FALSE(result.has_value());
+  CHECK(biv::repo::engine_error_kind(result.error()) ==
+        biv::repo::EngineErrorKind::promisor_objects_unavailable);
+  CHECK(spawned.empty());
+}
+
+TEST_CASE("W-O1: a born SHALLOW source under offline keeps the N-R2 shape; "
+          "a shallow promisor is never refused") {
+  TempDir root{"eligibility-offline-shallow"};
+  std::vector<biv::support::SpawnRequest> spawned;
+  auto git = fake_network_git(
+      root.path(), "https://requested.invalid/repo.git",
+      [&](const auto &request) { spawned.push_back(request); });
+  spawned.clear();
+  auto entry = born_offline_entry();
+  entry.capture_mode = biv::repo::CaptureMode::full;
+  entry.shallow = biv::repo::Shallow{
+      .boundary = {"0123456789012345678901234567890123456789"}};
+
+  check_untouched_offline(git, entry, spawned);
+  entry.promisor = true;
+  check_untouched_offline(git, entry, spawned);
+}
+
+TEST_CASE("W-O2: an UNBORN source with a side ref under offline keeps the G "
+          "shape") {
+  TempDir root{"eligibility-offline-unborn-ref"};
+  std::vector<biv::support::SpawnRequest> spawned;
+  auto git = fake_network_git(
+      root.path(), "https://requested.invalid/repo.git",
+      [&](const auto &request) { spawned.push_back(request); });
+  spawned.clear();
+  auto entry = born_offline_entry();
+  entry.sha.reset();
+  entry.head_state = biv::repo::HeadState::unborn;
+  entry.capture_mode = biv::repo::CaptureMode::full;
+  entry.eligibility = biv::repo::Eligibility{
+      .method = "unborn-head",
+      .result = biv::repo::EligibilityResult::unborn_head,
+      .checked_at = "fixture",
+      .proof = std::nullopt};
+  entry.local_refs = {{.ref = "refs/heads/side",
+                       .sha = "0123456789012345678901234567890123456789",
+                       .availability =
+                           biv::repo::RefAvailability::repo_bundle_carried,
+                       .proof = std::nullopt}};
+
+  check_untouched_offline(git, entry, spawned);
+}
+
+TEST_CASE("W-O3: an EMPTY unborn source under offline keeps the H shape") {
+  TempDir root{"eligibility-offline-empty-unborn"};
+  std::vector<biv::support::SpawnRequest> spawned;
+  auto git = fake_network_git(
+      root.path(), "https://requested.invalid/repo.git",
+      [&](const auto &request) { spawned.push_back(request); });
+  spawned.clear();
+  auto entry = born_offline_entry();
+  entry.sha.reset();
+  entry.head_state = biv::repo::HeadState::unborn;
+  entry.capture_mode = biv::repo::CaptureMode::full;
+  entry.eligibility.reset();
+  entry.local_refs.clear();
+
+  check_untouched_offline(git, entry, spawned);
+}
+
 TEST_CASE("eligibility proves HEAD from one advertisement snapshot") {
   auto git = resolved_git();
   TempDir root{"eligibility-proven"};
@@ -1232,7 +1370,8 @@ TEST_CASE("eligibility proves HEAD from one advertisement snapshot") {
   auto classified = biv::repo::classify(git, repo, one_repo());
   REQUIRE(classified.has_value());
 
-  auto result = biv::repo::run_eligibility(git, classified->entry);
+  auto result = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
 
   REQUIRE(result.has_value());
   REQUIRE(classified->entry.eligibility.has_value());
@@ -1259,7 +1398,8 @@ TEST_CASE("eligibility forces full capture for an unpushed HEAD") {
   auto classified = biv::repo::classify(git, repo, one_repo());
   REQUIRE(classified.has_value());
 
-  auto result = biv::repo::run_eligibility(git, classified->entry);
+  auto result = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
 
   REQUIRE(result.has_value());
   REQUIRE(classified->entry.eligibility.has_value());
@@ -1277,7 +1417,9 @@ TEST_CASE("eligibility distinguishes absent and unreachable remotes") {
   init_repo(git, no_remote_repo);
   auto no_remote = biv::repo::classify(git, no_remote_repo, one_repo());
   REQUIRE(no_remote.has_value());
-  REQUIRE(biv::repo::run_eligibility(git, no_remote->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, no_remote->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   REQUIRE(no_remote->entry.eligibility.has_value());
   CHECK(no_remote->entry.eligibility->result ==
         biv::repo::EligibilityResult::no_remote);
@@ -1289,7 +1431,9 @@ TEST_CASE("eligibility distinguishes absent and unreachable remotes") {
           {"origin", (root.path() / "missing.git").string()});
   auto unreachable = biv::repo::classify(git, unreachable_repo, one_repo());
   REQUIRE(unreachable.has_value());
-  REQUIRE(biv::repo::run_eligibility(git, unreachable->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, unreachable->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   REQUIRE(unreachable->entry.eligibility.has_value());
   CHECK(unreachable->entry.eligibility->result ==
         biv::repo::EligibilityResult::remote_unreachable);
@@ -1318,7 +1462,8 @@ TEST_CASE(
 
   auto classified = biv::repo::classify(git, repo, one_repo());
   REQUIRE(classified.has_value());
-  auto result = biv::repo::run_eligibility(git, classified->entry);
+  auto result = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
 
   REQUIRE(result.has_value());
   REQUIRE(classified->entry.eligibility.has_value());
@@ -1360,7 +1505,9 @@ TEST_CASE("promisor policy is carried and traced across every later git call") {
       }));
   requests.clear();
 
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   auto captured =
       biv::repo::capture(git, classified->entry, root.path() / "scratch");
 
@@ -1424,7 +1571,8 @@ TEST_CASE("eligibility selects the remote whose advertisement proves HEAD") {
   REQUIRE(classified.has_value());
   REQUIRE(classified->entry.remote == "aaa");
 
-  auto result = biv::repo::run_eligibility(git, classified->entry);
+  auto result = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
 
   REQUIRE(result.has_value());
   REQUIRE(classified->entry.eligibility.has_value());
@@ -1447,7 +1595,8 @@ TEST_CASE("eligibility bounds an oversized advertisement explicitly") {
   auto classified = biv::repo::classify(git, repo, one_repo());
   REQUIRE(classified.has_value());
 
-  auto result = biv::repo::run_eligibility(git, classified->entry);
+  auto result = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
 
   REQUIRE(result.has_value());
   REQUIRE(classified->entry.eligibility.has_value());
@@ -1466,7 +1615,9 @@ TEST_CASE("capture writes and verifies a full bundle plus a hostile-ref note") {
   git_run(git, repo, {"update-ref", hostile_ref, head});
   auto classified = biv::repo::classify(git, repo, one_repo());
   REQUIRE(classified.has_value());
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
 
   auto result =
       biv::repo::capture(git, classified->entry, root.path() / "scratch");
@@ -1501,7 +1652,9 @@ TEST_CASE("capture writes a thin local-ref bundle from advertisement bases") {
   git_run(git, repo, {"checkout", "main"});
   auto classified = biv::repo::classify(git, repo, one_repo());
   REQUIRE(classified.has_value());
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   REQUIRE(classified->entry.capture_mode == biv::repo::CaptureMode::overlay);
 
   auto result =
@@ -1576,7 +1729,9 @@ TEST_CASE("capture oracle reports penumbra loss and contamination") {
   REQUIRE(classified->entry.engine_source.has_value());
   CHECK(classified->entry.engine_source->penumbra_paths ==
         std::vector<std::filesystem::path>{"old.cache"});
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   REQUIRE(std::filesystem::remove(root.path() / "old.cache"));
   touch(root.path() / "new.cache", "new\n");
 
@@ -1650,7 +1805,9 @@ TEST_CASE("capture maps bundle process failures to git invocation failure") {
   init_repo(git, repo);
   auto classified = biv::repo::classify(git, repo, one_repo());
   REQUIRE(classified.has_value());
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   const auto scratch = root.path() / "scratch";
   std::filesystem::create_directories(scratch / "repo/repo.bundle");
 
@@ -1817,7 +1974,9 @@ TEST_CASE("restore full mode skips exact refs, updates missing refs, and "
   CHECK(classified->entry.relpath == "source");
   REQUIRE(classified->entry.engine_source.has_value());
   CHECK(classified->entry.engine_source->repo_path == source);
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   auto captured =
       biv::repo::capture(git, classified->entry, root.path() / "scratch");
   REQUIRE(captured.has_value());
@@ -1858,7 +2017,9 @@ TEST_CASE(
   init_repo(git, source);
   auto classified = biv::repo::classify(git, source, one_repo());
   REQUIRE(classified.has_value());
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   auto captured =
       biv::repo::capture(git, classified->entry, root.path() / "scratch");
   REQUIRE(captured.has_value());
@@ -1921,7 +2082,9 @@ TEST_CASE("restore returns per-ref failures and repo verification divergence") {
   init_repo(git, source);
   auto classified = biv::repo::classify(git, source, one_repo());
   REQUIRE(classified.has_value());
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   auto captured =
       biv::repo::capture(git, classified->entry, root.path() / "scratch");
   REQUIRE(captured.has_value());
@@ -1954,7 +2117,9 @@ TEST_CASE("restore overlay is total with zero captured artifacts") {
   add_remote_and_push(git, source, remote);
   auto classified = biv::repo::classify(git, source, one_repo());
   REQUIRE(classified.has_value());
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   auto captured =
       biv::repo::capture(git, classified->entry, root.path() / "scratch");
   REQUIRE(captured.has_value());
@@ -1984,7 +2149,9 @@ TEST_CASE("restore preserves a detached HEAD") {
   auto classified = biv::repo::classify(git, source, one_repo());
   REQUIRE(classified.has_value());
   CHECK(classified->entry.head_state == biv::repo::HeadState::detached);
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   auto captured =
       biv::repo::capture(git, classified->entry, root.path() / "scratch");
   REQUIRE(captured.has_value());
@@ -2013,7 +2180,9 @@ TEST_CASE("restore materializes a root repo beside the live stage directory") {
   auto classified = biv::repo::classify(git, source, one_repo(source));
   REQUIRE(classified.has_value());
   CHECK(classified->entry.relpath == ".");
-  REQUIRE(biv::repo::run_eligibility(git, classified->entry).has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, classified->entry, biv::repo::EligibilityMode::network)
+              .has_value());
   auto captured =
       biv::repo::capture(git, classified->entry, root.path() / "scratch");
   REQUIRE(captured.has_value());

@@ -6,6 +6,9 @@
 
 namespace biv::repo {
 
-expected<void> run_eligibility(const Git& git, RepoEntry& entry);
+enum class EligibilityMode { network, offline };
+
+expected<void> run_eligibility(const Git& git, RepoEntry& entry,
+                               EligibilityMode mode);
 
 }  // namespace biv::repo
