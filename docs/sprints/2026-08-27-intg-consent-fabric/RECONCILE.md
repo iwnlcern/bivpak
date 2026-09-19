@@ -262,3 +262,10 @@ Verdict: MUST-REVISE on four executable contradictions; one is the planner's and
 | MUST-2B-33 | owner digests were recorded after acceptance; a committed textual-predicate-preserving mutation passes | the rev15 block | agree | the window and m-3's word pinned by sha256 as plan constants; m-1's reply and the request pinned by digests the carry affirms and the gate re-hashes; control: m-3 committed-but-changed ⇒ `m3-bytes` |
 | MUST-2B-34 | the carry only rejected the literal `keep the freeze`; a `NOT CLEARED; do not commit` carrier passed | the rev15 predicate | agree | exactly one `T_ORACLE_VERDICT:` line, value `cleared`; NOT CLEARED / blocked / objection-without-the-phrase / absent / duplicate each STOP |
 | Execution | — | scratch clone of pdc + throwaway worktree | — | the real pinned m-3 word + a synthetic addressed exchange + carry pass (six digests); nineteen controls STOP on their own predicates (a wrong `git revert` flag in the first control run left m-3 changed for eight controls — re-run in a fresh clone, each firing on its own predicate) |
+
+## R22 — rev16 review: HOLD on the absent m-1 exchange (2026-09-19 13:06; review `intg-substep2b/PLAN-REVIEW-pair-implementer-20260919-130657.md`)
+
+| Item | Reviewer's finding | Checked at | Verdict | Disposition |
+|---|---|---|---|---|
+| Design | MUST-2B-31/33/34 closed at plan level; 27–30/32 closed; no further redesign | rev16 at fc22ef5 | — | the plan stays byte-identical; plan-16 042044 remains the carrier of record |
+| MUST-2B-35 | at pdc HEAD 2bbaf68f no relay is FROM master + TO m-1.planner + the case + T-ORACLE; no m-1 reply in that lineage; no carry can name the pair | the wiring-act directory (newest 033307) | agree — the prerequisite is master's act | the hold SITREP asks master again (032924's own rule); the implementer re-grades plan-16 as filed once the exchange exists, or a rev17 if the word changes a task |
