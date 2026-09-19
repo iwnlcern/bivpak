@@ -269,3 +269,12 @@ Verdict: MUST-REVISE on four executable contradictions; one is the planner's and
 |---|---|---|---|---|
 | Design | MUST-2B-31/33/34 closed at plan level; 27–30/32 closed; no further redesign | rev16 at fc22ef5 | — | the plan stays byte-identical; plan-16 042044 remains the carrier of record |
 | MUST-2B-35 | at pdc HEAD 2bbaf68f no relay is FROM master + TO m-1.planner + the case + T-ORACLE; no m-1 reply in that lineage; no carry can name the pair | the wiring-act directory (newest 033307) | agree — the prerequisite is master's act | the hold SITREP asks master again (032924's own rule); the implementer re-grades plan-16 as filed once the exchange exists, or a rev17 if the word changes a task |
+
+## R23 — the addressed m-1 exchange exists; rev16 re-carried (2026-09-19 15:55; master `intg-2b-wiring-act/PLAN-master-planner-20260919-155534.md`; request `…/PLAN-master-planner-20260919-131720.md`; reply `…/DESIGN-planner-20260919-155106.md`; relay `intg-substep2b/PLAN-pair-planner-20260919-<plan-17>.md`)
+
+| Object | Checked at | Result |
+|---|---|---|
+| request 131720 | headers FROM master / TO m-1.planner / PLAN / plan-only; names the window path, the case (×3) and T-ORACLE (×2); tracked, unmodified; sha256 `6e5b3023…` | the addressed request the gate binds |
+| reply 155106 | FROM m-1.planner / TO master / DESIGN / design-only; IN_REPLY_TO exactly the request; names the case; SUBJECT NO OBJECTION; sha256 `e706797e…` | the governed m-1 word |
+| the gate on the real objects | scratch clone + throwaway worktree; real request + reply + pinned m-3; a synthetic carry naming `7f538d82…` | `t-oracle OK`, six digests; 033215 as the reply ⇒ `m1-lineage` STOP |
+| the artifact | live == blob at fc22ef5 == `7f538d82…` | byte-identical; plan-17 is a re-carry, not a revision |
