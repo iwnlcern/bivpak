@@ -16,6 +16,7 @@ struct UrlDivergenceFacts {
 
 bool interactive_url_hook_installable();
 
+std::string consent_display(std::string_view raw);
 std::string render_prompt_d(const UrlDivergenceFacts& facts);
 std::string render_accepted_notice(const UrlDivergenceFacts& facts);
 std::string render_pack_refusal_detail(const UrlDivergenceFacts& facts);
