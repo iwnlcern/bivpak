@@ -840,6 +840,60 @@ TEST_CASE(
   CHECK(result->repos[2].parent_index == 0);
 }
 
+TEST_CASE("W-D1 / W-D2: repo discovery walks a NESTED .biv directory and "
+          "keeps the ROOT .biv reserved") {
+  TempDir root{"discover-nested-biv"};
+  std::filesystem::create_directories(root.path() / "a/.git");
+  std::filesystem::create_directories(root.path() / "a/.biv/r/.git");
+  std::filesystem::create_directories(root.path() / ".biv/r/.git");
+  auto matcher = biv::ignore::Matcher::compile("", false);
+  REQUIRE(matcher.has_value());
+
+  auto result = biv::repo::discover(root.path(), *matcher);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->repos.size() == 2);
+  CHECK(result->repos[0].relpath == "a");
+  CHECK(result->repos[0].kind == biv::repo::RepoKind::repo);
+  CHECK_FALSE(result->repos[0].parent_index.has_value());
+  CHECK(result->repos[1].relpath == "a/.biv/r");
+  CHECK(result->repos[1].kind == biv::repo::RepoKind::nested);
+  CHECK(result->repos[1].parent_index == 0);
+}
+
+TEST_CASE("W-D3 (engine half): a nested .biv DECLARED in .bivignore is "
+          "pruned by the matcher, not discovered") {
+  TempDir root{"discover-nested-biv-ignored"};
+  std::filesystem::create_directories(root.path() / "a/.git");
+  std::filesystem::create_directories(root.path() / "a/.biv/r/.git");
+  auto matcher = biv::ignore::Matcher::compile("a/.biv/\n", false);
+  REQUIRE(matcher.has_value());
+
+  auto result = biv::repo::discover(root.path(), *matcher);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->repos.size() == 1);
+  CHECK(result->repos[0].relpath == "a");
+}
+
+TEST_CASE("unchanged rules: a .git-named directory is a marker and is never "
+          "walked; a symlinked directory is never descended") {
+  TempDir root{"discover-marker-not-container"};
+  std::filesystem::create_directories(root.path() / "a/.git/modules/m/.git");
+  std::filesystem::create_directories(root.path() / "elsewhere/r/.git");
+  std::filesystem::create_directory_symlink(root.path() / "elsewhere",
+                                             root.path() / "a/link");
+  auto matcher = biv::ignore::Matcher::compile("", false);
+  REQUIRE(matcher.has_value());
+
+  auto result = biv::repo::discover(root.path(), *matcher);
+
+  REQUIRE(result.has_value());
+  REQUIRE(result->repos.size() == 2);
+  CHECK(result->repos[0].relpath == "a");
+  CHECK(result->repos[1].relpath == "elsewhere/r");
+}
+
 TEST_CASE("classification orders zero-ref and any-ref unborn before dirt") {
   auto git = resolved_git();
   TempDir root{"classify-unborn"};
