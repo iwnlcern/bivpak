@@ -1283,16 +1283,46 @@ void check_untouched_offline(
     biv::repo::Git &git, biv::repo::RepoEntry &entry,
     std::vector<biv::support::SpawnRequest> &spawned) {
   const auto mode_before = entry.capture_mode;
-  const bool eligibility_before = entry.eligibility.has_value();
-  const auto refs_before = entry.local_refs.size();
+  const auto eligibility_before = entry.eligibility;
+  const auto refs_before = entry.local_refs;
 
   auto result = biv::repo::run_eligibility(
       git, entry, biv::repo::EligibilityMode::offline);
 
   REQUIRE(result.has_value());
   CHECK(entry.capture_mode == mode_before);
-  CHECK(entry.eligibility.has_value() == eligibility_before);
-  CHECK(entry.local_refs.size() == refs_before);
+  REQUIRE(entry.eligibility.has_value() == eligibility_before.has_value());
+  if (eligibility_before) {
+    CHECK(entry.eligibility->method == eligibility_before->method);
+    CHECK(entry.eligibility->result == eligibility_before->result);
+    CHECK(entry.eligibility->checked_at == eligibility_before->checked_at);
+    REQUIRE(entry.eligibility->proof.has_value() ==
+            eligibility_before->proof.has_value());
+    if (eligibility_before->proof) {
+      CHECK(entry.eligibility->proof->remote ==
+            eligibility_before->proof->remote);
+      CHECK(entry.eligibility->proof->url == eligibility_before->proof->url);
+      CHECK(entry.eligibility->proof->ref == eligibility_before->proof->ref);
+      CHECK(entry.eligibility->proof->tip_sha ==
+            eligibility_before->proof->tip_sha);
+    }
+  }
+  REQUIRE(entry.local_refs.size() == refs_before.size());
+  for (std::size_t index = 0; index < refs_before.size(); ++index) {
+    CAPTURE(index);
+    const auto &actual = entry.local_refs[index];
+    const auto &expected = refs_before[index];
+    CHECK(actual.ref == expected.ref);
+    CHECK(actual.sha == expected.sha);
+    CHECK(actual.availability == expected.availability);
+    REQUIRE(actual.proof.has_value() == expected.proof.has_value());
+    if (expected.proof) {
+      CHECK(actual.proof->remote == expected.proof->remote);
+      CHECK(actual.proof->url == expected.proof->url);
+      CHECK(actual.proof->ref == expected.proof->ref);
+      CHECK(actual.proof->tip_sha == expected.proof->tip_sha);
+    }
+  }
   CHECK(spawned.empty());
 }
 
@@ -1395,6 +1425,17 @@ TEST_CASE("W-O2: an UNBORN source with a side ref under offline keeps the G "
                        .proof = std::nullopt}};
 
   check_untouched_offline(git, entry, spawned);
+  REQUIRE(entry.eligibility.has_value());
+  CHECK(entry.eligibility->method == "unborn-head");
+  CHECK(entry.eligibility->result ==
+        biv::repo::EligibilityResult::unborn_head);
+  REQUIRE(entry.local_refs.size() == 1);
+  CHECK(entry.local_refs[0].ref == "refs/heads/side");
+  CHECK(entry.local_refs[0].sha ==
+        "0123456789012345678901234567890123456789");
+  CHECK(entry.local_refs[0].availability ==
+        biv::repo::RefAvailability::repo_bundle_carried);
+  CHECK_FALSE(entry.local_refs[0].proof.has_value());
 }
 
 TEST_CASE("W-O3: an EMPTY unborn source under offline keeps the H shape") {
@@ -1961,6 +2002,158 @@ TEST_CASE(
   CHECK(pointer->shallow->boundary == shallow.shallow->boundary);
   CHECK(requests.empty());
   CHECK_FALSE(std::filesystem::exists(partial / "shallow/.git"));
+}
+
+TEST_CASE("W-G1: restore_invokes_git pairs with restore_entry's own git reach "
+          "over the four sealed classes (valid fixtures)") {
+  std::vector<biv::support::SpawnRequest> spawned;
+  auto git = resolved_git(
+      [&](const auto &request) { spawned.push_back(request); });
+  TempDir root{"restore-git-capable-partition"};
+  const auto partial = root.path() / "partial";
+  const auto stage = root.path() / "stage";
+
+  const auto overlay_source = root.path() / "overlay-source";
+  init_repo(git, overlay_source);
+  const auto remote = init_bare_remote(git, root.path() / "overlay-remote");
+  add_remote_and_push(git, overlay_source, remote);
+  auto overlay = biv::repo::classify(
+      git, overlay_source, one_repo(root.path(), "overlay-source"));
+  REQUIRE(overlay.has_value());
+  REQUIRE(biv::repo::run_eligibility(
+              git, overlay->entry, biv::repo::EligibilityMode::network)
+              .has_value());
+  REQUIRE(overlay->entry.capture_mode == biv::repo::CaptureMode::overlay);
+  overlay->entry.relpath = "overlay-restored";
+  spawned.clear();
+  CHECK(biv::repo::restore_invokes_git(overlay->entry));
+  auto overlay_row =
+      biv::repo::restore_entry(git, overlay->entry, partial, stage);
+  INFO((overlay_row.has_value() ? std::string{} : overlay_row.error().detail));
+  REQUIRE(overlay_row.has_value());
+  CHECK_FALSE(spawned.empty());
+
+  const auto unborn_source = root.path() / "unborn-source";
+  init_repo(git, unborn_source, false);
+  touch(unborn_source / "blob", "object closure\n");
+  const auto blob =
+      git_stdout(git_run(git, unborn_source, {"hash-object", "-w"}, {"blob"}));
+  git_run(git, unborn_source, {"update-ref", "refs/tags/blob-tag"}, {blob});
+  auto g_full = biv::repo::classify(
+      git, unborn_source, one_repo(root.path(), "unborn-source"));
+  REQUIRE(g_full.has_value());
+  REQUIRE(g_full->entry.head_state == biv::repo::HeadState::unborn);
+  REQUIRE(g_full->entry.capture_mode == biv::repo::CaptureMode::full);
+  auto captured =
+      biv::repo::capture(git, g_full->entry, root.path() / "scratch");
+  REQUIRE(captured.has_value());
+  stage_artifacts(*captured, stage);
+  g_full->entry.relpath = "unborn-restored";
+  spawned.clear();
+  CHECK(biv::repo::restore_invokes_git(g_full->entry));
+  auto g_row = biv::repo::restore_entry(git, g_full->entry, partial, stage);
+  INFO((g_row.has_value() ? std::string{} : g_row.error().detail));
+  REQUIRE(g_row.has_value());
+  CHECK_FALSE(spawned.empty());
+
+  biv::repo::RepoEntry h_row;
+  h_row.id = "payload-only";
+  h_row.relpath = "payload-only";
+  h_row.head_state = biv::repo::HeadState::unborn;
+  spawned.clear();
+  CHECK_FALSE(biv::repo::restore_invokes_git(h_row));
+  auto h_result = biv::repo::restore_entry(git, h_row, partial, stage);
+  REQUIRE(h_result.has_value());
+  CHECK(spawned.empty());
+
+  biv::repo::RepoEntry n_shallow;
+  n_shallow.id = "shallow";
+  n_shallow.relpath = "shallow";
+  n_shallow.sha = "0123456789012345678901234567890123456789";
+  n_shallow.head_state = biv::repo::HeadState::branch;
+  n_shallow.shallow = biv::repo::Shallow{
+      .boundary = {"0123456789012345678901234567890123456789"}};
+  spawned.clear();
+  CHECK_FALSE(biv::repo::restore_invokes_git(n_shallow));
+  auto n_result = biv::repo::restore_entry(git, n_shallow, partial, stage);
+  REQUIRE(n_result.has_value());
+  CHECK(spawned.empty());
+}
+
+TEST_CASE("W-G1c: a git-capable row that fails a pre-git check spawns nothing "
+          "-- the predicate is capability, not a spawn promise") {
+  std::vector<biv::support::SpawnRequest> spawned;
+  auto git = resolved_git(
+      [&](const auto &request) { spawned.push_back(request); });
+  TempDir root{"restore-git-capable-collision"};
+  biv::repo::RepoEntry entry;
+  entry.id = "overlay";
+  entry.relpath = "r";
+  entry.sha = "0123456789012345678901234567890123456789";
+  entry.branch = "main";
+  entry.head_state = biv::repo::HeadState::branch;
+  entry.capture_mode = biv::repo::CaptureMode::overlay;
+  entry.remote = "origin";
+  entry.remotes = {{.name = "origin", .url = "https://example.invalid/r"}};
+  entry.eligibility = biv::repo::Eligibility{
+      .method = "ls-remote-ancestry",
+      .result = biv::repo::EligibilityResult::proven,
+      .checked_at = "fixture",
+      .proof = biv::repo::Proof{
+          .remote = "origin",
+          .url = "https://example.invalid/r",
+          .ref = "refs/heads/main",
+          .tip_sha = "0123456789012345678901234567890123456789"}};
+  std::filesystem::create_directories(root.path() / "partial/r");
+  spawned.clear();
+
+  CHECK(biv::repo::restore_invokes_git(entry));
+  auto result = biv::repo::restore_entry(
+      git, entry, root.path() / "partial", root.path() / "stage");
+
+  REQUIRE_FALSE(result.has_value());
+  REQUIRE(biv::repo::engine_error_kind(result.error()).has_value());
+  CHECK(*biv::repo::engine_error_kind(result.error()) ==
+        biv::repo::EngineErrorKind::repo_restore_failed);
+  CHECK(result.error().detail.find("materialization target already exists") !=
+        std::string::npos);
+  CHECK(spawned.empty());
+}
+
+TEST_CASE("W-G1n: the false arm spawns nothing even when validation fails") {
+  std::vector<biv::support::SpawnRequest> spawned;
+  auto git = resolved_git(
+      [&](const auto &request) { spawned.push_back(request); });
+  TempDir root{"restore-no-git-validation"};
+
+  biv::repo::RepoEntry shallow;
+  shallow.id = "shallow";
+  shallow.relpath = "../escape";
+  shallow.shallow = biv::repo::Shallow{
+      .boundary = {"0123456789012345678901234567890123456789"}};
+  CHECK_FALSE(biv::repo::restore_invokes_git(shallow));
+  spawned.clear();
+  auto shallow_result = biv::repo::restore_entry(
+      git, shallow, root.path() / "partial", root.path() / "stage");
+  REQUIRE_FALSE(shallow_result.has_value());
+  REQUIRE(biv::repo::engine_error_kind(shallow_result.error()).has_value());
+  CHECK(*biv::repo::engine_error_kind(shallow_result.error()) ==
+        biv::repo::EngineErrorKind::repo_restore_failed);
+  CHECK(spawned.empty());
+
+  biv::repo::RepoEntry payload_only;
+  payload_only.id = "payload-only";
+  payload_only.relpath = "../escape";
+  payload_only.head_state = biv::repo::HeadState::unborn;
+  CHECK_FALSE(biv::repo::restore_invokes_git(payload_only));
+  spawned.clear();
+  auto payload_result = biv::repo::restore_entry(
+      git, payload_only, root.path() / "partial", root.path() / "stage");
+  REQUIRE_FALSE(payload_result.has_value());
+  REQUIRE(biv::repo::engine_error_kind(payload_result.error()).has_value());
+  CHECK(*biv::repo::engine_error_kind(payload_result.error()) ==
+        biv::repo::EngineErrorKind::repo_restore_failed);
+  CHECK(spawned.empty());
 }
 
 TEST_CASE("restore imports unborn object closure without source refs") {

@@ -421,6 +421,12 @@ initialize_root_base(const Git &git, const std::filesystem::path &target,
 
 } // namespace
 
+bool restore_invokes_git(const RepoEntry &entry) noexcept {
+  return !entry.shallow &&
+         !(entry.head_state == HeadState::unborn && !entry.bundle &&
+           !entry.eligibility);
+}
+
 expected<RepoRestoreRow> restore_entry(
     const Git &git, const RepoEntry &entry,
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): stable public API.
@@ -440,13 +446,12 @@ expected<RepoRestoreRow> restore_entry(
                      .shallow = std::nullopt};
   append_note_advisories(entry, row);
 
-  if (entry.shallow) {
-    row.outcome = RepoRestoreOutcome::shallow_pointer;
-    row.shallow = entry.shallow;
-    return row;
-  }
-  if (entry.head_state == HeadState::unborn && !entry.bundle &&
-      !entry.eligibility) {
+  if (!restore_invokes_git(entry)) {
+    if (entry.shallow) {
+      row.outcome = RepoRestoreOutcome::shallow_pointer;
+      row.shallow = entry.shallow;
+      return row;
+    }
     row.outcome = RepoRestoreOutcome::payload_only_unborn;
     row.advisories.push_back("EmptyRepoPayloadOnly");
     return row;

@@ -36,6 +36,8 @@ struct RepoRestoreRow {
   std::optional<Shallow> shallow;
 };
 
+// N-R4 / G-R1 / H ground the row's Git-capable restore partition.
+bool restore_invokes_git(const RepoEntry& entry) noexcept;
 expected<RepoRestoreRow> restore_entry(
     const Git& git, const RepoEntry& entry,
     const std::filesystem::path& partial_root,
