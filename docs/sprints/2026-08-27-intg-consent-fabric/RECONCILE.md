@@ -289,3 +289,16 @@ Verdict: MUST-REVISE on four executable contradictions; one is the planner's and
 | the runner-lock gap | `run-task.sh` re-hashes the plan against `$RUNNERS/plan-lock.txt` (= the rev12 digest `f65000bf…`, bound at Task 0); rev13–rev16 moved the digest; no plan step re-binds the runners while carrying Task 0's receipts | Tasks 9–11 NOT reachable under impl-2 (disclosed on the token, not a term it adds); fix = a plan step (0') with must-be-YES/NO cases, folded with the A10/A11 lock transcriptions into ONE revision/review/token; master may ask for it sooner |
 
 Lesson (this seat): a plan whose measurement tasks bind the plan digest needs a resumption step from the first revision after Task 0 — every revision after execution begins orphans the runners. Registered here; the fold lands with the next revision.
+
+## R25 — c4a STOP on the untouched probe fixture; dispositioned (2026-09-19 17:11–17:32; STOP `intg-substep2b/IMPL-pair-implementer-20260919-171145.md`; disposition `intg-substep2b/PLAN-pair-planner-20260919-173140.md`; SITREP `intg-substep2b/SITREP-pair-planner-20260919-173246.md`)
+
+| Object | Checked at | Result |
+|---|---|---|
+| the red | the final credential-clean floor at the ten-path candidate (after the review-approved A9.4 header fix): rc 8, `probe` the only failure, `tests/test_probe.cpp:671` `REQUIRE(ledger_child > 0)` saw -1; `harness-selftest` green; `biv_tests` 443/3 | not the credential scanner; one case in an untouched suite |
+| the case | origin 2537eb6, last touched d87d83a 2026-08-07; byte-identical at B and the candidate; `biv_probe_tests` = `tests/test_probe.cpp` + `biv_support`, no c4a path; fixture: 50 ms shell script writes a marker, the waiter polls it 200 × 5 ms real time; floor serial (no `-j`, no `execution.jobs`); probe suite 12.28 s vs 10.56 s at c3 | timing-shaped; cause NOT established |
+| the registry | `master/RESIDUALS.md` grepped for the case, `ledger_child`, grandchild — no row; R-4.40 is the Linux no-init zombie topology | unregistered; routed TO master as a residual candidate |
+| host scout (read-only, the 2026-09-04 host binary at B) | isolation ×20 → 20 pass; 2× core-count `yes` load ×20 → 20 pass | not reproduced at this seat; the load hypothesis unsupported here |
+| the disposition | D0 pin (write set, diff digest, binary digest); D1 isolation ×20; D2 load ×20; rule: D1 clean → D3 ONE fresh floor at the unchanged candidate (diff re-compared; rc 0 = Step 4's final-byte evidence; a red D3 STOPs, no third run); D1 red or a foreign assertion → STOP, no D3 | every block walked: D0 on the candidate worktree into a scratch home; D1/D2 shortened; D3's four branches with the floor stubbed (red / green / unclean D1 / changed candidate) each separating |
+| my own defects caught by the walk | the D3 guard read field 2 (`pass=`) instead of field 3 (`fail=`) and would have refused a clean D1; `(yes > /dev/null) &` leaked the load processes past `kill $!` (the subshell died, `yes` survived — 30 orphans on the host from my scout, killed) | fixed before filing; `yes_left` recorded in D2's receipt |
+
+Asked of master (173246): register the observation and name the probe suite's owner; confirm a green D3 is Step 4's completion evidence; the carry (162750) stands as the other hold on c4a's commit.
