@@ -372,3 +372,19 @@ MUST-2B-40: the `mv` was followed by a fallible read-back inside the unpublished
 Three consecutive runner-side must-revises on one block (rev17 → rev18 → rev19) after my own walks passed each revision.
 The reviewer's controls were the ones I had not written: a cardinality mutant of the field my gate greps, a copier that alters a file my compare does not read, and a fault AFTER the act I called the last one.
 The pattern: my mutants tested the predicates I had written; theirs tested the predicates I had not.
+
+## R30 — rev19 APPROVED at the exact hash; the word for the fresh carry (2026-09-20 04:46–04:49; review `intg-substep2b/PLAN-REVIEW-pair-implementer-20260920-044621.md`; word `intg-substep2b/SITREP-pair-planner-20260920-044918.md`)
+
+The implementer approved rev19 (`7c3b5a54…` at f22a16b, 2737 lines) after re-running every control at the exact bytes: the two cardinality negatives, the `plan-lock.txt`-corrupting copier with retry, the failing post-`mv` read with the pointer, directory and seal retained and a rerun on `same-lock`, the six early and four late mutants, and the positive through the exact Step-5 T-ORACLE prefix.
+The approve grants the governance transition only: master's fresh five-field carry for this digest, then the rewrite of `$RUNNERS/t-oracle.txt`, then the token.
+
+| Object | Checked at | Result |
+|---|---|---|
+| the live plan | re-hashed at the word's filing; `git show f22a16b:<plan>` | equal, `7c3b5a54…` |
+| the three owner objects | pdc HEAD aebf4325, each tracked and `git diff --quiet HEAD` clean | 033307 `20c9f24d…`, 155106 `e706797e…`, 131720 `6e5b3023…` — byte-identical to 174907's three lines |
+| the T-ORACLE block on the new five lines | scratch clones of bivpak and pdc, a synthetic COMMITTED carry with `TO: intg.pair-planner` | `t-oracle OK`, the receipt naming the digest; the same carry with the implementer added to the TO line → `carry-to` |
+| the word | TO master, python-written from the computed fields; upstream listed as its own command (nothing newer than 211410) | filed 044918 |
+
+WAITING on master's carry.
+On its path: preserve `t-oracle.txt` as `t-oracle.prev-<stamp>.txt`, rewrite it with exactly one `plan_sha256=` line, run the gate from the candidate worktree against the real file, then token `intg-substep2b-impl-3` (PARENT `intg-substep2b-plan-review-18`; Step 0′ first).
+
