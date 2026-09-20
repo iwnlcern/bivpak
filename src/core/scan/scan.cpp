@@ -104,6 +104,7 @@ expected<std::vector<std::filesystem::directory_entry>> sorted_children(const st
 expected<void> walk(const std::filesystem::path& dir,
                     std::string_view rel_dir,
                     const ignore::Matcher& matcher,
+                    const ScanExclusions& exclusions,
                     ScanResult& result) {
   auto children = sorted_children(dir);
   if (!children) {
@@ -135,9 +136,24 @@ expected<void> walk(const std::filesystem::path& dir,
     }
 
     if (name == ".git") {
-      return std::unexpected(BivError{ErrKind::RepoDiscoveredUnsupported, child.path().generic_string()});
+      if (exclusions.claims(rel_dir)) {
+        continue;
+      }
+      const std::string reason =
+          status.type() == std::filesystem::file_type::symlink
+              ? "symlink"
+              : (!is_directory_status(status) &&
+                 status.type() != std::filesystem::file_type::regular)
+                    ? "special-file"
+                    : "unreadable-marker";
+      return std::unexpected(BivError{
+          ErrKind::RepoDiscoveredUnsupported, child.path().generic_string(),
+          {}, 0, {{"reason", reason}}});
     }
     if (name == ".biv" && is_dir) {
+      continue;
+    }
+    if (is_dir && exclusions.claims(relpath)) {
       continue;
     }
 
@@ -172,7 +188,7 @@ expected<void> walk(const std::filesystem::path& dir,
     }
 
     if (is_dir) {
-      auto recurse = walk(child.path(), relpath, matcher, result);
+      auto recurse = walk(child.path(), relpath, matcher, exclusions, result);
       if (!recurse) {
         return std::unexpected(recurse.error());
       }
@@ -183,7 +199,29 @@ expected<void> walk(const std::filesystem::path& dir,
 
 }  // namespace
 
-expected<ScanResult> scan(const std::filesystem::path& source_root) {
+std::string ScanExclusions::canonical(const std::filesystem::path& rel) {
+  auto value = rel.lexically_normal().generic_string();
+  if (value == "." || value.empty()) {
+    return {};
+  }
+  while (!value.empty() && value.back() == '/') {
+    value.pop_back();
+  }
+  return value;
+}
+
+bool ScanExclusions::claims_root() const {
+  return std::ranges::find(repo_subtrees, std::string{}) !=
+         repo_subtrees.end();
+}
+
+bool ScanExclusions::claims(const std::string_view canonical_rel) const {
+  return std::ranges::find(repo_subtrees, canonical_rel) !=
+         repo_subtrees.end();
+}
+
+expected<MatcherBundle> prepare_matcher(
+    const std::filesystem::path& source_root) {
   std::error_code ec;
   const auto root_status = std::filesystem::symlink_status(source_root, ec);
   if (ec || !is_directory_status(root_status)) {
@@ -191,8 +229,7 @@ expected<ScanResult> scan(const std::filesystem::path& source_root) {
                                     ec ? ec.message() : "not-directory", static_cast<int>(ec.value())});
   }
 
-  ScanResult result;
-  ignore::Matcher matcher;
+  MatcherBundle bundle;
   const auto bivignore_path = source_root / ".bivignore";
   const auto bivignore_status = std::filesystem::symlink_status(bivignore_path, ec);
   if (!ec && bivignore_status.type() == std::filesystem::file_type::regular) {
@@ -204,10 +241,10 @@ expected<ScanResult> scan(const std::filesystem::path& source_root) {
     if (!compiled) {
       return std::unexpected(compiled.error());
     }
-    matcher = std::move(*compiled);
+    bundle.matcher = std::move(*compiled);
     support::Sha256 sha;
     sha.update(std::as_bytes(std::span<const char>{bytes->data(), bytes->size()}));
-    result.bivignore = manifest::BivignoreProvenance{
+    bundle.bivignore = manifest::BivignoreProvenance{
         .source = "file",
         .builtin_id = std::nullopt,
         .sha256_hex = sha.finish_hex(),
@@ -217,17 +254,45 @@ expected<ScanResult> scan(const std::filesystem::path& source_root) {
     if (!compiled) {
       return std::unexpected(compiled.error());
     }
-    matcher = std::move(*compiled);
-    result.bivignore = manifest::BivignoreProvenance{
+    bundle.matcher = std::move(*compiled);
+    bundle.bivignore = manifest::BivignoreProvenance{
         .source = "builtin",
         .builtin_id = std::string{"builtin-v1"},
         .sha256_hex = std::string{ignore::kBuiltinV1Sha256},
     };
   }
 
-  auto walked = walk(source_root, {}, matcher, result);
+  return bundle;
+}
+
+expected<ScanResult> scan(const std::filesystem::path& source_root,
+                          const ignore::Matcher& matcher,
+                          const ScanExclusions& exclusions) {
+  std::error_code ec;
+  const auto root_status = std::filesystem::symlink_status(source_root, ec);
+  if (ec || !is_directory_status(root_status)) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, source_root.generic_string(),
+                                    ec ? ec.message() : "not-directory", static_cast<int>(ec.value())});
+  }
+  ScanResult result;
+  if (exclusions.claims_root()) {
+    return result;
+  }
+  auto walked = walk(source_root, {}, matcher, exclusions, result);
   if (!walked) {
     return std::unexpected(walked.error());
+  }
+  return result;
+}
+
+expected<ScanResult> scan(const std::filesystem::path& source_root) {
+  auto matcher = prepare_matcher(source_root);
+  if (!matcher) {
+    return std::unexpected(matcher.error());
+  }
+  auto result = scan(source_root, matcher->matcher, {});
+  if (result) {
+    result->bivignore = std::move(matcher->bivignore);
   }
   return result;
 }

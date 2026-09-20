@@ -4,6 +4,7 @@
 #include <string>
 
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -128,12 +129,68 @@ TEST_CASE("scan records symlinks and nested .bivignore advisories") {
   std::filesystem::remove_all(root);
 }
 
-TEST_CASE("scan refuses repo-bearing roots") {
+TEST_CASE("scan exclusions canonicalize and claim repository roots", "[pack-repos]") {
   auto root = make_tmp("repo");
   std::filesystem::create_directory(root / ".git");
+  write_file(root / "src/main.cpp");
+  write_file(root / "README");
+
+  auto matcher = biv::scan::prepare_matcher(root);
+  REQUIRE(matcher.has_value());
+  for (const auto& spelling : {std::filesystem::path{"."}, std::filesystem::path{}}) {
+    biv::scan::ScanExclusions exclusions{
+        .repo_subtrees = {biv::scan::ScanExclusions::canonical(spelling)}};
+    auto result = biv::scan::scan(root, matcher->matcher, exclusions);
+    REQUIRE(result.has_value());
+    CHECK(result->payload.empty());
+    CHECK(result->pruned.empty());
+  }
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("scan excludes a nested repository subtree as one writer", "[pack-repos]") {
+  auto root = make_tmp("nested-repo");
+  std::filesystem::create_directories(root / "lib/vendored/.git");
+  write_file(root / "lib/vendored/x.c");
+  write_file(root / "lib/other.c");
+
+  auto matcher = biv::scan::prepare_matcher(root);
+  REQUIRE(matcher.has_value());
+  auto result = biv::scan::scan(
+      root, matcher->matcher,
+      biv::scan::ScanExclusions{.repo_subtrees = {"lib/vendored"}});
+  REQUIRE(result.has_value());
+  CHECK(std::ranges::any_of(result->payload, [](const auto& node) {
+    return node.relpath == "lib/other.c";
+  }));
+  CHECK_FALSE(std::ranges::any_of(result->payload, [](const auto& node) {
+    return node.relpath.starts_with("lib/vendored") ||
+           node.relpath.find(".git") != std::string::npos;
+  }));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("scan refuses only unclaimed hostile git markers", "[pack-repos]") {
+  auto root = make_tmp("unclaimed-git");
+  std::filesystem::create_symlink("target", root / ".git");
 
   auto result = biv::scan::scan(root);
   REQUIRE_FALSE(result.has_value());
-  REQUIRE(result.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
+  CHECK(result.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
+  CHECK(result.error().facts.at("reason") == "symlink");
+
+  std::filesystem::remove(root / ".git");
+  REQUIRE(::mkfifo((root / ".git").c_str(), 0600) == 0);
+  result = biv::scan::scan(root);
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
+  CHECK(result.error().facts.at("reason") == "special-file");
+
+  std::filesystem::remove(root / ".git");
+  std::filesystem::create_directory(root / ".git");
+  result = biv::scan::scan(root);
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().facts.at("reason") == "unreadable-marker");
+
   std::filesystem::remove_all(root);
 }

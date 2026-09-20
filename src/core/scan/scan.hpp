@@ -3,8 +3,10 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
+#include "core/ignore/matcher.hpp"
 #include "core/manifest/manifest.hpp"
 #include "core/support/error.hpp"
 
@@ -36,6 +38,23 @@ struct ScanResult {
   manifest::BivignoreProvenance bivignore;
 };
 
+struct ScanExclusions {
+  std::vector<std::string> repo_subtrees;
+
+  static std::string canonical(const std::filesystem::path& rel);
+  bool claims_root() const;
+  bool claims(std::string_view canonical_rel) const;
+};
+
+struct MatcherBundle {
+  ignore::Matcher matcher;
+  manifest::BivignoreProvenance bivignore;
+};
+
+expected<MatcherBundle> prepare_matcher(const std::filesystem::path& source_root);
+expected<ScanResult> scan(const std::filesystem::path& source_root,
+                          const ignore::Matcher& matcher,
+                          const ScanExclusions& exclusions);
 expected<ScanResult> scan(const std::filesystem::path& source_root);
 
 }  // namespace biv::scan

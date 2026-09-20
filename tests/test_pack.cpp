@@ -23,6 +23,8 @@
 #include "core/manifest/manifest.hpp"
 #include "core/open/sessions.hpp"
 #include "core/pack/pack.hpp"
+#include "core/repo/git.hpp"
+#include "core/repo/git_exec.hpp"
 #include "core/report/envelope.hpp"
 
 namespace {
@@ -45,6 +47,57 @@ void write_file(const std::filesystem::path& path, std::string_view content) {
   std::filesystem::create_directories(path.parent_path());
   std::ofstream out{path, std::ios::binary};
   out << content;
+}
+
+biv::repo::Git pack_git() {
+  auto resolved = biv::repo::Git::resolve(
+      [](const std::string_view name) -> std::optional<std::string> {
+        if (const auto* value = std::getenv(std::string{name}.c_str())) {
+          return std::string{value};
+        }
+        return std::nullopt;
+      });
+  REQUIRE(resolved.has_value());
+  return *resolved;
+}
+
+void pack_git_run(const biv::repo::Git& git,
+                  const std::filesystem::path& cwd,
+                  std::initializer_list<std::string> args,
+                  std::initializer_list<std::string> operands = {}) {
+  auto result = git.run(args, operands,
+                        {.cwd = cwd, .allow_user_protocol = true});
+  REQUIRE(result.has_value());
+  const std::string diagnostic{
+      reinterpret_cast<const char*>(result->stderr_bytes.data()),
+      result->stderr_bytes.size()};
+  INFO(diagnostic);
+  REQUIRE(result->exit_code == 0);
+}
+
+std::string pack_git_stdout(const biv::repo::Git& git,
+                            const std::filesystem::path& cwd,
+                            std::initializer_list<std::string> args) {
+  auto result = git.run(args, {},
+                        {.cwd = cwd, .allow_user_protocol = true});
+  REQUIRE(result.has_value());
+  REQUIRE(result->exit_code == 0);
+  return {reinterpret_cast<const char*>(result->stdout_bytes.data()),
+          result->stdout_bytes.size()};
+}
+
+void init_clean_pack_repo(const biv::repo::Git& git,
+                          const std::filesystem::path& repo) {
+  std::filesystem::create_directories(repo);
+  pack_git_run(git, repo, {"init", "-b", "main"});
+  write_file(repo / ".gitignore", "penumbra.log\n");
+  write_file(repo / "tracked.txt", "tracked\n");
+  pack_git_run(git, repo, {"add"}, {".gitignore", "tracked.txt"});
+  pack_git_run(git, repo,
+               {"-c", "user.name=Biv Test",
+                "-c", "user.email=biv@example.invalid", "commit", "-m",
+                "initial"});
+  write_file(repo / "penumbra.log", "ignored\n");
 }
 
 std::vector<std::byte> read_file_bytes(const std::filesystem::path& path) {
@@ -1061,15 +1114,174 @@ TEST_CASE("pack refuses stale partial and reports facts") {
   std::filesystem::remove_all(root);
 }
 
-TEST_CASE("pack refuses repo-bearing source") {
+TEST_CASE("pack records a clean repo-bearing source", "[pack-repos]") {
   const auto root = make_tmp("repo");
   const auto source = root / "sample";
-  std::filesystem::create_directories(source / ".git");
+  const auto git = pack_git();
+  init_clean_pack_repo(git, source);
+  const auto trace = root / "git-requests.log";
+  const auto shim_dir = root / "shim";
+  const auto shim = shim_dir / "git";
+  std::filesystem::create_directories(shim_dir);
+  write_file(shim,
+             "#!/bin/sh\n"
+             "printf '%s\\n' \"$*\" >> '" + trace.string() + "'\n"
+             "exec '" + git.executable().string() + "' \"$@\"\n");
+  std::filesystem::permissions(
+      shim, std::filesystem::perms::owner_read |
+                std::filesystem::perms::owner_write |
+                std::filesystem::perms::owner_exec);
+  const ScopedEnv path{"PATH", shim_dir.string()};
   const ScopedPackDiscoveryEnv discovery_env{
       isolated_pack_discovery_env(root)};
+  auto report = biv::pack::pack(source, {.offline = true});
+  if (!report) {
+    INFO("kind=" << biv::to_string(report.error().kind));
+    INFO("path=" << report.error().path);
+    INFO("detail=" << report.error().detail);
+    for (const auto& [key, value] : report.error().facts) {
+      INFO(key << "=" << value);
+    }
+  }
+  REQUIRE(report.has_value());
+  REQUIRE(report->repos.size() == 1U);
+  CHECK(report->repos.front().relpath == ".");
+  CHECK(report->repos.front().capture_mode == biv::repo::CaptureMode::full);
+  REQUIRE(report->repos.front().eligibility.has_value());
+  CHECK(report->repos.front().eligibility->result ==
+        biv::repo::EligibilityResult::offline_declared);
+  REQUIRE(report->repos.front().bundle.has_value());
+
+  const auto members = read_archive(root / "sample.bvpk");
+  const auto bundle_path = report->repos.front().bundle->generic_string();
+  CHECK(std::ranges::any_of(members, [&](const auto& member) {
+    return member.meta.path == bundle_path;
+  }));
+  const auto manifest_member = std::ranges::find(
+      members, std::string{"manifest.json"},
+      [](const auto& member) { return member.meta.path; });
+  REQUIRE(manifest_member != members.end());
+  auto manifest = biv::manifest::parse(as_span(manifest_member->data));
+  REQUIRE(manifest.has_value());
+  REQUIRE(manifest->repos.size() == 1U);
+  CHECK(manifest->repos.front().relpath == ".");
+  CHECK(manifest->repos.front().bundle == report->repos.front().bundle);
+  CHECK_FALSE(std::ranges::any_of(members, [](const auto& member) {
+    return member.meta.path.starts_with("payload/");
+  }));
+  const auto requests = read_file_bytes(trace);
+  const std::string request_text{
+      reinterpret_cast<const char*>(requests.data()), requests.size()};
+  CHECK(request_text.find("ls-remote") == std::string::npos);
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.partial"));
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.scratch"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack fences dirty nested submodule and unmerged repositories before image creation",
+          "[pack-repos]") {
+  const auto git = pack_git();
+  for (const auto& kind : {std::string{"dirty"}, std::string{"nested"},
+                           std::string{"submodule"}, std::string{"unmerged"}}) {
+    DYNAMIC_SECTION("kind=" << kind) {
+      const auto root = make_tmp("repo-" + kind);
+      const auto source = root / "sample";
+      init_clean_pack_repo(git, source);
+      std::string expected;
+      if (kind == "nested") {
+        expected = "repo-nested-unsupported";
+        init_clean_pack_repo(git, source / "child");
+      } else if (kind == "submodule") {
+        expected = "repo-submodule-unsupported";
+        auto sha = pack_git_stdout(git, source, {"rev-parse", "HEAD"});
+        while (!sha.empty() && (sha.back() == '\n' || sha.back() == '\r')) {
+          sha.pop_back();
+        }
+        pack_git_run(git, source,
+                     {"update-index", "--add", "--cacheinfo",
+                      "160000," + sha + ",sub"});
+      } else if (kind == "unmerged") {
+        expected = "unmerged-index-unrepresentable";
+        pack_git_run(git, source, {"checkout", "-b", "other"});
+        write_file(source / "tracked.txt", "other\n");
+        pack_git_run(git, source, {"add", "tracked.txt"});
+        pack_git_run(git, source,
+                     {"-c", "user.name=Biv Test", "-c",
+                      "user.email=biv@example.invalid", "commit", "-m",
+                      "other"});
+        pack_git_run(git, source, {"checkout", "main"});
+        write_file(source / "tracked.txt", "main\n");
+        pack_git_run(git, source, {"add", "tracked.txt"});
+        pack_git_run(git, source,
+                     {"-c", "user.name=Biv Test", "-c",
+                      "user.email=biv@example.invalid", "commit", "-m",
+                      "main"});
+        auto conflict = git.run(
+            {"-c", "user.name=Biv Test", "-c",
+             "user.email=biv@example.invalid", "merge", "other"}, {},
+            {.cwd = source, .allow_user_protocol = true});
+        REQUIRE(conflict.has_value());
+        REQUIRE(conflict->exit_code != 0);
+      } else {
+        expected = "repo-dirty-unsupported";
+        write_file(source / "untracked.txt", "dirty\n");
+      }
+      const ScopedPackDiscoveryEnv discovery_env{
+          isolated_pack_discovery_env(root)};
+      auto report = biv::pack::pack(source);
+      REQUIRE_FALSE(report.has_value());
+      CHECK(report.error().kind == biv::ErrKind::InternalError);
+      CHECK(report.error().facts.at("repo_engine_kind") == expected);
+      CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
+      CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.partial"));
+      CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.scratch"));
+      std::filesystem::remove_all(root);
+    }
+  }
+}
+
+TEST_CASE("pack maps typed URL divergence refusal without string guessing",
+          "[pack-repos]") {
+  const auto root = make_tmp("repo-divergence");
+  const auto source = root / "sample";
+  const auto real_git = pack_git();
+  init_clean_pack_repo(real_git, source);
+  pack_git_run(real_git, source, {"remote", "add"},
+               {"origin", "https://requested.invalid/repo"});
+
+  const auto shim_dir = root / "shim";
+  const auto shim = shim_dir / "git";
+  std::filesystem::create_directories(shim_dir);
+  write_file(shim,
+             "#!/bin/sh\n"
+             "lsremote=0\n"
+             "geturl=0\n"
+             "for arg in \"$@\"; do\n"
+             "  test \"$arg\" = ls-remote && lsremote=1\n"
+             "  test \"$arg\" = --get-url && geturl=1\n"
+             "done\n"
+             "if test \"$lsremote\" = 1 && test \"$geturl\" = 1; then\n"
+             "  printf '%s\\n' 'https://effective.invalid/repo'\n"
+             "  exit 0\n"
+             "fi\n"
+             "exec '" + real_git.executable().string() + "' \"$@\"\n");
+  std::filesystem::permissions(
+      shim, std::filesystem::perms::owner_read |
+                std::filesystem::perms::owner_write |
+                std::filesystem::perms::owner_exec);
+  const ScopedEnv path{"PATH", shim_dir.string()};
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
+  biv::repo::UrlDivergenceRun divergence;
+  biv::repo::ScopedUrlDivergenceRun scoped{divergence};
   auto report = biv::pack::pack(source);
   REQUIRE_FALSE(report.has_value());
-  CHECK(report.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
+  CHECK(report.error().kind == biv::ErrKind::UrlDivergenceRefused);
+  CHECK(report.error().facts.at("requested") ==
+        "https://requested.invalid/repo");
+  CHECK(report.error().facts.at("effective") ==
+        "https://effective.invalid/repo");
+  CHECK(report.error().facts.at("op") == "eligibility-advertisement");
   CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
   std::filesystem::remove_all(root);
 }

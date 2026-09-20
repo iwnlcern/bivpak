@@ -25,6 +25,11 @@
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
 #include "core/manifest/agent_member.hpp"
+#include "core/repo/capture.hpp"
+#include "core/repo/classify.hpp"
+#include "core/repo/discover.hpp"
+#include "core/repo/eligibility.hpp"
+#include "core/repo/git.hpp"
 #include "core/scan/scan.hpp"
 #include "core/support/portability.hpp"
 #include "core/support/version.hpp"
@@ -198,6 +203,42 @@ expected<std::string> write_file_member(container::TarWriter& writer,
     return writer.write_data(chunk);
   });
   if (!copied) {
+    return std::unexpected(copied.error());
+  }
+  auto extent = writer.end_member();
+  if (!extent) {
+    return std::unexpected(extent.error());
+  }
+  return *extent;
+}
+
+expected<std::string> write_file_member(
+    container::TarWriter& writer, const std::filesystem::path& source,
+    const std::string_view archive_path, const int64_t mtime_s) {
+  std::error_code ec;
+  const auto size = std::filesystem::file_size(source, ec);
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed,
+                                    source.generic_string(), ec.message(),
+                                    ec.value()});
+  }
+  const container::MemberMeta meta{
+      .path = std::string{archive_path},
+      .kind = scan::NodeKind::file,
+      .mode = 0644,
+      .mtime_s = mtime_s,
+      .mtime_ns = 0,
+      .size = size,
+      .symlink_target = {},
+  };
+  if (auto ok = writer.begin_member(meta); !ok) {
+    return std::unexpected(ok.error());
+  }
+  if (auto copied = copy_file_to_sink(
+          source, [&](std::span<const std::byte> chunk) -> expected<void> {
+            return writer.write_data(chunk);
+          });
+      !copied) {
     return std::unexpected(copied.error());
   }
   auto extent = writer.end_member();
@@ -515,6 +556,61 @@ void add_summary(PackReport& report, std::string_view agent) {
   }
 }
 
+BivError engine_to_pack_error(BivError error) {
+  if (repo::engine_error_kind(error) !=
+      repo::EngineErrorKind::url_divergence_refused) {
+    return error;
+  }
+  BivError mapped{ErrKind::UrlDivergenceRefused, error.path};
+  for (const auto field : {"requested", "effective", "op"}) {
+    if (const auto value = error.facts.find(field); value != error.facts.end()) {
+      mapped.facts.emplace(field, value->second);
+    }
+  }
+  return mapped;
+}
+
+BivError fence_error(const repo::RepoBoundary& boundary,
+                     const repo::EngineIssue& issue) {
+  const auto path = issue.paths.empty() ? boundary.relpath : issue.paths.front();
+  auto error = repo::make_engine_error(issue.kind, path, issue.detail);
+  error.facts.emplace("repo_relpath", boundary.relpath.generic_string());
+  if (!issue.paths.empty()) {
+    std::string joined;
+    for (const auto& issue_path : issue.paths) {
+      if (!joined.empty()) joined.push_back('\n');
+      joined += issue_path.generic_string();
+    }
+    error.facts.emplace("unmerged_count", std::to_string(issue.paths.size()));
+    error.facts.emplace("unmerged_paths", std::move(joined));
+  }
+  return error;
+}
+
+std::vector<std::size_t> leaves_first(
+    const std::vector<repo::RepoEntry>& entries) {
+  std::vector<std::size_t> order(entries.size());
+  for (std::size_t index = 0; index < entries.size(); ++index) {
+    order[index] = index;
+  }
+  const auto depth = [&](const std::size_t index) {
+    std::size_t value = 0;
+    auto parent = entries[index].parent_id;
+    while (parent && value < entries.size()) {
+      const auto found = std::ranges::find(entries, *parent,
+                                           &repo::RepoEntry::id);
+      if (found == entries.end()) break;
+      ++value;
+      parent = found->parent_id;
+    }
+    return value;
+  };
+  std::stable_sort(order.begin(), order.end(), [&](const auto lhs, const auto rhs) {
+    return depth(lhs) > depth(rhs);
+  });
+  return order;
+}
+
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink) {
   std::ifstream in{path, std::ios::binary};
   if (!in) {
@@ -537,7 +633,8 @@ expected<void> copy_file_to_sink(const std::filesystem::path& path, container::T
   return {};
 }
 
-expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
+expected<PackReport> pack_impl(const std::filesystem::path& source_dir,
+                               const PackOptions& options) {
   std::error_code ec;
   const auto source = existing_canonical(source_dir, ec);
   if (ec || !std::filesystem::is_directory(source, ec)) {
@@ -549,19 +646,25 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   const auto image_path = (source.parent_path() / (name + ".bvpk")).lexically_normal();
   const auto partial_path = (source.parent_path() / (name + ".bvpk.partial")).lexically_normal();
   const auto spool_path = (source.parent_path() / (name + ".bvpk.spool")).lexically_normal();
+  const auto scratch_path = (source.parent_path() / (name + ".bvpk.scratch")).lexically_normal();
   if (lexically_inside(image_path, source) || lexically_inside(partial_path, source) ||
       lexically_inside(spool_path, source)) {
     return std::unexpected(with_temp_facts(BivError{ErrKind::OutputInsideSource, image_path.generic_string()},
                                            partial_path,
                                            spool_path));
   }
-  if (std::filesystem::exists(partial_path, ec) || std::filesystem::exists(spool_path, ec)) {
+  if (std::filesystem::exists(partial_path, ec) ||
+      std::filesystem::exists(spool_path, ec) ||
+      std::filesystem::exists(scratch_path, ec)) {
     BivError error{ErrKind::PartialPresent};
     if (std::filesystem::exists(partial_path)) {
       error.facts["partial_path"] = partial_path.generic_string();
     }
     if (std::filesystem::exists(spool_path)) {
       error.facts["spool_path"] = spool_path.generic_string();
+    }
+    if (std::filesystem::exists(scratch_path)) {
+      error.facts["scratch_path"] = scratch_path.generic_string();
     }
     return std::unexpected(error);
   }
@@ -570,12 +673,77 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     std::error_code cleanup_ec;
     std::filesystem::remove(partial_path, cleanup_ec);
     std::filesystem::remove(spool_path, cleanup_ec);
+    std::filesystem::remove_all(scratch_path, cleanup_ec);
     return std::unexpected(with_temp_facts(std::move(error), partial_path, spool_path));
   };
 
-  auto scan_result = scan::scan(source);
+  const auto env = process_env();
+  auto matcher = scan::prepare_matcher(source);
+  if (!matcher) {
+    return cleanup_error(matcher.error());
+  }
+  auto discovery = repo::discover(source, matcher->matcher);
+  if (!discovery) {
+    return cleanup_error(engine_to_pack_error(discovery.error()));
+  }
+  scan::ScanExclusions exclusions;
+  for (const auto& boundary : discovery->repos) {
+    exclusions.repo_subtrees.push_back(
+        scan::ScanExclusions::canonical(boundary.relpath));
+  }
+  auto scan_result = scan::scan(source, matcher->matcher, exclusions);
   if (!scan_result) {
     return cleanup_error(scan_result.error());
+  }
+  scan_result->bivignore = matcher->bivignore;
+
+  std::vector<repo::RepoEntry> entries;
+  std::vector<repo::CaptureResult> captures;
+  if (!discovery->repos.empty()) {
+    auto git = repo::Git::resolve(env.getenv);
+    if (!git) {
+      return cleanup_error(engine_to_pack_error(git.error()));
+    }
+    entries.reserve(discovery->repos.size());
+    for (const auto& boundary : discovery->repos) {
+      auto classified = repo::classify(
+          *git, (source / boundary.relpath).lexically_normal(),
+          *discovery);
+      if (!classified) {
+        return cleanup_error(engine_to_pack_error(classified.error()));
+      }
+      if (classified->fence != repo::Classification::Fence::none) {
+        if (!classified->issue) {
+          return cleanup_error(BivError{ErrKind::InternalError,
+                                        boundary.relpath.generic_string(),
+                                        "repo fence without issue"});
+        }
+        return cleanup_error(
+            engine_to_pack_error(fence_error(boundary, *classified->issue)));
+      }
+      entries.push_back(std::move(classified->entry));
+    }
+    const auto mode = options.offline ? repo::EligibilityMode::offline
+                                      : repo::EligibilityMode::network;
+    for (auto& entry : entries) {
+      if (auto ok = repo::run_eligibility(*git, entry, mode); !ok) {
+        return cleanup_error(engine_to_pack_error(ok.error()));
+      }
+    }
+    std::filesystem::create_directory(scratch_path, ec);
+    if (ec) {
+      return cleanup_error(BivError{ErrKind::ArchiveWriteFailed,
+                                    scratch_path.generic_string(),
+                                    ec.message(), ec.value()});
+    }
+    captures.reserve(entries.size());
+    for (const auto index : leaves_first(entries)) {
+      auto captured = repo::capture(*git, entries.at(index), scratch_path);
+      if (!captured) {
+        return cleanup_error(engine_to_pack_error(captured.error()));
+      }
+      captures.push_back(std::move(*captured));
+    }
   }
 
   manifest::Checksums checksums;
@@ -584,6 +752,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   report.source_path = source.generic_string();
   report.flavor = path_flavor(source);
   report.image_id = uuid4();
+  report.repos = entries;
   for (const auto& path : scan_result->skipped_unsupported) {
     report.warnings.push_back(
         Warning{.kind = std::string{kWarningUnsupportedFileTypeSkipped},
@@ -607,7 +776,6 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   for (const auto& node : scan_result->payload) {
     emitted_members.insert("payload/" + node.relpath);
   }
-  const auto env = process_env();
   for (const auto* adapter : adapters::all_adapters()) {
     if (!agent_id_ok(adapter->id())) {
       return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
@@ -734,6 +902,23 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         report.payload_bytes += node.size;
       }
     }
+    for (const auto& capture : captures) {
+      for (const auto& artifact : capture.artifacts) {
+        const auto archive_path = artifact.archive_path.generic_string();
+        if (!emitted_members.insert(archive_path).second) {
+          return cleanup_error(BivError{ErrKind::ArchiveWriteFailed,
+                                        archive_path,
+                                        "repo-member-duplicate"});
+        }
+        auto extent = write_file_member(spool_writer, artifact.disk_path,
+                                        archive_path, created.seconds);
+        if (!extent) {
+          return cleanup_error(extent.error());
+        }
+        checksums.entries[archive_path] = std::move(*extent);
+        ++report.member_count;
+      }
+    }
     for (const auto& session : collected_sessions) {
       for (size_t i = 0; i < session.artifacts.size(); ++i) {
         auto extent = write_file_member(spool_writer, session.artifact_sources.at(i), session.artifacts.at(i),
@@ -759,6 +944,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .source_path = source.generic_string(),
       .source_path_flavor = report.flavor,
       .packer_home = packer_home_carrier(env.home),
+      .repos = entries,
       .agent_sessions = report.agent_sessions,
       .bivignore = scan_result->bivignore,
   };
@@ -810,6 +996,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     return cleanup_error(ok.error());
   }
   std::filesystem::remove(spool_path, ec);
+  std::filesystem::remove_all(scratch_path, ec);
   return report;
 }
 
@@ -845,14 +1032,19 @@ std::string warning_text(const Warning& warning) {
   return rendered;
 }
 
-expected<PackReport> pack(const std::filesystem::path& source_dir) {
+expected<PackReport> pack(const std::filesystem::path& source_dir,
+                          const PackOptions& options) {
   try {
-    return pack_impl(source_dir);
+    return pack_impl(source_dir, options);
   } catch (const std::exception& error) {
     return std::unexpected(BivError{ErrKind::InternalError, source_dir.generic_string(), error.what()});
   } catch (...) {
     return std::unexpected(BivError{ErrKind::InternalError, source_dir.generic_string(), "pack"});
   }
+}
+
+expected<PackReport> pack(const std::filesystem::path& source_dir) {
+  return pack(source_dir, {});
 }
 
 }  // namespace biv::pack

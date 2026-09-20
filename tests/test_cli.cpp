@@ -874,6 +874,42 @@ TEST_CASE("CLI pack/open round-trip emits JSON envelopes") {
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("CLI pack JSON keeps summary repos empty while archive carries rows",
+          "[pack-repos]") {
+  const auto root = make_tmp("pack-repos-json");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source);
+  auto handle = open_repos_fixture::git();
+  open_repos_fixture::run_git(handle, source, {"init", "-b", "main"});
+  write_file(source / "tracked.txt", "tracked\n");
+  open_repos_fixture::run_git(handle, source, {"add", "tracked.txt"});
+  open_repos_fixture::run_git(
+      handle, source,
+      {"-c", "user.name=Biv Test", "-c",
+       "user.email=biv@example.invalid", "commit", "-m", "initial"});
+
+  const auto packed = run_cmd(
+      "pack '" + source.string() + "' --offline --json", root);
+  INFO(packed.out);
+  INFO(packed.err);
+  REQUIRE(packed.code == 0);
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(packed.out).get(document) == simdjson::SUCCESS);
+  simdjson::dom::array summary_repos;
+  REQUIRE(document["result"]["manifest"]["repos"].get(summary_repos) ==
+          simdjson::SUCCESS);
+  CHECK(summary_repos.size() == 0U);
+
+  biv::open::OpenOptions options;
+  options.image = root / "sample.bvpk";
+  auto plan = biv::open::plan_open(options);
+  REQUIRE(plan.has_value());
+  REQUIRE(plan->manifest().repos.size() == 1U);
+  CHECK(plan->manifest().repos.front().relpath == ".");
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb envelopes", "[a6-fabric]") {
   // the exact fixture sequence of "CLI pack/open round-trip emits JSON envelopes"
   // (tests/test_cli.cpp:891-916), reused verbatim:

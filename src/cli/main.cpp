@@ -272,7 +272,9 @@ int main(int argc, char** argv) {
         auto consent = install_url_divergence_hook(*parsed);
         auto report = [&] {
           biv::repo::ScopedUrlDivergenceRun scoped{consent.run};
-          return biv::pack::pack(parsed->pack_dir);
+          return biv::pack::pack(
+              parsed->pack_dir,
+              biv::pack::PackOptions{.offline = parsed->offline});
         }();
         if (!std::cerr.good()) {
           return emit_error("pack", biv::BivError{.kind = biv::ErrKind::InternalError,
