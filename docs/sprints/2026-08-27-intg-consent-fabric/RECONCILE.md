@@ -352,3 +352,23 @@ MUST-2B-37: rev17 preserved and rewrote the canonical pointer `$EVID/runners-dir
 
 Master 211410 routed A10/A11 rev7 to m-3.planner for rev8 with master's own reproduction; nothing moves at the pair on it (c4b / c6b hold; untranscribed).
 The lesson is the reviewer's, not mine: a carried gate file must be pushed through the gate that consumes it, and a canonical pointer is published after everything it points at exists.
+
+## R29 — rev18 MUST-REVISED on three more resume.sh defects (MUST-2B-38/39/40); rev19 filed as plan-20 (2026-09-19 22:48–23:08; review `intg-substep2b/PLAN-REVIEW-pair-implementer-20260919-224817.md`; relay `intg-substep2b/PLAN-pair-planner-20260919-230821.md`; artifact `7c3b5a54…` at f22a16b, 2737 lines)
+
+The implementer walked rev18's `resume.sh` with three controls of their own and each separated a defect my walk had not reached.
+MUST-2B-38: the pre-flight counted the MATCHING `plan_sha256=` line, not the field's cardinality, so a locator holding a current line beside the stale rev16 line passed pre-flight and published; Step 5's `field` parser would then refuse it (`field-plan_sha256-count-2`) only after publication.
+MUST-2B-39: after the recursive seal copy only the note was compared, so a copier that altered any of the seven binding files published (their shim changed the sealed `plan-lock.txt`; my note-corrupting shim could not see it).
+MUST-2B-40: the `mv` was followed by a fallible read-back inside the unpublished window, so a failed read after a successful `mv` cleaned up the seal and the directory the canonical pointer already named — a dangling pointer, the very class MUST-2B-37 required the successor to close.
+
+| Object | Checked at | Result |
+|---|---|---|
+| the T-ORACLE pre-flight | total `^plan_sha256=` lines == 1 AND exact current lines == 1, each producer's rc checked apart from its predicate, before any write | a current line beside the stale one (fields 2, current 1) and two current lines → `t-oracle-stale`, no write, pointer byte-identical |
+| the seal | every one of the eight files compared byte-for-byte to the built seal after the copy (`seal-<file>-mismatch`), before pointer preservation | a `cp` shim copying faithfully except the sealed `plan-lock.txt` → `seal-plan-lock.txt-mismatch`, the unpublished seal and directory removed, the pointer byte-identical; the retry with the real `cp` publishes |
+| the publication boundary | `PUBLISHED=1` the instant `mv` returns 0, before any later operation; the read-back STOPs `published-verify` with everything retained and prints the by-hand disposition; the STOP handler removes nothing once published | a path-sensitive `cat` shim failing the first read of `runners-dir.txt` holding the new value → `published-verify`, the pointer AT the new directory, that directory and the 8-file seal retained, a rerun → `same-lock`, the T-ORACLE prefix passing from the published directory |
+| the rev18 set re-run | the positive through the exact Step-5 T-ORACLE prefix; the stale file; six early mutants; the four late mutants (the note shim now `seal-resume.txt-mismatch`) each retried | all as at rev18 |
+| the four runner proofs | Tasks 0/9/10/11 extract + check at rev19: gates 3/13/4/2, omitted 0, rc 0 | unchanged |
+| the delta | rev18 → rev19: the Step 0′ paragraph, the `resume.sh` block, the history; nothing else | Step 3c / Step 4 / Task 4 Files byte-identical to rev17 |
+
+Three consecutive runner-side must-revises on one block (rev17 → rev18 → rev19) after my own walks passed each revision.
+The reviewer's controls were the ones I had not written: a cardinality mutant of the field my gate greps, a copier that alters a file my compare does not read, and a fault AFTER the act I called the last one.
+The pattern: my mutants tested the predicates I had written; theirs tested the predicates I had not.
