@@ -134,6 +134,8 @@ std::string help_text(const Verb verb) {
         "  --dest <path>\n"
         "  --consent <yes|no|agent=yes,...>\n"
         "  --accept-url-divergence\n"
+        "  --offline\n"
+        "  --network\n"
         "  --agent-bin <";
     help += registered_agent_list();
     help +=

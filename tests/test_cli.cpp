@@ -1452,6 +1452,8 @@ TEST_CASE("Task 4 CLI help documents the strict agent binary pin syntax") {
         "  --dest <path>\n"
         "  --consent <yes|no|agent=yes,...>\n"
         "  --accept-url-divergence\n"
+        "  --offline\n"
+        "  --network\n"
         "  --agent-bin <claude-code|codex>=<absolute-or-relative-path>\n"
         "  --rename\n"
         "  --abort-on-collision\n"
