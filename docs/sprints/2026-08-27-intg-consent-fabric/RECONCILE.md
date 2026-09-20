@@ -429,3 +429,20 @@ The refused attempts filed nothing.
 
 WAITING on master: the owner byte reviews of `3431bb7..1065872` (recommended now) and the A10/A11 chain (rev8 pins approved by m-3.implementer; the title finding at the owner; the Master Reviewer owed).
 
+## R33 — master's rulings on the prefix (2026-09-20 12:16; master `intg-2b-wiring-act/PLAN-master-planner-20260920-121637.md`; the owner invitations `…121632.md` TO m-3 and `…121635.md` TO m-1)
+
+Master verified the prefix at its own bytes and ruled:
+the owner byte reviews open now on `3431bb7..1065872`, with the plan's Task 10 gate read exactly (the GO carries exactly one no-red byte review OF H from each of m-1, m-3 and m-4, so a prefix reading banks and each owner's H review confines its delta to c4b..c8; m-4 stays at H);
+R-4.62 arm (a) is CLOSED on m-3's rule, the sidecar counts recorded as the plan's stated black-box limit;
+the two evidence-command defects are accepted for the lock revision as proposed;
+the A10/A11 chain waits on m-3's title word, then the Master Reviewer, the locks, the two lock files, the lock revision, the exact-hash review, the fresh carry, the `t-oracle.txt` rewrite and impl-4.
+
+Prep executed at this seat, read-only at the head:
+
+| Command | At | Result |
+|---|---|---|
+| `biv_tests '[cli-flags]'` | 1065872 | rc 0, 6 cases, 190 assertions; `'[cli]'` rc 2, no tests ran |
+| `git show --format= --unified=0 5aeb81c -- src/core/scan/scan.cpp \| grep -c '^[+-].*"\.biv"'` | 5aeb81c | 0; the default-context form 1 (an unchanged context line); an added-literal mutant line 1 |
+
+The branch holds at `1065872`; nothing owed from the pair until the lock words.
+
