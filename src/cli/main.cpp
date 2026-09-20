@@ -287,6 +287,9 @@ int main(int argc, char** argv) {
                 {.op = error.facts.at("op"), .repo = error.path,
                  .requested = error.facts.at("requested"),
                  .effective = error.facts.at("effective")});
+          } else if (error.kind == biv::ErrKind::UnclaimedGitEntry) {
+            error.detail = biv::cli::render_unclaimed_git_entry_detail(
+                error.path, error.facts.at("reason"));
           }
           return emit_error("pack", report.error(), parsed->json);
         }

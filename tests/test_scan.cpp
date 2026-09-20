@@ -176,20 +176,21 @@ TEST_CASE("scan refuses only unclaimed hostile git markers", "[pack-repos]") {
 
   auto result = biv::scan::scan(root);
   REQUIRE_FALSE(result.has_value());
-  CHECK(result.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
+  CHECK(result.error().kind == biv::ErrKind::UnclaimedGitEntry);
   CHECK(result.error().facts.at("reason") == "symlink");
 
   std::filesystem::remove(root / ".git");
   REQUIRE(::mkfifo((root / ".git").c_str(), 0600) == 0);
   result = biv::scan::scan(root);
   REQUIRE_FALSE(result.has_value());
-  CHECK(result.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
+  CHECK(result.error().kind == biv::ErrKind::UnclaimedGitEntry);
   CHECK(result.error().facts.at("reason") == "special-file");
 
   std::filesystem::remove(root / ".git");
   std::filesystem::create_directory(root / ".git");
   result = biv::scan::scan(root);
   REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::UnclaimedGitEntry);
   CHECK(result.error().facts.at("reason") == "unreadable-marker");
 
   std::filesystem::remove_all(root);

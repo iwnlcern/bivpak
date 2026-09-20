@@ -12,7 +12,7 @@ from test_specs import SCENARIOS, STUB
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CURRENT_LOCKED_SCHEMA_BLOBS = {
     "schemas/biv-json-envelope.v1.schema.json": "fe42d6fb696850d7bbb8d73385e2b1b604b6bd59",
-    "schemas/biv-exit-map.v1.json": "31fb8ef8966f2de44b9de268265a5c7e013e6c5d",
+    "schemas/biv-exit-map.v1.json": "8e5a60ff7d23f0df5cc44cfc789340c1fc77d628",
 }
 
 

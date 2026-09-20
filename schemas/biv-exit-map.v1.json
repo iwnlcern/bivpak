@@ -2,7 +2,6 @@
   "version": 1,
   "rows": [
     {"kind": "SourceUnreadableRoot", "class": "refusal", "exit": 3},
-    {"kind": "RepoDiscoveredUnsupported", "class": "refusal", "exit": 3, "transitional": true},
     {"kind": "OutputInsideSource", "class": "refusal", "exit": 3},
     {"kind": "PartialPresent", "class": "refusal", "exit": 3},
     {"kind": "SourceUnreadableSubpath", "class": "divergence", "exit": 2, "transitional": true},
@@ -29,6 +28,7 @@
     {"kind": "InternalError", "class": "mid-fail", "exit": 4},
     {"kind": "UsageError", "class": "usage", "exit": 5, "transitional": true, "note": "Reserved verbs list/info return UsageError with NotYetImplemented detail until implemented."},
     {"kind": "UrlDivergenceRefused", "class": "refusal", "exit": 3},
-    {"kind": "UrlDivergenceEntryRefused", "class": "divergence", "exit": 2}
+    {"kind": "UrlDivergenceEntryRefused", "class": "divergence", "exit": 2},
+    {"kind": "UnclaimedGitEntry", "class": "refusal", "exit": 3}
   ]
 }

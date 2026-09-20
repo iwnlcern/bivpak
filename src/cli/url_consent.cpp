@@ -124,6 +124,13 @@ std::string render_pack_refusal_detail(const UrlDivergenceFacts& facts) {
          "--accept-url-divergence to proceed.";
 }
 
+std::string render_unclaimed_git_entry_detail(const std::string_view path,
+                                              const std::string_view reason) {
+  return "pack refused: " + consent_display(path) +
+         " is a .git-named entry that is not a repository boundary (" +
+         consent_display(reason) + "); remove or repair it and re-run.";
+}
+
 std::string render_entry_refusal_line(std::string_view relpath,
                                       const UrlDivergenceFacts& facts) {
   return "  " + consent_display(relpath) + ": restore failed — " +

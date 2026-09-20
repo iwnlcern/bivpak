@@ -1488,6 +1488,42 @@ TEST_CASE("A6-R4 refusal + guidance bytes are golden", "[a6-fabric]") {
         "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
 }
 
+TEST_CASE("A9 unclaimed git entry detail is byte-golden for every reason",
+          "[a6-fabric]") {
+  for (const auto reason : {"symlink", "special-file", "unreadable-marker"}) {
+    CHECK(biv::cli::render_unclaimed_git_entry_detail(
+              "/w/hostile\r-\xe2\x80\xae/.git", reason) ==
+          "pack refused: /w/hostile\\r-\\u{202e}/.git is a .git-named "
+          "entry that is not a repository boundary (" + std::string{reason} +
+          "); remove or repair it and re-run.");
+  }
+}
+
+TEST_CASE("A9 CLI emits the typed unclaimed git refusal", "[pack-repos]") {
+  const auto root = make_tmp("unclaimed-git-cli");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source);
+  std::filesystem::create_symlink("missing-target", source / ".git");
+  const ScopedEnv home{"HOME", root.string()};
+  const ScopedEnv codex_home{"CODEX_HOME", (root / "no-codex").string()};
+  const ScopedEnv claude_home{"CLAUDE_CONFIG_DIR",
+                              (root / "no-claude").string()};
+
+  const auto result =
+      run_cmd("pack '" + source.string() + "' --json", root);
+  CHECK(result.code == 3);
+  CHECK(result.err.empty());
+  CHECK(result.out.find("\"kind\": \"UnclaimedGitEntry\"") !=
+        std::string::npos);
+  CHECK(result.out.find("\"reason\": \"symlink\"") != std::string::npos);
+  CHECK(result.out.find("pack refused: " +
+                        (std::filesystem::canonical(source) / ".git")
+                            .generic_string()) !=
+        std::string::npos);
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err",
           "[a6-fabric]") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/r", "https://q", "https://e"};

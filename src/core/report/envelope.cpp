@@ -466,7 +466,6 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::EntrySchemaSkipped:
       return 0;
     case ErrKind::SourceUnreadableRoot:
-    case ErrKind::RepoDiscoveredUnsupported:
     case ErrKind::OutputInsideSource:
     case ErrKind::PartialPresent:
     case ErrKind::NotABivpakImage:
@@ -479,6 +478,7 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::CollisionRefused:
     case ErrKind::OpenPartialPresent:
     case ErrKind::UrlDivergenceRefused:
+    case ErrKind::UnclaimedGitEntry:
       return 3;
   }
   return 4;

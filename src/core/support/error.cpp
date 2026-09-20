@@ -6,8 +6,6 @@ const char* to_string(const ErrKind kind) noexcept {
   switch (kind) {
     case ErrKind::SourceUnreadableRoot:
       return "SourceUnreadableRoot";
-    case ErrKind::RepoDiscoveredUnsupported:
-      return "RepoDiscoveredUnsupported";
     case ErrKind::OutputInsideSource:
       return "OutputInsideSource";
     case ErrKind::PartialPresent:
@@ -60,6 +58,8 @@ const char* to_string(const ErrKind kind) noexcept {
       return "UrlDivergenceRefused";
     case ErrKind::UrlDivergenceEntryRefused:
       return "UrlDivergenceEntryRefused";
+    case ErrKind::UnclaimedGitEntry:
+      return "UnclaimedGitEntry";
   }
   return "InternalError";
 }

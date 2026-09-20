@@ -22,6 +22,8 @@ std::string consent_display(std::string_view raw);
 std::string render_prompt_d(const UrlDivergenceFacts& facts);
 std::string render_accepted_notice(const UrlDivergenceFacts& facts);
 std::string render_pack_refusal_detail(const UrlDivergenceFacts& facts);
+std::string render_unclaimed_git_entry_detail(std::string_view path,
+                                              std::string_view reason);
 std::string render_entry_refusal_line(std::string_view relpath,
                                       const UrlDivergenceFacts& facts);
 std::string render_run_guidance_line(std::size_t refused_count);

@@ -1178,6 +1178,26 @@ TEST_CASE("pack records a clean repo-bearing source", "[pack-repos]") {
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("pack preserves the raw unclaimed git entry contract",
+          "[pack-repos]") {
+  const auto root = make_tmp("unclaimed-git-entry");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source);
+  std::filesystem::create_symlink("missing-target", source / ".git");
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
+
+  auto report = biv::pack::pack(source);
+  REQUIRE_FALSE(report.has_value());
+  CHECK(report.error().kind == biv::ErrKind::UnclaimedGitEntry);
+  CHECK(report.error().path == (source / ".git").generic_string());
+  CHECK(report.error().detail.empty());
+  CHECK(report.error().facts.at("reason") == "symlink");
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.partial"));
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("pack fences dirty nested submodule and unmerged repositories before image creation",
           "[pack-repos]") {
   const auto git = pack_git();

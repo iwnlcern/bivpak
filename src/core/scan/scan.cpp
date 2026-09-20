@@ -147,7 +147,7 @@ expected<void> walk(const std::filesystem::path& dir,
                     ? "special-file"
                     : "unreadable-marker";
       return std::unexpected(BivError{
-          ErrKind::RepoDiscoveredUnsupported, child.path().generic_string(),
+          ErrKind::UnclaimedGitEntry, child.path().generic_string(),
           {}, 0, {{"reason", reason}}});
     }
     if (name == ".biv" && is_dir) {
