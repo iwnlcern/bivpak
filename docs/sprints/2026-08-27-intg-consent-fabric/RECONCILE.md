@@ -405,3 +405,27 @@ The plan's T-ORACLE gate block, re-extracted from the live plan and byte-equal t
 The token's order: Step 0′ (`resume.sh` once, the new runners directory bound to this lock and id) → Task 4 Step 3c → Step 4 → Step 5 (c4a's commit) → c5 → c3h/c6a.
 WAITING on the implementer's execution.
 
+## R32 — impl-3 returned: the rev19 prefix committed through c6a; R-4.62 arm (a) closed (2026-09-20 06:07–06:20; return `intg-substep2b/IMPL-pair-implementer-20260920-060738.md`; SITREP `intg-substep2b/SITREP-pair-planner-20260920-062016.md`)
+
+The implementer ran Step 0′ as walked and then the released order: m-3's R-4.62 patch as one m-3-authored commit, c4a with the fresh T-ORACLE gate, c5, c3h and c6a under A9's lock.
+The branch stands at `1065872`, ten commits after B, worktree clean, `git diff --check` clean.
+Every mechanical claim of the return was verified at this seat before the word went up.
+
+| Object | Checked at | Result |
+|---|---|---|
+| the commits | `3431bb7` (m-3.planner, one file, 11/5, post-image `fbaee3bf…`), `ef8e492` c4a 10 paths, `5aeb81c` c5 8, `09563d3` c3h 2, `1065872` c6a 13 | as returned |
+| R-4.62 | rebuilt binary `e0a716e3…`; D1 20/20, D2 20/20, rc 0 in 40/40, no retry; wall 782–973 ms | arm (a) CLOSES on m-3's rule; the 5 ms watcher saw the marker in 35/40 and captured content in 22/40 — the black-box sidecar limit the plan states, not a red |
+| Step 0′ | new runners `s2b-runners-PEazOQ` (lock rev19, token impl-3, 15 carried, 22 blocks); the 8-file seal equal to the built one; pointer moved last, old preserved as `runners-dir.prev-20260920-051612.txt` | as walked |
+| the T-ORACLE receipt | `c4a-t-oracle.txt` names carry 045732 and the rev19 digest once | pass |
+| c6a | exit map 29 rows; `RepoDiscoveredUnsupported` absent under src/ schemas/ tests/; the A9 lock gate live/pin re-hashed | pass |
+| the suite (the implementer's receipts) | 454 cases, 451 passed, 3 skips; ctest 15/0/3; pytest envelope 6 (`.venv-harness`) | E2 |
+| holds | c4b / c6b (no A10/A11 lock file), c7 / c8, Tasks 9–11 | correct |
+
+Two plan evidence-command defects to fold into the lock revision: Task 3 Step 8's `[cli]` Catch2 tag names no case, and Task 5 Step 2's `.biv` line rule reads a context line under the default diff context.
+Both were preserved by the implementer, not normalized.
+
+Engine note: the relay daemon now runs kit 2.9.3 from the codex plugin cache (fingerprint `32d92727…`); the 2.9.2 client and the claude-cache 2.9.3 client are both refused (`E-VERSION-MISMATCH`), and this seat files through the daemon's own client at `~/.codex/plugins/cache/agentic-dev-team-skills/adt-master/2.9.3/tools/relay`.
+The refused attempts filed nothing.
+
+WAITING on master: the owner byte reviews of `3431bb7..1065872` (recommended now) and the A10/A11 chain (rev8 pins approved by m-3.implementer; the title finding at the owner; the Master Reviewer owed).
+
