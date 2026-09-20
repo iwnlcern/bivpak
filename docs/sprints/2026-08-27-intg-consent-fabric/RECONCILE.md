@@ -388,3 +388,20 @@ The approve grants the governance transition only: master's fresh five-field car
 WAITING on master's carry.
 On its path: preserve `t-oracle.txt` as `t-oracle.prev-<stamp>.txt`, rewrite it with exactly one `plan_sha256=` line, run the gate from the candidate worktree against the real file, then token `intg-substep2b-impl-3` (PARENT `intg-substep2b-plan-review-18`; Step 0′ first).
 
+## R31 — the fresh carry; t-oracle.txt rewritten; token impl-3 issued (2026-09-20 04:57–05:10; carry `intg-2b-wiring-act/PLAN-master-planner-20260920-045732.md`; token `intg-substep2b/IMPL-pair-planner-20260920-051031.md`)
+
+Master filed the fresh five-field carry within the turn: `T_ORACLE_PLAN_SHA256:` = the rev19 digest, the three owner-object lines byte-identical to 174907's, tracked and unmodified at pdc HEAD cb107a13.
+The stale rev16 `t-oracle.txt` was preserved as `t-oracle.prev-20260920-050633.txt` and the file rewritten with four lines and exactly one `plan_sha256=` line naming the rev19 digest.
+The plan's T-ORACLE gate block, re-extracted from the live plan and byte-equal to the walk copy, ran from the candidate worktree against the real file with a scratch evidence directory and passed.
+
+| Object | Checked at | Result |
+|---|---|---|
+| the carry | tracked, unmodified, `TO: intg.pair-planner`, the five fields once each | sha `99bf54b0…` |
+| `$RUNNERS/t-oracle.txt` | rewritten; the previous preserved beside it | sha `9d2847bb…` (0400); prev `b8c8c8fc…` |
+| the gate | the live block from the candidate worktree, scratch `$EVID` | `t-oracle OK`, the receipt naming the digest |
+| the token | `intg-substep2b-impl-3`, PARENT `intg-substep2b-plan-review-18`, plan `7c3b5a54…`, 38-path SCOPE_DIFF all-in (impl-2's 37 + `tests/test_probe.cpp` for Step 3c), every digest computed at issuance; lineage walked on a mini-root (only the known-red classes) | filed 051031, sha `8373c7f3…` |
+| A10/A11 | m-3 rev8 pins 050201/050202 → m-3.implementer approves 050925/050926 → master 050824 flags the `(rev7)` line-1 titles (owner's call; rev9 possible) → the Master Reviewer owed | NOT locked; c4b/c6b/c7/c8 hold |
+
+The token's order: Step 0′ (`resume.sh` once, the new runners directory bound to this lock and id) → Task 4 Step 3c → Step 4 → Step 5 (c4a's commit) → c5 → c3h/c6a.
+WAITING on the implementer's execution.
+
