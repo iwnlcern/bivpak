@@ -14,6 +14,8 @@ namespace biv::report {
 
 inline constexpr int kEnvelopeVersion = 1;
 
+std::string machine_text(std::string_view raw);
+
 struct OpenSessionsReport {
   bool prompt_shown{false};
   bool warning_shown{false};

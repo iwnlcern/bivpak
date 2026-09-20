@@ -302,6 +302,7 @@ int main(int argc, char** argv) {
         return exit_code;
       }
       case biv::cli::Verb::open: {
+        parsed->open_options.offline = parsed->offline;
         const auto dest_or_default = parsed->open_options.dest.value_or(
             default_dest_for(parsed->open_options.image));
         auto dest_candidate =
@@ -483,6 +484,15 @@ int main(int argc, char** argv) {
         }
         if (final_success_output.has_value()) {
           std::cout << *final_success_output;
+        }
+        if (parsed->open_options.offline && !parsed->json && !report->repos.empty()) {
+          std::cout << std::flush;
+          std::cerr << biv::cli::render_offline_header();
+          for (const auto& row : report->repos) {
+            if (row.outcome == "offline-pointer") {
+              std::cerr << biv::cli::render_offline_row(row.relpath, row.branch, *row.sha, row.remotes);
+            }
+          }
         }
         return exit_code;
       }

@@ -11,6 +11,10 @@
 
 namespace biv::report {
 
+std::string machine_text(const std::string_view raw) {
+  return support::sanitize_utf8(raw);
+}
+
 namespace {
 
 void write_warnings(json::Writer& writer, const std::vector<pack::Warning>& warnings) {
@@ -73,13 +77,13 @@ void write_url_divergence_accepted(json::Writer& writer,
   for (const auto& entry : entries) {
     writer.begin_object();
     writer.key("requested");
-    writer.value_string(entry.requested);
+    writer.value_string(machine_text(entry.requested));
     writer.key("effective");
-    writer.value_string(entry.effective);
+    writer.value_string(machine_text(entry.effective));
     writer.key("op");
-    writer.value_string(entry.op);
+    writer.value_string(machine_text(entry.op));
     writer.key("repo");
-    writer.value_string(entry.repo);
+    writer.value_string(machine_text(entry.repo));
     writer.end_object();
   }
   writer.end_array();
@@ -404,15 +408,15 @@ void write_open_result(json::Writer& writer,
       writer.key("kind");
       writer.value_string("UrlDivergenceEntryRefused");
       writer.key("repo_id");
-      writer.value_string(row.repo_id);
+      writer.value_string(machine_text(row.repo_id));
       writer.key("relpath");
-      writer.value_string(row.relpath);
+      writer.value_string(machine_text(row.relpath));
       writer.key("requested");
-      writer.value_string(row.requested);
+      writer.value_string(machine_text(row.requested));
       writer.key("effective");
-      writer.value_string(row.effective);
+      writer.value_string(machine_text(row.effective));
       writer.key("op");
-      writer.value_string(row.op);
+      writer.value_string(machine_text(row.op));
       writer.end_object();
     }
     writer.end_array();
@@ -424,7 +428,7 @@ void write_error(json::Writer& writer, const BivError& error) {
   writer.key("kind");
   writer.value_string(to_string(error.kind));
   writer.key("path");
-  writer.value_string(error.path);
+  writer.value_string(machine_text(error.path));
   writer.key("detail");
   writer.value_string(error.detail);
   writer.key("errno");
@@ -433,7 +437,7 @@ void write_error(json::Writer& writer, const BivError& error) {
   writer.begin_object();
   for (const auto& [key, value] : error.facts) {
     writer.key(key);
-    writer.value_string(value);
+    writer.value_string(machine_text(value));
   }
   writer.end_object();
   writer.end_object();

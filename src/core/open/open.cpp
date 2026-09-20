@@ -4,6 +4,7 @@
 #include <array>
 #include <cerrno>
 #include <cstddef>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -35,6 +36,7 @@ struct ArchivePlan {
   manifest::Manifest manifest;
   manifest::Checksums checksums;
   std::vector<PlannedMember> payload;
+  std::vector<PlannedMember> repo_artifacts;
   AgentMemberTable agents;
 };
 
@@ -42,6 +44,7 @@ struct OpenPlanHandle::Impl {
   std::filesystem::path image;
   std::filesystem::path dest;
   bool verify{false};
+  bool offline{false};
   ArchivePlan archive;
 };
 
@@ -267,7 +270,15 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
     ArchivePlan plan{.manifest = std::move(*manifest_model),
                      .checksums = std::move(*checksums),
                      .payload = {},
+                     .repo_artifacts = {},
                      .agents = {}};
+    std::set<std::string> named_artifacts;
+    for (const auto& entry : plan.manifest.repos) {
+      for (const auto& artifact : {entry.bundle, entry.local_refs_bundle,
+                                   entry.capture.staged_patch, entry.capture.worktree_patch}) {
+        if (artifact) named_artifacts.insert(artifact->generic_string());
+      }
+    }
     const auto required_agents = required_agent_members(plan.manifest);
     const auto allowed_stub_agents =
         allowed_stub_agent_members(plan.manifest);
@@ -286,7 +297,9 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
       }
       const bool payload = member.meta.path.starts_with("payload/");
       const bool agent = member.meta.path.starts_with("agents/");
-      if (!payload && !agent) {
+      const bool repo_artifact = member.meta.path.starts_with("repos/");
+      if ((!payload && !agent && !repo_artifact) ||
+          (repo_artifact && !named_artifacts.contains(member.meta.path))) {
         return std::unexpected(BivError{ErrKind::UnmanifestedMember, member.meta.path});
       }
       if (agent && !required_agents.contains(member.meta.path) &&
@@ -295,6 +308,9 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
       }
       if (agent && member.meta.kind != scan::NodeKind::file) {
         return std::unexpected(BivError{ErrKind::MemberPathUnsafe, member.meta.path, "agent-member-kind"});
+      }
+      if (repo_artifact && member.meta.kind != scan::NodeKind::file) {
+        return std::unexpected(BivError{ErrKind::MemberPathUnsafe, member.meta.path, "repo-member-kind"});
       }
       if (agent && member.meta.size > kAgentMemberByteCap) {
         return std::unexpected(BivError{ErrKind::MemberPathUnsafe, member.meta.path, "agent-member-size"});
@@ -309,10 +325,17 @@ expected<ArchivePlan> read_archive_plan(const std::filesystem::path& image, bool
       seen.insert(member.meta.path);
       if (payload) {
         plan.payload.push_back(PlannedMember{.meta = std::move(member.meta), .extent = extent});
+      } else if (repo_artifact) {
+        plan.repo_artifacts.push_back(PlannedMember{.meta = std::move(member.meta), .extent = extent});
       } else {
         plan.agents.members.push_back(PlannedAgentMember{.name = member.meta.path,
                                                          .size = member.meta.size,
                                                          .sha256 = digest_bytes(plan.checksums.entries.at(member.meta.path))});
+      }
+    }
+    for (const auto& required : named_artifacts) {
+      if (!seen.contains(required)) {
+        return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, required, "missing-repo-artifact"});
       }
     }
     for (const auto& [path, digest] : plan.checksums.entries) {
@@ -545,7 +568,8 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
                                  const ArchivePlan& plan,
                                  const std::filesystem::path& partial_dir,
                                  std::vector<container::MemberMeta>& dirs,
-                                 bool verify) {
+                                 bool verify,
+                                 const std::optional<std::filesystem::path>& stage) {
   return with_tar_reader(image, [&](container::TarReader& reader) -> expected<uint64_t> {
     auto manifest_member = require_member(reader, "manifest.json");
     if (!manifest_member) {
@@ -567,6 +591,7 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
     uint64_t restored = 0;
     size_t index = 0;
     size_t agent_count = 0;
+    size_t repo_artifact_count = 0;
     std::map<std::string, scan::NodeKind> created;
     while (true) {
       auto next = reader.next();
@@ -590,6 +615,34 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
           return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "checksum"});
         }
         ++agent_count;
+      } else if (meta.path.starts_with("repos/")) {
+        if (meta.kind != scan::NodeKind::file) {
+          return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path, "repo-member-kind"});
+        }
+        if (repo_artifact_count >= plan.repo_artifacts.size() ||
+            meta.path != plan.repo_artifacts.at(repo_artifact_count).meta.path ||
+            meta.size != plan.repo_artifacts.at(repo_artifact_count).meta.size) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "member-mismatch"});
+        }
+        if (stage) {
+          const auto path = *stage / meta.path;
+          std::error_code ec;
+          std::filesystem::create_directories(path.parent_path(), ec);
+          if (ec) {
+            return std::unexpected(BivError{ErrKind::RestoreWriteFailed, path.generic_string(),
+                                            ec.message(), ec.value()});
+          }
+          if (auto ok = write_file_stream(path, reader, meta); !ok) {
+            return std::unexpected(ok.error());
+          }
+        }
+        if (auto ok = drain_member_midapply(reader, meta.path); !ok) {
+          return std::unexpected(ok.error());
+        }
+        if (verify && plan.checksums.entries.at(meta.path) != reader.extent_sha256_hex()) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "checksum"});
+        }
+        ++repo_artifact_count;
       } else {
         if (index >= plan.payload.size() || meta.path != plan.payload.at(index).meta.path ||
             meta.kind != plan.payload.at(index).meta.kind) {
@@ -607,16 +660,111 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
         ++index;
       }
     }
-    if (index != plan.payload.size() || agent_count != plan.agents.members.size()) {
+    if (index != plan.payload.size() || agent_count != plan.agents.members.size() ||
+        repo_artifact_count != plan.repo_artifacts.size()) {
       return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, image.generic_string(), "member-count"});
     }
     return restored;
   });
 }
 
+RepoOutcomeRow repo_row(const repo::RepoEntry& entry) {
+  RepoOutcomeRow row{.id = entry.id, .relpath = entry.relpath.generic_string(),
+                     .outcome = "failed", .sha = entry.sha, .branch = entry.branch,
+                     .capture_mode = entry.capture_mode == repo::CaptureMode::full ? "full" : "overlay",
+                     .remotes = {}, .local_refs = {}, .advisories = {},
+                     .shallow_boundary = std::nullopt};
+  for (const auto& remote : entry.remotes) row.remotes.push_back(remote.url);
+  return row;
+}
+
+RepoOutcomeRow repo_row(const repo::RepoEntry& entry, repo::RepoRestoreRow restored) {
+  auto row = repo_row(entry);
+  row.id = std::move(restored.id);
+  row.relpath = restored.relpath.generic_string();
+  row.capture_mode = restored.capture_mode == repo::CaptureMode::full ? "full" : "overlay";
+  switch (restored.outcome) {
+    case repo::RepoRestoreOutcome::restored: row.outcome = "restored"; break;
+    case repo::RepoRestoreOutcome::shallow_pointer: row.outcome = "shallow-pointer"; break;
+    case repo::RepoRestoreOutcome::payload_only_unborn: row.outcome = "payload-only-unborn"; break;
+    case repo::RepoRestoreOutcome::failed: row.outcome = "failed"; break;
+  }
+  row.sha = std::move(restored.sha);
+  row.local_refs = std::move(restored.local_refs);
+  row.advisories = std::move(restored.advisories);
+  if (restored.shallow) row.shallow_boundary = std::move(restored.shallow->boundary);
+  return row;
+}
+
+expected<std::vector<const repo::RepoEntry*>> restore_order(const std::vector<repo::RepoEntry>& entries) {
+  std::vector<const repo::RepoEntry*> ordered;
+  std::set<std::string> completed;
+  while (ordered.size() != entries.size()) {
+    const auto level_start = ordered.size();
+    for (const auto& entry : entries) {
+      if (!completed.contains(entry.id) &&
+          (!entry.parent_id || completed.contains(*entry.parent_id))) {
+        ordered.push_back(&entry);
+      }
+    }
+    if (ordered.size() == level_start) {
+      return std::unexpected(BivError{ErrKind::IntegrityFailurePreApply, {}, "repo-parent-order"});
+    }
+    for (auto index = level_start; index < ordered.size(); ++index) {
+      completed.insert(ordered.at(index)->id);
+    }
+  }
+  return ordered;
+}
+
+expected<void> restore_repos(const ArchivePlan& plan, const std::filesystem::path& partial_dir,
+                             const std::optional<std::filesystem::path>& stage,
+                             OpenReport& report) {
+  if (plan.manifest.repos.empty()) return {};
+  std::vector<const repo::RepoEntry*> entries;
+  if (stage) {
+    auto ordered = restore_order(plan.manifest.repos);
+    if (!ordered) return std::unexpected(ordered.error());
+    entries = std::move(*ordered);
+  } else {
+    for (const auto& entry : plan.manifest.repos) entries.push_back(&entry);
+  }
+  std::optional<repo::Git> git;
+  for (const auto* entry : entries) {
+    if (!stage && repo::restore_invokes_git(*entry)) {
+      auto row = repo_row(*entry);
+      row.outcome = "offline-pointer";
+      if (entry->head_state == repo::HeadState::unborn) row.sha = "(no commits)";
+      report.repos.push_back(std::move(row));
+      continue;
+    }
+    if (!git) {
+      auto resolved = repo::Git::resolve([](const std::string_view name) -> std::optional<std::string> {
+        const auto* value = std::getenv(std::string{name}.c_str());
+        return value ? std::optional<std::string>{value} : std::nullopt;
+      });
+      if (!resolved) return std::unexpected(resolved.error());
+      git = std::move(*resolved);
+    }
+    auto restored = repo::restore_entry(*git, *entry, partial_dir, stage.value_or(std::filesystem::path{}));
+    if (restored) {
+      report.repos.push_back(repo_row(*entry, std::move(*restored)));
+    } else if (repo::engine_error_kind(restored.error()) == repo::EngineErrorKind::url_divergence_refused) {
+      const auto& facts = restored.error().facts;
+      report.url_divergence_refusals.push_back({entry->id, entry->relpath.generic_string(),
+                                                facts.at("requested"), facts.at("effective"), facts.at("op")});
+      report.repos.push_back(repo_row(*entry));
+    } else {
+      return std::unexpected(restored.error());
+    }
+  }
+  return {};
+}
+
 expected<OpenReport> execute_archive(const std::filesystem::path& image,
                                      std::filesystem::path dest,
                                      const bool verify,
+                                     const bool offline,
                                      ArchivePlan plan,
                                      const Collision collision) {
   std::string collision_action = "none";
@@ -640,6 +788,24 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
                                            partial_dir));
   }
 
+  const std::optional<std::filesystem::path> stage =
+      (offline || plan.manifest.repos.empty()) ? std::nullopt :
+      std::optional{containing_dir(dest) / (dest.filename().generic_string() + ".bvpk-open.stage")};
+  if (stage && std::filesystem::exists(std::filesystem::symlink_status(*stage, ec))) {
+    return std::unexpected(with_partial_dir(BivError{ErrKind::OpenPartialPresent, stage->generic_string()},
+                                           partial_dir));
+  }
+  // Own only a newly created stage; cleanup also runs if a later operation throws.
+  struct StageCleanup {
+    std::optional<std::filesystem::path> path;
+    ~StageCleanup() {
+      if (path) {
+        std::error_code ignored;
+        std::filesystem::remove_all(*path, ignored);
+      }
+    }
+  } stage_cleanup;
+
   std::filesystem::create_directories(partial_dir, ec);
   if (ec) {
     return std::unexpected(with_partial_dir(BivError{ErrKind::RestoreWriteFailed, partial_dir.generic_string(),
@@ -647,8 +813,21 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
                                            partial_dir));
   }
 
+  if (stage) {
+    const bool created = std::filesystem::create_directory(*stage, ec);
+    if (ec) {
+      return std::unexpected(with_partial_dir(BivError{ErrKind::RestoreWriteFailed, stage->generic_string(),
+                                                       ec.message(), ec.value()}, partial_dir));
+    }
+    if (!created) {
+      return std::unexpected(with_partial_dir(BivError{ErrKind::OpenPartialPresent, stage->generic_string()},
+                                               partial_dir));
+    }
+    stage_cleanup.path = stage;
+  }
+
   std::vector<container::MemberMeta> dirs;
-  auto restored = apply_archive(image, plan, partial_dir, dirs, verify);
+  auto restored = apply_archive(image, plan, partial_dir, dirs, verify, stage);
   if (!restored) {
     return std::unexpected(with_partial_dir(restored.error(), partial_dir));
   }
@@ -658,6 +837,17 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
     if (auto ok = set_mtime(partial_dir / std::filesystem::path{rel}, it->mtime_s, it->mtime_ns); !ok) {
       return std::unexpected(with_partial_dir(ok.error(), partial_dir));
     }
+  }
+  OpenReport report{
+      .image_path = image.generic_string(),
+      .output_dir = dest.generic_string(),
+      .collision_action = collision_action,
+      .restored_member_count = *restored,
+      .checksums_verified = verify,
+      .manifest_format_version = plan.manifest.format_version,
+  };
+  if (auto ok = restore_repos(plan, partial_dir, stage, report); !ok) {
+    return std::unexpected(with_partial_dir(ok.error(), partial_dir));
   }
   if (auto ok = fsync_tree(partial_dir); !ok) {
     return std::unexpected(with_partial_dir(ok.error(), partial_dir));
@@ -677,14 +867,7 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
     return std::unexpected(ok.error());
   }
 
-  return OpenReport{
-      .image_path = image.generic_string(),
-      .output_dir = dest.generic_string(),
-      .collision_action = collision_action,
-      .restored_member_count = *restored,
-      .checksums_verified = verify,
-      .manifest_format_version = plan.manifest.format_version,
-  };
+  return report;
 }
 
 }  // namespace
@@ -758,6 +941,7 @@ expected<OpenPlanHandle> plan_open(const OpenOptions& options) {
     impl->image = options.image;
     impl->dest = options.dest.value_or(default_dest_for(options.image)).lexically_normal();
     impl->verify = options.verify;
+    impl->offline = options.offline;
     impl->archive = std::move(*archive);
     return OpenPlanHandle{std::move(impl)};
   } catch (const std::exception& error) {
@@ -771,7 +955,8 @@ expected<OpenReport> execute_open(OpenPlanHandle&& handle, const OpenDecisions& 
   try {
     OpenPlanHandle owned = std::move(handle);
     auto impl = std::move(owned.impl_);
-    return execute_archive(impl->image, impl->dest, impl->verify, std::move(impl->archive), decisions.collision);
+    return execute_archive(impl->image, impl->dest, impl->verify, impl->offline,
+                           std::move(impl->archive), decisions.collision);
   } catch (const std::exception& error) {
     return std::unexpected(BivError{ErrKind::InternalError, {}, error.what()});
   } catch (...) {

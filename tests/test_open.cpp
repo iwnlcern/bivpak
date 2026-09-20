@@ -51,11 +51,6 @@ std::vector<std::byte> bytes(std::string_view text) {
   return out;
 }
 
-std::string sha256_hex(std::string_view text) {
-  biv::support::Sha256 sha;
-  sha.update(std::as_bytes(std::span{text.data(), text.size()}));
-  return sha.finish_hex();
-}
 
 std::string read_text(const std::filesystem::path& path) {
   std::ifstream in{path, std::ios::binary};
@@ -341,41 +336,60 @@ TEST_CASE("open skips dangling rename candidates") {
 }
 
 TEST_CASE("Task 4 open occupancy and destination contracts stay bounded") {
-  const auto source =
-      read_text(std::filesystem::path{BIV_SOURCE_DIR} / "src" / "core" /
-                "open" / "open.cpp");
+  {
+    const auto source =
+        read_text(std::filesystem::path{BIV_SOURCE_DIR} / "src" / "core" /
+                  "open" / "open.cpp");
 
-  CHECK(source.find(
-            "std::filesystem::exists(\n"
-            "            std::filesystem::symlink_status(candidate, ec))") !=
-        std::string::npos);
-  CHECK(source.find(
-            "std::filesystem::exists(std::filesystem::symlink_status(dest, "
-            "ec))") != std::string::npos);
+    CHECK(source.find(
+              "std::filesystem::exists(\n"
+              "            std::filesystem::symlink_status(candidate, ec))") !=
+          std::string::npos);
+    CHECK(source.find(
+              "std::filesystem::exists(std::filesystem::symlink_status(dest, "
+              "ec))") != std::string::npos);
 
-  const auto plan_begin =
-      source.find("expected<OpenPlanHandle> plan_open");
-  const auto plan_end =
-      source.find("expected<OpenReport> execute_open", plan_begin);
-  REQUIRE(plan_begin != std::string::npos);
-  REQUIRE(plan_end != std::string::npos);
-  const auto plan_source =
-      source.substr(plan_begin, plan_end - plan_begin);
-  CHECK(sha256_hex(plan_source) ==
-        "940128adbb86610d3abadac77d2f3b4ee7d76d0dee50b3e3e28193bdd06a0bb5");
-  CHECK(plan_source.find(
-            "options.dest.value_or(default_dest_for(options.image))"
-            ".lexically_normal()") != std::string::npos);
-  CHECK(plan_source.find("absolute") == std::string::npos);
-  CHECK(plan_source.find("weakly_canonical") == std::string::npos);
-
-  const auto write_begin = source.find("const auto partial_dir =");
-  const auto write_end = source.find("return OpenReport{", write_begin);
-  REQUIRE(write_begin != std::string::npos);
-  REQUIRE(write_end != std::string::npos);
-  const auto write_path = source.substr(write_begin, write_end - write_begin);
-  CHECK(sha256_hex(write_path) ==
-        "eab078f6ccecd7a9292047cc6596ea9921e9b9a8b5f0e589a66968716c0fbd5e");
+    const auto plan_begin =
+        source.find("expected<OpenPlanHandle> plan_open");
+    const auto plan_end =
+        source.find("expected<OpenReport> execute_open", plan_begin);
+    REQUIRE(plan_begin != std::string::npos);
+    REQUIRE(plan_end != std::string::npos);
+    const auto plan_source =
+        source.substr(plan_begin, plan_end - plan_begin);
+    const auto write_begin = source.find("const auto partial_dir =");
+    const auto write_end = source.find("\n}\n", write_begin);
+    REQUIRE(write_begin != std::string::npos);
+    REQUIRE(write_end != std::string::npos);
+    const auto write_path = source.substr(write_begin, write_end - write_begin);
+    // Catch premature writes/publication and writers aimed at the destination.
+    constexpr std::array<std::string_view, 6> calls{
+        "std::filesystem::exists(partial_dir, ec)",
+        "std::filesystem::create_directories(partial_dir, ec)",
+        "apply_archive(image, plan, partial_dir, dirs, verify, stage)",
+        "restore_repos(plan, partial_dir, stage, report)",
+        "fsync_tree(partial_dir)",
+        "std::filesystem::rename(partial_dir, dest, ec)"};
+    std::array<std::size_t, calls.size()> positions{};
+    for (std::size_t index = 0; index < calls.size(); ++index) {
+      INFO(calls[index]);
+      positions[index] = write_path.find(calls[index]);
+      REQUIRE(positions[index] != std::string::npos);
+      CHECK(write_path.find(calls[index], positions[index] + 1) == std::string::npos);
+      if (index != 0) CHECK(positions[index - 1] < positions[index]);
+    }
+    CHECK(write_path.find("ErrKind::OpenPartialPresent") != std::string::npos);
+    CHECK(write_path.find("absolute") == std::string::npos);
+    CHECK(write_path.find("weakly_canonical") == std::string::npos);
+    const auto suffix = write_path.find("\".bvpk-open.partial\"");
+    REQUIRE(suffix != std::string::npos);
+    CHECK(write_path.find("\".bvpk-open.partial\"", suffix + 1) == std::string::npos);
+    CHECK(plan_source.find(
+              "options.dest.value_or(default_dest_for(options.image))"
+              ".lexically_normal()") != std::string::npos);
+    CHECK(plan_source.find("absolute") == std::string::npos);
+    CHECK(plan_source.find("weakly_canonical") == std::string::npos);
+  }
 }
 
 TEST_CASE("open refuses pre-existing partial dir") {

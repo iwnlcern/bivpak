@@ -138,6 +138,24 @@ std::string render_run_guidance_line(std::size_t refused_count) {
          "Re-run interactively to review, or pass --accept-url-divergence to proceed.\n";
 }
 
+std::string render_offline_header() {
+  return "open --offline: repositories were not restored (no git, no network). Stored remote URLs below are informational — recorded at pack, not vetted or complete. Cloning them is git-clone-grade trust: git may contact those URLs and additional URLs from repo metadata (.gitmodules, nested submodules, host git config) that Bivpak does not see or police. Clone only what you trust.\n";
+}
+
+std::string render_offline_row(const std::string_view relpath,
+                                const std::optional<std::string>& branch,
+                                const std::string_view sha,
+                                const std::vector<std::string>& remotes) {
+  auto out = consent_display(relpath) + " · " +
+             consent_display(branch.value_or("(detached)")) + " · " + consent_display(sha) + " · ";
+  if (remotes.empty()) out += "(no stored remote)";
+  for (std::size_t index = 0; index < remotes.size(); ++index) {
+    if (index != 0) out += ", ";
+    out += consent_display(remotes.at(index));
+  }
+  return out + '\n';
+}
+
 bool prompt_url_divergence(const UrlDivergenceFacts& facts, std::istream& in,
                            std::ostream& err) {
   err << render_prompt_d(facts);

@@ -12,6 +12,7 @@
 
 #include "adapters/adapter.hpp"
 #include "core/manifest/manifest.hpp"
+#include "core/repo/restore.hpp"
 #include "core/support/error.hpp"
 #include "core/support/url_divergence.hpp"
 
@@ -27,6 +28,19 @@ struct OpenOptions {
   bool offline{false};
 };
 
+struct RepoOutcomeRow {
+  std::string id;
+  std::string relpath;
+  std::string outcome;
+  std::optional<std::string> sha;
+  std::optional<std::string> branch;
+  std::string capture_mode;
+  std::vector<std::string> remotes;
+  std::vector<biv::repo::LocalRefRestoreRow> local_refs;
+  std::vector<std::string> advisories;
+  std::optional<std::vector<std::string>> shallow_boundary;
+};
+
 struct OpenReport {
   std::string image_path;
   std::string output_dir;
@@ -36,6 +50,7 @@ struct OpenReport {
   int manifest_format_version{0};
   std::vector<biv::UrlDivergenceEntryRefusal> url_divergence_refusals{};
   std::vector<biv::UrlDivergenceAcceptedEntry> url_divergence_accepted{};
+  std::vector<RepoOutcomeRow> repos{};
 };
 
 struct PlannedAgentMember {

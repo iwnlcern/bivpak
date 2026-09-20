@@ -883,3 +883,31 @@ TEST_CASE("a6-R1 exit composition: one typed aggregator over both sources", "[a6
   CHECK(biv::report::exit_for_open(clean, {}) == 0);
   CHECK(biv::report::exit_for_open(clean, rows) == 2);
 }
+
+TEST_CASE("open repos machine carriers replace malformed UTF-8 without display escaping", "[open-repos][envelope]") {
+  // Named mutants: raw 0x9b emission; consent_display applied to a machine field.
+  const std::string raw = std::string{"value-"} + char(0x9b) + "-\xc2\x9b-\xe2\x80\xae";
+  const std::string machine = "value-\xef\xbf\xbd-\xc2\x9b-\xe2\x80\xae";
+  biv::open::OpenReport report{};
+  report.url_divergence_refusals = {{raw, raw, raw, raw, raw}};
+  report.url_divergence_accepted = {{raw, raw, raw, raw}};
+  const auto encoded = biv::report::envelope("open", std::nullopt, report, std::nullopt, 2);
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(encoded).get(document) == simdjson::SUCCESS);
+  const simdjson::dom::array rows = document["result"]["url_divergence_refusals"];
+  check_refusal_row(rows.at(0), machine, machine, machine, machine, machine);
+  check_accepted_entry(single_accepted_entries(document).at(0), machine, machine, machine, machine);
+  CHECK(report.url_divergence_refusals.front().repo_id == raw);
+  CHECK(report.url_divergence_refusals.front().relpath == raw);
+  CHECK(report.url_divergence_accepted.front().repo == raw);
+  biv::BivError error{.kind = biv::ErrKind::UrlDivergenceRefused, .path = raw,
+                      .facts = {{"requested", raw}, {"effective", raw}, {"op", raw}}};
+  const auto failed = biv::report::envelope("pack", std::nullopt, std::nullopt, error, 3);
+  REQUIRE(parser.parse(failed).get(document) == simdjson::SUCCESS);
+  CHECK(std::string_view(document["error"]["path"]) == machine);
+  for (const auto field : {"requested", "effective", "op"}) {
+    CHECK(std::string_view(document["error"]["facts"][field]) == machine);
+  }
+  CHECK(error.path == raw);
+}

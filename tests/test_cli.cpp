@@ -32,6 +32,11 @@
 #include "core/manifest/manifest.hpp"
 #include "core/open/render.hpp"
 #include "core/pack/pack.hpp"
+#include "core/repo/capture.hpp"
+#include "core/repo/classify.hpp"
+#include "core/repo/discover.hpp"
+#include "core/repo/eligibility.hpp"
+#include "core/repo/restore.hpp"
 
 // The parser otherwise belongs only to the CLI executable target.
 #include "../src/cli/args.cpp"
@@ -39,6 +44,35 @@
 #define main biv_cli_main_for_tests
 #include "../src/cli/main.cpp"
 #undef main
+
+namespace open_repos_fixture {
+// provenance=hand-built, interim: Task 7 replaces this builder with biv pack.
+struct Member {
+  biv::container::MemberMeta meta;
+  std::vector<std::byte> data;
+};
+
+biv::repo::Git git() {
+  auto resolved = biv::repo::Git::resolve([](std::string_view name)
+      -> std::optional<std::string> {
+    const auto* value = std::getenv(std::string{name}.c_str());
+    return value ? std::optional<std::string>{value} : std::nullopt;
+  });
+  REQUIRE(resolved);
+  return *resolved;
+}
+
+std::string run_git(const biv::repo::Git& git, const std::filesystem::path& cwd,
+                    std::initializer_list<std::string> args) {
+  auto result = git.run(args, {}, {.cwd = cwd, .allow_user_protocol = true});
+  REQUIRE(result);
+  INFO(std::string(reinterpret_cast<const char*>(result->stderr_bytes.data()),
+                   result->stderr_bytes.size()));
+  REQUIRE(result->exit_code == 0);
+  return {reinterpret_cast<const char*>(result->stdout_bytes.data()),
+          result->stdout_bytes.size()};
+}
+}  // namespace open_repos_fixture
 
 namespace {
 
@@ -1464,6 +1498,547 @@ TEST_CASE("a6-R3 pack and open accept --accept-url-divergence", "[a6-fabric]") {
     char* argv[] = {prog, verb, flag, dir};
     CHECK_FALSE(biv::cli::parse_args(std::span<char* const>{argv, 4}).has_value());
   }
+}
+
+namespace open_repos_fixture {
+
+struct Image {
+  biv::manifest::Manifest manifest{
+      .image_id = "10000000-0000-4000-8000-000000000004",
+      .app_version = "0.1.0", .created_at = "2026-09-19T00:00:00Z",
+      .source_path = "/fixture", .agent_sessions = {},
+      .bivignore = {.source = "builtin", .builtin_id = "builtin-v1",
+                    .sha256_hex = "abc123"}};
+  std::vector<Member> payload;
+  std::vector<Member> artifacts;
+
+  static Member member(const std::string& path, std::string_view content) {
+    return {{.path = path, .kind = biv::scan::NodeKind::file, .mode = 0600,
+             .mtime_s = 1, .mtime_ns = 0, .size = content.size(),
+             .symlink_target = {}}, bytes(content)};
+  }
+
+  void capture_repo(const std::filesystem::path& root, const std::string& id,
+                    const std::string& relpath, bool penumbra = false,
+                    bool overlay = false) {
+    const auto source = root / ("source-" + id);
+    std::filesystem::create_directories(source);
+    const auto handle = git();
+    run_git(handle, source, {"init", "-b", "main"});
+    write_file(source / "a.txt", "committed\n");
+    write_file(source / ".gitignore", "ignored.txt\n");
+    run_git(handle, source, {"add", "."});
+    run_git(handle, source, {"-c", "user.name=Fixture", "-c",
+                           "user.email=fixture@example.invalid", "commit", "-m", "base"});
+    run_git(handle, source, {"branch", "local-topic"});
+    if (overlay) {
+      const auto remote = root / ("remote-" + id);
+      std::filesystem::create_directories(remote);
+      run_git(handle, remote, {"init", "--bare", "--initial-branch=main"});
+      run_git(handle, source, {"remote", "add", "origin", remote.string()});
+      run_git(handle, source, {"push", "-u", "origin", "main"});
+      run_git(handle, source, {"checkout", "local-topic"});
+      write_file(source / "a.txt", "local topic\n");
+      run_git(handle, source, {"add", "a.txt"});
+      run_git(handle, source, {"-c", "user.name=Fixture", "-c",
+                             "user.email=fixture@example.invalid", "commit", "-m", "topic"});
+      run_git(handle, source, {"checkout", "main"});
+    }
+    if (penumbra) write_file(source / "ignored.txt", "ignored bytes\n");
+    CHECK(run_git(handle, source, {"status", "--porcelain=v2"}).empty());
+    auto matcher = biv::ignore::Matcher::compile("", true);
+    REQUIRE(matcher);
+    auto discovery = biv::repo::discover(source, *matcher);
+    REQUIRE(discovery);
+    REQUIRE(discovery->repos.size() == 1);
+    auto classified = biv::repo::classify(handle, source, *discovery);
+    REQUIRE(classified);
+    REQUIRE(classified->fence == biv::repo::Classification::Fence::none);
+    auto entry = std::move(classified->entry);
+    entry.id = id;
+    REQUIRE(biv::repo::run_eligibility(handle, entry, biv::repo::EligibilityMode::network));
+    auto captured = biv::repo::capture(handle, entry, root / ("scratch-" + id));
+    REQUIRE(captured);
+    if (overlay) {
+      REQUIRE(entry.capture_mode == biv::repo::CaptureMode::overlay);
+      REQUIRE(entry.local_refs_bundle);
+    } else {
+      REQUIRE(entry.bundle);
+    }
+    for (const auto& artifact : captured->artifacts) {
+      artifacts.push_back(member(artifact.archive_path.generic_string(), read_text(artifact.disk_path)));
+    }
+    entry.relpath = relpath;
+    manifest.repos.push_back(std::move(entry));
+    if (penumbra) {
+      REQUIRE(relpath == ".");
+      payload.push_back(member("payload/ignored.txt", "ignored bytes\n"));
+    }
+  }
+
+  std::filesystem::path write(const std::filesystem::path& root,
+                              const std::string& name = "repos.bvpk",
+                              const bool bad_checksum = false,
+                              const bool omit_checksum = false) const {
+    const auto image = root / name;
+    biv::manifest::Checksums checksums;
+    for (const auto& group : {payload, artifacts}) {
+      for (const auto& part : group) {
+        checksums.entries[part.meta.path] = payload_extent_digest(part.meta, part.data);
+      }
+    }
+    if (bad_checksum) {
+      REQUIRE_FALSE(artifacts.empty());
+      checksums.entries[artifacts.front().meta.path] = std::string(64, '0');
+    }
+    if (omit_checksum) {
+      REQUIRE_FALSE(artifacts.empty());
+      checksums.entries.erase(artifacts.front().meta.path);
+    }
+    auto serialized = biv::manifest::serialize(manifest);
+    if (!serialized) INFO(serialized.error().detail);
+    REQUIRE(serialized);
+    std::ofstream out{image, std::ios::binary};
+    biv::container::ZstdCompressSink zstd{[&](std::span<const std::byte> chunk)
+        -> biv::expected<void> {
+      out.write(reinterpret_cast<const char*>(chunk.data()), static_cast<std::streamsize>(chunk.size()));
+      REQUIRE(out.good());
+      return {};
+    }};
+    biv::container::TarWriter writer{zstd.as_sink()};
+    const auto append = [&](const Member& part) {
+      REQUIRE(writer.begin_member(part.meta));
+      REQUIRE(writer.write_data(part.data));
+      REQUIRE(writer.end_member());
+    };
+    append(member("manifest.json", *serialized));
+    append(member("checksums.json", biv::manifest::serialize(checksums)));
+    for (const auto& part : payload) append(part);
+    for (const auto& part : artifacts) append(part);
+    REQUIRE(writer.finish());
+    REQUIRE(zstd.finish());
+    return image;
+  }
+};
+
+std::filesystem::path build_repo_image(const std::filesystem::path& root) {
+  Image fixture;
+  fixture.capture_repo(root, "r-main", ".", true);
+  return fixture.write(root);
+}
+
+// The sealed git-shim.sh instrument, with its required variables set INSIDE
+// the wrapper because Git deliberately forwards only its allowed environment.
+void install_trace(const std::filesystem::path& root, const bool inject_divergence = false) {
+  const auto real = git().executable();
+  write_file(root / "trace", "");
+  write_file(root / "bin" / "git",
+      "#!/usr/bin/env bash\nBIV_GIT_TRACE='" + (root / "trace").string() +
+      "'\nBIV_GIT_REAL='" + real.string() + "'\n"
+      "[ -n \"${BIV_GIT_TRACE-}\" ] && [ -n \"${BIV_GIT_REAL-}\" ] && [ -x \"${BIV_GIT_REAL}\" ] || exit 97\n"
+      "{ printf '%s' \"$PWD\"; for a in \"$@\"; do printf '\\t%s' \"$a\"; done; printf '\\n'; } >> \"$BIV_GIT_TRACE\" || exit 98\n" +
+      (inject_divergence ?
+       "for a in \"$@\"; do if [ \"$a\" = --get-url ]; then printf '%s\\n' 'https://effective.invalid/repo'; exit 0; fi; done\n" : "") +
+      "exec \"$BIV_GIT_REAL\" \"$@\"\n");
+  std::filesystem::permissions(root / "bin" / "git", std::filesystem::perms::owner_all);
+}
+
+}  // namespace open_repos_fixture
+
+TEST_CASE("open repos real bundle preserves clean HEAD branch ignored bytes and local refs", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-bundle");
+  const ScopedEnv home{"HOME", root.string()};
+  const auto image = build_repo_image(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto opened = run_cmd("open '" + image.string() + "' --verify --dest out --json", root);
+  INFO(opened.out);
+  REQUIRE(opened.code == 0);
+  const auto trace = read_text(root / "trace");
+  CHECK(trace.find("out.bvpk-open.stage/repos/r-main/repo.bundle") != std::string::npos);
+  const auto handle = git();
+  CHECK(run_git(handle, root / "out", {"status", "--porcelain=v2"}).empty());
+  CHECK(run_git(handle, root / "out", {"rev-parse", "HEAD"}) ==
+        run_git(handle, root / "source-r-main", {"rev-parse", "HEAD"}));
+  CHECK(run_git(handle, root / "out", {"symbolic-ref", "HEAD"}) == "refs/heads/main\n");
+  CHECK(run_git(handle, root / "out", {"rev-parse", "local-topic"}) ==
+        run_git(handle, root / "out", {"rev-parse", "HEAD"}));
+  CHECK(read_text(root / "out" / "ignored.txt") == "ignored bytes\n");
+  CHECK_FALSE(std::filesystem::exists(root / "out.bvpk-open.stage"));
+}
+
+TEST_CASE("open repos admits only named checksummed files and rejects missing artifacts", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-members");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-one", "repo");
+  SECTION("named artifact restores real git") {
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() + "' --dest out --verify --json", root);
+    INFO(opened.out);
+    REQUIRE(opened.code == 0);
+    CHECK(run_git(git(), root / "out/repo", {"rev-parse", "HEAD"}) == *fixture.manifest.repos.front().sha + "\n");
+  }
+  SECTION("stray checksummed member") {
+    fixture.artifacts.push_back(Image::member("repos/r-one/stray.bin", "stray"));
+    const auto image = fixture.write(root);
+    const auto result = run_cmd("open '" + image.string() + "' --dest out --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("UnmanifestedMember") != std::string::npos);
+    CHECK(result.out.find("repos/r-one/stray.bin") != std::string::npos);
+  }
+  SECTION("named artifact without checksum") {
+    const auto image = fixture.write(root, "unchecked.bvpk", false, true);
+    const auto result = run_cmd("open '" + image.string() + "' --dest out --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("UnmanifestedMember") != std::string::npos);
+    CHECK(result.out.find("repos/r-one/repo.bundle") != std::string::npos);
+    CHECK_FALSE(std::filesystem::exists(root / "out"));
+  }
+  SECTION("named artifact absent") {
+    fixture.artifacts.clear();
+    const auto image = fixture.write(root);
+    const auto result = run_cmd("open '" + image.string() + "' --dest out --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("IntegrityFailurePreApply") != std::string::npos);
+    CHECK(result.out.find("missing-repo-artifact") != std::string::npos);
+  }
+  SECTION("checksum mismatch") {
+    const auto image = fixture.write(root, "bad.bvpk", true);
+    const auto result = run_cmd("open '" + image.string() + "' --dest out --verify --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("checksum") != std::string::npos);
+    CHECK_FALSE(std::filesystem::exists(root / "out"));
+  }
+}
+
+TEST_CASE("open repos offline drains without touching stage and lists zero-git pointers", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-offline");
+  const ScopedEnv home{"HOME", root.string()};
+  const auto image = build_repo_image(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  write_file(root / "out.bvpk-open.stage", "stage sentinel\n");
+  // Named mutant: stage every repos/ member even when stage is nullopt.
+  const auto result = run_cmd("open '" + image.string() + "' --dest out --offline --verify", root);
+  INFO(result.out);
+  INFO(result.err);
+  REQUIRE(result.code == 0);
+  CHECK(read_text(root / "out.bvpk-open.stage") == "stage sentinel\n");
+  CHECK(read_text(root / "trace").empty());
+  CHECK(read_text(root / "out/ignored.txt") == "ignored bytes\n");
+  CHECK_FALSE(std::filesystem::exists(root / "out/.biv"));
+  CHECK(result.err.starts_with("open --offline: repositories were not restored (no git, no network)."));
+  CHECK(result.err.find(". · main · ") != std::string::npos);
+  CHECK(result.err.find(" · (no stored remote)\n") != std::string::npos);
+  CHECK(result.err.find("reconstruction") == std::string::npos);
+  write_file(root / "online.bvpk-open.stage", "online sentinel\n");
+  const auto control = run_cmd("open '" + image.string() + "' --dest online --json", root);
+  CHECK(control.code == 3);
+  CHECK(control.out.find("OpenPartialPresent") != std::string::npos);
+  CHECK(control.out.find("online.bvpk-open.stage") != std::string::npos);
+}
+
+TEST_CASE("open repos typed refusal continues in encounter order to a clean entry", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-refusal");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-clean", "clean");
+  auto refused = fixture.manifest.repos.front();
+  refused.capture_mode = biv::repo::CaptureMode::overlay;
+  refused.bundle.reset();
+  refused.local_refs_bundle.reset();
+  refused.local_refs.clear();
+  refused.remote = "origin";
+  refused.remotes = {{"origin", "https://requested.invalid/repo"}};
+  refused.eligibility = biv::repo::Eligibility{
+      .method = "ls-remote-ancestry",
+      .result = biv::repo::EligibilityResult::proven,
+      .checked_at = "2026-09-19T00:00:00Z",
+      .proof = biv::repo::Proof{"origin", "https://requested.invalid/repo", "refs/heads/main", *refused.sha}};
+  refused.id = "r-refused-one";
+  refused.relpath = "refused-one";
+  fixture.manifest.repos.insert(fixture.manifest.repos.begin(), refused);
+  refused.id = "r-refused-two";
+  refused.relpath = "refused-two";
+  fixture.manifest.repos.insert(fixture.manifest.repos.begin() + 1, refused);
+  const auto image = fixture.write(root);
+  write_file(root / ".gitconfig", "[url \"https://effective.invalid/\"]\n\tinsteadOf = https://requested.invalid/\n");
+  // Restore deliberately sets GIT_CONFIG_GLOBAL=/dev/null. At this engine pin,
+  // inject only the URL-resolution result; all other calls execute real Git.
+  install_trace(root, true);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  // Named mutant: compare the wire kind to url_divergence_refused (underscores).
+  const auto result = run_cmd("open '" + image.string() + "' --dest out --json", root);
+  INFO(result.out);
+  REQUIRE(result.code == 2);
+  simdjson::dom::parser parser;
+  const auto document = parser.parse(result.out);
+  CHECK(document["error"].is_null());
+  const simdjson::dom::array refusals = document["result"]["url_divergence_refusals"];
+  REQUIRE(refusals.size() == 2);
+  CHECK(std::string_view(refusals.at(0)["relpath"]) == "refused-one");
+  CHECK(std::string_view(refusals.at(1)["relpath"]) == "refused-two");
+  CHECK(std::string_view(refusals.at(0)["kind"]) == "UrlDivergenceEntryRefused");
+  const auto trace = read_text(root / "trace");
+  const std::string request = "\tls-remote\t--get-url\t--\thttps://requested.invalid/repo";
+  const auto first_request = trace.find(request);
+  REQUIRE(first_request != std::string::npos);
+  const auto second_request = trace.find(request, first_request + 1);
+  REQUIRE(second_request != std::string::npos);
+  CHECK(trace.find(request, second_request + 1) == std::string::npos);
+  CHECK(trace.find("\tclone\t--no-checkout\t--\thttps://requested.invalid/repo") == std::string::npos);
+  CHECK(run_git(git(), root / "out/clean", {"rev-parse", "HEAD"}) == *refused.sha + "\n");
+  CHECK_FALSE(std::filesystem::exists(root / "out.bvpk-open.stage"));
+  const auto report = biv::open::open({.image = image, .dest = root / "core"});
+  REQUIRE(report);
+  REQUIRE(report->repos.size() == 3);
+  CHECK(report->repos[0].outcome == "failed");
+  CHECK(report->repos[1].outcome == "failed");
+  CHECK(report->repos[2].outcome == "restored");
+  REQUIRE(report->url_divergence_refusals.size() == 2);
+  CHECK(report->url_divergence_refusals[0].repo_id == "r-refused-one");
+  CHECK(report->url_divergence_refusals[1].repo_id == "r-refused-two");
+}
+
+TEST_CASE("open repos synthetic child-first manifest restores parents once before children", "[open-repos]") {
+  // provenance=hand-built, registered-T-ARM: not re-executed by Task 7.
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-topology");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-child", "parent/child");
+  fixture.capture_repo(root, "r-parent", "parent");
+  fixture.manifest.repos.front().parent_id = "r-parent";
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto result = biv::open::open({.image = image, .dest = root / "out", .verify = true});
+  if (!result) INFO(result.error().detail);
+  REQUIRE(result);
+  REQUIRE(result->repos.size() == 2);
+  CHECK(result->repos[0].id == "r-parent");
+  CHECK(result->repos[1].id == "r-child");
+  CHECK(result->repos[0].outcome == "restored");
+  CHECK(result->repos[1].outcome == "restored");
+  const auto trace = read_text(root / "trace");
+  const auto canonical_root = std::filesystem::canonical(root);
+  const auto parent = trace.find("\tclone\t--no-checkout\t--\t" + (canonical_root / "out.bvpk-open.stage/repos/r-parent/repo.bundle").string());
+  const auto child = trace.find("\tclone\t--no-checkout\t--\t" + (canonical_root / "out.bvpk-open.stage/repos/r-child/repo.bundle").string());
+  REQUIRE(parent != std::string::npos);
+  REQUIRE(child != std::string::npos);
+  CHECK(parent < child);
+  CHECK(trace.find("\tclone\t", parent + 1) == child);
+  CHECK(trace.find("\tclone\t", child + 1) == std::string::npos);
+  CHECK(run_git(git(), root / "out/parent", {"rev-parse", "HEAD"}) == *fixture.manifest.repos[1].sha + "\n");
+  CHECK(run_git(git(), root / "out/parent/child", {"rev-parse", "HEAD"}) == *fixture.manifest.repos[0].sha + "\n");
+}
+
+TEST_CASE("open repos offline preserves structural engine rows field for field with zero git", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-structural");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-born", "born");
+  auto shallow = fixture.manifest.repos.front();
+  shallow.id = "r-shallow";
+  shallow.relpath = "shallow";
+  shallow.bundle.reset();
+  shallow.local_refs_bundle.reset();
+  shallow.local_refs.clear();
+  shallow.eligibility.reset();
+  shallow.shallow = biv::repo::Shallow{{*shallow.sha}};
+  auto unborn = shallow;
+  unborn.id = "r-unborn";
+  unborn.relpath = "unborn";
+  unborn.shallow.reset();
+  unborn.sha.reset();
+  unborn.head_state = biv::repo::HeadState::unborn;
+  fixture.manifest.repos = {shallow, unborn};
+  fixture.artifacts.clear();
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto online = biv::open::open({.image = image, .dest = root / "online"});
+  REQUIRE(online);
+  write_file(root / "offline.bvpk-open.stage", "untouched");
+  const auto offline = biv::open::open({.image = image, .dest = root / "offline", .offline = true});
+  REQUIRE(offline);
+  REQUIRE(online->repos.size() == 2);
+  REQUIRE(offline->repos.size() == 2);
+  CHECK(offline->repos[0].outcome == "shallow-pointer");
+  CHECK(offline->repos[0].sha == shallow.sha);
+  CHECK(offline->repos[0].shallow_boundary == shallow.shallow->boundary);
+  CHECK(offline->repos[1].outcome == "payload-only-unborn");
+  CHECK_FALSE(offline->repos[1].sha);
+  CHECK(offline->repos[1].advisories == std::vector<std::string>{"EmptyRepoPayloadOnly"});
+  for (size_t index = 0; index < 2; ++index) {
+    const auto& a = online->repos[index];
+    const auto& b = offline->repos[index];
+    CHECK(a.id == b.id);
+    CHECK(a.relpath == b.relpath);
+    CHECK(a.outcome == b.outcome);
+    CHECK(a.sha == b.sha);
+    CHECK(a.branch == b.branch);
+    CHECK(a.capture_mode == b.capture_mode);
+    CHECK(a.remotes == b.remotes);
+    CHECK(a.local_refs.empty());
+    CHECK(b.local_refs.empty());
+    CHECK(a.advisories == b.advisories);
+    CHECK(a.shallow_boundary == b.shallow_boundary);
+  }
+  CHECK(read_text(root / "trace").empty());
+  CHECK(read_text(root / "offline.bvpk-open.stage") == "untouched");
+  const auto cli = run_cmd("open '" + image.string() + "' --dest cli --offline", root);
+  CHECK(cli.code == 0);
+  // Named mutant: gating the header on any offline-pointer omits it for structural-only rows.
+  CHECK(cli.err ==
+        "open --offline: repositories were not restored (no git, no network). Stored remote URLs below are informational — recorded at pack, not vetted or complete. Cloning them is git-clone-grade trust: git may contact those URLs and additional URLs from repo metadata (.gitmodules, nested submodules, host git config) that Bivpak does not see or police. Clone only what you trust.\n");
+}
+
+TEST_CASE("open repos zero state omits rows listing and stage access", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-zero");
+  Image fixture;
+  fixture.payload.push_back(Image::member("payload/plain.txt", "plain"));
+  const auto image = fixture.write(root);
+  write_file(root / "out.bvpk-open.stage", "untouched");
+  const auto result = biv::open::open({.image = image, .dest = root / "out"});
+  REQUIRE(result);
+  CHECK(result->repos.empty());
+  CHECK(result->url_divergence_refusals.empty());
+  CHECK(read_text(root / "out.bvpk-open.stage") == "untouched");
+  const auto cli = run_cmd("open '" + image.string() + "' --dest cli --offline", root);
+  CHECK(cli.code == 0);
+  CHECK(cli.err.find("open --offline:") == std::string::npos);
+  CHECK(read_text(root / "cli/plain.txt") == "plain");
+}
+
+TEST_CASE("open repos removes its stage on checksum and restore failures", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-cleanup");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-one", "repo");
+  SECTION("archive changed after plan online and offline") {
+    for (const bool offline : {false, true}) {
+      const auto dest = root / (offline ? "offline" : "online");
+      const auto image = fixture.write(root);
+      auto plan = biv::open::plan_open({.image = image, .dest = dest, .verify = true, .offline = offline});
+      REQUIRE(plan);
+      fixture.artifacts.front().data.front() ^= std::byte{1};
+      fixture.write(root);
+      const auto result = biv::open::execute_open(std::move(*plan), {});
+      REQUIRE_FALSE(result);
+      CHECK(result.error().kind == biv::ErrKind::IntegrityFailureMidApply);
+      CHECK(result.error().detail == "checksum");
+      CHECK(result.error().facts.at("partial_dir") == dest.string() + ".bvpk-open.partial");
+      CHECK_FALSE(std::filesystem::exists(dest));
+      CHECK_FALSE(std::filesystem::exists(dest.string() + ".bvpk-open.stage"));
+      fixture.artifacts.front().data.front() ^= std::byte{1};
+    }
+  }
+  SECTION("engine failure stays a whole operation error") {
+    fixture.artifacts.front().data.front() ^= std::byte{1};
+    const auto image = fixture.write(root);
+    const auto result = biv::open::open({.image = image, .dest = root / "out", .verify = true});
+    REQUIRE_FALSE(result);
+    CHECK(result.error().facts.contains("partial_dir"));
+    CHECK_FALSE(std::filesystem::exists(root / "out"));
+    CHECK_FALSE(std::filesystem::exists(root / "out.bvpk-open.stage"));
+  }
+}
+
+TEST_CASE("open repos offline renderers use sealed A9.4 text and display-safe values", "[open-repos]") {
+  CHECK(biv::cli::render_offline_header() ==
+        "open --offline: repositories were not restored (no git, no network). Stored remote URLs below are informational — recorded at pack, not vetted or complete. Cloning them is git-clone-grade trust: git may contact those URLs and additional URLs from repo metadata (.gitmodules, nested submodules, host git config) that Bivpak does not see or police. Clone only what you trust.\n");
+  CHECK(biv::cli::render_offline_row("a\nb", std::nullopt, "(no commits)", {}) ==
+        "a\\nb · (detached) · (no commits) · (no stored remote)\n");
+  CHECK(biv::cli::render_offline_row("repo", "branch\t", "sha\r", {"url\n", "other\t"}) ==
+        "repo · branch\\t · sha\\r · url\\n, other\\t\n");
+}
+
+TEST_CASE("open repos stages an engine captured overlay local refs bundle at its full path", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-overlay");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-overlay", "overlay", false, true);
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto offline = biv::open::open({.image = image, .dest = root / "offline", .verify = true, .offline = true});
+  REQUIRE(offline);
+  REQUIRE(offline->repos.size() == 1);
+  CHECK(offline->repos[0].outcome == "offline-pointer");
+  CHECK(offline->repos[0].capture_mode == "overlay");
+  CHECK(offline->repos[0].sha == fixture.manifest.repos[0].sha);
+  CHECK(offline->repos[0].branch == "main");
+  CHECK(offline->repos[0].remotes == std::vector<std::string>{(root / "remote-r-overlay").string()});
+  CHECK(read_text(root / "trace").empty());
+  CHECK_FALSE(std::filesystem::exists(root / "offline/.biv"));
+  const auto online = biv::open::open({.image = image, .dest = root / "online", .verify = true});
+  if (!online) INFO(online.error().detail);
+  REQUIRE(online);
+  REQUIRE(online->repos.size() == 1);
+  CHECK(online->repos[0].outcome == "restored");
+  CHECK(read_text(root / "trace").find("online.bvpk-open.stage/repos/r-overlay/local-refs.bundle") != std::string::npos);
+  CHECK(run_git(git(), root / "online/overlay", {"rev-parse", "local-topic"}) ==
+        run_git(git(), root / "source-r-overlay", {"rev-parse", "local-topic"}));
+  CHECK(run_git(git(), root / "online/overlay", {"status", "--porcelain=v2"}).empty());
+  CHECK_FALSE(std::filesystem::exists(root / "online.bvpk-open.stage"));
+}
+
+TEST_CASE("open repos offline pointers retain manifest order detached and unborn HEAD values", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-pointer-heads");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-detached", "detached");
+  fixture.capture_repo(root, "r-unborn", "unborn");
+  auto& detached = fixture.manifest.repos[0];
+  detached.head_state = biv::repo::HeadState::detached;
+  detached.branch.reset();
+  detached.remotes = {{"one", "https://one.invalid/\r"}, {"two", "https://two.invalid/\xe2\x80\xae"}};
+  auto& unborn = fixture.manifest.repos[1];
+  unborn.head_state = biv::repo::HeadState::unborn;
+  unborn.sha.reset();
+  unborn.branch = "empty";
+  REQUIRE(unborn.eligibility);
+  unborn.eligibility->result = biv::repo::EligibilityResult::unborn_head;
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto report = biv::open::open({.image = image, .dest = root / "out", .verify = true, .offline = true});
+  REQUIRE(report);
+  REQUIRE(report->repos.size() == 2);
+  CHECK(report->repos[0].id == "r-detached");
+  CHECK(report->repos[0].outcome == "offline-pointer");
+  CHECK(report->repos[0].sha == detached.sha);
+  CHECK_FALSE(report->repos[0].branch);
+  CHECK(report->repos[1].id == "r-unborn");
+  CHECK(report->repos[1].outcome == "offline-pointer");
+  CHECK(report->repos[1].sha == "(no commits)");
+  CHECK(report->repos[1].branch == "empty");
+  const auto cli = run_cmd("open '" + image.string() + "' --dest cli --offline", root);
+  REQUIRE(cli.code == 0);
+  const std::string lines = "detached · (detached) · " + *detached.sha +
+      " · https://one.invalid/\\r, https://two.invalid/\\u{202e}\n"
+      "unborn · empty · (no commits) · (no stored remote)\n";
+  CHECK(cli.err == biv::cli::render_offline_header() + lines);
+  CHECK(read_text(root / "trace").empty());
+  const auto json = run_cmd("open '" + image.string() + "' --dest json --offline --json", root);
+  REQUIRE(json.code == 0);
+  CHECK(json.err.empty());
+  simdjson::dom::parser parser;
+  const simdjson::dom::element document = parser.parse(json.out);
+  simdjson::dom::element rows;
+  CHECK(document["result"].at_key("repos").get(rows) == simdjson::NO_SUCH_FIELD);
+  CHECK(simdjson::dom::array(document["result"]["manifest"]["repos"]).size() == 0);
 }
 
 TEST_CASE("a6.14 list/info accept the flag inert: full-stream equality with flagless", "[a6-fabric]") {
