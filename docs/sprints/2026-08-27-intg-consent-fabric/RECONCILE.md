@@ -446,3 +446,29 @@ Prep executed at this seat, read-only at the head:
 
 The branch holds at `1065872`; nothing owed from the pair until the lock words.
 
+
+## R34 — the LOCK revision rev20 filed as plan-21 (2026-09-20 18:56–19:27; master's seal `intg-2b-wiring-act/PLAN-master-planner-20260920-185625.md`; the lock relays `…DESIGN-planner-20260920-184029.md` (A10) and `…184104.md` (A11); the Master Reviewer's `…DESIGN-REVIEW-master-reviewer-20260920-182105.md`; this seat's `intg-substep2b/PLAN-pair-planner-20260920-192708.md`)
+
+Master SEALED both addenda in one act: A10 rev10 `m3-addendum-10-6cba59d3-lock-20260920` (pin `6cba59d3…` at pdc `5cbb59d7…`, post-stamp `56abe662…`) and A11 rev11 `m3-addendum-11-fce9cbfa-lock-20260920` (pin `fce9cbfa…` at `2ce699d7…`, post-stamp `e2776381…`; `partial_suffix=.bvpk-open.partial`, `partial_suffix_relay` = m-1's 162306).
+Every pin and post-stamp was re-hashed at this seat; the seal and both lock relays are tracked and clean in pdc.
+
+The two lock gate files were written into the canonical runners `s2b-runners-PEazOQ` (the plan's assignment to this seat), one field per line, with `pin_sha256` / `pin_commit` beside the carrier fields (sha256 `7e1a4157…` / `c38b0580…`, mode 0444).
+The seal spells `partial_suffix_relay` without `master/relays/`; the file carries the plan's pdc-relative form, which the block's arm 1 resolves — the reviewer is asked to grade that reading.
+
+Plan rev20 (`f710b39a…` at e3c13a4, 2814 lines) transcribes the A10 rev6→rev10 and A11 rev5→rev11 deltas under the RULE, makes Task 4 Step 0 an executable A10 gate, binds the pin in both gate blocks, spells the lock ids in the c4b / c6b commit messages, and repairs the two evidence commands master 121637 accepted.
+The scan.cpp repair reached the Task 9 RUN BLOCK line as well as the prose: the rev19 block measured the default-context diff, which carries scan.cpp's one unchanged `".biv"` line, so it would have STOPped at H on compliant bytes (1 with context, 0 under `--unified=0` at 1065872).
+
+Walked from the candidate at 1065872 with a scratch `$EVID` (no receipt in the implementer's home):
+
+| Gate | Must-be-YES | Must-be-NO (each STOPs before any receipt) |
+|---|---|---|
+| A11 block (rev19, unmodified) on the real file | pre + post PASS | wrong doc sha, seal = lock, the suffix relay without `master/relays/` STOP; a wrong `pin_sha256` PASSES (the block did not bind the pin — the rev20 reason) |
+| A11 block (rev20) | pre + post PASS; the receipt names open.cpp:785 | wrong doc sha `a11-sha-mismatch`; wrong pin sha `a11-pin-mismatch`; wrong pin commit `a11-pin-show`; seal = lock; the suffix relay without the prefix `suffix-relay-unbound`; the A10 lock relay as `relay` `lock-id-absent-in-lock-relay`; a duplicated `lock_id` `field-lock_id-count-2` |
+| A10 block (rev20) | pre + post PASS | wrong doc sha; wrong pin sha; wrong pin commit; seal = lock; the carry 045732 as seal `seal-lineage`; the A11 lock relay as `relay`; the planned id `m3-addendum-10-20260916` `lock-id-absent-in-seal`; a duplicated field; a missing field |
+| Task 9 scan.cpp line (rev20) | 0 at 1065872 | STOP (1) on a scratch clone with an added `".biv"` literal; the rev19 line reads 1 at the compliant head |
+
+Block census 22 with only task-9's digest moved; runner proofs 3 / 13 / 4 / 2; `resume.sh`, `run-task.sh` and the T-ORACLE block byte-identical to rev19.
+`t-oracle.txt` on disk binds the rev19 digest and is STALE for rev20 by design until master's fresh carry.
+
+Filed as `intg-substep2b-plan-21` (192708; sha256 `60a94d2a…`; commit ec59f96) with IN_REPLY_TO the seal; lint OK under 2.9.2 and 2.9.3; no upstream relay newer than 062016 (intg) or 185625 (pdc) at the sweep.
+NEXT on the approve: the digest word TO master → the fresh five-field carry at `f710b39a…` → the `t-oracle.txt` rewrite in PEazOQ (the rev19 file preserved) → the token `intg-substep2b-impl-4` (Step 0′ first, then c4b, c6b, c7, c8, Tasks 9–11) → the GO with the three H reviews.
