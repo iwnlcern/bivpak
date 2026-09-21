@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 import shlex
 import subprocess
 import sys
@@ -147,3 +149,27 @@ def test_probe_oracle_accepts_refusal_envelope_without_result(tmp_path):
     standins = scenario._prepare_probe_standins(tmp_path)
 
     assert scenario._probe_oracle_failures({"result": None}, standins) == []
+
+
+def test_open_path_resolves_git_through_the_standins_dir_and_nothing_else(tmp_path):
+    ambient = shutil.which("git")
+    assert ambient is not None
+    standins = scenario._prepare_probe_standins(tmp_path)
+    env = scenario._probe_open_env({"HOME": str(tmp_path)}, standins)
+    sandbox = Path(env["PATH"])
+
+    assert sandbox == next(iter(standins.values())).path.parent
+    assert sorted(entry.name for entry in sandbox.iterdir()) == sorted(
+        [standin.path.name for standin in standins.values()] + ["git"]
+    )
+    link = sandbox / "git"
+    assert link.is_symlink() and link.resolve() == Path(ambient).resolve()
+    assert shutil.which("git", path=env["PATH"]) == str(link)
+    run = subprocess.run(["git", "--version"], env=env, capture_output=True, text=True, check=False)
+    assert run.returncode == 0 and run.stdout.startswith("git version ")
+    for name in ("codex", "claude", "python3", "sh"):
+        assert shutil.which(name, path=env["PATH"]) is None
+
+    again = scenario._probe_open_env({"HOME": str(tmp_path)}, standins)
+    assert again["PATH"] == env["PATH"]
+    assert os.readlink(link) == str(Path(ambient).resolve())

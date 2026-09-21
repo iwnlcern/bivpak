@@ -22,6 +22,7 @@ ALLOWED_POLICIES = {
     "git-index": {"semantic-only"},
     "git-remote-config": {"recorded-remote"},
     "git-tracked-file-mtime": {"ignore-checkout"},
+    "git-checkout-dir-mtime": {"ignore-checkout"},
     "git-administration": {"semantic-only"},
 }
 
@@ -208,6 +209,30 @@ def _tracked_paths(root: Path) -> set[str]:
     return tracked
 
 
+def _checkout_dirs(root: Path) -> set[str]:
+    """Directories a checkout writes into, bounded to each repository.
+
+    Per repository (root-relative `rel`): the repository root itself (it
+    receives `.git` at init and the checkout's top-level files) and every
+    directory STRICTLY INSIDE it that is an ancestor of one of ITS tracked
+    paths. Never a directory above a repository root, never a directory
+    inside a repository that holds only untracked content.
+    """
+    dirs: set[str] = set()
+    for rel in _repo_paths(root):
+        repo = _repo_at(root, rel)
+        prefix = "" if rel == "." else f"{rel}/"
+        if rel != ".":
+            dirs.add(rel)
+        for repo_rel in _run_git(repo, ["ls-files", "-z"]).stdout.split("\0"):
+            if not repo_rel:
+                continue
+            parts = repo_rel.split("/")
+            for depth in range(1, len(parts)):
+                dirs.add(prefix + "/".join(parts[:depth]))
+    return dirs
+
+
 def _compare_repo_semantics(src: Path, restored: Path, tol: dict[str, Any]) -> list[str]:
     findings: list[str] = []
     src_repos = _repo_paths(src)
@@ -312,6 +337,17 @@ def compare_trees(
         if _row_policy(tol, "git-tracked-file-mtime") == "ignore-checkout"
         else set()
     )
+    # Composition of the three mtime rows: `file-mtime`/`dir-mtime` stay
+    # exact-ns for every path EXCEPT (a) tracked files, exempted by
+    # `git-tracked-file-mtime`, and (b) the directories a checkout writes
+    # into, exempted ONLY by the explicit `git-checkout-dir-mtime` row and
+    # bounded per repository by `_checkout_dirs`. Modes, bytes, kinds and
+    # symlink targets are never exempted by either row.
+    checkout_dirs = (
+        _checkout_dirs(src)
+        if _row_policy(tol, "git-checkout-dir-mtime") == "ignore-checkout"
+        else set()
+    )
 
     for rel in sorted(src_entries.keys() - restored_entries.keys()):
         findings.append(f"C: missing path: {rel}")
@@ -339,7 +375,7 @@ def compare_trees(
         elif src_kind == "dir":
             if _mode(left) != _mode(right):
                 findings.append(f"B: mode mismatch for {rel}: {oct(_mode(left))} != {oct(_mode(right))}")
-            if _row_policy(tol, "dir-mtime") == "exact-ns":
+            if rel not in checkout_dirs and _row_policy(tol, "dir-mtime") == "exact-ns":
                 if left.stat().st_mtime_ns != right.stat().st_mtime_ns:
                     findings.append(f"B: dir-mtime mismatch for {rel}")
         elif src_kind == "symlink":

@@ -1,0 +1,101 @@
+{
+  "id": "fxd3-open-offline",
+  "tier": "E2",
+  "classes": [
+    "E",
+    "K"
+  ],
+  "dor_pointers": [
+    "m3-addendum-2 FXD-3 (offline CLI, exit 0, payload + sessions laid down)",
+    "m3-addendum-9 rev2 LOCKED A9.4 (the listing bytes — asserted by the product's CLI goldens, not by this runner)",
+    "m3-addendum-10 rev10 LOCKED (result.repos rows — no runner reader yet)"
+  ],
+  "fixture": {
+    "entries": [
+      {
+        "type": "git-bare",
+        "id": "origin"
+      },
+      {
+        "type": "file",
+        "path": "README.md",
+        "text": "workspace root\n"
+      },
+      {
+        "type": "dir",
+        "path": "docs"
+      },
+      {
+        "type": "file",
+        "path": "docs/notes.txt",
+        "text": "penumbra outside the repos\n"
+      },
+      {
+        "type": "git-repo",
+        "path": "app",
+        "commits": [
+          {
+            "message": "app: first",
+            "files": {
+              "src/main.c": "int main(void) { return 0; }\n",
+              "README": "app\n"
+            }
+          },
+          {
+            "message": "app: second",
+            "files": {
+              "src/main.c": "int main(void) { return 1; }\n"
+            }
+          }
+        ],
+        "branches": {
+          "main": 1,
+          "side": 0
+        },
+        "tags": {
+          "v1": 0
+        },
+        "remote": "origin",
+        "push": [
+          "refs/heads/main",
+          "refs/heads/side",
+          "refs/tags/v1"
+        ]
+      },
+      {
+        "type": "git-repo",
+        "path": "lib",
+        "commits": [
+          {
+            "message": "lib: only",
+            "files": {
+              "lib.h": "#pragma once\n"
+            }
+          }
+        ],
+        "branches": {
+          "main": 0
+        }
+      }
+    ]
+  },
+  "steps": [
+    {
+      "op": "pack"
+    },
+    {
+      "op": "open",
+      "args": [
+        "--offline"
+      ]
+    }
+  ],
+  "expect": {
+    "manifest_variant": "builtin",
+    "members_present": [
+      "manifest.json",
+      "checksums.json"
+    ]
+  },
+  "held": []
+}
