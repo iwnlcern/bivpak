@@ -472,3 +472,14 @@ Block census 22 with only task-9's digest moved; runner proofs 3 / 13 / 4 / 2; `
 
 Filed as `intg-substep2b-plan-21` (192708; sha256 `60a94d2a…`; commit ec59f96) with IN_REPLY_TO the seal; lint OK under 2.9.2 and 2.9.3; no upstream relay newer than 062016 (intg) or 185625 (pdc) at the sweep.
 NEXT on the approve: the digest word TO master → the fresh five-field carry at `f710b39a…` → the `t-oracle.txt` rewrite in PEazOQ (the rev19 file preserved) → the token `intg-substep2b-impl-4` (Step 0′ first, then c4b, c6b, c7, c8, Tasks 9–11) → the GO with the three H reviews.
+
+## R35 — rev20 must-revised on two stale count terms; rev21 filed as plan-22 (2026-09-20 19:39–19:43; review `intg-substep2b/PLAN-REVIEW-pair-implementer-20260920-193911.md`; this seat's `intg-substep2b/PLAN-pair-planner-20260920-194332.md`)
+
+The implementer must-revised rev20 (MUST-2B-41): the c6b commit-topology row still read `ErrKind 27→36` and T-A11's COUNTS still read `27 → 36 (after A9's 27 → 27) … transitional 4 → 7` — A11 rev7's rejected arithmetic, contradicting the locked rev11 census and the plan's own Task 6b leg (l).
+Every other rev20 delta passed at the reviewer's seat: both gate blocks pre + post on the real lock files with the reviewer's own controls (a differing pinned blob, whitespace and empty values, a lock-relay path on a non-header line or nowhere), the A11 arm-2 reading, the Task 9 line, the CLI selections.
+
+rev21 (`ab109825…` at 564589c, 2818 lines) rewrites the two terms to the stage-and-membership census (28/29/4 → 28/29/3 → 37/38/6, the six transitional named) and adds the history bullet; no BLOCK moves (census 22 byte-identical to rev20; proofs 3 / 13 / 4 / 2 re-run).
+The rev20 sweep had grepped `27->36` and `ErrKind 36` but not the arrow spellings; rev21 swept every spelling of the retired numbers, with hits only in leg (l)'s named mutant and the history bullet.
+
+Filed as `intg-substep2b-plan-22` (194332; sha256 `14d5f50d…`; commit c2aef65, which also carries the daemon's projection of the implementer's 193911 row); lint OK under 2.9.2 and 2.9.3; no upstream relay newer than 193911 (intg) or 185625 (pdc) at the sweep.
+NEXT on the approve: the digest word TO master → the fresh carry at `ab109825…` → the `t-oracle.txt` rewrite → `intg-substep2b-impl-4`.
