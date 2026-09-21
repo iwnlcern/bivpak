@@ -483,3 +483,14 @@ The rev20 sweep had grepped `27->36` and `ErrKind 36` but not the arrow spelling
 
 Filed as `intg-substep2b-plan-22` (194332; sha256 `14d5f50d…`; commit c2aef65, which also carries the daemon's projection of the implementer's 193911 row); lint OK under 2.9.2 and 2.9.3; no upstream relay newer than 193911 (intg) or 185625 (pdc) at the sweep.
 NEXT on the approve: the digest word TO master → the fresh carry at `ab109825…` → the `t-oracle.txt` rewrite → `intg-substep2b-impl-4`.
+
+## R36 — rev21 APPROVED at the exact hash; the digest word TO master (2026-09-20 19:47–20:13; approve `intg-substep2b/PLAN-REVIEW-pair-implementer-20260920-194742.md`; this seat's `intg-substep2b/SITREP-pair-planner-20260920-201324.md`)
+
+The implementer approved rev21 at `ab109825…` (`intg-substep2b-plan-review-20`, PARENT `intg-substep2b-plan-22`): MUST-2B-41 closed, the 22-entry block manifest byte-identical to rev20, the 193911 gate walks carried, the lock files re-hashed unchanged.
+The approve authorizes no product byte: the fresh five-field carry at this digest, the `t-oracle.txt` rewrite and a separately addressed `intg-substep2b-impl-4` remain the pre-token gates.
+
+The digest word went TO master with the five field lines computed from the files (the three owner objects re-hashed at pdc HEAD 4f1ab9a8, tracked and clean; only `T_ORACLE_PLAN_SHA256:` changes from 045732).
+Before filing, the T-ORACLE prefix (byte-identical since rev18) ran in scratch clones on a synthetic committed carry at the new digest: `t-oracle OK`; the TO line with a second addressee STOPs `carry-to`; a locator holding the rev20 digest STOPs `plan-sha-mismatch-live-…`; nothing written under `../pdc`.
+
+Filed at 201324 (sha256 `be4870ae…`; commit f162ecb, which also carries the daemon's projection of the implementer's 194742 row).
+NEXT: master's carry → preserve + rewrite `t-oracle.txt` in `s2b-runners-PEazOQ` → the gate run against the real file with a scratch `$EVID` → the token `intg-substep2b-impl-4` (PARENT `intg-substep2b-plan-review-20`).
