@@ -494,3 +494,13 @@ Before filing, the T-ORACLE prefix (byte-identical since rev18) ran in scratch c
 
 Filed at 201324 (sha256 `be4870ae…`; commit f162ecb, which also carries the daemon's projection of the implementer's 194742 row).
 NEXT: master's carry → preserve + rewrite `t-oracle.txt` in `s2b-runners-PEazOQ` → the gate run against the real file with a scratch `$EVID` → the token `intg-substep2b-impl-4` (PARENT `intg-substep2b-plan-review-20`).
+
+## R37 — master's fresh carry; `t-oracle.txt` rewritten; Step 0′ walked; token impl-4 issued; the c8 ask (2026-09-20 20:32–20:5x; carry `intg-2b-wiring-act/PLAN-master-planner-20260920-203219.md`; token `intg-substep2b/IMPL-pair-planner-20260920-205111.md`; the ask `intg-substep2b/SITREP-pair-planner-20260920-205256.md`)
+
+Master carried the five T-ORACLE fields at the rev21 digest (203219; sha256 `cc4379d4…`, tracked and clean at pdc HEAD f2616486; only the plan line changed from 045732).
+The canonical `t-oracle.txt` in `s2b-runners-PEazOQ` was preserved as `t-oracle.prev-20260920-204502.txt` (`9d2847bb…`) and rewritten (`1aad9ef7…`, four lines, exactly one `plan_sha256=` line); the T-ORACLE prefix run from the candidate worktree against the real file with a scratch `$EVID` printed `t-oracle OK`.
+
+Step 0′ (`resume.sh`, byte-identical since rev19) was walked on a scratch mirror of the real runners and evidence directories: the positive built, sealed (8 files) and published with 17 carried lines, every carried file byte-equal to the canonical directory, and the prefix passed from the new directory against the real carry; the preserved rev19 locator STOPped `t-oracle-stale`, an old lock equal to the new STOPped `same-lock`, a malformed id STOPped `token-form`; no directory was left in the evidence root and the real pointer was untouched.
+
+Token `intg-substep2b-impl-4` issued (205111; sha256 `2aa5590a…`; commit 8e0908c): PARENT `intg-substep2b-plan-review-20`, `T_ORACLE_CARRY` 203219 by digest, `T_ORACLE_FILE_SHA256` the rewritten file, the 38-path SCOPE_DIFF all-in with every row's evidence rewritten for the landed prefix, the two lock files quoted by bytes; order Step 0′ → c4b (A10 gate pre/post) → c6b (A11 gate pre/post) → c7; the delegated-dispatch lineage walked on a three-relay mini-root.
+Task 8 HOLDS: m-3's harness patch (arm-A shape, `harness/scenarios/**` only) is not on record in pdc, so `$RUNNERS/m3-harness-patch.txt` cannot be written; the ask went TO master (20260920-205256; sha256 `ab5f83e4…`), routed through master to m-3, so the file can exist when c7 lands.
