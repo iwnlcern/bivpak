@@ -525,3 +525,15 @@ Tasks 0 / 4 / 5 / 6a / 6b / 9 / 10 / 11 are byte-identical to rev21.
 
 Sequencing: the hold point told to the implementer (170127) was Step 0′ → c4b → c6b under impl-4, then hold before c7; rev22 went live before the implementer ran Step 0′, so by that notice's own rule impl-4 runs nothing and c4b / c6b move under impl-5 (reported to master, 20260921-171624; sha256 `5d065c25…`).
 Lesson recorded: `/tmp/s2b/rv6/plan_blocks.py` had been swept from `$TMPDIR`; the walks used the runners' own copy from the scratchpad.
+
+## R39 — rev22 must-revised (MUST-2B-42); rev23 filed (2026-09-21 17:32–17:40; `intg-substep2b/PLAN-REVIEW-pair-implementer-20260921-173212.md`; `intg-substep2b/PLAN-pair-planner-20260921-173710.md`)
+
+The implementer must-revised rev22 on one finding: Task 8 admitted three `harness/bivharness` paths from m-3's rev3 patch, but Task 9 Step 2's zero-byte fence still covered the whole `harness/bivharness` directory, in its runner line and its prose, and Out-of-scope still forbade every `harness/bivharness` byte.
+The valid c8 commit would therefore have stopped Task 9 every time.
+rev22's sweep checked `harness/scenarios` phrasings but not the fences on the newly admitted directories — the same class as the rev20 arrow miss: a widened scope must be swept against every existing prohibition of the newly admitted paths.
+
+rev23 (`4bb33063…` at b555cbf, 2997 lines) replaces the one fence line with three, each also a prose gate span: the zero-byte fence names `harness/bivharness/e3.py`; the changed `harness/bivharness` paths since B must be exactly c8's three; and their bytes must equal c8's (the tree at c8's parent equals B there, and HEAD equals c8).
+Out-of-scope forbids only bytes beyond the c8 commit.
+Only the task-9 block moved; its proof reads 16 gates with none omitted or out of order.
+Walked on a scratch clone with c8 made by Task 8's own block: YES passes; e3.py touched, an adapters file touched, a fourth path, a change after c8, a change before c8, and a missing c8 record each STOP at the intended line.
+Filed as plan-24 (sha256 `b496220e…`).
