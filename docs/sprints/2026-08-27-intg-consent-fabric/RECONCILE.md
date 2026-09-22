@@ -544,3 +544,18 @@ The implementer approved rev23 at the exact hash `4bb33063…` (175012, `intg-su
 The word TO master carries the five T-ORACLE field lines; the three owner objects re-hash unchanged at pdc HEAD 7090bc6a, and only the plan digest moves from 203219's.
 Before filing, the T-ORACLE prefix (byte-equal to the first 56 lines of rev23's Task 4 Step 5 block) was run on scratch clones against a synthetic committed carry made from 203219 with only the digest changed: YES passed with its receipt; a two-seat TO line and a rev22-digest locator each STOPped with no receipt.
 Next: master's fresh carry, then the `t-oracle.txt` rewrite in the current canonical runners (previous preserved), the consumer walk, and `intg-substep2b-impl-5` (PARENT 175012). c6p additionally waits on master's carry of the two T-RED1 face lines (170128). Filed sha256 `f1cf21cb…`.
+
+## R41 — master's carry at rev23; `t-oracle.txt` rewritten; impl-5 issued with c6p held for rev24 (2026-09-21 19:37–20:13; master `intg-2b-wiring-act/PLAN-master-planner-20260921-193745.md`; m-3 `…/DESIGN-planner-20260921-200917.md`; m-1 `…/DESIGN-planner-20260921-200936.md`; token `intg-substep2b/IMPL-pair-planner-20260921-201255.md`)
+
+Master carried the five T-ORACLE fields at `4bb33063…` (193745, sha256 `a49b311f…`, tracked and clean at pdc HEAD 9497d7f2); each field was checked against the files before use.
+`t-oracle.txt` in `s2b-runners-PEazOQ` was preserved as `t-oracle.prev-20260921-200707.txt` (`1aad9ef7…`) and rewritten (`920a64cd…`, one `plan_sha256=` line).
+The T-ORACLE prefix run from the candidate worktree against the real file passed; Step 0′ walked on a scratch mirror published with 18 carried lines, all byte-equal, and the prefix passed from the new directory; the stale-locator, same-lock and token-form controls stopped with no directory left.
+
+While the token was being built, both T-RED1 owners answered master: m-3 `RED1_ROOT_ROW: defer` (200917) and m-1 `RED1_PENUMBRA_DIRS: confirm` (200936) — the words the plan names.
+m-3's word adds root-row veto conditions V1-8..12 (the deferred writer refuses `.git`-segment and `payload/.biv/…` members; verification unchanged before placement; an exact joint root witness with a kept-order mutant), and m-1's names the DIRECT reading of the directory rule as the c6p witness's mutant, with a ground-truth fixture; rev23's Task 6d carries none of these.
+An owner word that changes a planned task needs a plan revision, so c6p waits on rev24 and a later token, and `red1-owner-words.txt` is not written before then.
+
+`intg-substep2b-impl-5` was issued (201255, sha256 `49c268c7…`, commit 00607e9; PARENT `intg-substep2b-plan-review-22`; 47-path SCOPE_DIFF all-in — impl-4's 38 plus c8's nine admitted harness paths; the mini-root lineage walk showed only impl-4's four known mini-root classes).
+It releases Step 0′ → c4b → c6b → c6m; c6p's own gate stops `file-absent`; c7, c8 and Tasks 9–11 follow under the next token.
+rev24 will be committed only after the implementer's Step 0′ has published under impl-5 (read from the evidence home's runners pointer), so the resume step is never orphaned; c4b / c6b / c6m do not re-hash the plan.
+Registered by the owners, not this lane's to act on: m-1's R-a (empty directories inside a repository not carried), R-b (step 6's Arm-1 form), R-c (`exclude-rules-local` never emitted); m-3's `.git`-segment observation on the first pass (for m-4 / m-1).
