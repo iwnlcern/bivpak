@@ -3061,3 +3061,71 @@ TEST_CASE("A11 engine errors render the locked sentences and hostile diagnostic 
   facts["engine_detail"] = "RepoRestoreFailed: checkout: bad";
   CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoRestoreFailed, facts).find("checkout: bad") != std::string::npos);
 }
+
+TEST_CASE("c6m a payload directory above a restored repository keeps its archived mtime", "[cli][c6m]") {
+  const auto root = make_tmp("c6m-directory-mtime");
+  const auto workspace = root / "workspace";
+  const auto docs = workspace / "docs";
+  const auto inner = docs / "inner";
+  std::filesystem::create_directories(inner);
+  write_file(workspace / "README.md", "root\n");
+  write_file(docs / "notes.txt", "notes\n");
+  const auto handle = open_repos_fixture::git();
+  open_repos_fixture::run_git(handle, inner, {"init", "-b", "main"});
+  write_file(inner / "sub" / "t.txt", "tracked\n");
+  open_repos_fixture::run_git(handle, inner, {"add", "."});
+  open_repos_fixture::run_git(handle, inner,
+                              {"-c", "user.name=Biv Test", "-c",
+                               "user.email=biv@example.invalid", "commit", "-m", "initial"});
+  const timespec archived[2]{{1577836800, 123456789}, {1577836800, 123456789}};
+  for (const auto& path : {workspace / "README.md", docs / "notes.txt",
+                           inner / "sub" / "t.txt", inner / "sub", inner, docs, workspace}) {
+    REQUIRE(::utimensat(AT_FDCWD, path.c_str(), archived, AT_SYMLINK_NOFOLLOW) == 0);
+  }
+  const auto mtime = [](const std::filesystem::path& path) {
+    struct stat status{};
+    REQUIRE(::lstat(path.c_str(), &status) == 0);
+#if defined(__APPLE__)
+    return std::pair{status.st_mtimespec.tv_sec, status.st_mtimespec.tv_nsec};
+#else
+    return std::pair{status.st_mtim.tv_sec, status.st_mtim.tv_nsec};
+#endif
+  };
+  const auto docs_mtime = mtime(docs);
+  const auto notes_mtime = mtime(docs / "notes.txt");
+  const auto packed = run_cmd("pack '" + workspace.string() + "' --json", root);
+  INFO(packed.out);
+  INFO(packed.err);
+  REQUIRE(packed.code == 0);
+
+  const auto run_leg = [&](const std::string& leg, const std::string& flag) {
+    const auto dest = root / leg;
+    const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                    "' --dest '" + dest.string() + "' " + flag + " --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 0);
+    const auto restored_docs_mtime = mtime(dest / "docs");
+    const auto restored_notes_mtime = mtime(dest / "docs" / "notes.txt");
+    INFO("docs expected=" << docs_mtime.first << "." << docs_mtime.second
+                           << " actual=" << restored_docs_mtime.first << "."
+                           << restored_docs_mtime.second);
+    INFO("notes expected=" << notes_mtime.first << "." << notes_mtime.second
+                            << " actual=" << restored_notes_mtime.first << "."
+                            << restored_notes_mtime.second);
+    CHECK(restored_docs_mtime == docs_mtime);
+    CHECK(restored_notes_mtime == notes_mtime);
+    if (leg == "network") {
+      CHECK(open_repos_fixture::run_git(handle, dest / "docs" / "inner",
+                                        {"status", "--porcelain=v2"}).empty());
+    }
+    if (const char* receipts = std::getenv("BIV_LEG_RECEIPTS")) {
+      std::ofstream out{receipts, std::ios::app};
+      out << "leg=c6m-" << leg << " provenance=product-packed\n";
+    }
+  };
+  run_leg("network", "--network");
+  run_leg("offline", "--offline");
+  std::filesystem::remove_all(root);
+}

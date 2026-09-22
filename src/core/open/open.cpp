@@ -930,12 +930,6 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
     return std::unexpected(with_partial_dir(restored.error(), partial_dir));
   }
 
-  for (auto it = dirs.rbegin(); it != dirs.rend(); ++it) {
-    const auto rel = it->path.substr(std::string_view{"payload/"}.size());
-    if (auto ok = set_mtime(partial_dir / std::filesystem::path{rel}, it->mtime_s, it->mtime_ns); !ok) {
-      return std::unexpected(with_partial_dir(ok.error(), partial_dir));
-    }
-  }
   OpenReport report{
       .image_path = image.generic_string(),
       .output_dir = dest.generic_string(),
@@ -946,6 +940,12 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
   };
   if (auto ok = restore_repos(plan, partial_dir, stage, report); !ok) {
     return std::unexpected(with_partial_dir(ok.error(), partial_dir));
+  }
+  for (auto it = dirs.rbegin(); it != dirs.rend(); ++it) {
+    const auto rel = it->path.substr(std::string_view{"payload/"}.size());
+    if (auto ok = set_mtime(partial_dir / std::filesystem::path{rel}, it->mtime_s, it->mtime_ns); !ok) {
+      return std::unexpected(with_partial_dir(ok.error(), partial_dir));
+    }
   }
   if (auto ok = fsync_tree(partial_dir); !ok) {
     return std::unexpected(with_partial_dir(ok.error(), partial_dir));

@@ -404,11 +404,12 @@ TEST_CASE("Task 4 open occupancy and destination contracts stay bounded") {
     REQUIRE(write_end != std::string::npos);
     const auto write_path = source.substr(write_begin, write_end - write_begin);
     // Catch premature writes/publication and writers aimed at the destination.
-    constexpr std::array<std::string_view, 6> calls{
+    constexpr std::array<std::string_view, 7> calls{
         "std::filesystem::exists(partial_dir, ec)",
         "std::filesystem::create_directories(partial_dir, ec)",
         "apply_archive(image, plan, partial_dir, dirs, verify, stage)",
         "restore_repos(plan, partial_dir, stage, report)",
+        "set_mtime(partial_dir / std::filesystem::path{rel}, it->mtime_s, it->mtime_ns)",
         "fsync_tree(partial_dir)",
         "std::filesystem::rename(partial_dir, dest, ec)"};
     std::array<std::size_t, calls.size()> positions{};
