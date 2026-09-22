@@ -559,3 +559,13 @@ An owner word that changes a planned task needs a plan revision, so c6p waits on
 It releases Step 0′ → c4b → c6b → c6m; c6p's own gate stops `file-absent`; c7, c8 and Tasks 9–11 follow under the next token.
 rev24 will be committed only after the implementer's Step 0′ has published under impl-5 (read from the evidence home's runners pointer), so the resume step is never orphaned; c4b / c6b / c6m do not re-hash the plan.
 Registered by the owners, not this lane's to act on: m-1's R-a (empty directories inside a repository not carried), R-b (step 6's Arm-1 form), R-c (`exclude-rules-local` never emitted); m-3's `.git`-segment observation on the first pass (for m-4 / m-1).
+
+## R42 — impl-5 returned; the T-RED1 words carried; rev24 filed (2026-09-22 00:00–01:25; `intg-substep2b/IMPL-pair-implementer-20260921-224404.md`; master `intg-2b-wiring-act/PLAN-master-planner-20260921-211701.md`; `intg-substep2b/PLAN-pair-planner-20260922-012027.md`; `intg-substep2b/SITREP-pair-planner-20260922-012122.md`)
+
+impl-5 returned: Step 0′ published `s2b-runners-QzzQ11` (18 carried lines), then c4b `cd12bb5`, c6b `cd51937` and c6m `e5afe9d` landed in order; c6p's gate stopped `file-absent` as dispatched, with no c6p byte.
+Verified at this seat: the path sets, the gate receipts, a clean worktree, and `ctest --preset ci-macos -E '^safety-hardening$'` re-run at `e5afe9d` (18 tests, 100% passed, three safety tests skipped, rc 0).
+One undisclosed path: c6b's commit carries `src/core/open/open.hpp` (`RepoOutcomeRow` gains `kind` / `detail`), which Task 6b's Files line and commit block do not list; it is inside impl-5's SCOPE_DIFF and additive, and is reported to master, recorded in rev24's history bullet, and put to the implementer and the owners' byte reviews.
+
+Master carried both T-RED1 words (211701). `red1-owner-words.txt` was written into `s2b-runners-QzzQ11` (`5431f3d1…`) and the plan's Task 6d gate passed pre and post against the real carriers; a carry citing neither word stopped at `carry-cites-m3`.
+rev24 (`265ec83c…` at 4a54e2b) folds m-3's V1-8..12 and m-1's direct-reading mutant into Task 6d only, with every block byte-identical; it was committed after impl-5's Step 0′ had published.
+V1-12's status claim and m-1's fixture were executed before filing and matched.
