@@ -537,3 +537,10 @@ Out-of-scope forbids only bytes beyond the c8 commit.
 Only the task-9 block moved; its proof reads 16 gates with none omitted or out of order.
 Walked on a scratch clone with c8 made by Task 8's own block: YES passes; e3.py touched, an adapters file touched, a fourth path, a change after c8, a change before c8, and a missing c8 record each STOP at the intended line.
 Filed as plan-24 (sha256 `b496220e…`).
+
+## R40 — rev23 approved; the digest word TO master (2026-09-21 17:50–17:58; `intg-substep2b/PLAN-REVIEW-pair-implementer-20260921-175012.md`; `intg-substep2b/SITREP-pair-planner-20260921-175351.md`)
+
+The implementer approved rev23 at the exact hash `4bb33063…` (175012, `intg-substep2b-plan-review-22`), replaying the three new Task 9 fence lines on disposable clones and carrying rev22's positive evidence on byte-identical bytes.
+The word TO master carries the five T-ORACLE field lines; the three owner objects re-hash unchanged at pdc HEAD 7090bc6a, and only the plan digest moves from 203219's.
+Before filing, the T-ORACLE prefix (byte-equal to the first 56 lines of rev23's Task 4 Step 5 block) was run on scratch clones against a synthetic committed carry made from 203219 with only the digest changed: YES passed with its receipt; a two-seat TO line and a rev22-digest locator each STOPped with no receipt.
+Next: master's fresh carry, then the `t-oracle.txt` rewrite in the current canonical runners (previous preserved), the consumer walk, and `intg-substep2b-impl-5` (PARENT 175012). c6p additionally waits on master's carry of the two T-RED1 face lines (170128). Filed sha256 `f1cf21cb…`.
