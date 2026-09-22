@@ -235,7 +235,16 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
       {"UsageError", "usage", biv::report::exit_for_error(biv::ErrKind::UsageError)},
       {"UrlDivergenceRefused", "refusal", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceRefused)},
       {"UrlDivergenceEntryRefused", "divergence", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceEntryRefused)},
-      {"UnclaimedGitEntry", "refusal", biv::report::exit_for_error(biv::ErrKind::UnclaimedGitEntry)}};
+      {"UnclaimedGitEntry", "refusal", biv::report::exit_for_error(biv::ErrKind::UnclaimedGitEntry)},
+      {"RepoDirtyUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::RepoDirtyUnsupported)},
+      {"RepoNestedUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::RepoNestedUnsupported)},
+      {"RepoSubmoduleUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::RepoSubmoduleUnsupported)},
+      {"UnmergedIndexUnrepresentable", "refusal", biv::report::exit_for_error(biv::ErrKind::UnmergedIndexUnrepresentable)},
+      {"RefUncapturable", "refusal", biv::report::exit_for_error(biv::ErrKind::RefUncapturable)},
+      {"PromisorObjectsUnavailable", "refusal", biv::report::exit_for_error(biv::ErrKind::PromisorObjectsUnavailable)},
+      {"GitInvocationFailed", "mid-fail", biv::report::exit_for_error(biv::ErrKind::GitInvocationFailed)},
+      {"GitBudgetExpired", "mid-fail", biv::report::exit_for_error(biv::ErrKind::GitBudgetExpired)},
+      {"RepoRestoreFailed", "mid-fail", biv::report::exit_for_error(biv::ErrKind::RepoRestoreFailed)}};
   for (const auto& row : rows) {
     const std::string needle = "\"kind\": \"" + std::string{row.kind} + "\"";
     INFO(row.kind);
@@ -255,8 +264,13 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
   REQUIRE(unclaimed_row != std::string::npos);
   CHECK(exit_text.find("\"UnclaimedGitEntry\", \"class\": \"refusal\", \"exit\": 3", unclaimed_row) !=
         std::string::npos);
-  CHECK(exit_text.find("transitional", unclaimed_row) == std::string::npos);
+  const auto unclaimed_end = exit_text.find('\n', unclaimed_row);
+  CHECK(exit_text.substr(unclaimed_row, unclaimed_end - unclaimed_row).find("transitional") ==
+        std::string::npos);
   CHECK(unclaimed_row > divergence_row);
+  CHECK(rows.size() == 38U);
+  CHECK(count_occurrences(exit_text, "\"class\": \"refusal\"") == 20U);
+  CHECK(count_occurrences(exit_text, "\"class\": \"mid-fail\"") == 7U);
   CHECK(exit_text.find("NotYetImplemented") != std::string::npos);
 
   std::ifstream envelope{std::string{BIV_SOURCE_DIR} + "/schemas/biv-json-envelope.v1.schema.json"};

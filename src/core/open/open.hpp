@@ -32,6 +32,8 @@ struct RepoOutcomeRow {
   std::string id;
   std::string relpath;
   std::string outcome;
+  std::optional<std::string> kind;
+  std::optional<std::string> detail;
   std::optional<std::string> sha;
   std::optional<std::string> branch;
   std::optional<std::string> capture_mode;

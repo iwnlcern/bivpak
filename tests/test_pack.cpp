@@ -1207,12 +1207,12 @@ TEST_CASE("pack fences dirty nested submodule and unmerged repositories before i
       const auto root = make_tmp("repo-" + kind);
       const auto source = root / "sample";
       init_clean_pack_repo(git, source);
-      std::string expected;
+      biv::ErrKind expected_kind = biv::ErrKind::RepoDirtyUnsupported;
       if (kind == "nested") {
-        expected = "repo-nested-unsupported";
+        expected_kind = biv::ErrKind::RepoNestedUnsupported;
         init_clean_pack_repo(git, source / "child");
       } else if (kind == "submodule") {
-        expected = "repo-submodule-unsupported";
+        expected_kind = biv::ErrKind::RepoSubmoduleUnsupported;
         auto sha = pack_git_stdout(git, source, {"rev-parse", "HEAD"});
         while (!sha.empty() && (sha.back() == '\n' || sha.back() == '\r')) {
           sha.pop_back();
@@ -1221,7 +1221,7 @@ TEST_CASE("pack fences dirty nested submodule and unmerged repositories before i
                      {"update-index", "--add", "--cacheinfo",
                       "160000," + sha + ",sub"});
       } else if (kind == "unmerged") {
-        expected = "unmerged-index-unrepresentable";
+        expected_kind = biv::ErrKind::UnmergedIndexUnrepresentable;
         pack_git_run(git, source, {"checkout", "-b", "other"});
         write_file(source / "tracked.txt", "other\n");
         pack_git_run(git, source, {"add", "tracked.txt"});
@@ -1243,15 +1243,19 @@ TEST_CASE("pack fences dirty nested submodule and unmerged repositories before i
         REQUIRE(conflict.has_value());
         REQUIRE(conflict->exit_code != 0);
       } else {
-        expected = "repo-dirty-unsupported";
+        expected_kind = biv::ErrKind::RepoDirtyUnsupported;
         write_file(source / "untracked.txt", "dirty\n");
       }
       const ScopedPackDiscoveryEnv discovery_env{
           isolated_pack_discovery_env(root)};
       auto report = biv::pack::pack(source);
       REQUIRE_FALSE(report.has_value());
-      CHECK(report.error().kind == biv::ErrKind::InternalError);
-      CHECK(report.error().facts.at("repo_engine_kind") == expected);
+      CHECK(report.error().kind == expected_kind);
+      CHECK(report.error().facts.at("repo_engine_kind") ==
+            biv::repo::engine_error_name(kind == "dirty" ? biv::repo::EngineErrorKind::repo_dirty_unsupported :
+                                         kind == "nested" ? biv::repo::EngineErrorKind::repo_nested_unsupported :
+                                         kind == "submodule" ? biv::repo::EngineErrorKind::repo_submodule_unsupported :
+                                                               biv::repo::EngineErrorKind::unmerged_index_unrepresentable));
       CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
       CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.partial"));
       CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.scratch"));

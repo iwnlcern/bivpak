@@ -132,6 +132,68 @@ std::string render_unclaimed_git_entry_detail(const std::string_view path,
          consent_display(reason) + "); remove or repair it and re-run.";
 }
 
+std::string render_engine_refusal_detail(
+    const ErrKind kind, const std::map<std::string, std::string>& facts) {
+  const auto raw = [&](const std::string_view key,
+                       const std::string_view fallback = "") -> std::string {
+    const auto found = facts.find(std::string{key});
+    return found == facts.end() ? std::string{fallback} : found->second;
+  };
+  const auto shown = [&](const std::string_view key,
+                         const std::string_view fallback = "") {
+    return consent_display(raw(key, fallback));
+  };
+  const auto repo = shown("repo_relpath", "(repository)");
+  const auto op = shown("op", "call");
+  const bool open = raw("verb") == "open";
+  switch (kind) {
+    case ErrKind::RepoDirtyUnsupported:
+      return "pack refused: " + repo + " has uncommitted changes; this build captures clean repositories only. Commit or stash the changes, or declare the path in .bivignore, and re-run.";
+    case ErrKind::RepoNestedUnsupported:
+      return "pack refused: " + repo + " contains a nested repository at " + shown("child") + "; this build captures single repositories only. Declare " + shown("child") + " in .bivignore, and re-run.";
+    case ErrKind::RepoSubmoduleUnsupported:
+      return "pack refused: " + repo + " has a submodule at " + shown("gitlink") + "; this build captures repositories without submodules only. Declare " + shown("gitlink") + " in .bivignore, and re-run.";
+    case ErrKind::UnmergedIndexUnrepresentable: {
+      const auto count = raw("unmerged_count", "0");
+      std::vector<std::string> paths;
+      std::string all = raw("unmerged_paths");
+      for (std::size_t start = 0; start <= all.size() && paths.size() < 3;) {
+        const auto end = all.find('\n', start);
+        paths.push_back(consent_display(all.substr(start, end - start)));
+        if (end == std::string::npos) break;
+        start = end + 1;
+      }
+      std::string list;
+      for (std::size_t index = 0; index < paths.size(); ++index) {
+        if (index != 0) list += ", ";
+        list += paths[index];
+      }
+      std::size_t total = 0;
+      try { total = static_cast<std::size_t>(std::stoull(count)); } catch (...) {}
+      if (total > 3) list += " and " + std::to_string(total - 3) + " more";
+      return "pack refused: " + repo + " has an unmerged index (" + consent_display(count) + " paths: " + list + "); an in-progress merge cannot be represented. Resolve or abort the merge and re-run.";
+    }
+    case ErrKind::RefUncapturable:
+      return "pack refused: " + repo + " ref " + shown("ref") + " has neither a remote nor a bundle route; the image would lose it. Push or remove the ref and re-run.";
+    case ErrKind::PromisorObjectsUnavailable:
+      return "pack refused: " + repo + " is a partial clone whose objects are unavailable (git " + op + " exit " + shown("exit_code") + (raw("offline") == "true" ? ", offline" : "") + "); the image would be incomplete. Fetch the missing objects, or re-run without --offline, and re-run.";
+    case ErrKind::GitInvocationFailed:
+      return open ? "open failed while restoring " + repo + ": git " + op + " did not complete (" + shown("engine_detail") + ")."
+                  : "pack failed: git " + op + " for " + repo + " did not complete (" + shown("engine_detail") + "); no image was written.";
+    case ErrKind::GitBudgetExpired:
+      return open ? "open failed while restoring " + repo + ": git " + op + " exceeded the call budget."
+                  : "pack failed: git " + op + " for " + repo + " exceeded the call budget; no image was written.";
+    case ErrKind::RepoRestoreFailed: {
+      std::string detail = raw("engine_detail");
+      constexpr std::string_view prefix = "RepoRestoreFailed: ";
+      if (detail.starts_with(prefix)) detail.erase(0, prefix.size());
+      return "open failed while restoring " + repo + ": " + consent_display(detail) + ".";
+    }
+    default:
+      return {};
+  }
+}
+
 std::string render_entry_refusal_line(std::string_view relpath,
                                       const UrlDivergenceFacts& facts) {
   return "  " + consent_display(relpath) + ": restore failed — " +

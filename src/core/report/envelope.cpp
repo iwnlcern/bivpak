@@ -411,6 +411,14 @@ void write_open_result(json::Writer& writer,
       writer.value_string(machine_text(row.relpath));
       writer.key("outcome");
       writer.value_string(row.outcome);
+      if (row.outcome == "failed") {
+        writer.key("kind");
+        if (row.kind) writer.value_string(*row.kind);
+        else writer.value_null();
+        writer.key("detail");
+        if (row.detail) writer.value_string(machine_text(*row.detail));
+        else writer.value_null();
+      }
       writer.key("sha");
       if (row.sha) writer.value_string(machine_text(*row.sha));
       else writer.value_null();
@@ -521,6 +529,9 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::RestoreWriteFailed:
     case ErrKind::InternalError:
     case ErrKind::ParseError:
+    case ErrKind::GitInvocationFailed:
+    case ErrKind::GitBudgetExpired:
+    case ErrKind::RepoRestoreFailed:
       return 4;
     case ErrKind::ContainmentRefused:
     case ErrKind::SessionInstallFailed:
@@ -546,6 +557,12 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::OpenPartialPresent:
     case ErrKind::UrlDivergenceRefused:
     case ErrKind::UnclaimedGitEntry:
+    case ErrKind::RepoDirtyUnsupported:
+    case ErrKind::RepoNestedUnsupported:
+    case ErrKind::RepoSubmoduleUnsupported:
+    case ErrKind::UnmergedIndexUnrepresentable:
+    case ErrKind::RefUncapturable:
+    case ErrKind::PromisorObjectsUnavailable:
       return 3;
   }
   return 4;

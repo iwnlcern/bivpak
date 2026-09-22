@@ -290,6 +290,10 @@ int main(int argc, char** argv) {
           } else if (error.kind == biv::ErrKind::UnclaimedGitEntry) {
             error.detail = biv::cli::render_unclaimed_git_entry_detail(
                 error.path, error.facts.at("reason"));
+          } else if (error.kind >= biv::ErrKind::RepoDirtyUnsupported &&
+                     error.kind <= biv::ErrKind::RepoRestoreFailed) {
+            error.detail = biv::cli::render_engine_refusal_detail(
+                error.kind, error.facts);
           }
           return emit_error("pack", report.error(), parsed->json);
         }
@@ -475,6 +479,13 @@ int main(int argc, char** argv) {
                             .detail = "consent-surface-write-failed"}, parsed->json);
         }
         if (!report) {
+          auto& error = report.error();
+          if (error.kind == biv::ErrKind::GitInvocationFailed ||
+              error.kind == biv::ErrKind::GitBudgetExpired ||
+              error.kind == biv::ErrKind::RepoRestoreFailed) {
+            error.detail = biv::cli::render_engine_refusal_detail(
+                error.kind, error.facts);
+          }
           return emit_error("open", report.error(), parsed->json);
         }
         record_accepted(url_consent, report->url_divergence_accepted);

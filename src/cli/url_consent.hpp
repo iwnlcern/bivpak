@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "core/repo/types.hpp"
+#include "core/support/error.hpp"
 
 namespace biv::cli {
 
@@ -26,6 +27,8 @@ std::string render_accepted_notice(const UrlDivergenceFacts& facts);
 std::string render_pack_refusal_detail(const UrlDivergenceFacts& facts);
 std::string render_unclaimed_git_entry_detail(std::string_view path,
                                               std::string_view reason);
+std::string render_engine_refusal_detail(
+    ErrKind kind, const std::map<std::string, std::string>& facts);
 std::string render_entry_refusal_line(std::string_view relpath,
                                       const UrlDivergenceFacts& facts);
 std::string render_run_guidance_line(std::size_t refused_count);

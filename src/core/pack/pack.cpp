@@ -556,18 +556,49 @@ void add_summary(PackReport& report, std::string_view agent) {
   }
 }
 
-BivError engine_to_pack_error(BivError error) {
-  if (repo::engine_error_kind(error) !=
-      repo::EngineErrorKind::url_divergence_refused) {
-    return error;
-  }
-  BivError mapped{ErrKind::UrlDivergenceRefused, error.path};
-  for (const auto field : {"requested", "effective", "op"}) {
-    if (const auto value = error.facts.find(field); value != error.facts.end()) {
-      mapped.facts.emplace(field, value->second);
+BivError engine_to_pack_error(BivError error,
+                              const std::optional<std::string_view> repo_relpath = std::nullopt,
+                              const bool offline = false) {
+  const auto engine_kind = repo::engine_error_kind(error);
+  if (!engine_kind) return error;
+  if (*engine_kind == repo::EngineErrorKind::url_divergence_refused) {
+    BivError mapped{ErrKind::UrlDivergenceRefused, error.path};
+    for (const auto field : {"requested", "effective", "op"}) {
+      if (const auto value = error.facts.find(field); value != error.facts.end()) {
+        mapped.facts.emplace(field, value->second);
+      }
     }
+    return mapped;
   }
-  return mapped;
+  std::optional<ErrKind> kind;
+  switch (*engine_kind) {
+    case repo::EngineErrorKind::repo_dirty_unsupported: kind = ErrKind::RepoDirtyUnsupported; break;
+    case repo::EngineErrorKind::repo_nested_unsupported: kind = ErrKind::RepoNestedUnsupported; break;
+    case repo::EngineErrorKind::repo_submodule_unsupported: kind = ErrKind::RepoSubmoduleUnsupported; break;
+    case repo::EngineErrorKind::unmerged_index_unrepresentable: kind = ErrKind::UnmergedIndexUnrepresentable; break;
+    case repo::EngineErrorKind::ref_uncapturable: kind = ErrKind::RefUncapturable; break;
+    case repo::EngineErrorKind::promisor_objects_unavailable: kind = ErrKind::PromisorObjectsUnavailable; break;
+    case repo::EngineErrorKind::git_invocation_failed: kind = ErrKind::GitInvocationFailed; break;
+    case repo::EngineErrorKind::git_budget_expired: kind = ErrKind::GitBudgetExpired; break;
+    case repo::EngineErrorKind::repo_restore_failed: kind = ErrKind::RepoRestoreFailed; break;
+    case repo::EngineErrorKind::url_divergence_refused: break;
+  }
+  if (!kind) return error;
+  error.kind = *kind;
+  if (repo_relpath) error.facts["repo_relpath"] = std::string{*repo_relpath};
+  else if (!error.facts.contains("repo_relpath")) error.facts["repo_relpath"] = error.path;
+  if (*kind != ErrKind::RepoNestedUnsupported &&
+      *kind != ErrKind::RepoSubmoduleUnsupported) {
+    error.path = error.facts.at("repo_relpath");
+  }
+  error.facts["verb"] = "pack";
+  if (*kind == ErrKind::PromisorObjectsUnavailable) {
+    error.facts["offline"] = offline ? "true" : "false";
+  }
+  if (*kind == ErrKind::GitInvocationFailed || *kind == ErrKind::RepoRestoreFailed) {
+    error.facts["engine_detail"] = error.detail;
+  }
+  return error;
 }
 
 BivError fence_error(const repo::RepoBoundary& boundary,
@@ -583,6 +614,11 @@ BivError fence_error(const repo::RepoBoundary& boundary,
     }
     error.facts.emplace("unmerged_count", std::to_string(issue.paths.size()));
     error.facts.emplace("unmerged_paths", std::move(joined));
+    if (issue.kind == repo::EngineErrorKind::repo_nested_unsupported) {
+      error.facts.emplace("child", issue.paths.front().generic_string());
+    } else if (issue.kind == repo::EngineErrorKind::repo_submodule_unsupported) {
+      error.facts.emplace("gitlink", issue.paths.front().generic_string());
+    }
   }
   return error;
 }
@@ -710,7 +746,8 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir,
           *git, (source / boundary.relpath).lexically_normal(),
           *discovery);
       if (!classified) {
-        return cleanup_error(engine_to_pack_error(classified.error()));
+        return cleanup_error(engine_to_pack_error(
+            classified.error(), boundary.relpath.generic_string(), options.offline));
       }
       if (classified->fence != repo::Classification::Fence::none) {
         if (!classified->issue) {
@@ -719,7 +756,8 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir,
                                         "repo fence without issue"});
         }
         return cleanup_error(
-            engine_to_pack_error(fence_error(boundary, *classified->issue)));
+            engine_to_pack_error(fence_error(boundary, *classified->issue),
+                                 boundary.relpath.generic_string(), options.offline));
       }
       entries.push_back(std::move(classified->entry));
     }
@@ -727,7 +765,8 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir,
                                       : repo::EligibilityMode::network;
     for (auto& entry : entries) {
       if (auto ok = repo::run_eligibility(*git, entry, mode); !ok) {
-        return cleanup_error(engine_to_pack_error(ok.error()));
+        return cleanup_error(engine_to_pack_error(
+            ok.error(), entry.relpath.generic_string(), options.offline));
       }
     }
     std::filesystem::create_directory(scratch_path, ec);
@@ -740,7 +779,8 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir,
     for (const auto index : leaves_first(entries)) {
       auto captured = repo::capture(*git, entries.at(index), scratch_path);
       if (!captured) {
-        return cleanup_error(engine_to_pack_error(captured.error()));
+        return cleanup_error(engine_to_pack_error(
+            captured.error(), entries.at(index).relpath.generic_string(), options.offline));
       }
       captures.push_back(std::move(*captured));
     }

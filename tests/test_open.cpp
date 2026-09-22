@@ -3,10 +3,12 @@
 #include <cstddef>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -25,6 +27,7 @@
 #include "core/manifest/manifest.hpp"
 #include "core/open/open.hpp"
 #include "core/pack/pack.hpp"
+#include "core/repo/git.hpp"
 #include "core/support/sha256.hpp"
 
 namespace {
@@ -41,6 +44,44 @@ void write_file(const std::filesystem::path& path, std::string_view content) {
   std::filesystem::create_directories(path.parent_path());
   std::ofstream out{path, std::ios::binary};
   out << content;
+}
+
+class ScopedEnv {
+ public:
+  ScopedEnv(std::string name, std::string value) : name_{std::move(name)} {
+    if (const char* old = std::getenv(name_.c_str())) old_ = std::string{old};
+    setenv(name_.c_str(), value.c_str(), 1);
+  }
+  ~ScopedEnv() {
+    if (old_) setenv(name_.c_str(), old_->c_str(), 1);
+    else unsetenv(name_.c_str());
+  }
+ private:
+  std::string name_;
+  std::optional<std::string> old_;
+};
+
+biv::repo::Git test_git() {
+  auto git = biv::repo::Git::resolve([](const std::string_view name) -> std::optional<std::string> {
+    if (const char* value = std::getenv(std::string{name}.c_str())) return std::string{value};
+    return std::nullopt;
+  });
+  REQUIRE(git);
+  return *git;
+}
+
+void init_repo(const biv::repo::Git& git, const std::filesystem::path& path) {
+  std::filesystem::create_directories(path);
+  auto run = [&](std::vector<std::string> args) {
+    auto result = git.run(args, {}, {.cwd = path, .allow_user_protocol = true});
+    REQUIRE(result);
+    REQUIRE(result->exit_code == 0);
+  };
+  run({"init", "-b", "main"});
+  write_file(path / "tracked.txt", "tracked\n");
+  run({"add", "tracked.txt"});
+  run({"-c", "user.name=Biv Test", "-c", "user.email=biv@example.invalid",
+       "commit", "-m", "initial"});
 }
 
 std::vector<std::byte> bytes(std::string_view text) {
@@ -556,6 +597,66 @@ TEST_CASE("open refuses payload members absent from checksums") {
   REQUIRE_FALSE(opened.has_value());
   CHECK(opened.error().kind == biv::ErrKind::UnmanifestedMember);
   CHECK_FALSE(std::filesystem::exists(root / "restore"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open engine failure leaves ordered failed-mid-apply inventory", "[a11-open]") {
+  const auto root = make_tmp("a11-engine-inventory");
+  const auto source = root / "source";
+  const auto git = test_git();
+  init_repo(git, source / "repo-a");
+  init_repo(git, source / "repo-b");
+  auto packed = biv::pack::pack(source, {.offline = true});
+  REQUIRE(packed);
+  const auto image = root / "source.bvpk";
+  const auto dest = root / "restore";
+  const auto partial = root / "restore.bvpk-open.partial";
+
+  const auto shim_dir = root / "shim";
+  const auto shim = shim_dir / "git";
+  std::filesystem::create_directories(shim_dir);
+  write_file(shim,
+             "#!/bin/sh\n"
+             "case \" $* \" in *'/repo-b '*) printf '%s\\n' 'hostile restore diagnostic' >&2; exit 42;; esac\n"
+             "exec '" + git.executable().string() + "' \"$@\"\n");
+  std::filesystem::permissions(
+      shim, std::filesystem::perms::owner_read |
+                std::filesystem::perms::owner_write |
+                std::filesystem::perms::owner_exec);
+  const ScopedEnv path{"PATH", shim_dir.string()};
+
+  auto opened = biv::open::open({.image = image, .dest = dest});
+  REQUIRE_FALSE(opened);
+  CHECK(opened.error().kind == biv::ErrKind::RepoRestoreFailed);
+  CHECK(opened.error().path == "repo-b");
+  CHECK(opened.error().facts.at("repo_id").size() > 0U);
+  CHECK(opened.error().facts.at("repo_relpath") == "repo-b");
+  CHECK(opened.error().facts.at("partial_path") == partial.generic_string());
+  CHECK(opened.error().facts.at("verb") == "open");
+  CHECK(opened.error().facts.at("engine_detail") ==
+        "RepoRestoreFailed: clone: hostile restore diagnostic");
+  CHECK(opened.error().detail ==
+        "open failed while restoring repo-b: clone: hostile restore diagnostic.");
+  CHECK(std::filesystem::exists(partial / "inventory.json"));
+  CHECK_FALSE(std::filesystem::exists(dest));
+  const auto inventory = read_text(partial / "inventory.json");
+  const auto completed = inventory.find("\"relpath\": \"repo-a\"");
+  const auto failing = inventory.find("\"relpath\": \"repo-b\"");
+  const auto outcome = inventory.find("\"kind\": \"failed-mid-apply\"");
+  REQUIRE(completed != std::string::npos);
+  REQUIRE(failing != std::string::npos);
+  REQUIRE(outcome != std::string::npos);
+  CHECK(completed < failing);
+  CHECK(failing < outcome);
+  CHECK(inventory.find("\"kind\": \"RepoRestoreFailed\"", failing) !=
+        std::string::npos);
+  CHECK(inventory.find("\"detail\": \"" + opened.error().detail + "\"", failing) !=
+        std::string::npos);
+  CHECK(inventory.find("\"sha\": ", completed) < failing);
+  CHECK(inventory.find("\"capture_mode\": \"full\"", completed) < failing);
+  CHECK(inventory.find("\"local_refs\": [", completed) < failing);
+  CHECK(inventory.find("\"advisories\": [", completed) < failing);
+  CHECK(inventory.find("\"step\": \"clone\"", outcome) != std::string::npos);
   std::filesystem::remove_all(root);
 }
 

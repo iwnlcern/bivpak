@@ -34,7 +34,16 @@ enum class ErrKind {
   ParseError,
   UrlDivergenceRefused,
   UrlDivergenceEntryRefused,
-  UnclaimedGitEntry
+  UnclaimedGitEntry,
+  RepoDirtyUnsupported,
+  RepoNestedUnsupported,
+  RepoSubmoduleUnsupported,
+  UnmergedIndexUnrepresentable,
+  RefUncapturable,
+  PromisorObjectsUnavailable,
+  GitInvocationFailed,
+  GitBudgetExpired,
+  RepoRestoreFailed
 };
 
 struct BivError {

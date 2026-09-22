@@ -60,6 +60,24 @@ const char* to_string(const ErrKind kind) noexcept {
       return "UrlDivergenceEntryRefused";
     case ErrKind::UnclaimedGitEntry:
       return "UnclaimedGitEntry";
+    case ErrKind::RepoDirtyUnsupported:
+      return "RepoDirtyUnsupported";
+    case ErrKind::RepoNestedUnsupported:
+      return "RepoNestedUnsupported";
+    case ErrKind::RepoSubmoduleUnsupported:
+      return "RepoSubmoduleUnsupported";
+    case ErrKind::UnmergedIndexUnrepresentable:
+      return "UnmergedIndexUnrepresentable";
+    case ErrKind::RefUncapturable:
+      return "RefUncapturable";
+    case ErrKind::PromisorObjectsUnavailable:
+      return "PromisorObjectsUnavailable";
+    case ErrKind::GitInvocationFailed:
+      return "GitInvocationFailed";
+    case ErrKind::GitBudgetExpired:
+      return "GitBudgetExpired";
+    case ErrKind::RepoRestoreFailed:
+      return "RepoRestoreFailed";
   }
   return "InternalError";
 }

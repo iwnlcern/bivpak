@@ -3035,3 +3035,29 @@ TEST_CASE("c3 refusal writer preserves entry order and emits one run guidance", 
   CHECK(accepted[0].op == "fetch");
   CHECK(accepted[0].repo == "/w/repo");
 }
+
+TEST_CASE("A11 engine errors render the locked sentences and hostile diagnostic slots", "[a11]") {
+  std::map<std::string, std::string> facts{{"repo_relpath", "repo\r\xe2\x80\xae"},
+                                           {"op", "fetch"},
+                                           {"exit_code", "9"}};
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoDirtyUnsupported, facts) ==
+        "pack refused: repo\\r\\u{202e} has uncommitted changes; this build captures clean repositories only. Commit or stash the changes, or declare the path in .bivignore, and re-run.");
+  facts["child"] = "child";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoNestedUnsupported, facts).find("nested repository at child") != std::string::npos);
+  facts["gitlink"] = "sub";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoSubmoduleUnsupported, facts).find("submodule at sub") != std::string::npos);
+  facts["unmerged_count"] = "4";
+  facts["unmerged_paths"] = "a\nb\nc\nd";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::UnmergedIndexUnrepresentable, facts).find("a, b, c and 1 more") != std::string::npos);
+  facts["ref"] = "refs/heads/local";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RefUncapturable, facts).find("refs/heads/local") != std::string::npos);
+  facts["offline"] = "true";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::PromisorObjectsUnavailable, facts).find(", offline") != std::string::npos);
+  facts["verb"] = "open";
+  facts["engine_detail"] = "fatal: hostile\r\xe2\x80\xae";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::GitInvocationFailed, facts).find("fatal: hostile\\r\\u{202e}") != std::string::npos);
+  facts.erase("op");
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::GitBudgetExpired, facts).find("git call") != std::string::npos);
+  facts["engine_detail"] = "RepoRestoreFailed: checkout: bad";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoRestoreFailed, facts).find("checkout: bad") != std::string::npos);
+}

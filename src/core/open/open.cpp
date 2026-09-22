@@ -22,10 +22,10 @@
 #include <unistd.h>
 
 #include "core/container/tar_reader.hpp"
+#include "core/json/writer.hpp"
 #include "core/manifest/checksums.hpp"
 #include "core/manifest/manifest.hpp"
 #include "cli/url_consent.hpp"
-
 namespace biv::open {
 
 struct PlannedMember {
@@ -725,7 +725,7 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
 
 RepoOutcomeRow repo_row(const repo::RepoEntry& entry) {
   RepoOutcomeRow row{.id = entry.id, .relpath = entry.relpath.generic_string(),
-                     .outcome = "failed", .sha = entry.sha, .branch = entry.branch,
+                     .outcome = "failed", .kind = std::nullopt, .detail = std::nullopt, .sha = entry.sha, .branch = entry.branch,
                      .capture_mode = entry.capture_mode == repo::CaptureMode::full ? "full" : "overlay",
                      .remotes = {}, .bundle_path = std::nullopt, .reconstruct = std::nullopt,
                      .local_refs = {}, .advisories = {},
@@ -733,7 +733,6 @@ RepoOutcomeRow repo_row(const repo::RepoEntry& entry) {
   for (const auto& remote : entry.remotes) row.remotes.push_back(remote.url);
   return row;
 }
-
 RepoOutcomeRow repo_row(const repo::RepoEntry& entry, repo::RepoRestoreRow restored) {
   auto row = repo_row(entry);
   row.id = std::move(restored.id);
@@ -777,6 +776,7 @@ expected<std::vector<const repo::RepoEntry*>> restore_order(const std::vector<re
   return ordered;
 }
 
+BivError record_open_engine_failure(BivError, const repo::RepoEntry&, const std::filesystem::path&, OpenReport&);
 expected<void> restore_repos(const ArchivePlan& plan, const std::filesystem::path& partial_dir,
                              const std::optional<std::filesystem::path>& stage,
                              OpenReport& report) {
@@ -841,7 +841,7 @@ expected<void> restore_repos(const ArchivePlan& plan, const std::filesystem::pat
         const auto* value = std::getenv(std::string{name}.c_str());
         return value ? std::optional<std::string>{value} : std::nullopt;
       });
-      if (!resolved) return std::unexpected(resolved.error());
+      if (!resolved) return std::unexpected(record_open_engine_failure(resolved.error(), *entry, partial_dir, report));
       git = std::move(*resolved);
     }
     auto restored = repo::restore_entry(*git, *entry, partial_dir, stage.value_or(std::filesystem::path{}));
@@ -853,7 +853,7 @@ expected<void> restore_repos(const ArchivePlan& plan, const std::filesystem::pat
                                                 facts.at("requested"), facts.at("effective"), facts.at("op")});
       report.repos.push_back(repo_row(*entry));
     } else {
-      return std::unexpected(restored.error());
+      return std::unexpected(record_open_engine_failure(restored.error(), *entry, partial_dir, report));
     }
   }
   return {};
@@ -966,6 +966,118 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
   }
 
   return report;
+}
+
+std::optional<ErrKind> open_engine_kind(const BivError& error) {
+  const auto engine = repo::engine_error_kind(error);
+  if (!engine) return std::nullopt;
+  switch (*engine) {
+    case repo::EngineErrorKind::git_invocation_failed: return ErrKind::GitInvocationFailed;
+    case repo::EngineErrorKind::git_budget_expired: return ErrKind::GitBudgetExpired;
+    case repo::EngineErrorKind::repo_restore_failed: return ErrKind::RepoRestoreFailed;
+    default: return std::nullopt;
+  }
+}
+
+expected<void> write_failed_inventory(const std::filesystem::path& partial_dir,
+                                      const OpenReport& report,
+                                      const BivError& error) {
+  json::Writer writer;
+  writer.begin_object();
+  writer.key("repos");
+  writer.begin_array();
+  for (const auto& row : report.repos) {
+    writer.begin_object();
+    writer.key("id"); writer.value_string(row.id);
+    writer.key("relpath"); writer.value_string(row.relpath);
+    writer.key("outcome"); writer.value_string(row.outcome);
+    writer.key("sha");
+    if (row.sha) writer.value_string(*row.sha);
+    else writer.value_null();
+    writer.key("capture_mode");
+    if (row.capture_mode) writer.value_string(*row.capture_mode);
+    else writer.value_null();
+    writer.key("local_refs");
+    writer.begin_array();
+    for (const auto& local_ref : row.local_refs) {
+      writer.begin_object();
+      writer.key("ref"); writer.value_string(local_ref.ref);
+      writer.key("recreated"); writer.value_bool(local_ref.recreated);
+      writer.key("skipped_at_sha"); writer.value_bool(local_ref.skipped_at_sha);
+      if (local_ref.detail) { writer.key("detail"); writer.value_string(*local_ref.detail); }
+      writer.end_object();
+    }
+    writer.end_array();
+    writer.key("advisories");
+    writer.begin_array();
+    for (const auto& advisory : row.advisories) writer.value_string(advisory);
+    writer.end_array();
+    if (row.shallow_boundary) {
+      writer.key("shallow");
+      writer.begin_object();
+      writer.key("boundary");
+      writer.begin_array();
+      for (const auto& boundary : *row.shallow_boundary) writer.value_string(boundary);
+      writer.end_array();
+      writer.end_object();
+    }
+    if (row.outcome == "failed") {
+      writer.key("kind"); writer.value_string(row.kind.value_or("InternalError"));
+      writer.key("detail"); writer.value_string(row.detail.value_or(""));
+    }
+    writer.end_object();
+  }
+  writer.end_array();
+  writer.key("outcome");
+  writer.begin_object();
+  writer.key("kind"); writer.value_string("failed-mid-apply");
+  writer.key("step");
+  const auto op = error.facts.find("op");
+  std::string step = op == error.facts.end() ? "restore" : op->second;
+  if (error.kind == ErrKind::RepoRestoreFailed) {
+    const auto engine = error.facts.find("engine_detail");
+    constexpr std::string_view prefix = "RepoRestoreFailed: ";
+    if (engine != error.facts.end() && engine->second.starts_with(prefix)) {
+      const auto tail = std::string_view{engine->second}.substr(prefix.size());
+      step = std::string{tail.substr(0, tail.find(':'))};
+    }
+  }
+  writer.value_string(step);
+  writer.key("repo_id"); writer.value_string(error.facts.at("repo_id"));
+  writer.key("detail"); writer.value_string(error.detail);
+  writer.end_object();
+  writer.end_object();
+  const auto path = partial_dir / "inventory.json";
+  std::ofstream output{path, std::ios::binary | std::ios::trunc};
+  if (!output) return std::unexpected(BivError{ErrKind::RestoreWriteFailed, path.generic_string(), "inventory-open"});
+  const auto bytes = writer.take();
+  output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  output.close();
+  if (!output) return std::unexpected(BivError{ErrKind::RestoreWriteFailed, path.generic_string(), "inventory-write"});
+  return {};
+}
+
+BivError record_open_engine_failure(BivError error, const repo::RepoEntry& entry,
+                                    const std::filesystem::path& partial_dir,
+                                    OpenReport& report) {
+  const auto kind = open_engine_kind(error);
+  if (!kind) return error;
+  error.kind = *kind;
+  error.path = entry.relpath.generic_string();
+  error.facts["repo_relpath"] = entry.relpath.generic_string();
+  error.facts["repo_id"] = entry.id;
+  error.facts["partial_path"] = partial_dir.generic_string();
+  error.facts["verb"] = "open";
+  if (*kind == ErrKind::GitInvocationFailed || *kind == ErrKind::RepoRestoreFailed) {
+    error.facts["engine_detail"] = error.detail;
+  }
+  error.detail = cli::render_engine_refusal_detail(*kind, error.facts);
+  auto row = repo_row(entry);
+  row.kind = to_string(error.kind);
+  row.detail = error.detail;
+  report.repos.push_back(std::move(row));
+  if (auto written = write_failed_inventory(partial_dir, report, error); !written) return written.error();
+  return error;
 }
 
 }  // namespace
