@@ -504,3 +504,24 @@ Step 0′ (`resume.sh`, byte-identical since rev19) was walked on a scratch mirr
 
 Token `intg-substep2b-impl-4` issued (205111; sha256 `2aa5590a…`; commit 8e0908c): PARENT `intg-substep2b-plan-review-20`, `T_ORACLE_CARRY` 203219 by digest, `T_ORACLE_FILE_SHA256` the rewritten file, the 38-path SCOPE_DIFF all-in with every row's evidence rewritten for the landed prefix, the two lock files quoted by bytes; order Step 0′ → c4b (A10 gate pre/post) → c6b (A11 gate pre/post) → c7; the delegated-dispatch lineage walked on a three-relay mini-root.
 Task 8 HOLDS: m-3's harness patch (arm-A shape, `harness/scenarios/**` only) is not on record in pdc, so `$RUNNERS/m3-harness-patch.txt` cannot be written; the ask went TO master (20260920-205256; sha256 `ab5f83e4…`), routed through master to m-3, so the file can exist when c7 lands.
+
+## R38 — R-4.65: two reds in landed lane bytes; the c8 gate file; rev22 (2026-09-21 16:50–17:20; master `intg-2b-wiring-act/PLAN-master-planner-20260921-143755.md` + `…-165137.md`; this seat's `intg-substep2b/SITREP-pair-planner-20260921-170127.md`, `…-170128.md`, `intg-substep2b/PLAN-pair-planner-20260921-171525.md`, `intg-substep2b/SITREP-pair-planner-20260921-171624.md`)
+
+Master routed m-3's approved c8 harness patch (rev3 `8517aaf6…`, m-3.implementer's approve 133052, m-1's `C8_DIR_MTIME_RULING: a` 141529) and two reds m-1 found one fixture wider than c8's, both reproduced at master and at m-3's seat and both execution of sealed text.
+RED-1 (c5 `5aeb81c`): `biv pack` drops a clean repository's `.gitignore`d penumbra silently — pack-engine §1.1 / §1.3 / §3.2 say payload always, never silent; the scan excludes the whole repo subtree and nothing reads the engine's `penumbra_paths`.
+RED-2 (c4a `ef8e492`): the directory-mtime pass runs before `restore_repos`, so a payload directory above a restored repository loses its archived mtime (restore-apply §5).
+m-3 confirmed both open halves with veto conditions V2-1..6 / V1-1..7 (164214 + face lines 164238, carried by 165137); V1-6 keeps the workspace-root row out of its word.
+
+`$RUNNERS/m3-harness-patch.txt` was written into `s2b-runners-PEazOQ` (three pdc-relative lines like the R-4.62 file, 0444, `86d8d7e3…`) after verifying the patch hash, the approve's seven face lines, the mailbox author and `git apply --check` at the candidate head.
+Under rev21 the file could not be consumed: Task 8 said `harness/scenarios/**` only, and the patch has twelve paths, nine admitted outside by m-3's explicit line.
+
+Reading the code for the fix, this seat found the root-row case the owners' words left open: under the kept root order, an ignored file inside a tracked directory needs that directory as an image member for the first pass, and a file ignored only by the source's `.git/info/exclude` is laid before the root checkout and fails its worktree verification.
+That is a STOP under V1-6, routed to master (170128) with a recommended arm (`RED1_ROOT_ROW: defer`, m-3's word) and one derived pack cell (`RED1_PENUMBRA_DIRS`, m-1's word: directory members are the untracked-only directories strictly inside each repo).
+The plan's own Task 7 workspace-root leg carried the same omission as V-2b-5 ("the ignored file returns through the engine's penumbra, not payload") — owned and corrected.
+
+rev22 (`84e48e71…` at 9d2ba96, 2994 lines) adds Task 6c `c6m` and Task 6d `c6p` after c6b as new commits, holds c6p before its first byte on `$RUNNERS/red1-owner-words.txt`, widens Task 8 to the twelve paths with an executable gate, and makes `resume.sh` carry the new gate file.
+Every changed block was walked on scratch clones before filing: the T-RED1 gate (YES pre and post; 17 NO cases, each at its own predicate), the Task 8 block (YES: one commit authored m-3.planner touching exactly twelve paths; 8 NO cases, a synthetic thirteen-path patch isolating the numstat predicate), and `resume.sh` (19 carried lines with the new file, 18 without; the three controls; impl-4's lock against rev22 STOPs `plan-not-the-new-lock`).
+Tasks 0 / 4 / 5 / 6a / 6b / 9 / 10 / 11 are byte-identical to rev21.
+
+Sequencing: the hold point told to the implementer (170127) was Step 0′ → c4b → c6b under impl-4, then hold before c7; rev22 went live before the implementer ran Step 0′, so by that notice's own rule impl-4 runs nothing and c4b / c6b move under impl-5 (reported to master, 20260921-171624; sha256 `5d065c25…`).
+Lesson recorded: `/tmp/s2b/rv6/plan_blocks.py` had been swept from `$TMPDIR`; the walks used the runners' own copy from the scratchpad.
