@@ -89,6 +89,7 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 - **17:50 rev23 APPROVED (175012) → the digest word TO master (SITREP-pair-planner-20260921-175351.md)**: five T-ORACLE fields at 4bb33063; prefix walked on a synthetic carry. RECONCILE §R40. WAITING on master's fresh carry (→ t-oracle rewrite → impl-5) and the two T-RED1 face lines (→ red1-owner-words.txt).
 - **19:37 CARRY 193745 → t-oracle.txt REWRITTEN 20:07 (920a64cd…) → prefix OK → Step 0′ walked (18 carried) → TOKEN `intg-substep2b-impl-5` ISSUED 20:12 (201255)**: Step 0′ → c4b → c6b → c6m; c6p HOLDS — owners answered (m-3 200917 defer + V1-8..12; m-1 200936 confirm + direct-reading mutant), rev24 folds them first; rev24 committed only after impl-5's Step 0′ publishes. RECONCILE §R41.
 - **2026-09-21 22:44 impl-5 RETURNED (224404)**: c4b cd12bb5, c6b cd51937, c6m e5afe9d; c6p STOPped file-absent; verified here (ctest reproduced). c6b's undisclosed open.hpp path reported. **211701 T-RED1 carried → red1-owner-words.txt WRITTEN in QzzQ11 (5431f3d1…), gate PASS → rev24 FILED 2026-09-22 01:20 (012027, plan-25; 265ec83c… at 4a54e2b).** RECONCILE §R42. WAITING on the exact-hash review of 265ec83c.
+- **01:50 rev24 MUST-REVISED (015007, MUST-2B-43..46) → rev25 FILED 02:50 (plan-26; f2b2943f… at cd83db5)**: open.hpp in Task 6b's record + T-C6B (master's disposition before the carry); H5/H6 with discriminating M6/M7. RECONCILE §R43. WAITING on the exact-hash review and master's T-C6B disposition.
 
 ## Additional top-level files (declared per sprint-doc-setup)
 

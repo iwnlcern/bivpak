@@ -569,3 +569,15 @@ One undisclosed path: c6b's commit carries `src/core/open/open.hpp` (`RepoOutcom
 Master carried both T-RED1 words (211701). `red1-owner-words.txt` was written into `s2b-runners-QzzQ11` (`5431f3d1…`) and the plan's Task 6d gate passed pre and post against the real carriers; a carry citing neither word stopped at `carry-cites-m3`.
 rev24 (`265ec83c…` at 4a54e2b) folds m-3's V1-8..12 and m-1's direct-reading mutant into Task 6d only, with every block byte-identical; it was committed after impl-5's Step 0′ had published.
 V1-12's status claim and m-1's fixture were executed before filing and matched.
+
+## R43 — rev24 must-revised (MUST-2B-43..46); rev25 filed (2026-09-22 01:50–02:50; `intg-substep2b/PLAN-REVIEW-pair-implementer-20260922-015007.md`; `intg-substep2b/PLAN-pair-planner-20260922-024604.md`)
+
+The implementer must-revised rev24 on four findings, retaining the positive T-RED1 evidence (the gate replayed pre and post; the V1-12 and m-1 fixtures corroborated independently).
+MUST-2B-43: a broad token allowlist does not amend a narrower task contract — c6b's `open.hpp` had to enter Task 6b's own record, and master's disposition had to gate the next carry.
+MUST-2B-44 and -45: H5 and H6 did not bind discriminating mutants — H5's root hook had no baseline, and H6's `.biv` path could collide with c4b's offline artifact, so removing either refusal could still stop at the ordinary final-path guard.
+MUST-2B-46: the carrier's BRIDGE still named impl-5.
+The implementer also registered a live INDEX append inversion (its 015007 row landed before this seat's 012122 row); it stands as registered.
+
+rev25 (`f2b2943f…` at cd83db5) records `open.hpp` in Task 6b's Files line, commit block and topology row; adds T-C6B (the carry request and the next token wait on a master relay disposing of the deviation); splits H5 into a root arm on `payload/.git/c6p-sentinel` (no baseline file; `.git` always exists) and a lib arm on the existing `lib/.git/config`, opened `--network`, with M6 discriminating on the created sentinel; and gives H6 unique `payload/.biv` + `payload/.biv/c6p-sentinel` members under `--network`, with M7 discriminating on their creation.
+H6's premise was executed: the candidate's built `biv` opening a clean root repository with `--network` creates no `.biv`.
+Every block is byte-identical to rev24. Lesson recorded: a mutant is evidence only if the guard it removes is the ONLY one that can fire on its fixture.
