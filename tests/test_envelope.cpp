@@ -930,3 +930,38 @@ TEST_CASE("open repos machine carriers replace malformed UTF-8 without display e
   }
   CHECK(error.path == raw);
 }
+
+TEST_CASE("A10 open repos rows are exact outcome-conditioned machine carriers", "[open-repos][envelope][a10]") {
+  biv::open::OpenReport report{};
+  const auto zero = biv::report::envelope("open", std::nullopt, report, std::nullopt, 0);
+  CHECK(zero.find("\"repos\"") == zero.find("\"repos\": []"));
+
+  report.repos.push_back({.id = "restored", .relpath = "repo", .outcome = "restored",
+                          .sha = std::string(40, 'a'), .branch = std::nullopt,
+                          .capture_mode = "overlay", .remotes = {},
+                          .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                          .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt});
+  report.repos.push_back({.id = "shallow", .relpath = "shallow", .outcome = "shallow-pointer",
+                          .sha = std::string(40, 'b'), .branch = std::nullopt,
+                          .capture_mode = std::nullopt, .remotes = {},
+                          .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                          .local_refs = {}, .advisories = {"ShallowPointer"},
+                          .shallow_boundary = std::vector<std::string>{std::string(40, 'c')}});
+  report.repos.push_back({.id = "offline", .relpath = "offline", .outcome = "offline-pointer",
+                          .sha = "(no commits)", .branch = "main", .capture_mode = "full",
+                          .remotes = {"https://stored.invalid/repo"},
+                          .bundle_path = ".biv/repos/offline/repo.bundle",
+                          .reconstruct = "git init 'target'", .local_refs = {},
+                          .advisories = {}, .shallow_boundary = std::nullopt});
+  const auto encoded = biv::report::envelope("open", std::nullopt, report, std::nullopt, 0);
+  simdjson::dom::parser parser;
+  const auto document = parser.parse(encoded);
+  const simdjson::dom::array rows = document["result"]["repos"];
+  REQUIRE(rows.size() == 3);
+  CHECK(std::string_view(rows.at(0)["capture_mode"]) == "overlay");
+  CHECK(rows.at(1)["capture_mode"].is_null());
+  CHECK(std::string_view(rows.at(2)["branch"]) == "main");
+  CHECK(std::string_view(rows.at(2)["bundle_path"]) == ".biv/repos/offline/repo.bundle");
+  CHECK(std::string_view(rows.at(2)["reconstruct"]) == "git init 'target'");
+  CHECK(simdjson::dom::array(document["result"]["manifest"]["repos"]).size() == 0);
+}

@@ -7,6 +7,8 @@
 #include <optional>
 #include <vector>
 
+#include "core/repo/types.hpp"
+
 namespace biv::cli {
 
 struct UrlDivergenceFacts {
@@ -32,6 +34,11 @@ std::string render_offline_row(std::string_view relpath,
                                 const std::optional<std::string>& branch,
                                 std::string_view sha,
                                 const std::vector<std::string>& remotes);
+std::string render_network_consent(const std::vector<repo::RepoEntry>& entries,
+                                   bool include_prompt);
+std::string render_offline_bundle_row(
+    std::string_view relpath, std::string_view absolute_bundle_path,
+    const std::optional<std::string>& reconstruct);
 bool prompt_url_divergence(const UrlDivergenceFacts& facts, std::istream& in,
                            std::ostream& err);
 

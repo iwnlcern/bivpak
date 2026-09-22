@@ -7,6 +7,7 @@
 
 #include "cli/consent_display_table.hpp"
 #include "core/support/probe.hpp"
+#include "core/repo/restore.hpp"
 
 namespace biv::cli {
 
@@ -161,6 +162,43 @@ std::string render_offline_row(const std::string_view relpath,
     out += consent_display(remotes.at(index));
   }
   return out + '\n';
+}
+
+std::string render_network_consent(const std::vector<repo::RepoEntry>& entries,
+                                   const bool include_prompt) {
+  std::string out =
+      "Opening this image will run git to clone/fetch its repositories. This is git clone-grade trust — only open images you trust.\n"
+      "  manifest/stored URLs (informational):\n";
+  for (const auto& entry : entries) {
+    if (!repo::restore_invokes_git(entry)) continue;
+    out += "    " + consent_display(entry.relpath.generic_string()) + " · ";
+    if (entry.remotes.empty()) {
+      out += "(no stored remote)";
+    } else {
+      for (std::size_t index = 0; index < entry.remotes.size(); ++index) {
+        if (index != 0) out += ", ";
+        out += consent_display(entry.remotes.at(index).url);
+      }
+    }
+    out += '\n';
+  }
+  out +=
+      "  git may contact ADDITIONAL URLs found in repo metadata (.gitmodules, nested submodules, or host git config) that Bivpak does not see or police.\n"
+      "Run `biv open --offline` to open with zero network access — files + sessions only, repos listed for manual clone.\n";
+  if (include_prompt) out += "Run git for these repositories? [y/N] ";
+  return out;
+}
+
+std::string render_offline_bundle_row(
+    const std::string_view relpath, const std::string_view absolute_bundle_path,
+    const std::optional<std::string>& reconstruct) {
+  const auto prefix = consent_display(relpath) + ": ";
+  constexpr std::string_view suffix =
+      "   (partial/manual reconstruction — not a full restore)\n";
+  if (reconstruct) return prefix + *reconstruct + std::string{suffix};
+  return prefix + "bundle at " + consent_display(absolute_bundle_path) +
+         " — no copy-paste command: the path or branch carries characters a shell line cannot carry faithfully; reconstruct by hand from the bundle" +
+         std::string{suffix};
 }
 
 bool prompt_url_divergence(const UrlDivergenceFacts& facts, std::istream& in,

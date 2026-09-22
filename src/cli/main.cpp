@@ -368,6 +368,20 @@ int main(int argc, char** argv) {
                 ? std::optional<std::string>{std::string{biv::open_render::kTrustWarning} + '\n'}
                 : std::nullopt;
 
+        const bool repo_git_invoking = std::ranges::any_of(
+            manifest.repos, [](const auto& entry) { return biv::repo::restore_invokes_git(entry); });
+        bool repo_offline = parsed->open_options.offline;
+        std::optional<std::string> network_surface;
+        if (!repo_offline && repo_git_invoking) {
+          if (biv::cli::interactive_url_hook_installable()) {
+            network_surface = biv::cli::render_network_consent(manifest.repos, true);
+          } else if (parsed->network) {
+            network_surface = biv::cli::render_network_consent(manifest.repos, false);
+          } else {
+            repo_offline = true;
+          }
+        }
+
         SigpipeBlockGuard sigpipe_guard;
         if (!sigpipe_guard.ready()) {
           return emit_error("open",
@@ -376,6 +390,21 @@ int main(int argc, char** argv) {
                                                         ? "probe-disclosure-write-failed"
                                                         : "consent-surface-write-failed"},
                             parsed->json);
+        }
+        if (network_surface.has_value()) {
+          std::cerr << *network_surface << std::flush;
+          if (!std::cerr.good()) {
+            return emit_error("open",
+                              biv::BivError{.kind = biv::ErrKind::InternalError,
+                                            .detail = "consent-surface-write-failed"},
+                              parsed->json);
+          }
+          if (biv::cli::interactive_url_hook_installable()) {
+            std::string answer;
+            if (!std::getline(std::cin, answer) || (answer != "y" && answer != "Y")) {
+              repo_offline = true;
+            }
+          }
         }
         if (disclosure.has_value()) {
           std::cerr << *disclosure << std::flush;
@@ -438,7 +467,8 @@ int main(int argc, char** argv) {
         auto report = [&] {
           biv::repo::ScopedUrlDivergenceRun scoped{url_consent.run};
           return biv::open::execute_open(std::move(*plan),
-                                        biv::open::OpenDecisions{.collision = parsed->open_options.collision});
+                                        biv::open::OpenDecisions{.collision = parsed->open_options.collision,
+                                                                 .offline = repo_offline});
         }();
         if (!std::cerr.good()) {
           return emit_error("open", biv::BivError{.kind = biv::ErrKind::InternalError,
@@ -490,13 +520,19 @@ int main(int argc, char** argv) {
         if (final_success_output.has_value()) {
           std::cout << *final_success_output;
         }
-        if (parsed->open_options.offline && !parsed->json && !report->repos.empty()) {
+        if (repo_offline && !parsed->json && !report->repos.empty()) {
           std::cout << std::flush;
           std::cerr << biv::cli::render_offline_header();
           for (const auto& row : report->repos) {
             if (row.outcome == "offline-pointer") {
               std::cerr << biv::cli::render_offline_row(row.relpath, row.branch, *row.sha, row.remotes);
             }
+          }
+          for (const auto& row : report->repos) {
+            if (!row.bundle_path) continue;
+            const auto bundle = (std::filesystem::path{report->output_dir} / *row.bundle_path)
+                                    .lexically_normal().generic_string();
+            std::cerr << biv::cli::render_offline_bundle_row(row.relpath, bundle, row.reconstruct);
           }
         }
         return exit_code;

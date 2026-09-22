@@ -400,6 +400,73 @@ void write_open_result(json::Writer& writer,
   } else {
     write_empty_manifest_summary(writer, report.manifest_format_version);
   }
+  if (!report.repos.empty()) {
+    writer.key("repos");
+    writer.begin_array();
+    for (const auto& row : report.repos) {
+      writer.begin_object();
+      writer.key("id");
+      writer.value_string(machine_text(row.id));
+      writer.key("relpath");
+      writer.value_string(machine_text(row.relpath));
+      writer.key("outcome");
+      writer.value_string(row.outcome);
+      writer.key("sha");
+      if (row.sha) writer.value_string(machine_text(*row.sha));
+      else writer.value_null();
+      writer.key("capture_mode");
+      if (row.capture_mode) writer.value_string(*row.capture_mode);
+      else writer.value_null();
+      writer.key("local_refs");
+      writer.begin_array();
+      for (const auto& local_ref : row.local_refs) {
+        writer.begin_object();
+        writer.key("ref");
+        writer.value_string(machine_text(local_ref.ref));
+        writer.key("recreated");
+        writer.value_bool(local_ref.recreated);
+        writer.key("skipped_at_sha");
+        writer.value_bool(local_ref.skipped_at_sha);
+        if (local_ref.detail) {
+          writer.key("detail");
+          writer.value_string(machine_text(*local_ref.detail));
+        }
+        writer.end_object();
+      }
+      writer.end_array();
+      writer.key("advisories");
+      writer.begin_array();
+      for (const auto& advisory : row.advisories) writer.value_string(machine_text(advisory));
+      writer.end_array();
+      if (row.shallow_boundary) {
+        writer.key("shallow");
+        writer.begin_object();
+        writer.key("boundary");
+        writer.begin_array();
+        for (const auto& boundary : *row.shallow_boundary) writer.value_string(machine_text(boundary));
+        writer.end_array();
+        writer.end_object();
+      }
+      if (row.outcome == "offline-pointer") {
+        writer.key("branch");
+        writer.value_string(machine_text(row.branch.value_or("(detached)")));
+        writer.key("remotes");
+        writer.begin_array();
+        for (const auto& remote : row.remotes) writer.value_string(machine_text(remote));
+        writer.end_array();
+        if (row.bundle_path) {
+          writer.key("bundle_path");
+          writer.value_string(machine_text(*row.bundle_path));
+        }
+        if (row.reconstruct) {
+          writer.key("reconstruct");
+          writer.value_string(*row.reconstruct);
+        }
+      }
+      writer.end_object();
+    }
+    writer.end_array();
+  }
   if (!report.url_divergence_refusals.empty()) {
     writer.key("url_divergence_refusals");
     writer.begin_array();

@@ -34,8 +34,10 @@ struct RepoOutcomeRow {
   std::string outcome;
   std::optional<std::string> sha;
   std::optional<std::string> branch;
-  std::string capture_mode;
+  std::optional<std::string> capture_mode;
   std::vector<std::string> remotes;
+  std::optional<std::string> bundle_path;
+  std::optional<std::string> reconstruct;
   std::vector<biv::repo::LocalRefRestoreRow> local_refs;
   std::vector<std::string> advisories;
   std::optional<std::vector<std::string>> shallow_boundary;
@@ -68,6 +70,7 @@ adapters::MemberRead make_member_read(std::filesystem::path image, AgentMemberTa
 
 struct OpenDecisions {
   Collision collision{Collision::refuse};
+  bool offline{false};
 };
 
 class OpenPlanHandle {

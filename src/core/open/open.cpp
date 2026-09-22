@@ -24,6 +24,7 @@
 #include "core/container/tar_reader.hpp"
 #include "core/manifest/checksums.hpp"
 #include "core/manifest/manifest.hpp"
+#include "cli/url_consent.hpp"
 
 namespace biv::open {
 
@@ -476,6 +477,39 @@ expected<void> write_file_stream(const std::filesystem::path& path,
   return {};
 }
 
+expected<void> ensure_private_directories(
+    const std::filesystem::path& root,
+    const std::filesystem::path& relative) {
+  auto current = root;
+  for (const auto& component : relative) {
+    if (component.empty() || component == "." || component == ".." ||
+        component == relative.root_name() || component == relative.root_directory()) {
+      return std::unexpected(
+          BivError{ErrKind::MemberPathUnsafe, relative.generic_string(), "repo-artifact-path"});
+    }
+    current /= component;
+    std::error_code ec;
+    const auto status = std::filesystem::symlink_status(current, ec);
+    if (ec && ec != std::errc::no_such_file_or_directory) {
+      return std::unexpected(BivError{ErrKind::RestoreWriteFailed, current.generic_string(),
+                                      ec.message(), ec.value()});
+    }
+    if (std::filesystem::exists(status)) {
+      if (!std::filesystem::is_directory(status)) {
+        return std::unexpected(
+            BivError{ErrKind::MemberPathUnsafe, current.generic_string(), "repo-artifact-parent"});
+      }
+      continue;
+    }
+    ec.clear();
+    if (!std::filesystem::create_directory(current, ec) || ec) {
+      return std::unexpected(BivError{ErrKind::RestoreWriteFailed, current.generic_string(),
+                                      ec.message(), ec.value()});
+    }
+  }
+  return {};
+}
+
 expected<std::filesystem::path> contained_output_path(const container::MemberMeta& meta,
                                                       const std::filesystem::path& temp_root,
                                                       const std::map<std::string, scan::NodeKind>& created) {
@@ -624,10 +658,31 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
             meta.size != plan.repo_artifacts.at(repo_artifact_count).meta.size) {
           return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "member-mismatch"});
         }
+        std::optional<std::filesystem::path> artifact_output;
         if (stage) {
-          const auto path = *stage / meta.path;
+          artifact_output = *stage / meta.path;
+        } else {
+          for (const auto& entry : plan.manifest.repos) {
+            if (entry.bundle && entry.bundle->generic_string() == meta.path &&
+                repo::restore_invokes_git(entry)) {
+              artifact_output = partial_dir / ".biv" / "repos" / entry.id / "repo.bundle";
+              break;
+            }
+          }
+        }
+        if (artifact_output) {
+          const auto& path = *artifact_output;
           std::error_code ec;
-          std::filesystem::create_directories(path.parent_path(), ec);
+          if (!stage) {
+            if (auto ok = ensure_private_directories(
+                    partial_dir, std::filesystem::path{".biv"} / "repos" /
+                                     path.parent_path().filename());
+                !ok) {
+              return std::unexpected(ok.error());
+            }
+          } else {
+            std::filesystem::create_directories(path.parent_path(), ec);
+          }
           if (ec) {
             return std::unexpected(BivError{ErrKind::RestoreWriteFailed, path.generic_string(),
                                             ec.message(), ec.value()});
@@ -672,7 +727,8 @@ RepoOutcomeRow repo_row(const repo::RepoEntry& entry) {
   RepoOutcomeRow row{.id = entry.id, .relpath = entry.relpath.generic_string(),
                      .outcome = "failed", .sha = entry.sha, .branch = entry.branch,
                      .capture_mode = entry.capture_mode == repo::CaptureMode::full ? "full" : "overlay",
-                     .remotes = {}, .local_refs = {}, .advisories = {},
+                     .remotes = {}, .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                     .local_refs = {}, .advisories = {},
                      .shallow_boundary = std::nullopt};
   for (const auto& remote : entry.remotes) row.remotes.push_back(remote.url);
   return row;
@@ -688,6 +744,10 @@ RepoOutcomeRow repo_row(const repo::RepoEntry& entry, repo::RepoRestoreRow resto
     case repo::RepoRestoreOutcome::shallow_pointer: row.outcome = "shallow-pointer"; break;
     case repo::RepoRestoreOutcome::payload_only_unborn: row.outcome = "payload-only-unborn"; break;
     case repo::RepoRestoreOutcome::failed: row.outcome = "failed"; break;
+  }
+  if (restored.outcome == repo::RepoRestoreOutcome::shallow_pointer ||
+      restored.outcome == repo::RepoRestoreOutcome::payload_only_unborn) {
+    row.capture_mode = std::nullopt;
   }
   row.sha = std::move(restored.sha);
   row.local_refs = std::move(restored.local_refs);
@@ -735,6 +795,44 @@ expected<void> restore_repos(const ArchivePlan& plan, const std::filesystem::pat
       auto row = repo_row(*entry);
       row.outcome = "offline-pointer";
       if (entry->head_state == repo::HeadState::unborn) row.sha = "(no commits)";
+      if (entry->bundle && plan.checksums.entries.contains(entry->bundle->generic_string())) {
+        row.bundle_path = (std::filesystem::path{".biv"} / "repos" / entry->id / "repo.bundle").generic_string();
+        const auto dest = std::filesystem::path{report.output_dir};
+        const auto target = (std::filesystem::absolute(dest) / entry->relpath).lexically_normal().generic_string();
+        const auto bundle = (std::filesystem::absolute(dest) / *row.bundle_path).lexically_normal().generic_string();
+        const auto copy_safe = [](const std::string_view value) {
+          return cli::consent_display(value) == value;
+        };
+        const auto quote = [](const std::string_view value) {
+          std::string out{"'"};
+          for (const char byte : value) {
+            if (byte == '\'') out += "'\\''";
+            else out += byte;
+          }
+          return out + '\'';
+        };
+        const auto branch = entry->branch.value_or("");
+        const auto sha = entry->sha.value_or("");
+        if (copy_safe(target) && copy_safe(bundle) &&
+            (entry->head_state == repo::HeadState::detached || copy_safe(branch)) &&
+            (entry->head_state != repo::HeadState::detached || copy_safe(sha))) {
+          const auto qtarget = quote(target);
+          const auto qbundle = quote(bundle);
+          if (entry->head_state == repo::HeadState::branch) {
+            row.reconstruct = "git init --initial-branch='bvpk-restore' " + qtarget +
+                " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
+                " '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*' && git checkout " + quote(branch);
+          } else if (entry->head_state == repo::HeadState::unborn) {
+            row.reconstruct = "git init --initial-branch=" + quote(branch) + " " + qtarget +
+                " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
+                " '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'";
+          } else {
+            row.reconstruct = "git init --initial-branch='bvpk-restore' " + qtarget +
+                " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
+                " 'HEAD' '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*' && git checkout --detach " + quote(sha);
+          }
+        }
+      }
       report.repos.push_back(std::move(row));
       continue;
     }
@@ -955,7 +1053,7 @@ expected<OpenReport> execute_open(OpenPlanHandle&& handle, const OpenDecisions& 
   try {
     OpenPlanHandle owned = std::move(handle);
     auto impl = std::move(owned.impl_);
-    return execute_archive(impl->image, impl->dest, impl->verify, impl->offline,
+    return execute_archive(impl->image, impl->dest, impl->verify, impl->offline || decisions.offline,
                            std::move(impl->archive), decisions.collision);
   } catch (const std::exception& error) {
     return std::unexpected(BivError{ErrKind::InternalError, {}, error.what()});
@@ -969,7 +1067,8 @@ expected<OpenReport> open(const OpenOptions& options) {
   if (!plan) {
     return std::unexpected(plan.error());
   }
-  return execute_open(std::move(*plan), OpenDecisions{.collision = options.collision});
+  return execute_open(std::move(*plan), OpenDecisions{.collision = options.collision,
+                                                       .offline = options.offline});
 }
 
 }  // namespace biv::open
