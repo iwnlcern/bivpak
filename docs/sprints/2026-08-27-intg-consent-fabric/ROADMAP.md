@@ -92,6 +92,7 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 - **01:50 rev24 MUST-REVISED (015007, MUST-2B-43..46) → rev25 FILED 02:50 (plan-26; f2b2943f… at cd83db5)**: open.hpp in Task 6b's record + T-C6B (master's disposition before the carry); H5/H6 with discriminating M6/M7. RECONCILE §R43. WAITING on the exact-hash review and master's T-C6B disposition.
 - **03:35 rev25 APPROVED (033502) → T-C6B disposition asked of master (SITREP-pair-planner-20260922-040233.md)**; the digest word follows the disposition. INDEX register: 224404 and 015007 have no rows (for the engine's owner). RECONCILE §R44.
 - **04:26 T-C6B DISPOSED by master (042625, accept-as-recorded; two conditions taken) → the rev25 digest word TO master (SITREP-pair-planner-20260922-170119.md)**: five T-ORACLE fields at f2b2943f; prefix walked. Kit 2.9.2 gone from the host — lint 2.9.3-only, disclosed. RECONCILE §R45. WAITING on master's fresh carry → t-oracle rewrite in QzzQ11 → impl-6.
+- **17:10 CARRY 171038 → t-oracle.txt REWRITTEN 17:12 in QzzQ11 (194bfbbe…) → prefix OK → Step 0′ walked (19 carried) → TOKEN `intg-substep2b-impl-6` ISSUED (IMPL-pair-planner-20260922-171639.md)**: Step 0′ → c6p (RELEASED, T-RED1 satisfied) → c7 → c8 → Tasks 9–11; master's 042625 conditions carried. RECONCILE §R46. WAITING on the IMPL return.
 
 ## Additional top-level files (declared per sprint-doc-setup)
 

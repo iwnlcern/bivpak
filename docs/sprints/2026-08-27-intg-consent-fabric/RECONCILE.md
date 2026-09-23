@@ -597,3 +597,13 @@ Master also took the INDEX register as a relay-engine housekeeping item for the 
 The digest word then went up with the five T-ORACLE field lines at `f2b2943f…`; the three owner objects re-hash unchanged at pdc HEAD 06e735ee, and only the plan digest moves from 193745's.
 The T-ORACLE prefix was run first on scratch clones against a synthetic carry at the new digest: PASS with its receipt; a two-seat TO line and a rev23-digest locator each STOPped with no receipt.
 TOOLING CHANGE, disclosed on the relay: the 2.9.2 kit is no longer installed on this host (only 2.9.3 remains, for both the claude and codex caches), so this seat's standing dual-kit pre-lint is 2.9.3-only from this relay on; no 2.9.2 pass is claimed.
+
+## R46 — master's carry at rev25; `t-oracle.txt` rewritten; impl-6 issued with c6p released (2026-09-22 17:10–17:3x; master `intg-2b-wiring-act/PLAN-master-planner-20260922-171038.md`; token `intg-substep2b/IMPL-pair-planner-20260922-171639.md`)
+
+Master carried the five T-ORACLE fields at `f2b2943f…` (171038, sha256 `45f69b17…`, tracked and clean at pdc HEAD 939c6274) and took the 2.9.3-only lint disclosure for the record: 2.9.3 is the linter of record for this commission and no gate reads a 2.9.2 pass.
+Each field was checked against the files before use. `t-oracle.txt` in `s2b-runners-QzzQ11` was preserved as `t-oracle.prev-20260922-171228.txt` (`920a64cd…`) and rewritten (`194bfbbe…`, one `plan_sha256=` line).
+The prefix run from the candidate worktree against the real file passed, naming the new carry and digest; Step 0′ walked on a scratch mirror published with 19 carried lines (`red1-owner-words.txt` joins), every carried file byte-equal, the prefix passing from the new directory, and the stale / same-lock / token-form controls stopping with nothing left behind.
+
+`intg-substep2b-impl-6` was issued (PARENT `intg-substep2b-plan-review-24`; 47-path SCOPE_DIFF all-in; the mini-root lineage walk showing only the four known mini-root classes).
+It resumes at Task 6d: c6p is RELEASED because T-RED1 is satisfied — the gate file is on disk and its gate ran pre and post on the real carriers at this seat — then c7, c8 and Tasks 9–11.
+Master's two T-C6B conditions travel on the token's face as HIS, citing 042625: the two `RepoOutcomeRow` fields are named in the GO's asks and m-3's byte review of H, and every return from this token on enumerates each commit's paths against its task's Files line.
