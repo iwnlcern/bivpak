@@ -546,6 +546,198 @@ expected<std::filesystem::path> contained_output_path(const container::MemberMet
   return temp_root / std::filesystem::path{rel};
 }
 
+}  // namespace
+
+namespace detail {
+namespace {
+
+char ascii_fold(const char value) noexcept {
+  return value >= 'A' && value <= 'Z'
+             ? static_cast<char>(value - 'A' + 'a')
+             : value;
+}
+
+bool ascii_prefix(const std::string_view value,
+                  const std::string_view prefix) noexcept {
+  if (value.size() < prefix.size()) return false;
+  for (size_t index = 0; index < prefix.size(); ++index) {
+    if (ascii_fold(value[index]) != prefix[index]) return false;
+  }
+  return true;
+}
+
+bool next_utf8(const std::string_view value, size_t& offset,
+               char32_t& codepoint) noexcept {
+  if (offset >= value.size()) return false;
+  const auto first = static_cast<unsigned char>(value[offset++]);
+  if (first < 0x80U) {
+    codepoint = first;
+    return true;
+  }
+  size_t continuation_count = 0;
+  char32_t decoded = 0;
+  char32_t minimum = 0;
+  if ((first & 0xE0U) == 0xC0U) {
+    continuation_count = 1;
+    decoded = first & 0x1FU;
+    minimum = 0x80U;
+  } else if ((first & 0xF0U) == 0xE0U) {
+    continuation_count = 2;
+    decoded = first & 0x0FU;
+    minimum = 0x800U;
+  } else if ((first & 0xF8U) == 0xF0U) {
+    continuation_count = 3;
+    decoded = first & 0x07U;
+    minimum = 0x10000U;
+  } else {
+    return false;
+  }
+  if (value.size() - offset < continuation_count) return false;
+  for (size_t index = 0; index < continuation_count; ++index) {
+    const auto byte = static_cast<unsigned char>(value[offset++]);
+    if ((byte & 0xC0U) != 0x80U) return false;
+    decoded = (decoded << 6U) | (byte & 0x3FU);
+  }
+  if (decoded < minimum || decoded > 0x10FFFFU ||
+      (decoded >= 0xD800U && decoded <= 0xDFFFU)) {
+    return false;
+  }
+  codepoint = decoded;
+  return true;
+}
+
+bool hfs_ignorable(const char32_t value) noexcept {
+  return value == 0x200CU || value == 0x200DU || value == 0x200EU ||
+         value == 0x200FU || (value >= 0x202AU && value <= 0x202EU) ||
+         (value >= 0x206AU && value <= 0x206FU) || value == 0xFEFFU;
+}
+
+bool hfs_dot_name(const std::string_view segment,
+                  const std::string_view name) noexcept {
+  size_t offset = 0;
+  size_t matched = 0;
+  while (offset < segment.size()) {
+    char32_t codepoint = 0;
+    if (!next_utf8(segment, offset, codepoint)) return false;
+    if (hfs_ignorable(codepoint)) continue;
+    if (codepoint > 0x7FU || matched >= name.size() ||
+        ascii_fold(static_cast<char>(codepoint)) != name[matched]) {
+      return false;
+    }
+    ++matched;
+  }
+  return matched == name.size();
+}
+
+bool ntfs_dot_name(const std::string_view segment,
+                   const std::string_view dotted,
+                   const std::string_view short_name) noexcept {
+  size_t offset = 0;
+  if (ascii_prefix(segment, dotted)) {
+    offset = dotted.size();
+  } else if (ascii_prefix(segment, short_name)) {
+    offset = short_name.size();
+  } else {
+    return false;
+  }
+  while (offset < segment.size() &&
+         (segment[offset] == '.' || segment[offset] == ' ')) {
+    ++offset;
+  }
+  return offset == segment.size() || segment[offset] == ':';
+}
+
+bool protected_component(const std::string_view segment,
+                         const std::string_view dotted,
+                         const std::string_view short_name) noexcept {
+  return hfs_dot_name(segment, dotted) ||
+         ntfs_dot_name(segment, dotted, short_name);
+}
+
+}  // namespace
+
+std::optional<std::string> owning_row(
+    const std::string_view payload_rel,
+    const std::vector<std::string>& row_rels) {
+  std::optional<std::string> owner;
+  for (const auto& row : row_rels) {
+    if (payload_rel == row) continue;
+    const bool proper_prefix =
+        row.empty()
+            ? !payload_rel.empty()
+            : payload_rel.size() > row.size() && payload_rel.starts_with(row) &&
+                  payload_rel.at(row.size()) == '/';
+    if (proper_prefix && (!owner || row.size() > owner->size())) {
+      owner = row;
+    }
+  }
+  return owner;
+}
+
+std::vector<std::string> row_relpaths(
+    const std::vector<repo::RepoEntry>& entries) {
+  std::vector<std::string> rows;
+  rows.reserve(entries.size());
+  for (const auto& entry : entries) {
+    if (!repo::restore_invokes_git(entry)) continue;
+    auto row = entry.relpath.lexically_normal().generic_string();
+    if (row == ".") row.clear();
+    rows.push_back(std::move(row));
+  }
+  return rows;
+}
+
+bool is_dotgit_component(const std::string_view segment) noexcept {
+  return protected_component(segment, ".git", "git~1");
+}
+
+bool is_dotbiv_component(const std::string_view segment) noexcept {
+  return protected_component(segment, ".biv", "biv~1");
+}
+
+}  // namespace detail
+
+namespace {
+
+expected<void> write_member(container::TarReader& reader,
+                            const container::MemberMeta& meta,
+                            const std::filesystem::path& out_path,
+                            std::vector<container::MemberMeta>& dirs) {
+  std::error_code ec;
+  switch (meta.kind) {
+    case scan::NodeKind::dir:
+      std::filesystem::create_directory(out_path, ec);
+      if (ec) {
+        return std::unexpected(BivError{ErrKind::RestoreWriteFailed,
+                                        out_path.generic_string(), ec.message(),
+                                        static_cast<int>(ec.value())});
+      }
+      if (auto ok = set_mode(out_path, meta.mode); !ok) return ok;
+      dirs.push_back(meta);
+      return drain_member_midapply(reader, meta.path);
+    case scan::NodeKind::file:
+      if (auto ok = write_file_stream(out_path, reader, meta); !ok) return ok;
+      if (auto ok = set_mode(out_path, meta.mode); !ok) return ok;
+      if (auto ok = set_mtime(out_path, meta.mtime_s, meta.mtime_ns); !ok) {
+        return ok;
+      }
+      return drain_member_midapply(reader, meta.path);
+    case scan::NodeKind::symlink:
+      std::filesystem::create_symlink(meta.symlink_target, out_path, ec);
+      if (ec) {
+        return std::unexpected(BivError{ErrKind::RestoreWriteFailed,
+                                        out_path.generic_string(), ec.message(),
+                                        static_cast<int>(ec.value())});
+      }
+      if (auto ok = set_mtime(out_path, meta.mtime_s, meta.mtime_ns); !ok) {
+        return ok;
+      }
+      return {};
+  }
+  return std::unexpected(BivError{ErrKind::InternalError, meta.path,
+                                  "node-kind"});
+}
+
 expected<void> apply_member(container::TarReader& reader,
                             const container::MemberMeta& meta,
                             const std::filesystem::path& temp_root,
@@ -557,45 +749,9 @@ expected<void> apply_member(container::TarReader& reader,
   }
   const std::string rel = meta.path.substr(std::string_view{"payload/"}.size());
 
-  std::error_code ec;
-  switch (meta.kind) {
-    case scan::NodeKind::dir:
-      std::filesystem::create_directory(*out_path, ec);
-      if (ec) {
-        return std::unexpected(BivError{ErrKind::RestoreWriteFailed, out_path->generic_string(), ec.message(),
-                                        static_cast<int>(ec.value())});
-      }
-      if (auto ok = set_mode(*out_path, meta.mode); !ok) {
-        return ok;
-      }
-      dirs.push_back(meta);
-      created.emplace(rel, meta.kind);
-      return drain_member_midapply(reader, meta.path);
-    case scan::NodeKind::file:
-      if (auto ok = write_file_stream(*out_path, reader, meta); !ok) {
-        return ok;
-      }
-      if (auto ok = set_mode(*out_path, meta.mode); !ok) {
-        return ok;
-      }
-      if (auto ok = set_mtime(*out_path, meta.mtime_s, meta.mtime_ns); !ok) {
-        return ok;
-      }
-      created.emplace(rel, meta.kind);
-      return drain_member_midapply(reader, meta.path);
-    case scan::NodeKind::symlink:
-      std::filesystem::create_symlink(meta.symlink_target, *out_path, ec);
-      if (ec) {
-        return std::unexpected(BivError{ErrKind::RestoreWriteFailed, out_path->generic_string(), ec.message(),
-                                        static_cast<int>(ec.value())});
-      }
-      if (auto ok = set_mtime(*out_path, meta.mtime_s, meta.mtime_ns); !ok) {
-        return ok;
-      }
-      created.emplace(rel, meta.kind);
-      return {};
-  }
-  return std::unexpected(BivError{ErrKind::InternalError, meta.path, "node-kind"});
+  auto written = write_member(reader, meta, *out_path, dirs);
+  if (written) created.emplace(rel, meta.kind);
+  return written;
 }
 
 expected<uint64_t> apply_archive(const std::filesystem::path& image,
@@ -603,7 +759,8 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
                                  const std::filesystem::path& partial_dir,
                                  std::vector<container::MemberMeta>& dirs,
                                  bool verify,
-                                 const std::optional<std::filesystem::path>& stage) {
+                                 const std::optional<std::filesystem::path>& stage,
+                                 const std::vector<std::string>& row_rels) {
   return with_tar_reader(image, [&](container::TarReader& reader) -> expected<uint64_t> {
     auto manifest_member = require_member(reader, "manifest.json");
     if (!manifest_member) {
@@ -703,15 +860,37 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
             meta.kind != plan.payload.at(index).meta.kind) {
           return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "member-mismatch"});
         }
-        auto ok = apply_member(reader, meta, partial_dir, dirs, created);
-        if (!ok) {
-          return std::unexpected(ok.error());
+        const std::string rel =
+            meta.path.substr(std::string_view{"payload/"}.size());
+        const auto owner = detail::owning_row(rel, row_rels);
+        if (!owner) {
+          size_t start = 0;
+          while (start <= rel.size()) {
+            const auto slash = rel.find('/', start);
+            const auto component = rel.substr(
+                start, slash == std::string::npos ? rel.size() - start
+                                                  : slash - start);
+            if (detail::is_dotgit_component(component)) {
+              return std::unexpected(
+                  BivError{ErrKind::MemberPathUnsafe, meta.path});
+            }
+            if (slash == std::string::npos) break;
+            start = slash + 1U;
+          }
+        }
+        if (owner) {
+          if (auto ok = drain_member_midapply(reader, meta.path); !ok) {
+            return std::unexpected(ok.error());
+          }
+        } else {
+          auto ok = apply_member(reader, meta, partial_dir, dirs, created);
+          if (!ok) return std::unexpected(ok.error());
         }
         const auto extent = reader.extent_sha256_hex();
         if (verify && plan.checksums.entries.at(meta.path) != extent) {
           return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply, meta.path, "checksum"});
         }
-        ++restored;
+        if (!owner) ++restored;
         ++index;
       }
     }
@@ -721,6 +900,156 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
     }
     return restored;
   });
+}
+
+expected<std::filesystem::path> owned_output_path(
+    const container::MemberMeta& meta,
+    const std::filesystem::path& partial_dir,
+    const std::string_view row_rel) {
+  constexpr std::string_view prefix = "payload/";
+  if (!meta.path.starts_with(prefix)) {
+    return std::unexpected(BivError{ErrKind::UnmanifestedMember, meta.path});
+  }
+  const std::string rel{meta.path.substr(prefix.size())};
+  std::vector<std::string> components;
+  size_t start = 0;
+  while (start <= rel.size()) {
+    const auto slash = rel.find('/', start);
+    const auto component = rel.substr(
+        start, slash == std::string::npos ? rel.size() - start
+                                          : slash - start);
+    if (component.empty() || component == "." || component == "..") {
+      return std::unexpected(
+          BivError{ErrKind::MemberPathUnsafe, meta.path});
+    }
+    components.push_back(component);
+    if (slash == std::string::npos) break;
+    start = slash + 1U;
+  }
+  if (components.empty() ||
+      detail::is_dotbiv_component(components.front()) ||
+      std::ranges::any_of(components, detail::is_dotgit_component)) {
+    return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
+  }
+
+  (void)row_rel;
+  std::vector<std::filesystem::path> ancestors;
+  auto current = partial_dir;
+  for (size_t index = 0; index + 1U < components.size(); ++index) {
+    current /= components.at(index);
+    ancestors.push_back(current);
+  }
+
+  size_t first_absent = ancestors.size();
+  for (size_t index = 0; index < ancestors.size(); ++index) {
+    std::error_code ec;
+    const auto status = std::filesystem::symlink_status(ancestors[index], ec);
+    if (status.type() == std::filesystem::file_type::not_found) {
+      first_absent = index;
+      break;
+    }
+    if (ec || std::filesystem::is_symlink(status) ||
+        !std::filesystem::is_directory(status)) {
+      return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
+    }
+  }
+  for (size_t index = first_absent; index < ancestors.size(); ++index) {
+    std::error_code ec;
+    if (!std::filesystem::create_directory(ancestors[index], ec) || ec) {
+      return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
+    }
+    ec.clear();
+    const auto status = std::filesystem::symlink_status(ancestors[index], ec);
+    if (ec || std::filesystem::is_symlink(status) ||
+        !std::filesystem::is_directory(status)) {
+      return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
+    }
+  }
+  const auto output = partial_dir / std::filesystem::path{rel};
+  std::error_code ec;
+  const auto final_status = std::filesystem::symlink_status(output, ec);
+  if (final_status.type() != std::filesystem::file_type::not_found) {
+    return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
+  }
+  return output;
+}
+
+expected<uint64_t> apply_owned_members(
+    const std::filesystem::path& image,
+    const ArchivePlan& plan,
+    const std::filesystem::path& partial_dir,
+    const std::string& row_rel,
+    const std::vector<std::string>& row_rels,
+    std::vector<container::MemberMeta>& dirs,
+    const bool verify) {
+  return with_tar_reader(
+      image, [&](container::TarReader& reader) -> expected<uint64_t> {
+        auto manifest_member = require_member(reader, "manifest.json");
+        if (!manifest_member) return std::unexpected(manifest_member.error());
+        if (auto ok = drain_member_midapply(reader, manifest_member->meta.path);
+            !ok) {
+          return std::unexpected(ok.error());
+        }
+        auto checksums_member = require_member(reader, "checksums.json");
+        if (!checksums_member) return std::unexpected(checksums_member.error());
+        if (auto ok = drain_member_midapply(reader, checksums_member->meta.path);
+            !ok) {
+          return std::unexpected(ok.error());
+        }
+
+        uint64_t placed = 0;
+        size_t payload_index = 0;
+        while (true) {
+          auto next = reader.next();
+          if (!next) {
+            return std::unexpected(BivError{
+                ErrKind::IntegrityFailureMidApply, image.generic_string(),
+                next.error().detail, next.error().err_no, next.error().facts});
+          }
+          if (!*next) break;
+          const auto& meta = next->value().meta;
+          if (!meta.path.starts_with("payload/")) {
+            if (auto ok = drain_member_midapply(reader, meta.path); !ok) {
+              return std::unexpected(ok.error());
+            }
+            continue;
+          }
+          if (payload_index >= plan.payload.size() ||
+              meta.path != plan.payload.at(payload_index).meta.path ||
+              meta.kind != plan.payload.at(payload_index).meta.kind ||
+              meta.size != plan.payload.at(payload_index).meta.size) {
+            return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply,
+                                            meta.path, "member-mismatch"});
+          }
+          ++payload_index;
+          const auto rel =
+              meta.path.substr(std::string_view{"payload/"}.size());
+          const auto owner = detail::owning_row(rel, row_rels);
+          if (!owner || *owner != row_rel) {
+            if (auto ok = drain_member_midapply(reader, meta.path); !ok) {
+              return std::unexpected(ok.error());
+            }
+            continue;
+          }
+          auto output = owned_output_path(meta, partial_dir, row_rel);
+          if (!output) return std::unexpected(output.error());
+          if (auto ok = write_member(reader, meta, *output, dirs); !ok) {
+            return std::unexpected(ok.error());
+          }
+          if (verify && plan.checksums.entries.at(meta.path) !=
+                            reader.extent_sha256_hex()) {
+            return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply,
+                                            meta.path, "checksum"});
+          }
+          ++placed;
+        }
+        if (payload_index != plan.payload.size()) {
+          return std::unexpected(BivError{ErrKind::IntegrityFailureMidApply,
+                                          image.generic_string(),
+                                          "member-count"});
+        }
+        return placed;
+      });
 }
 
 RepoOutcomeRow repo_row(const repo::RepoEntry& entry) {
@@ -777,10 +1106,15 @@ expected<std::vector<const repo::RepoEntry*>> restore_order(const std::vector<re
 }
 
 BivError record_open_engine_failure(BivError, const repo::RepoEntry&, const std::filesystem::path&, OpenReport&);
-expected<void> restore_repos(const ArchivePlan& plan, const std::filesystem::path& partial_dir,
+expected<void> restore_repos(const std::filesystem::path& image,
+                             const ArchivePlan& plan,
+                             const std::filesystem::path& partial_dir,
                              const std::optional<std::filesystem::path>& stage,
+                             std::vector<container::MemberMeta>& dirs,
+                             const bool verify,
                              OpenReport& report) {
   if (plan.manifest.repos.empty()) return {};
+  const auto row_rels = detail::row_relpaths(plan.manifest.repos);
   std::vector<const repo::RepoEntry*> entries;
   if (stage) {
     auto ordered = restore_order(plan.manifest.repos);
@@ -791,70 +1125,83 @@ expected<void> restore_repos(const ArchivePlan& plan, const std::filesystem::pat
   }
   std::optional<repo::Git> git;
   for (const auto* entry : entries) {
-    if (!stage && repo::restore_invokes_git(*entry)) {
-      auto row = repo_row(*entry);
-      row.outcome = "offline-pointer";
-      if (entry->head_state == repo::HeadState::unborn) row.sha = "(no commits)";
-      if (entry->bundle && plan.checksums.entries.contains(entry->bundle->generic_string())) {
-        row.bundle_path = (std::filesystem::path{".biv"} / "repos" / entry->id / "repo.bundle").generic_string();
-        const auto dest = std::filesystem::path{report.output_dir};
-        const auto target = (std::filesystem::absolute(dest) / entry->relpath).lexically_normal().generic_string();
-        const auto bundle = (std::filesystem::absolute(dest) / *row.bundle_path).lexically_normal().generic_string();
-        const auto copy_safe = [](const std::string_view value) {
-          return cli::consent_display(value) == value;
-        };
-        const auto quote = [](const std::string_view value) {
-          std::string out{"'"};
-          for (const char byte : value) {
-            if (byte == '\'') out += "'\\''";
-            else out += byte;
-          }
-          return out + '\'';
-        };
-        const auto branch = entry->branch.value_or("");
-        const auto sha = entry->sha.value_or("");
-        if (copy_safe(target) && copy_safe(bundle) &&
-            (entry->head_state == repo::HeadState::detached || copy_safe(branch)) &&
-            (entry->head_state != repo::HeadState::detached || copy_safe(sha))) {
-          const auto qtarget = quote(target);
-          const auto qbundle = quote(bundle);
-          if (entry->head_state == repo::HeadState::branch) {
-            row.reconstruct = "git init --initial-branch='bvpk-restore' " + qtarget +
-                " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
-                " '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*' && git checkout " + quote(branch);
-          } else if (entry->head_state == repo::HeadState::unborn) {
-            row.reconstruct = "git init --initial-branch=" + quote(branch) + " " + qtarget +
-                " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
-                " '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'";
-          } else {
-            row.reconstruct = "git init --initial-branch='bvpk-restore' " + qtarget +
-                " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
-                " 'HEAD' '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*' && git checkout --detach " + quote(sha);
-          }
-        }
+    if (stage || !repo::restore_invokes_git(*entry)) {
+      if (!git) {
+        auto resolved = repo::Git::resolve([](const std::string_view name) -> std::optional<std::string> {
+          const auto* value = std::getenv(std::string{name}.c_str());
+          return value ? std::optional<std::string>{value} : std::nullopt;
+        });
+        if (!resolved) return std::unexpected(record_open_engine_failure(resolved.error(), *entry, partial_dir, report));
+        git = std::move(*resolved);
       }
-      report.repos.push_back(std::move(row));
+      auto restored = repo::restore_entry(*git, *entry, partial_dir, stage.value_or(std::filesystem::path{}));
+      if (restored) {
+        report.repos.push_back(repo_row(*entry, std::move(*restored)));
+      } else if (repo::engine_error_kind(restored.error()) == repo::EngineErrorKind::url_divergence_refused) {
+        const auto& facts = restored.error().facts;
+        report.url_divergence_refusals.push_back({entry->id, entry->relpath.generic_string(),
+                                                  facts.at("requested"), facts.at("effective"), facts.at("op")});
+        report.repos.push_back(repo_row(*entry));
+      } else {
+        return std::unexpected(record_open_engine_failure(restored.error(), *entry, partial_dir, report));
+      }
+      auto row_rel = entry->relpath.lexically_normal().generic_string();
+      if (row_rel == ".") row_rel.clear();
+      auto placed = apply_owned_members(image, plan, partial_dir, row_rel,
+                                        row_rels, dirs, verify);
+      if (!placed) return std::unexpected(placed.error());
+      report.restored_member_count += *placed;
       continue;
     }
-    if (!git) {
-      auto resolved = repo::Git::resolve([](const std::string_view name) -> std::optional<std::string> {
-        const auto* value = std::getenv(std::string{name}.c_str());
-        return value ? std::optional<std::string>{value} : std::nullopt;
-      });
-      if (!resolved) return std::unexpected(record_open_engine_failure(resolved.error(), *entry, partial_dir, report));
-      git = std::move(*resolved);
+
+    auto row = repo_row(*entry);
+    row.outcome = "offline-pointer";
+    if (entry->head_state == repo::HeadState::unborn) row.sha = "(no commits)";
+    if (entry->bundle && plan.checksums.entries.contains(entry->bundle->generic_string())) {
+      row.bundle_path = (std::filesystem::path{".biv"} / "repos" / entry->id / "repo.bundle").generic_string();
+      const auto dest = std::filesystem::path{report.output_dir};
+      const auto target = (std::filesystem::absolute(dest) / entry->relpath).lexically_normal().generic_string();
+      const auto bundle = (std::filesystem::absolute(dest) / *row.bundle_path).lexically_normal().generic_string();
+      const auto copy_safe = [](const std::string_view value) {
+        return cli::consent_display(value) == value;
+      };
+      const auto quote = [](const std::string_view value) {
+        std::string out{"'"};
+        for (const char byte : value) {
+          if (byte == '\'') out += "'\\''";
+          else out += byte;
+        }
+        return out + '\'';
+      };
+      const auto branch = entry->branch.value_or("");
+      const auto sha = entry->sha.value_or("");
+      if (copy_safe(target) && copy_safe(bundle) &&
+          (entry->head_state == repo::HeadState::detached || copy_safe(branch)) &&
+          (entry->head_state != repo::HeadState::detached || copy_safe(sha))) {
+        const auto qtarget = quote(target);
+        const auto qbundle = quote(bundle);
+        if (entry->head_state == repo::HeadState::branch) {
+          row.reconstruct = "git init --initial-branch='bvpk-restore' " + qtarget +
+              " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
+              " '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*' && git checkout " + quote(branch);
+        } else if (entry->head_state == repo::HeadState::unborn) {
+          row.reconstruct = "git init --initial-branch=" + quote(branch) + " " + qtarget +
+              " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
+              " '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'";
+        } else {
+          row.reconstruct = "git init --initial-branch='bvpk-restore' " + qtarget +
+              " && cd " + qtarget + " && git fetch --update-head-ok " + qbundle +
+              " 'HEAD' '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*' && git checkout --detach " + quote(sha);
+        }
+      }
     }
-    auto restored = repo::restore_entry(*git, *entry, partial_dir, stage.value_or(std::filesystem::path{}));
-    if (restored) {
-      report.repos.push_back(repo_row(*entry, std::move(*restored)));
-    } else if (repo::engine_error_kind(restored.error()) == repo::EngineErrorKind::url_divergence_refused) {
-      const auto& facts = restored.error().facts;
-      report.url_divergence_refusals.push_back({entry->id, entry->relpath.generic_string(),
-                                                facts.at("requested"), facts.at("effective"), facts.at("op")});
-      report.repos.push_back(repo_row(*entry));
-    } else {
-      return std::unexpected(record_open_engine_failure(restored.error(), *entry, partial_dir, report));
-    }
+    report.repos.push_back(std::move(row));
+    auto row_rel = entry->relpath.lexically_normal().generic_string();
+    if (row_rel == ".") row_rel.clear();
+    auto placed = apply_owned_members(image, plan, partial_dir, row_rel,
+                                      row_rels, dirs, verify);
+    if (!placed) return std::unexpected(placed.error());
+    report.restored_member_count += *placed;
   }
   return {};
 }
@@ -925,7 +1272,9 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
   }
 
   std::vector<container::MemberMeta> dirs;
-  auto restored = apply_archive(image, plan, partial_dir, dirs, verify, stage);
+  const auto row_rels = detail::row_relpaths(plan.manifest.repos);
+  auto restored =
+      apply_archive(image, plan, partial_dir, dirs, verify, stage, row_rels);
   if (!restored) {
     return std::unexpected(with_partial_dir(restored.error(), partial_dir));
   }
@@ -938,7 +1287,8 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
       .checksums_verified = verify,
       .manifest_format_version = plan.manifest.format_version,
   };
-  if (auto ok = restore_repos(plan, partial_dir, stage, report); !ok) {
+  if (auto ok = restore_repos(image, plan, partial_dir, stage, dirs, verify, report);
+      !ok) {
     return std::unexpected(with_partial_dir(ok.error(), partial_dir));
   }
   for (auto it = dirs.rbegin(); it != dirs.rend(); ++it) {

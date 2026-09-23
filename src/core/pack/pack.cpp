@@ -8,6 +8,7 @@
 #include <ctime>
 #include <exception>
 #include <fstream>
+#include <map>
 #include <optional>
 #include <set>
 #include <span>
@@ -648,6 +649,202 @@ std::vector<std::size_t> leaves_first(
   return order;
 }
 
+bool path_has_segment(const std::string_view path,
+                      const std::string_view segment) {
+  size_t start = 0;
+  while (start <= path.size()) {
+    const auto end = path.find('/', start);
+    const auto part = path.substr(
+        start, end == std::string_view::npos ? path.size() - start
+                                             : end - start);
+    if (part == segment) return true;
+    if (end == std::string_view::npos) break;
+    start = end + 1U;
+  }
+  return false;
+}
+
+bool path_is_below(const std::string_view path,
+                   const std::string_view directory) {
+  if (directory.empty()) return !path.empty();
+  return path.size() > directory.size() &&
+         path.starts_with(directory) && path.at(directory.size()) == '/';
+}
+
+std::vector<std::string> directory_prefixes(const std::string_view path) {
+  std::vector<std::string> prefixes;
+  size_t slash = path.find('/');
+  while (slash != std::string_view::npos) {
+    prefixes.emplace_back(path.substr(0, slash));
+    slash = path.find('/', slash + 1U);
+  }
+  return prefixes;
+}
+
+expected<bool> directory_is_all_penumbra(
+    const std::filesystem::path& repo_root,
+    const std::filesystem::path& directory,
+    const std::set<std::string>& penumbra) {
+  std::error_code ec;
+  std::filesystem::recursive_directory_iterator iterator{
+      directory, std::filesystem::directory_options::none, ec};
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    directory.generic_string(), ec.message(),
+                                    static_cast<int>(ec.value())});
+  }
+  for (auto end = std::filesystem::recursive_directory_iterator{};
+       iterator != end; iterator.increment(ec)) {
+    if (ec) {
+      return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                      iterator->path().generic_string(),
+                                      ec.message(),
+                                      static_cast<int>(ec.value())});
+    }
+    const auto status = iterator->symlink_status(ec);
+    if (ec) {
+      return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                      iterator->path().generic_string(),
+                                      ec.message(),
+                                      static_cast<int>(ec.value())});
+    }
+    if (std::filesystem::is_directory(status)) continue;
+    const auto relative =
+        iterator->path().lexically_relative(repo_root).generic_string();
+    if (!penumbra.contains(relative)) return false;
+  }
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    directory.generic_string(), ec.message(),
+                                    static_cast<int>(ec.value())});
+  }
+  return true;
+}
+
+expected<std::vector<scan::Node>> penumbra_nodes(
+    const std::filesystem::path& source,
+    const std::vector<repo::RepoEntry>& entries,
+    const ignore::Matcher& matcher,
+    scan::ScanResult& diagnostics) {
+  std::map<std::string, scan::Node> emitted;
+  std::set<std::string> recorded_prunes;
+  for (const auto& prune : diagnostics.pruned) {
+    recorded_prunes.insert(prune.relpath);
+  }
+
+  for (size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
+    const auto& entry = entries.at(entry_index);
+    if (!entry.engine_source || !repo::restore_invokes_git(entry)) continue;
+    const std::string row =
+        scan::ScanExclusions::canonical(entry.relpath);
+    const auto repo_root = source / std::filesystem::path{row};
+    std::set<std::string> penumbra;
+    for (const auto& path : entry.engine_source->penumbra_paths) {
+      penumbra.insert(scan::ScanExclusions::canonical(path));
+    }
+
+    std::vector<std::string> paths{penumbra.begin(), penumbra.end()};
+    std::ranges::sort(paths);
+    for (const auto& relative : paths) {
+      if (relative.empty()) continue;
+      const std::string full =
+          row.empty() ? relative : row + "/" + relative;
+      if (path_has_segment(full, ".biv")) continue;
+
+      bool in_deeper_row = false;
+      for (size_t other_index = 0; other_index < entries.size();
+           ++other_index) {
+        if (other_index == entry_index) continue;
+        const auto deeper = scan::ScanExclusions::canonical(
+            entries.at(other_index).relpath);
+        if (!deeper.empty() && path_is_below(deeper, row) &&
+            (full == deeper || path_is_below(full, deeper))) {
+          in_deeper_row = true;
+          break;
+        }
+      }
+      if (in_deeper_row) continue;
+
+      std::optional<ignore::Verdict> pruned;
+      for (const auto& prefix : directory_prefixes(full)) {
+        const auto verdict = matcher.match(prefix, true);
+        if (verdict.ignored) {
+          pruned = verdict;
+          if (recorded_prunes.insert(prefix).second) {
+            diagnostics.pruned.push_back(
+                scan::PruneEntry{.relpath = prefix,
+                                 .source = verdict.source});
+          }
+          break;
+        }
+      }
+      if (!pruned) {
+        const auto verdict = matcher.match(full, false);
+        if (verdict.ignored) {
+          pruned = verdict;
+          if (recorded_prunes.insert(full).second) {
+            diagnostics.pruned.push_back(
+                scan::PruneEntry{.relpath = full,
+                                 .source = verdict.source});
+          }
+        }
+      }
+      if (pruned) continue;
+
+      auto node = scan::stat_node(source, full);
+      if (!node) {
+        diagnostics.unreadable.push_back(full);
+        continue;
+      }
+      if (!*node) {
+        diagnostics.skipped_unsupported.push_back(full);
+        continue;
+      }
+      emitted.try_emplace(full, std::move(node->value()));
+    }
+
+    std::set<std::string> ancestors;
+    for (const auto& [full, node] : emitted) {
+      (void)node;
+      if (!path_is_below(full, row)) continue;
+      auto parent = std::filesystem::path{full}.parent_path();
+      while (!parent.empty()) {
+        const auto ancestor = parent.generic_string();
+        if (ancestor == row || !path_is_below(ancestor, row)) break;
+        ancestors.insert(ancestor);
+        parent = parent.parent_path();
+      }
+    }
+    for (const auto& ancestor : ancestors) {
+      if (emitted.contains(ancestor)) continue;
+      const auto verdict = matcher.match(ancestor, true);
+      if (verdict.ignored) continue;
+      auto qualifies = directory_is_all_penumbra(
+          repo_root, source / std::filesystem::path{ancestor}, penumbra);
+      if (!qualifies) {
+        diagnostics.unreadable.push_back(ancestor);
+        continue;
+      }
+      if (!*qualifies) continue;
+      auto node = scan::stat_node(source, ancestor);
+      if (!node) {
+        diagnostics.unreadable.push_back(ancestor);
+        continue;
+      }
+      if (!*node || node->value().kind != scan::NodeKind::dir) continue;
+      emitted.try_emplace(ancestor, std::move(node->value()));
+    }
+  }
+
+  std::vector<scan::Node> nodes;
+  nodes.reserve(emitted.size());
+  for (auto& [path, node] : emitted) {
+    (void)path;
+    nodes.push_back(std::move(node));
+  }
+  return nodes;
+}
+
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink) {
   std::ifstream in{path, std::ios::binary};
   if (!in) {
@@ -807,6 +1004,13 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir,
       return cleanup_error(scanned.error());
     }
   }
+  auto penumbra =
+      penumbra_nodes(source, entries, matcher->matcher, *scan_result);
+  if (!penumbra) {
+    return cleanup_error(penumbra.error());
+  }
+  scan_result->payload.insert(scan_result->payload.end(), penumbra->begin(),
+                              penumbra->end());
 
   manifest::Checksums checksums;
   PackReport report;

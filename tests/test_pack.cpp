@@ -1169,9 +1169,14 @@ TEST_CASE("pack records a clean repo-bearing source", "[pack-repos]") {
   REQUIRE(manifest->repos.size() == 1U);
   CHECK(manifest->repos.front().relpath == ".");
   CHECK(manifest->repos.front().bundle == report->repos.front().bundle);
-  CHECK_FALSE(std::ranges::any_of(members, [](const auto& member) {
-    return member.meta.path.starts_with("payload/");
-  }));
+  std::vector<std::string> payload_paths;
+  for (const auto& member : members) {
+    if (member.meta.path.starts_with("payload/")) {
+      payload_paths.push_back(member.meta.path);
+    }
+  }
+  CHECK(payload_paths ==
+        std::vector<std::string>{"payload/penumbra.log"});
   const auto requests = read_file_bytes(trace);
   const std::string request_text{
       reinterpret_cast<const char*>(requests.data()), requests.size()};
@@ -1253,7 +1258,13 @@ TEST_CASE("c6q pack archives each payload-only row's whole working tree",
     std::filesystem::create_directories(source / "fresh");
     pack_git_run(git, source / "fresh", {"init", "-b", "main"});
     write_file(source / "fresh/sub/f.txt", "fresh\n");
-    init_clean_pack_repo(git, source / "lib");
+    std::filesystem::create_directories(source / "lib");
+    pack_git_run(git, source / "lib", {"init", "-b", "main"});
+    write_file(source / "lib/tracked.txt", "tracked\n");
+    pack_git_run(git, source / "lib", {"add"}, {"tracked.txt"});
+    pack_git_run(git, source / "lib",
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "base"});
     const ScopedPackDiscoveryEnv discovery_env{
         isolated_pack_discovery_env(root)};
     auto packed = biv::pack::pack(source, {.offline = true});
@@ -1354,6 +1365,176 @@ TEST_CASE("c6q pack archives each payload-only row's whole working tree",
              member.meta.path.find("/.git/") != std::string::npos;
     }));
     require_payload_metadata(archive, source);
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("c6p pack writes each repository row's penumbra as payload members",
+          "[pack-repos][c6p]") {
+  const auto git = pack_git();
+  const auto payload_members = [](const std::vector<ArchiveMember>& archive) {
+    std::vector<const ArchiveMember*> payload;
+    for (const auto& member : archive) {
+      if (member.meta.path.starts_with("payload/")) payload.push_back(&member);
+    }
+    return payload;
+  };
+  const auto member_names = [](const auto& members) {
+    std::set<std::string> names;
+    for (const auto* member : members) names.insert(member->meta.path);
+    return names;
+  };
+  const auto require_metadata = [](const ArchiveMember& member,
+                                   const std::filesystem::path& source) {
+    struct stat status{};
+    REQUIRE(::lstat(source.c_str(), &status) == 0);
+    CHECK(member.meta.mode == (static_cast<uint32_t>(status.st_mode) & 07777U));
+#if defined(__APPLE__)
+    CHECK(member.meta.mtime_s == status.st_mtimespec.tv_sec);
+    CHECK(member.meta.mtime_ns ==
+          static_cast<uint32_t>(status.st_mtimespec.tv_nsec));
+#else
+    CHECK(member.meta.mtime_s == status.st_mtim.tv_sec);
+    CHECK(member.meta.mtime_ns == static_cast<uint32_t>(status.st_mtim.tv_nsec));
+#endif
+  };
+
+  SECTION("non-root row") {
+    const auto root = make_tmp("c6p-nonroot");
+    const auto source = root / "workspace";
+    const auto repo = source / "lib";
+    write_file(source / "README.md", "root\n");
+    std::filesystem::create_directories(repo);
+    pack_git_run(git, repo, {"init", "-b", "main"});
+    write_file(repo / ".gitignore", "ign/\n*.log\n");
+    write_file(repo / "sub/t.txt", "tracked\n");
+    pack_git_run(git, repo, {"add"}, {".gitignore", "sub/t.txt"});
+    pack_git_run(git, repo,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "base"});
+    write_file(repo / "ign/penumbra.txt", "one\n");
+    write_file(repo / "ign/deep/d.txt", "two\n");
+    write_file(repo / "sub/x.log", "three\n");
+    CHECK(pack_git_stdout(git, repo, {"status", "--porcelain=v2"}).empty());
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    const auto archive = read_archive(root / "workspace.bvpk");
+    const auto payload = payload_members(archive);
+    CHECK(member_names(payload) == std::set<std::string>{
+        "payload/README.md", "payload/lib/ign", "payload/lib/ign/deep",
+        "payload/lib/ign/deep/d.txt", "payload/lib/ign/penumbra.txt",
+        "payload/lib/sub/x.log"});
+    for (const auto* member : payload) {
+      const auto rel = member->meta.path.substr(std::string{"payload/"}.size());
+      require_metadata(*member, source / rel);
+      if (member->meta.kind == biv::scan::NodeKind::dir) {
+        const auto prefix = member->meta.path + "/";
+        const auto parent = std::ranges::find_if(payload, [&](const auto* other) {
+          return other->meta.path.starts_with(prefix);
+        });
+        if (parent != payload.end()) CHECK(member < *parent);
+      }
+    }
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("payload-only penumbra is not derived a second time") {
+    const auto root = make_tmp("c6p-payload-only-once");
+    const auto source = root / "workspace";
+    const auto remote = root / "remote.git";
+    const auto seed = root / "seed";
+    std::filesystem::create_directories(remote);
+    std::filesystem::create_directories(seed);
+    pack_git_run(git, remote, {"init", "--bare", "--initial-branch=main"});
+    pack_git_run(git, seed, {"init", "-b", "main"});
+    write_file(seed / ".gitignore", "*.log\n");
+    write_file(seed / "sub/t.txt", "one\n");
+    write_file(seed / "b.txt", "first\n");
+    pack_git_run(git, seed, {"add"}, {"."});
+    pack_git_run(git, seed,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "one"});
+    write_file(seed / "b.txt", "second\n");
+    pack_git_run(git, seed, {"add"}, {"b.txt"});
+    pack_git_run(git, seed,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "two"});
+    pack_git_run(git, seed, {"remote", "add", "origin", remote.string()});
+    pack_git_run(git, seed, {"push", "origin", "main"});
+    write_file(source / "README.md", "root\n");
+    pack_git_run(git, root, {"clone", "--depth", "1"},
+                 {"file://" + remote.generic_string(),
+                  (source / "shal").generic_string()});
+    write_file(source / "shal/x.log", "ignored bytes\n");
+    std::filesystem::create_directories(source / "lib");
+    pack_git_run(git, source / "lib", {"init", "-b", "main"});
+    write_file(source / "lib/tracked.txt", "tracked\n");
+    pack_git_run(git, source / "lib", {"add"}, {"tracked.txt"});
+    pack_git_run(git, source / "lib",
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "base"});
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    const auto archive = read_archive(root / "workspace.bvpk");
+    std::vector<std::string> names;
+    for (const auto* member : payload_members(archive)) {
+      names.push_back(member->meta.path);
+    }
+    std::ranges::sort(names);
+    CHECK(names == std::vector<std::string>{
+        "payload/README.md", "payload/shal", "payload/shal/.gitignore",
+        "payload/shal/b.txt", "payload/shal/sub", "payload/shal/sub/t.txt",
+        "payload/shal/x.log"});
+    CHECK(std::ranges::count(names, std::string{"payload/shal/x.log"}) == 1);
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root row recursive directory ground truth") {
+    const auto root = make_tmp("c6p-root-dirs");
+    const auto source = root / "workspace";
+    std::filesystem::create_directories(source);
+    pack_git_run(git, source, {"init", "-b", "main"});
+    write_file(source / ".gitignore", "*.o\nout/\nbuild/\n");
+    write_file(source / "src/a.c", "tracked\n");
+    write_file(source / "D/x/t.c", "tracked\n");
+    write_file(source / "gk/.gitkeep", "tracked\n");
+    pack_git_run(git, source, {"add"}, {".gitignore", "src/a.c", "D/x/t.c", "gk/.gitkeep"});
+    pack_git_run(git, source,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "base"});
+    write_file(source / ".git/info/exclude", "local.txt\nex/\n");
+    write_file(source / "src/a.o", "a\n");
+    write_file(source / "D/y/i.o", "i\n");
+    write_file(source / "out/k/z.o", "z\n");
+    write_file(source / "gk/g.o", "g\n");
+    write_file(source / "local.txt", "local\n");
+    write_file(source / "ex/sub/e.txt", "exclude\n");
+    std::filesystem::create_directory(source / "build");
+    std::filesystem::create_symlink("src/a.c", source / "link.o");
+    CHECK(pack_git_stdout(git, source, {"status", "--porcelain=v2"}).empty());
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    const auto archive = read_archive(root / "workspace.bvpk");
+    const auto payload = payload_members(archive);
+    std::set<std::string> dirs;
+    std::set<std::string> leaves;
+    for (const auto* member : payload) {
+      (member->meta.kind == biv::scan::NodeKind::dir ? dirs : leaves)
+          .insert(member->meta.path);
+    }
+    CHECK(dirs == std::set<std::string>{"payload/D/y", "payload/ex",
+                                        "payload/ex/sub", "payload/out",
+                                        "payload/out/k"});
+    CHECK(leaves == std::set<std::string>{
+        "payload/D/y/i.o", "payload/ex/sub/e.txt", "payload/gk/g.o",
+        "payload/link.o", "payload/local.txt", "payload/out/k/z.o",
+        "payload/src/a.o"});
     std::filesystem::remove_all(root);
   }
 }

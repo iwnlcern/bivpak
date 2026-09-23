@@ -102,6 +102,45 @@ TEST_CASE("c6q scan_subtree walks a claimed payload-only repository",
   }
 }
 
+TEST_CASE("c6p stat_node is the scanner's single-node oracle", "[scan][c6p]") {
+  auto root = make_tmp("c6p-stat-node");
+  write_file(root / "regular.txt", "payload");
+  std::filesystem::create_symlink("regular.txt", root / "link.txt");
+  REQUIRE(::mkfifo((root / "pipe").c_str(), 0600) == 0);
+
+  auto scanned = biv::scan::scan(root);
+  REQUIRE(scanned.has_value());
+  const auto check_recorded = [&](const std::string& relpath) {
+    const auto found = std::ranges::find(scanned->payload, relpath,
+                                         &biv::scan::Node::relpath);
+    REQUIRE(found != scanned->payload.end());
+    auto node = biv::scan::stat_node(root, relpath);
+    REQUIRE(node.has_value());
+    REQUIRE(node->has_value());
+    CHECK((*node)->relpath == found->relpath);
+    CHECK((*node)->kind == found->kind);
+    CHECK((*node)->mode == found->mode);
+    CHECK((*node)->mtime_s == found->mtime_s);
+    CHECK((*node)->mtime_ns == found->mtime_ns);
+    CHECK((*node)->size == found->size);
+    CHECK((*node)->symlink_target == found->symlink_target);
+  };
+  check_recorded("regular.txt");
+  check_recorded("link.txt");
+
+  auto fifo = biv::scan::stat_node(root, "pipe");
+  REQUIRE(fifo.has_value());
+  CHECK_FALSE(fifo->has_value());
+
+  write_file(root / "vanished.txt");
+  REQUIRE(std::filesystem::remove(root / "vanished.txt"));
+  auto vanished = biv::scan::stat_node(root, "vanished.txt");
+  REQUIRE_FALSE(vanished.has_value());
+  CHECK(vanished.error().path ==
+        (root / "vanished.txt").generic_string());
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("scan enumerates payload in lexicographic byte order") {
   auto root = make_tmp("lex");
   write_file(root / "b.txt");

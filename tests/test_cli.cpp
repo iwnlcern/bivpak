@@ -1592,15 +1592,30 @@ struct Image {
              .symlink_target = {}}, bytes(content)};
   }
 
+  static Member directory(const std::string& path) {
+    return {{.path = path, .kind = biv::scan::NodeKind::dir, .mode = 0755,
+             .mtime_s = 1, .mtime_ns = 0, .size = 0,
+             .symlink_target = {}}, {}};
+  }
+
+  static Member symlink(const std::string& path, std::string target) {
+    return {{.path = path, .kind = biv::scan::NodeKind::symlink, .mode = 0777,
+             .mtime_s = 1, .mtime_ns = 0, .size = 0,
+             .symlink_target = std::move(target)}, {}};
+  }
+
   void capture_repo(const std::filesystem::path& root, const std::string& id,
                     const std::string& relpath, bool penumbra = false,
-                    bool overlay = false) {
+                    bool overlay = false, bool tracked_symlink = false) {
     const auto source = root / ("source-" + id);
     std::filesystem::create_directories(source);
     const auto handle = git();
     run_git(handle, source, {"init", "-b", "main"});
     write_file(source / "a.txt", "committed\n");
     write_file(source / ".gitignore", "ignored.txt\n");
+    if (tracked_symlink) {
+      std::filesystem::create_symlink("../../outside-c6p", source / "evil");
+    }
     run_git(handle, source, {"add", "."});
     run_git(handle, source, {"-c", "user.name=Fixture", "-c",
                            "user.email=fixture@example.invalid", "commit", "-m", "base"});
@@ -3327,5 +3342,387 @@ TEST_CASE("c6q payload-only repository trees round trip without git",
       assert_json(opened.out, {{".", "payload-only-unborn"}}, 2);
     }
     std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("c6p repository penumbra is placed after its row outcome",
+          "[cli][c6p]") {
+  const auto root = make_tmp("c6p-penumbra-placement");
+  const auto workspace = root / "workspace";
+  const auto repo = workspace / "lib";
+  write_file(workspace / "README.md", "root\n");
+  const auto handle = open_repos_fixture::git();
+  std::filesystem::create_directories(repo);
+  open_repos_fixture::run_git(handle, repo, {"init", "-b", "main"});
+  write_file(repo / ".gitignore", "ign/\n*.log\n");
+  write_file(repo / "sub/t.txt", "tracked\n");
+  open_repos_fixture::run_git(handle, repo,
+                              {"add", ".gitignore", "sub/t.txt"});
+  open_repos_fixture::run_git(handle, repo,
+                              {"-c", "user.name=Biv Test", "-c",
+                               "user.email=biv@example.invalid", "commit",
+                               "-m", "base"});
+  write_file(repo / "ign/penumbra.txt", "one\n");
+  write_file(repo / "ign/deep/d.txt", "two\n");
+  write_file(repo / "sub/x.log", "three\n");
+  REQUIRE(open_repos_fixture::run_git(handle, repo,
+                                      {"status", "--porcelain=v2"}).empty());
+
+  const auto packed = run_cmd(
+      "pack '" + workspace.string() + "' --offline --json", root);
+  INFO(packed.out);
+  INFO(packed.err);
+  REQUIRE(packed.code == 0);
+  const auto image = root / "workspace.bvpk";
+  open_repos_fixture::install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" +
+                                   std::getenv("PATH")};
+  const auto stat_pair = [](const std::filesystem::path& path) {
+    struct stat status{};
+    REQUIRE(::lstat(path.c_str(), &status) == 0);
+#if defined(__APPLE__)
+    return std::pair{std::pair{status.st_mtimespec.tv_sec,
+                               status.st_mtimespec.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#else
+    return std::pair{std::pair{status.st_mtim.tv_sec, status.st_mtim.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#endif
+  };
+  const auto assert_fidelity = [&](const std::filesystem::path& dest,
+                                   const std::string& relative) {
+    const auto original = repo / relative;
+    const auto restored = dest / "lib" / relative;
+    CHECK(read_text(restored) == read_text(original));
+    CHECK(stat_pair(restored) == stat_pair(original));
+  };
+  const auto run_leg = [&](const std::string& leg, const std::string& flag) {
+    write_file(root / "trace", "");
+    const auto dest = root / leg;
+    const auto opened = run_cmd("open '" + image.string() + "' --dest '" +
+                                    dest.string() + "' " + flag + " --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 0);
+    assert_fidelity(dest, "ign/penumbra.txt");
+    assert_fidelity(dest, "ign/deep/d.txt");
+    assert_fidelity(dest, "sub/x.log");
+    CHECK(stat_pair(dest / "lib/ign") == stat_pair(repo / "ign"));
+    CHECK(stat_pair(dest / "lib/ign/deep") == stat_pair(repo / "ign/deep"));
+    CHECK(std::filesystem::is_directory(dest / "lib/sub"));
+    CHECK(opened.out.find("\"restored_member_count\": 6") !=
+          std::string::npos);
+    if (leg == "network") {
+      CHECK(open_repos_fixture::run_git(handle, dest / "lib",
+                                        {"status", "--porcelain=v2"}).empty());
+    } else {
+      CHECK(std::filesystem::is_directory(dest / "lib"));
+      CHECK(read_text(root / "trace").empty());
+    }
+    if (const char* receipts = std::getenv("BIV_LEG_RECEIPTS")) {
+      std::ofstream out{receipts, std::ios::app};
+      out << "leg=c6p-" << leg << " provenance=product-packed\n";
+    }
+  };
+  run_leg("network", "--network");
+  run_leg("offline", "--offline");
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c6p nested and root repository penumbra survives real CLI open",
+          "[cli][c6p]") {
+  const auto handle = open_repos_fixture::git();
+  const auto stat_pair = [](const std::filesystem::path& path) {
+    struct stat status{};
+    REQUIRE(::lstat(path.c_str(), &status) == 0);
+#if defined(__APPLE__)
+    return std::pair{std::pair{status.st_mtimespec.tv_sec,
+                               status.st_mtimespec.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#else
+    return std::pair{std::pair{status.st_mtim.tv_sec, status.st_mtim.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#endif
+  };
+
+  SECTION("P3 nested row under a payload directory") {
+    const auto root = make_tmp("c6p-nested-penumbra");
+    const auto workspace = root / "workspace";
+    const auto repo = workspace / "docs/inner";
+    write_file(workspace / "docs/outer.txt", "outer\n");
+    std::filesystem::create_directories(repo);
+    open_repos_fixture::run_git(handle, repo, {"init", "-b", "main"});
+    write_file(repo / ".gitignore", "ign/\n");
+    write_file(repo / "tracked.txt", "tracked\n");
+    open_repos_fixture::run_git(handle, repo,
+                                {"add", ".gitignore", "tracked.txt"});
+    open_repos_fixture::run_git(handle, repo,
+                                {"-c", "user.name=Biv Test", "-c",
+                                 "user.email=biv@example.invalid", "commit",
+                                 "-m", "base"});
+    write_file(repo / "ign/p.txt", "penumbra\n");
+    REQUIRE(open_repos_fixture::run_git(
+                handle, repo, {"status", "--porcelain=v2"})
+                .empty());
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    REQUIRE(packed.code == 0);
+    const auto dest = root / "dest";
+    const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                    "' --dest '" + dest.string() +
+                                    "' --network --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 0);
+    CHECK(read_text(dest / "docs/inner/ign/p.txt") == "penumbra\n");
+    CHECK(stat_pair(dest / "docs/inner/ign/p.txt") ==
+          stat_pair(repo / "ign/p.txt"));
+    CHECK(stat_pair(dest / "docs") == stat_pair(workspace / "docs"));
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("P4 root row is verified before its penumbra placement") {
+    const auto root = make_tmp("c6p-root-penumbra");
+    const auto workspace = root / "workspace";
+    std::filesystem::create_directories(workspace);
+    open_repos_fixture::run_git(handle, workspace, {"init", "-b", "main"});
+    write_file(workspace / ".gitignore", "*.o\n");
+    write_file(workspace / "src/a.c", "tracked\n");
+    open_repos_fixture::run_git(handle, workspace,
+                                {"add", ".gitignore", "src/a.c"});
+    open_repos_fixture::run_git(handle, workspace,
+                                {"-c", "user.name=Biv Test", "-c",
+                                 "user.email=biv@example.invalid", "commit",
+                                 "-m", "base"});
+    write_file(workspace / ".git/info/exclude", "local.txt\n");
+    write_file(workspace / "src/a.o", "ignored\n");
+    write_file(workspace / "local.txt", "local\n");
+    REQUIRE(open_repos_fixture::run_git(
+                handle, workspace, {"status", "--porcelain=v2"})
+                .empty());
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    REQUIRE(packed.code == 0);
+    const auto dest = root / "dest";
+    const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                    "' --dest '" + dest.string() +
+                                    "' --network --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 0);
+    for (const auto& rel : {std::string{"src/a.o"}, std::string{"local.txt"}}) {
+      CHECK(read_text(dest / rel) == read_text(workspace / rel));
+      CHECK(stat_pair(dest / rel) == stat_pair(workspace / rel));
+    }
+    CHECK(open_repos_fixture::run_git(
+              handle, dest, {"status", "--porcelain=v2", "-z"}) ==
+          std::string{"? local.txt\0", 12});
+    const auto ignored = open_repos_fixture::run_git(
+        handle, dest, {"status", "--porcelain=v2", "--ignored", "-z"});
+    CHECK(ignored.find("! src/a.o\0") != std::string::npos);
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("c6p deferred and first-pass writers refuse protected paths",
+          "[cli][c6p]") {
+  using namespace open_repos_fixture;
+  const auto require_unsafe = [](const RunResult& opened) {
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 3);
+    CHECK(opened.out.find("\"kind\": \"MemberPathUnsafe\"") !=
+          std::string::npos);
+  };
+
+  SECTION("W2 and W3 folded dot-git are refused by the deferred writer") {
+    for (const auto& [leg, flag] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"network", "--network"}, {"offline", "--offline"}}}) {
+      const auto root = make_tmp("c6p-folded-dotgit-" + leg);
+      const ScopedEnv home{"HOME", root.string()};
+      Image fixture;
+      fixture.capture_repo(root, "r-lib", "lib");
+      fixture.payload.push_back(
+          Image::member("payload/lib/.GIT/hooks/post-checkout", "hook\n"));
+      const auto image = fixture.write(root);
+      const auto opened = run_cmd("open '" + image.string() +
+                                      "' --dest out " + flag + " --json",
+                                  root);
+      require_unsafe(opened);
+      const auto partial = root / "out.bvpk-open.partial";
+      CHECK_FALSE(std::filesystem::exists(
+          partial / "lib/.GIT/hooks/post-checkout"));
+      CHECK_FALSE(std::filesystem::exists(
+          partial / "lib/.git/hooks/post-checkout"));
+#if !defined(__APPLE__)
+      CHECK_FALSE(std::filesystem::exists(partial / "lib/.GIT"));
+#endif
+      std::filesystem::remove_all(root);
+    }
+  }
+
+  SECTION("W5 a placed symlink cannot become an ancestor") {
+    const auto root = make_tmp("c6p-owned-symlink");
+    const ScopedEnv home{"HOME", root.string()};
+    const auto outside = root / "outside-c6p";
+    std::filesystem::create_directories(outside);
+    Image fixture;
+    fixture.capture_repo(root, "r-lib", "lib");
+    fixture.payload.push_back(
+        Image::symlink("payload/lib/ln", "../../outside-c6p"));
+    fixture.payload.push_back(Image::member("payload/lib/ln/x", "escape\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --offline --json",
+                                root);
+    require_unsafe(opened);
+    const auto partial = root / "out.bvpk-open.partial";
+    CHECK(std::filesystem::is_symlink(partial / "lib/ln"));
+    CHECK(std::filesystem::is_empty(outside));
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H1 a restored symlink cannot become an ancestor") {
+    const auto root = make_tmp("c6p-restored-symlink");
+    const ScopedEnv home{"HOME", root.string()};
+    const auto outside = root / "outside-c6p";
+    std::filesystem::create_directories(outside);
+    Image fixture;
+    fixture.capture_repo(root, "r-lib", "lib", false, false, true);
+    fixture.payload.push_back(
+        Image::member("payload/lib/evil/x", "escape\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    require_unsafe(opened);
+    CHECK(std::filesystem::is_symlink(
+        root / "out.bvpk-open.partial/lib/evil"));
+    CHECK(std::filesystem::is_empty(outside));
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H2 a deferred member cannot overwrite a tracked path") {
+    const auto root = make_tmp("c6p-no-overwrite");
+    const ScopedEnv home{"HOME", root.string()};
+    Image fixture;
+    fixture.capture_repo(root, "r-lib", "lib");
+    fixture.payload.push_back(
+        Image::member("payload/lib/a.txt", "replacement\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    require_unsafe(opened);
+    CHECK(read_text(root / "out.bvpk-open.partial/lib/a.txt") ==
+          "committed\n");
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H3 a member equal to a row path stays in the first pass") {
+    const auto root = make_tmp("c6p-row-path-member");
+    const ScopedEnv home{"HOME", root.string()};
+    Image fixture;
+    fixture.capture_repo(root, "r-inner", "docs/inner");
+    fixture.payload.push_back(Image::directory("payload/docs"));
+    fixture.payload.push_back(Image::member("payload/docs/inner", "file\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 4);
+    CHECK(opened.out.find("materialization target already exists") !=
+          std::string::npos);
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H4 parent placement precedes child restore") {
+    const auto root = make_tmp("c6p-parent-before-child");
+    const ScopedEnv home{"HOME", root.string()};
+    Image fixture;
+    fixture.capture_repo(root, "r-parent", "a");
+    fixture.capture_repo(root, "r-child", "a/c");
+    fixture.manifest.repos.at(1).parent_id = "r-parent";
+    fixture.payload.push_back(Image::member("payload/a/c", "owned\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 4);
+    CHECK(opened.out.find("materialization target already exists") !=
+          std::string::npos);
+    CHECK(opened.out.find("a/c") != std::string::npos);
+    CHECK(read_text(root / "out.bvpk-open.partial/a/c") == "owned\n");
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H5 exact dot-git is refused after a root restore") {
+    const auto root = make_tmp("c6p-root-dotgit");
+    const ScopedEnv home{"HOME", root.string()};
+    Image fixture;
+    fixture.capture_repo(root, "r-root", ".");
+    fixture.payload.push_back(
+        Image::member("payload/.git/c6p-sentinel", "sentinel\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    require_unsafe(opened);
+    CHECK_FALSE(std::filesystem::exists(
+        root / "out.bvpk-open.partial/.git/c6p-sentinel"));
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H6 and H6b root dot-biv spellings are refused") {
+    for (const auto& spelling : {std::string{".biv"}, std::string{".BIV"}}) {
+      const auto root = make_tmp("c6p-root-dotbiv-" + spelling);
+      const ScopedEnv home{"HOME", root.string()};
+      Image fixture;
+      fixture.capture_repo(root, "r-root", ".");
+      fixture.payload.push_back(Image::directory("payload/" + spelling));
+      fixture.payload.push_back(Image::member(
+          "payload/" + spelling + "/c6p-sentinel", "sentinel\n"));
+      const auto image = fixture.write(root);
+      const auto opened = run_cmd("open '" + image.string() +
+                                      "' --dest out --network --json",
+                                  root);
+      require_unsafe(opened);
+      CHECK_FALSE(std::filesystem::exists(
+          root / "out.bvpk-open.partial" / spelling));
+      std::filesystem::remove_all(root);
+    }
+  }
+
+  SECTION("FP1 and FP2 protect every first-pass dot-git component") {
+    for (const auto& [name, prefix] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"root", ".git"}, {"nested", "docs/.Git"}}}) {
+      const auto root = make_tmp("c6p-first-pass-" + name);
+      Image fixture;
+      if (name == "nested") {
+        fixture.payload.push_back(Image::directory("payload/docs"));
+      }
+      fixture.payload.push_back(Image::directory("payload/" + prefix));
+      fixture.payload.push_back(
+          Image::member("payload/" + prefix + "/config", "config\n"));
+      const auto image = fixture.write(root);
+      const auto opened = run_cmd("open '" + image.string() +
+                                      "' --dest out --offline --json",
+                                  root);
+      require_unsafe(opened);
+      CHECK_FALSE(std::filesystem::exists(
+          root / "out.bvpk-open.partial" / prefix));
+      std::filesystem::remove_all(root);
+    }
   }
 }

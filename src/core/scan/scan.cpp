@@ -71,32 +71,6 @@ expected<std::string> symlink_target(const std::filesystem::path& path) {
   return std::string{buffer.data(), static_cast<size_t>(size)};
 }
 
-expected<Node> node_for(const std::filesystem::path& path,
-                        std::string relpath,
-                        const std::filesystem::file_status status) {
-  auto statbuf = stat_path(path);
-  if (!statbuf) {
-    return std::unexpected(statbuf.error());
-  }
-  Node entry;
-  entry.relpath = std::move(relpath);
-  entry.kind = kind_from_status(status);
-  entry.size = entry.kind == NodeKind::file
-                   ? static_cast<uint64_t>(statbuf->st_size)
-                   : 0U;
-  entry.mode = static_cast<uint32_t>(statbuf->st_mode);
-  entry.mtime_s = support::stat_mtime_sec(*statbuf);
-  entry.mtime_ns = support::stat_mtime_nsec(*statbuf);
-  if (entry.kind == NodeKind::symlink) {
-    auto target = symlink_target(path);
-    if (!target) {
-      return std::unexpected(target.error());
-    }
-    entry.symlink_target = std::move(*target);
-  }
-  return entry;
-}
-
 std::string child_relpath(std::string_view parent, std::string_view name) {
   if (parent.empty()) {
     return std::string{name};
@@ -183,16 +157,16 @@ expected<void> walk(const std::filesystem::path& dir,
       continue;
     }
 
-    if (!is_supported_status(status)) {
-      result.skipped_unsupported.push_back(relpath);
-      continue;
-    }
-
-    auto entry = node_for(child.path(), relpath, status);
+    auto entry = stat_node(dir, name);
     if (!entry) {
       return std::unexpected(entry.error());
     }
-    result.payload.push_back(std::move(*entry));
+    if (!*entry) {
+      result.skipped_unsupported.push_back(relpath);
+      continue;
+    }
+    entry->value().relpath = relpath;
+    result.payload.push_back(std::move(entry->value()));
 
     if (relpath != ".bivignore" && name == ".bivignore") {
       result.nested_bivignore.push_back(relpath);
@@ -209,6 +183,47 @@ expected<void> walk(const std::filesystem::path& dir,
 }
 
 }  // namespace
+
+expected<std::optional<Node>> stat_node(
+    const std::filesystem::path& source_root, const std::string& relpath) {
+  const auto path = source_root / std::filesystem::path{relpath};
+  std::error_code ec;
+  const auto status = std::filesystem::symlink_status(path, ec);
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    path.generic_string(), ec.message(),
+                                    static_cast<int>(ec.value())});
+  }
+  if (status.type() == std::filesystem::file_type::not_found) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    path.generic_string(), {}, ENOENT});
+  }
+  if (!is_supported_status(status)) {
+    return std::optional<Node>{};
+  }
+
+  auto statbuf = stat_path(path);
+  if (!statbuf) {
+    return std::unexpected(statbuf.error());
+  }
+  Node node;
+  node.relpath = relpath;
+  node.kind = kind_from_status(status);
+  node.size = node.kind == NodeKind::file
+                  ? static_cast<uint64_t>(statbuf->st_size)
+                  : 0U;
+  node.mode = static_cast<uint32_t>(statbuf->st_mode);
+  node.mtime_s = support::stat_mtime_sec(*statbuf);
+  node.mtime_ns = support::stat_mtime_nsec(*statbuf);
+  if (node.kind == NodeKind::symlink) {
+    auto target = symlink_target(path);
+    if (!target) {
+      return std::unexpected(target.error());
+    }
+    node.symlink_target = std::move(*target);
+  }
+  return std::optional<Node>{std::move(node)};
+}
 
 std::string ScanExclusions::canonical(const std::filesystem::path& rel) {
   auto value = rel.lexically_normal().generic_string();
@@ -318,11 +333,15 @@ expected<void> scan_subtree(const std::filesystem::path& source_root,
                                     static_cast<int>(ec.value())});
   }
   if (!rel.empty()) {
-    auto entry = node_for(subtree, rel, status);
+    auto entry = stat_node(source_root, rel);
     if (!entry) {
       return std::unexpected(entry.error());
     }
-    into.payload.push_back(std::move(*entry));
+    if (!*entry) {
+      into.skipped_unsupported.push_back(rel);
+      return {};
+    }
+    into.payload.push_back(std::move(entry->value()));
   }
   return walk(subtree, rel, matcher, exclusions, into);
 }

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -54,6 +55,8 @@ struct MatcherBundle {
 };
 
 expected<MatcherBundle> prepare_matcher(const std::filesystem::path& source_root);
+expected<std::optional<Node>> stat_node(
+    const std::filesystem::path& source_root, const std::string& relpath);
 expected<ScanResult> scan(const std::filesystem::path& source_root,
                           const ignore::Matcher& matcher,
                           const ScanExclusions& exclusions);

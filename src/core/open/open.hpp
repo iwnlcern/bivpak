@@ -68,6 +68,18 @@ struct AgentMemberTable {
   const PlannedAgentMember* find(std::string_view name) const;
 };
 
+namespace detail {
+
+std::optional<std::string> owning_row(
+    std::string_view payload_rel,
+    const std::vector<std::string>& row_rels);
+std::vector<std::string> row_relpaths(
+    const std::vector<repo::RepoEntry>& entries);
+bool is_dotgit_component(std::string_view segment) noexcept;
+bool is_dotbiv_component(std::string_view segment) noexcept;
+
+}  // namespace detail
+
 adapters::MemberRead make_member_read(std::filesystem::path image, AgentMemberTable table);
 
 struct OpenDecisions {

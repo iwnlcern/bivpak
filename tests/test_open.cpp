@@ -407,8 +407,8 @@ TEST_CASE("Task 4 open occupancy and destination contracts stay bounded") {
     constexpr std::array<std::string_view, 7> calls{
         "std::filesystem::exists(partial_dir, ec)",
         "std::filesystem::create_directories(partial_dir, ec)",
-        "apply_archive(image, plan, partial_dir, dirs, verify, stage)",
-        "restore_repos(plan, partial_dir, stage, report)",
+        "apply_archive(image, plan, partial_dir, dirs, verify, stage, row_rels)",
+        "restore_repos(image, plan, partial_dir, stage, dirs, verify, report)",
         "set_mtime(partial_dir / std::filesystem::path{rel}, it->mtime_s, it->mtime_ns)",
         "fsync_tree(partial_dir)",
         "std::filesystem::rename(partial_dir, dest, ec)"};
@@ -431,6 +431,92 @@ TEST_CASE("Task 4 open occupancy and destination contracts stay bounded") {
               ".lexically_normal()") != std::string::npos);
     CHECK(plan_source.find("absolute") == std::string::npos);
     CHECK(plan_source.find("weakly_canonical") == std::string::npos);
+
+    const auto owner_begin = source.find("std::optional<std::string> owning_row(");
+    const auto owner_end = source.find("\n}\n", owner_begin);
+    REQUIRE(owner_begin != std::string::npos);
+    REQUIRE(owner_end != std::string::npos);
+    const auto owner_source = source.substr(owner_begin, owner_end - owner_begin);
+    CHECK(owner_source.find("payload_rel == row") != std::string::npos);
+    CHECK(owner_source.find("payload_rel.at(row.size()) == '/'") !=
+          std::string::npos);
+
+    const auto restore_begin = source.find("expected<void> restore_repos(");
+    const auto restore_end = source.find("\n}\n", restore_begin);
+    REQUIRE(restore_begin != std::string::npos);
+    REQUIRE(restore_end != std::string::npos);
+    const auto restore_source =
+        source.substr(restore_begin, restore_end - restore_begin);
+    const auto restore_entry = restore_source.find("restore_entry(");
+    const auto apply_owned = restore_source.find("apply_owned_members(");
+    REQUIRE(restore_entry != std::string::npos);
+    REQUIRE(apply_owned != std::string::npos);
+    CHECK(restore_entry < apply_owned);
+  }
+}
+
+TEST_CASE("c6p ownership rows and protected components are behavioral",
+          "[open][c6p]") {
+  using biv::open::detail::is_dotbiv_component;
+  using biv::open::detail::is_dotgit_component;
+  using biv::open::detail::owning_row;
+  using biv::open::detail::row_relpaths;
+
+  CHECK(owning_row("lib/x", {"lib"}) == std::optional<std::string>{"lib"});
+  CHECK_FALSE(owning_row("libx/y", {"lib"}).has_value());
+  CHECK(owning_row("a/b/c", {"a", "a/b"}) ==
+        std::optional<std::string>{"a/b"});
+  CHECK(owning_row("x", {""}) == std::optional<std::string>{""});
+  CHECK_FALSE(owning_row("docs/inner", {"docs/inner"}).has_value());
+
+  biv::repo::RepoEntry full;
+  full.relpath = "lib";
+  biv::repo::RepoEntry shallow;
+  shallow.relpath = "shal";
+  shallow.shallow = biv::repo::Shallow{};
+  biv::repo::RepoEntry unborn;
+  unborn.relpath = "fresh";
+  unborn.head_state = biv::repo::HeadState::unborn;
+  CHECK(row_relpaths({full, shallow, unborn}) ==
+        std::vector<std::string>{"lib"});
+  full.relpath = ".";
+  CHECK(row_relpaths({full}) == std::vector<std::string>{""});
+
+  const std::string zw_non_joiner{"\xE2\x80\x8C"};
+  const std::string right_to_left_mark{"\xE2\x80\x8F"};
+  const std::string byte_order_mark{"\xEF\xBB\xBF"};
+  const std::string e_acute{"\xC3\xA9"};
+  const std::string malformed =
+      std::string{".g"} + static_cast<char>(0xFF) + "it";
+  for (const auto& value : std::vector<std::string>{
+           ".git", ".GIT", ".gIt", ".g" + zw_non_joiner + "it",
+           byte_order_mark + ".git", ".git" + right_to_left_mark,
+           "git~1", "GIT~1", ".git.", ".git ", ".git. .", ".git:x",
+           "git~1:y"}) {
+    INFO(value);
+    CHECK(is_dotgit_component(value));
+  }
+  for (const auto& value : std::vector<std::string>{
+           ".gitx", "git", ".gi", "x.git", ".git~1", "git~2",
+           ".gitignore", ".g" + e_acute + "t", malformed}) {
+    INFO(value);
+    CHECK_FALSE(is_dotgit_component(value));
+  }
+
+  for (const auto& value : std::vector<std::string>{
+           ".biv", ".BIV", ".bIv", ".b" + zw_non_joiner + "iv",
+           byte_order_mark + ".biv", ".biv" + right_to_left_mark,
+           "biv~1", "BIV~1", ".biv.", ".biv ", ".biv. .", ".biv:x",
+           "biv~1:y"}) {
+    INFO(value);
+    CHECK(is_dotbiv_component(value));
+  }
+  for (const auto& value : std::vector<std::string>{
+           ".bivx", "biv", ".bi", "x.biv", ".biv~1", "biv~2",
+           ".bivignore", ".b" + e_acute + "v",
+           std::string{".b"} + static_cast<char>(0xFF) + "iv"}) {
+    INFO(value);
+    CHECK_FALSE(is_dotbiv_component(value));
   }
 }
 
