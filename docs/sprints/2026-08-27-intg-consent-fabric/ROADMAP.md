@@ -93,6 +93,7 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 - **03:35 rev25 APPROVED (033502) → T-C6B disposition asked of master (SITREP-pair-planner-20260922-040233.md)**; the digest word follows the disposition. INDEX register: 224404 and 015007 have no rows (for the engine's owner). RECONCILE §R44.
 - **04:26 T-C6B DISPOSED by master (042625, accept-as-recorded; two conditions taken) → the rev25 digest word TO master (SITREP-pair-planner-20260922-170119.md)**: five T-ORACLE fields at f2b2943f; prefix walked. Kit 2.9.2 gone from the host — lint 2.9.3-only, disclosed. RECONCILE §R45. WAITING on master's fresh carry → t-oracle rewrite in QzzQ11 → impl-6.
 - **17:10 CARRY 171038 → t-oracle.txt REWRITTEN 17:12 in QzzQ11 (194bfbbe…) → prefix OK → Step 0′ walked (19 carried) → TOKEN `intg-substep2b-impl-6` ISSUED (IMPL-pair-planner-20260922-171639.md)**: Step 0′ → c6p (RELEASED, T-RED1 satisfied) → c7 → c8 → Tasks 9–11; master's 042625 conditions carried. RECONCILE §R46. WAITING on the IMPL return.
+- **18:13 impl-6 RETURNED AS A STOP UP (IMPL-pair-implementer-20260922-181342.md) → VERIFIED here → 20:29 ROUTED to master (SITREP-pair-planner-20260922-202943.md)**: rev25 Task 6d's P2 is unsatisfiable (my rev22 defect, a latent product abort on four non-materialized outcomes); one containment cell to m-4 through master, arm A recommended; nothing committed, rev25 untouched, c6p/c7/c8/Tasks 9–11 HELD pending the word → rev26 → impl-7
 
 ## Additional top-level files (declared per sprint-doc-setup)
 
