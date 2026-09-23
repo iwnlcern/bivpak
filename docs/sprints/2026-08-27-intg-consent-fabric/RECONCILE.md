@@ -587,3 +587,13 @@ Every block is byte-identical to rev24. Lesson recorded: a mutant is evidence on
 The implementer approved rev25 at `f2b2943f…` (033502, `intg-substep2b-plan-review-24`), closing MUST-2B-43..46 and replaying the Task 6d gate on the real carriers.
 T-C6B holds the carry request and the next token on a master relay disposing of c6b's `open.hpp` deviation, so the relay to master reports the approve and asks ONLY for that disposition; the digest word with the five T-ORACLE fields follows the disposition, then the `t-oracle.txt` rewrite in `s2b-runners-QzzQ11` and impl-6 (PARENT 033502).
 INDEX data integrity: two implementer relays exist on disk with no INDEX row — `IMPL-pair-implementer-20260921-224404.md` and `PLAN-REVIEW-pair-implementer-20260922-015007.md`; no INDEX commit ever carried either row, so they left the daemon-written working file before any path-scoped commit. This seat never hand-edits INDEX; the register went to master for the engine's owner.
+
+## R45 — T-C6B disposed; the rev25 digest word TO master (2026-09-22 04:26–04:5x; master `intg-2b-wiring-act/PLAN-master-planner-20260922-042625.md`; `intg-substep2b/SITREP-pair-planner-20260922-170119.md`)
+
+Master disposed of the c6b `open.hpp` deviation: `T_C6B_DISPOSITION: accept-as-recorded cd51937… src/core/open/open.hpp`, verified at master against A11 rev11's failed-row composition, with rev25's record correction called the right repair.
+Two conditions came with it: (1) `RepoOutcomeRow::kind` and `::detail` are named in the GO's review asks and in m-3's byte review of H — this seat writes that GO at Task 10; (2) from impl-6 on, every implementer return enumerates each commit's paths against its task's Files line — carried on the impl-6 token as master's condition citing 042625, never as a plan gate invented here.
+Master also took the INDEX register as a relay-engine housekeeping item for the operator; it blocks nothing.
+
+The digest word then went up with the five T-ORACLE field lines at `f2b2943f…`; the three owner objects re-hash unchanged at pdc HEAD 06e735ee, and only the plan digest moves from 193745's.
+The T-ORACLE prefix was run first on scratch clones against a synthetic carry at the new digest: PASS with its receipt; a two-seat TO line and a rev23-digest locator each STOPped with no receipt.
+TOOLING CHANGE, disclosed on the relay: the 2.9.2 kit is no longer installed on this host (only 2.9.3 remains, for both the claude and codex caches), so this seat's standing dual-kit pre-lint is 2.9.3-only from this relay on; no 2.9.2 pass is claimed.

@@ -91,6 +91,7 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 - **2026-09-21 22:44 impl-5 RETURNED (224404)**: c4b cd12bb5, c6b cd51937, c6m e5afe9d; c6p STOPped file-absent; verified here (ctest reproduced). c6b's undisclosed open.hpp path reported. **211701 T-RED1 carried → red1-owner-words.txt WRITTEN in QzzQ11 (5431f3d1…), gate PASS → rev24 FILED 2026-09-22 01:20 (012027, plan-25; 265ec83c… at 4a54e2b).** RECONCILE §R42. WAITING on the exact-hash review of 265ec83c.
 - **01:50 rev24 MUST-REVISED (015007, MUST-2B-43..46) → rev25 FILED 02:50 (plan-26; f2b2943f… at cd83db5)**: open.hpp in Task 6b's record + T-C6B (master's disposition before the carry); H5/H6 with discriminating M6/M7. RECONCILE §R43. WAITING on the exact-hash review and master's T-C6B disposition.
 - **03:35 rev25 APPROVED (033502) → T-C6B disposition asked of master (SITREP-pair-planner-20260922-040233.md)**; the digest word follows the disposition. INDEX register: 224404 and 015007 have no rows (for the engine's owner). RECONCILE §R44.
+- **04:26 T-C6B DISPOSED by master (042625, accept-as-recorded; two conditions taken) → the rev25 digest word TO master (SITREP-pair-planner-20260922-170119.md)**: five T-ORACLE fields at f2b2943f; prefix walked. Kit 2.9.2 gone from the host — lint 2.9.3-only, disclosed. RECONCILE §R45. WAITING on master's fresh carry → t-oracle rewrite in QzzQ11 → impl-6.
 
 ## Additional top-level files (declared per sprint-doc-setup)
 
