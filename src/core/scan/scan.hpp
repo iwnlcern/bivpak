@@ -40,10 +40,12 @@ struct ScanResult {
 
 struct ScanExclusions {
   std::vector<std::string> repo_subtrees;
+  std::vector<std::string> claimed_markers;
 
   static std::string canonical(const std::filesystem::path& rel);
   bool claims_root() const;
   bool claims(std::string_view canonical_rel) const;
+  bool claims_marker(std::string_view canonical_rel) const;
 };
 
 struct MatcherBundle {
@@ -55,6 +57,11 @@ expected<MatcherBundle> prepare_matcher(const std::filesystem::path& source_root
 expected<ScanResult> scan(const std::filesystem::path& source_root,
                           const ignore::Matcher& matcher,
                           const ScanExclusions& exclusions);
+expected<void> scan_subtree(const std::filesystem::path& source_root,
+                            const ignore::Matcher& matcher,
+                            const ScanExclusions& exclusions,
+                            std::string_view subtree_rel,
+                            ScanResult& into);
 expected<ScanResult> scan(const std::filesystem::path& source_root);
 
 }  // namespace biv::scan

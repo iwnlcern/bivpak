@@ -71,6 +71,32 @@ expected<std::string> symlink_target(const std::filesystem::path& path) {
   return std::string{buffer.data(), static_cast<size_t>(size)};
 }
 
+expected<Node> node_for(const std::filesystem::path& path,
+                        std::string relpath,
+                        const std::filesystem::file_status status) {
+  auto statbuf = stat_path(path);
+  if (!statbuf) {
+    return std::unexpected(statbuf.error());
+  }
+  Node entry;
+  entry.relpath = std::move(relpath);
+  entry.kind = kind_from_status(status);
+  entry.size = entry.kind == NodeKind::file
+                   ? static_cast<uint64_t>(statbuf->st_size)
+                   : 0U;
+  entry.mode = static_cast<uint32_t>(statbuf->st_mode);
+  entry.mtime_s = support::stat_mtime_sec(*statbuf);
+  entry.mtime_ns = support::stat_mtime_nsec(*statbuf);
+  if (entry.kind == NodeKind::symlink) {
+    auto target = symlink_target(path);
+    if (!target) {
+      return std::unexpected(target.error());
+    }
+    entry.symlink_target = std::move(*target);
+  }
+  return entry;
+}
+
 std::string child_relpath(std::string_view parent, std::string_view name) {
   if (parent.empty()) {
     return std::string{name};
@@ -136,7 +162,7 @@ expected<void> walk(const std::filesystem::path& dir,
     }
 
     if (name == ".git") {
-      if (exclusions.claims(rel_dir)) {
+      if (exclusions.claims(rel_dir) || exclusions.claims_marker(rel_dir)) {
         continue;
       }
       const std::string reason =
@@ -162,26 +188,11 @@ expected<void> walk(const std::filesystem::path& dir,
       continue;
     }
 
-    auto statbuf = stat_path(child.path());
-    if (!statbuf) {
-      return std::unexpected(statbuf.error());
+    auto entry = node_for(child.path(), relpath, status);
+    if (!entry) {
+      return std::unexpected(entry.error());
     }
-
-    Node entry;
-    entry.relpath = relpath;
-    entry.kind = kind_from_status(status);
-    entry.size = entry.kind == NodeKind::file ? static_cast<uint64_t>(statbuf->st_size) : 0U;
-    entry.mode = static_cast<uint32_t>(statbuf->st_mode);
-    entry.mtime_s = support::stat_mtime_sec(*statbuf);
-    entry.mtime_ns = support::stat_mtime_nsec(*statbuf);
-    if (entry.kind == NodeKind::symlink) {
-      auto target = symlink_target(child.path());
-      if (!target) {
-        return std::unexpected(target.error());
-      }
-      entry.symlink_target = std::move(*target);
-    }
-    result.payload.push_back(std::move(entry));
+    result.payload.push_back(std::move(*entry));
 
     if (relpath != ".bivignore" && name == ".bivignore") {
       result.nested_bivignore.push_back(relpath);
@@ -218,6 +229,11 @@ bool ScanExclusions::claims_root() const {
 bool ScanExclusions::claims(const std::string_view canonical_rel) const {
   return std::ranges::find(repo_subtrees, canonical_rel) !=
          repo_subtrees.end();
+}
+
+bool ScanExclusions::claims_marker(const std::string_view canonical_rel) const {
+  return std::ranges::find(claimed_markers, canonical_rel) !=
+         claimed_markers.end();
 }
 
 expected<MatcherBundle> prepare_matcher(
@@ -283,6 +299,32 @@ expected<ScanResult> scan(const std::filesystem::path& source_root,
     return std::unexpected(walked.error());
   }
   return result;
+}
+
+expected<void> scan_subtree(const std::filesystem::path& source_root,
+                            const ignore::Matcher& matcher,
+                            const ScanExclusions& exclusions,
+                            const std::string_view subtree_rel,
+                            ScanResult& into) {
+  const auto rel = ScanExclusions::canonical(
+      std::filesystem::path{std::string{subtree_rel}});
+  const auto subtree = rel.empty() ? source_root : source_root / rel;
+  std::error_code ec;
+  const auto status = std::filesystem::symlink_status(subtree, ec);
+  if (ec || !is_directory_status(status)) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    subtree.generic_string(),
+                                    ec ? ec.message() : "not-directory",
+                                    static_cast<int>(ec.value())});
+  }
+  if (!rel.empty()) {
+    auto entry = node_for(subtree, rel, status);
+    if (!entry) {
+      return std::unexpected(entry.error());
+    }
+    into.payload.push_back(std::move(*entry));
+  }
+  return walk(subtree, rel, matcher, exclusions, into);
 }
 
 expected<ScanResult> scan(const std::filesystem::path& source_root) {

@@ -29,6 +29,79 @@ void write_file(const std::filesystem::path& path, std::string_view content = "x
 
 }  // namespace
 
+TEST_CASE("c6q scan_subtree walks a claimed payload-only repository",
+          "[scan][c6q]") {
+  SECTION("non-root row keeps the row directory and skips only its marker") {
+    auto root = make_tmp("c6q-subtree");
+    write_file(root / ".bivignore", "r/drop.txt\n");
+    std::filesystem::create_directories(root / "r/.git");
+    write_file(root / "r/sub/t.txt", "tracked");
+    write_file(root / "r/x.log", "ignored-by-git-only");
+    write_file(root / "r/drop.txt", "pruned");
+    REQUIRE(::mkfifo((root / "r/pipe").c_str(), 0600) == 0);
+
+    auto matcher = biv::scan::prepare_matcher(root);
+    REQUIRE(matcher.has_value());
+    biv::scan::ScanResult into;
+    const biv::scan::ScanExclusions claimed{.claimed_markers = {"r"}};
+    auto result = biv::scan::scan_subtree(root, matcher->matcher, claimed,
+                                          "r", into);
+    REQUIRE(result.has_value());
+    std::vector<std::string> relpaths;
+    for (const auto& node : into.payload) relpaths.push_back(node.relpath);
+    CHECK(relpaths == std::vector<std::string>{"r", "r/sub", "r/sub/t.txt",
+                                               "r/x.log"});
+    REQUIRE(into.pruned.size() == 1U);
+    CHECK(into.pruned.front().relpath == "r/drop.txt");
+    CHECK(into.pruned.front().source == ".bivignore:1");
+    CHECK(into.skipped_unsupported == std::vector<std::string>{"r/pipe"});
+    CHECK(std::ranges::none_of(into.payload, [](const auto& node) {
+      return node.relpath.find(".git") != std::string::npos;
+    }));
+    for (const auto& node : into.payload) {
+      struct stat status{};
+      REQUIRE(::lstat((root / node.relpath).c_str(), &status) == 0);
+      CHECK(node.mode == static_cast<uint32_t>(status.st_mode));
+#if defined(__APPLE__)
+      CHECK(node.mtime_s == status.st_mtimespec.tv_sec);
+      CHECK(node.mtime_ns == static_cast<uint32_t>(status.st_mtimespec.tv_nsec));
+#else
+      CHECK(node.mtime_s == status.st_mtim.tv_sec);
+      CHECK(node.mtime_ns == static_cast<uint32_t>(status.st_mtim.tv_nsec));
+#endif
+    }
+
+    biv::scan::ScanResult unclaimed;
+    auto guard = biv::scan::scan_subtree(root, matcher->matcher, {}, "r",
+                                         unclaimed);
+    REQUIRE_FALSE(guard.has_value());
+    CHECK(guard.error().kind == biv::ErrKind::UnclaimedGitEntry);
+    CHECK(guard.error().path == (root / "r/.git").generic_string());
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root row emits children but never an empty root member") {
+    auto root = make_tmp("c6q-root");
+    std::filesystem::create_directories(root / ".git");
+    write_file(root / "a.txt", "a");
+    write_file(root / "d/b.txt", "b");
+    auto matcher = biv::scan::prepare_matcher(root);
+    REQUIRE(matcher.has_value());
+    biv::scan::ScanResult into;
+    auto result = biv::scan::scan_subtree(
+        root, matcher->matcher,
+        biv::scan::ScanExclusions{.claimed_markers = {""}}, "", into);
+    REQUIRE(result.has_value());
+    std::vector<std::string> relpaths;
+    for (const auto& node : into.payload) relpaths.push_back(node.relpath);
+    CHECK(relpaths == std::vector<std::string>{"a.txt", "d", "d/b.txt"});
+    CHECK(std::ranges::none_of(into.payload, [](const auto& node) {
+      return node.relpath.empty() || node.relpath.find(".git") != std::string::npos;
+    }));
+    std::filesystem::remove_all(root);
+  }
+}
+
 TEST_CASE("scan enumerates payload in lexicographic byte order") {
   auto root = make_tmp("lex");
   write_file(root / "b.txt");

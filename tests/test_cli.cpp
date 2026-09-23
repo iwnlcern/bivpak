@@ -3129,3 +3129,203 @@ TEST_CASE("c6m a payload directory above a restored repository keeps its archive
   run_leg("offline", "--offline");
   std::filesystem::remove_all(root);
 }
+
+TEST_CASE("c6q payload-only repository trees round trip without git",
+          "[cli][c6q]") {
+  const auto handle = open_repos_fixture::git();
+  const auto make_remote = [&](const std::filesystem::path& root) {
+    const auto remote = root / "remote.git";
+    const auto seed = root / "seed";
+    std::filesystem::create_directories(remote);
+    std::filesystem::create_directories(seed);
+    open_repos_fixture::run_git(handle, remote,
+                                 {"init", "--bare", "--initial-branch=main"});
+    open_repos_fixture::run_git(handle, seed, {"init", "-b", "main"});
+    write_file(seed / ".gitignore", "*.log\n");
+    write_file(seed / "sub/t.txt", "one\n");
+    write_file(seed / "b.txt", "first\n");
+    open_repos_fixture::run_git(handle, seed, {"add", "."});
+    open_repos_fixture::run_git(
+        handle, seed,
+        {"-c", "user.name=Biv Test", "-c",
+         "user.email=biv@example.invalid", "commit", "-m", "one"});
+    write_file(seed / "b.txt", "second\n");
+    open_repos_fixture::run_git(handle, seed, {"add", "b.txt"});
+    open_repos_fixture::run_git(
+        handle, seed,
+        {"-c", "user.name=Biv Test", "-c",
+         "user.email=biv@example.invalid", "commit", "-m", "two"});
+    open_repos_fixture::run_git(handle, seed,
+                                 {"remote", "add", "origin", remote.string()});
+    open_repos_fixture::run_git(handle, seed, {"push", "origin", "main"});
+    return remote;
+  };
+  const auto clone_shallow = [&](const std::filesystem::path& root,
+                                 const std::filesystem::path& remote,
+                                 const std::filesystem::path& dest) {
+    open_repos_fixture::run_git(
+        handle, root,
+        {"clone", "--depth", "1", "file://" + remote.generic_string(),
+         dest.generic_string()});
+  };
+  const auto stat_pair = [](const std::filesystem::path& path) {
+    struct stat status{};
+    REQUIRE(::lstat(path.c_str(), &status) == 0);
+#if defined(__APPLE__)
+    return std::pair{std::pair{status.st_mtimespec.tv_sec,
+                               status.st_mtimespec.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#else
+    return std::pair{std::pair{status.st_mtim.tv_sec, status.st_mtim.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#endif
+  };
+  const auto assert_tree = [&](const std::filesystem::path& source,
+                               const std::filesystem::path& dest,
+                               const std::vector<std::string>& relpaths) {
+    for (const auto& relpath : relpaths) {
+      const auto from = source / relpath;
+      const auto to = dest / relpath;
+      INFO(relpath);
+      CHECK(stat_pair(to) == stat_pair(from));
+      if (std::filesystem::is_regular_file(from)) {
+        CHECK(read_text(to) == read_text(from));
+      }
+    }
+  };
+  const auto assert_json = [](const std::string& output,
+                              const std::map<std::string, std::string>& outcomes,
+                              const int64_t restored_members) {
+    simdjson::dom::parser parser;
+    const simdjson::dom::element document = parser.parse(output);
+    CHECK(int64_t(document["result"]["restored_member_count"]) ==
+          restored_members);
+    const simdjson::dom::array rows = document["result"]["repos"];
+    REQUIRE(rows.size() == outcomes.size());
+    for (const auto row : rows) {
+      const std::string rel{std::string_view(row["relpath"])};
+      REQUIRE(outcomes.contains(rel));
+      CHECK(std::string_view(row["outcome"]) == outcomes.at(rel));
+    }
+  };
+
+  SECTION("non-root shallow and unborn rows") {
+    const auto root = make_tmp("c6q-nonroot");
+    const auto workspace = root / "workspace";
+    const auto remote = make_remote(root);
+    write_file(workspace / "README.md", "root\n");
+    clone_shallow(root, remote, workspace / "shal");
+    write_file(workspace / "shal/x.log", "ignored bytes\n");
+    std::filesystem::create_directories(workspace / "fresh");
+    open_repos_fixture::run_git(handle, workspace / "fresh",
+                                 {"init", "-b", "main"});
+    write_file(workspace / "fresh/sub/f.txt", "fresh\n");
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    INFO(packed.out);
+    INFO(packed.err);
+    REQUIRE(packed.code == 0);
+    open_repos_fixture::install_trace(root);
+    const ScopedEnv path{"PATH", (root / "bin").string() + ":" +
+                                     std::getenv("PATH")};
+    const std::vector<std::string> shal{
+        "shal", "shal/.gitignore", "shal/b.txt", "shal/sub",
+        "shal/sub/t.txt", "shal/x.log"};
+    const std::vector<std::string> fresh{
+        "fresh", "fresh/sub", "fresh/sub/f.txt"};
+    for (const auto& [name, flag] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"online", ""}, {"offline", "--offline"}}}) {
+      write_file(root / "trace", "");
+      const auto dest = root / name;
+      const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                      "' --dest '" + dest.string() + "' " +
+                                      flag + " --json",
+                                  root);
+      INFO(opened.out);
+      INFO(opened.err);
+      REQUIRE(opened.code == 0);
+      assert_tree(workspace, dest, shal);
+      assert_tree(workspace, dest, fresh);
+      CHECK_FALSE(std::filesystem::exists(dest / "shal/.git"));
+      CHECK_FALSE(std::filesystem::exists(dest / "fresh/.git"));
+      CHECK(read_text(root / "trace").empty());
+      assert_json(opened.out,
+                  {{"shal", "shallow-pointer"},
+                   {"fresh", "payload-only-unborn"}},
+                  10);
+      if (const char* receipts = std::getenv("BIV_LEG_RECEIPTS")) {
+        std::ofstream out{receipts, std::ios::app};
+        out << "leg=c6q-" << name << " provenance=product-packed\n";
+      }
+    }
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root shallow row") {
+    const auto root = make_tmp("c6q-root-shallow");
+    const auto remote = make_remote(root);
+    const auto workspace = root / "workspace";
+    clone_shallow(root, remote, workspace);
+    write_file(workspace / "x.log", "ignored bytes\n");
+    write_file(workspace / "extra.txt", "extra\n");
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    REQUIRE(packed.code == 0);
+    open_repos_fixture::install_trace(root);
+    const ScopedEnv path{"PATH", (root / "bin").string() + ":" +
+                                     std::getenv("PATH")};
+    const std::vector<std::string> expected{
+        ".gitignore", "b.txt", "extra.txt", "sub", "sub/t.txt", "x.log"};
+    for (const auto& [name, flag] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"online", ""}, {"offline", "--offline"}}}) {
+      write_file(root / "trace", "");
+      const auto dest = root / ("dest-" + name);
+      const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                      "' --dest '" + dest.string() + "' " +
+                                      flag + " --json",
+                                  root);
+      REQUIRE(opened.code == 0);
+      assert_tree(workspace, dest, expected);
+      CHECK_FALSE(std::filesystem::exists(dest / ".git"));
+      CHECK(read_text(root / "trace").empty());
+      assert_json(opened.out, {{".", "shallow-pointer"}}, 6);
+    }
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root unborn row") {
+    const auto root = make_tmp("c6q-root-unborn");
+    const auto workspace = root / "workspace";
+    std::filesystem::create_directories(workspace);
+    open_repos_fixture::run_git(handle, workspace, {"init", "-b", "main"});
+    write_file(workspace / "sub/f.txt", "fresh\n");
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    REQUIRE(packed.code == 0);
+    open_repos_fixture::install_trace(root);
+    const ScopedEnv path{"PATH", (root / "bin").string() + ":" +
+                                     std::getenv("PATH")};
+    const std::vector<std::string> expected{"sub", "sub/f.txt"};
+    for (const auto& [name, flag] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"online", ""}, {"offline", "--offline"}}}) {
+      write_file(root / "trace", "");
+      const auto dest = root / ("dest-" + name);
+      const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                      "' --dest '" + dest.string() + "' " +
+                                      flag + " --json",
+                                  root);
+      REQUIRE(opened.code == 0);
+      assert_tree(workspace, dest, expected);
+      CHECK_FALSE(std::filesystem::exists(dest / ".git"));
+      CHECK(read_text(root / "trace").empty());
+      assert_json(opened.out, {{".", "payload-only-unborn"}}, 2);
+    }
+    std::filesystem::remove_all(root);
+  }
+}

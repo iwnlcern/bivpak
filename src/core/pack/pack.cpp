@@ -30,6 +30,7 @@
 #include "core/repo/discover.hpp"
 #include "core/repo/eligibility.hpp"
 #include "core/repo/git.hpp"
+#include "core/repo/restore.hpp"
 #include "core/scan/scan.hpp"
 #include "core/support/portability.hpp"
 #include "core/support/version.hpp"
@@ -783,6 +784,27 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir,
             captured.error(), entries.at(index).relpath.generic_string(), options.offline));
       }
       captures.push_back(std::move(*captured));
+    }
+  }
+
+  scan::ScanExclusions payload_only_exclusions;
+  for (const auto& entry : entries) {
+    const auto rel = scan::ScanExclusions::canonical(entry.relpath);
+    if (repo::restore_invokes_git(entry)) {
+      payload_only_exclusions.repo_subtrees.push_back(rel);
+    } else {
+      payload_only_exclusions.claimed_markers.push_back(rel);
+    }
+  }
+  for (const auto& entry : entries) {
+    if (repo::restore_invokes_git(entry)) {
+      continue;
+    }
+    auto scanned = scan::scan_subtree(
+        source, matcher->matcher, payload_only_exclusions,
+        scan::ScanExclusions::canonical(entry.relpath), *scan_result);
+    if (!scanned) {
+      return cleanup_error(scanned.error());
     }
   }
 
