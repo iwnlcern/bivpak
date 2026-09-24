@@ -807,3 +807,17 @@ MY FIRST CUT OF THE GATE WAS BLIND to the case it exists for: it checked only `[
 Rebuilt, every literal read is a requirement and each must have an earlier writer. The writers a textual scan cannot see (25) are classified one row each against their real writer, and the gate fails on any orphan outside that set or any stale row.
 The discriminator was run: rev28 rc 1 (exactly the two real orphans); rev29 rc 0; the names-only mutant rc 1 (that file); the manifest-only mutant rc 1 (its pair).
 It is installed at `results/producer-gate/` and is a standing step before every token; it will be announced on my next word.
+
+## R62 — rev29 approved at the exact hash; the word filed (2026-09-24 08:09 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260924-080955.md`; 08:25 SITREP `intg-substep2b/SITREP-pair-planner-20260924-082513.md`)
+
+The implementer approved rev29 `6ef818b3…` at 7774feb (`intg-substep2b-plan-review-28`, PARENT plan-30) with no must-revise.
+Their own replay of Task 9's lines 21–35 (2 YES, 10 NO at their own guards) matched mine, and they traced every consumer of the two inputs.
+The approve relies on Task 9's zero-byte fence proving `e3.py` unchanged B..H0 before any consumer; verified here: the fence is runner line 100, the first Docker consumer line 122.
+The T-ORACLE prefix (sha `1c437ac4…`, present once in rev29) was replayed at the new digest in scratch clones: YES `t-oracle OK` with one receipt; `carry-to` NO and stale-digest NO, each with no receipt.
+My first replay was INVALID: a zsh glob left the synthetic carries uncommitted, so all three cases stopped `untracked-carry`. It was discarded and re-run with the carries committed by explicit path.
+The word asks master for the five fields; only `T_ORACLE_PLAN_SHA256` moves from 184303, and the owner-object digests were recomputed at pdc 5fcc90ce, unchanged.
+m-3's 081947 answers `C8_CLASS_SET: discharged`. m-3 owned H's silent drop across rev1–rev3; H's kind and exit 3 are landed at CLI level with the exact recipe, and m-3 measured the envelope valid. The harness H row is an m-3 residual for a later act. It reaches my GO through master's carry.
+The word also adopts the producer gate as a standing pre-token step.
+INDEX disclosure: commit 46627ef carries the implementer's 080955 row beside mine (their relay file stays theirs, untracked). Their 072544 STOP relay still has no INDEX row.
+Next: master's fresh carry, then the `t-oracle.txt` rewrite in the pointer's directory, both gates, the Step 0′ mirror walk, the producer gate, and impl-9.
+The release hold is ABSOLUTE.
