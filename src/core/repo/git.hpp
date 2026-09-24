@@ -19,6 +19,7 @@ class Git {
 
   struct Opts {
     std::optional<std::filesystem::path> cwd;
+    std::optional<std::filesystem::path> ceiling;
     bool no_lazy_fetch{false};
     bool isolate_global_config{false};
     // Intentional top-level transport calls opt in; every other Git call pins

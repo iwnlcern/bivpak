@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -23,6 +24,10 @@
 #include "core/repo/restore.hpp"
 #include "core/support/subprocess.hpp"
 #include "support/temp_dir.hpp"
+
+namespace biv::repo::restore_testing {
+void force_ceiling_error(bool enabled) noexcept;
+}
 
 namespace {
 
@@ -217,6 +222,66 @@ void configure_url_rewrite(const biv::repo::Git &git,
   git_run(git, repo,
           {"config", "--local", "url." + effective + ".insteadOf", requested});
 }
+
+std::vector<std::string>
+ceiling_entries(const biv::support::SpawnRequest &request) {
+  std::vector<std::string> entries;
+  std::ranges::copy_if(request.env, std::back_inserter(entries),
+                       [](const auto &value) {
+                         return value.starts_with("GIT_CEILING_DIRECTORIES=");
+                       });
+  return entries;
+}
+
+std::vector<std::pair<std::filesystem::path, std::string>>
+regular_tree_bytes(const std::filesystem::path &root) {
+  std::vector<std::pair<std::filesystem::path, std::string>> result;
+  for (const auto &item : std::filesystem::recursive_directory_iterator(root)) {
+    if (!item.is_regular_file()) {
+      continue;
+    }
+    std::ifstream stream{item.path(), std::ios::binary};
+    result.emplace_back(item.path().lexically_relative(root),
+                        std::string{std::istreambuf_iterator<char>{stream},
+                                    std::istreambuf_iterator<char>{}});
+  }
+  std::ranges::sort(result);
+  return result;
+}
+
+biv::repo::RepoEntry overlay_entry(const std::string &requested,
+                                   const std::string &sha) {
+  biv::repo::RepoEntry entry;
+  entry.id = "overlay";
+  entry.relpath = "overlay";
+  entry.kind = biv::repo::RepoKind::repo;
+  entry.remote = "origin";
+  entry.remotes = {{.name = "origin", .url = requested}};
+  entry.sha = sha;
+  entry.branch = "main";
+  entry.head_state = biv::repo::HeadState::branch;
+  entry.capture_mode = biv::repo::CaptureMode::overlay;
+  entry.eligibility =
+      biv::repo::Eligibility{.method = "ls-remote-ancestry",
+                             .result = biv::repo::EligibilityResult::proven,
+                             .checked_at = "fixture",
+                             .proof = biv::repo::Proof{.remote = "origin",
+                                                       .url = requested,
+                                                       .ref = "refs/heads/main",
+                                                       .tip_sha = sha}};
+  return entry;
+}
+
+struct ScopedCeilingError {
+  ScopedCeilingError() {
+    biv::repo::restore_testing::force_ceiling_error(true);
+  }
+  ~ScopedCeilingError() {
+    biv::repo::restore_testing::force_ceiling_error(false);
+  }
+  ScopedCeilingError(const ScopedCeilingError &) = delete;
+  ScopedCeilingError &operator=(const ScopedCeilingError &) = delete;
+};
 
 biv::expected<biv::support::SpawnResult>
 real_network_probe(const biv::repo::Git &git, const std::filesystem::path &repo,
@@ -895,6 +960,201 @@ TEST_CASE("F-URL-1 real git j overlay clone is gated and full clone is not") {
 
   REQUIRE(restored.has_value());
   CHECK(request_count_with_argv(requests, "--get-url") == 0U);
+}
+
+TEST_CASE("W-C1/W-C2: restore is bounded above an enclosing repository and "
+          "does not write its git directory",
+          "[repo][c1e]") {
+  std::vector<biv::support::SpawnRequest> requests;
+  auto git =
+      resolved_git([&](const auto &request) { requests.push_back(request); });
+  TempDir root{"c1e-w-c1"};
+  const auto fixture_root = std::filesystem::canonical(root.path());
+  const auto publisher = fixture_root / "publisher";
+  init_repo(git, publisher);
+  const auto recorded_repo = init_bare_remote(git, fixture_root);
+  add_remote_and_push(git, publisher, recorded_repo);
+  git_run(git, recorded_repo,
+          {"symbolic-ref", "HEAD", "refs/heads/main"});
+  const auto sha = git_stdout(git_run(git, publisher, {"rev-parse", "HEAD"}));
+  const auto other_repo = fixture_root / "other.git";
+  git_run(git, fixture_root, {"clone", "--bare"},
+          {recorded_repo.string(), other_repo.string()});
+  const auto requested = "file://" + recorded_repo.string();
+  const auto other = "file://" + other_repo.string();
+  const auto enclosing = fixture_root / "encl";
+  init_repo(git, enclosing);
+  configure_url_rewrite(git, enclosing, requested, other);
+  const auto before = regular_tree_bytes(enclosing / ".git");
+  const auto expected_ceiling = "GIT_CEILING_DIRECTORIES=" +
+                                std::filesystem::canonical(enclosing).string();
+  const auto partial = enclosing / "dest.partial";
+  requests.clear();
+  biv::repo::UrlDivergenceRun run;
+  biv::repo::ScopedUrlDivergenceRun scoped{run};
+
+  auto restored = biv::repo::restore_entry(
+      git, overlay_entry(requested, sha), partial, fixture_root / "stage");
+
+  REQUIRE(restored.has_value());
+  CHECK(run.refused.empty());
+  CHECK(run.accepted.empty());
+  REQUIRE_FALSE(requests.empty());
+  for (const auto &request : requests) {
+    INFO(request.argv.front());
+    CHECK(ceiling_entries(request) == std::vector{expected_ceiling});
+  }
+  CHECK(request_count_with_argv(requests, "--get-url") >= 1U);
+  CHECK(git_stdout(git_run(git, partial / "overlay",
+                           {"config", "--get", "remote.origin.url"})) ==
+        requested);
+  CHECK(regular_tree_bytes(enclosing / ".git") == before);
+}
+
+TEST_CASE("W-C3/W-C3s: a symlinked destination emits one canonical absolute "
+          "ceiling",
+          "[repo][c1e]") {
+  std::vector<biv::support::SpawnRequest> requests;
+  auto git =
+      resolved_git([&](const auto &request) { requests.push_back(request); });
+  TempDir root{"c1e-w-c3"};
+  const auto publisher = root.path() / "publisher";
+  init_repo(git, publisher);
+  const auto recorded_repo = init_bare_remote(git, root.path());
+  add_remote_and_push(git, publisher, recorded_repo);
+  git_run(git, recorded_repo,
+          {"symbolic-ref", "HEAD", "refs/heads/main"});
+  const auto sha = git_stdout(git_run(git, publisher, {"rev-parse", "HEAD"}));
+  const auto other_repo = root.path() / "other.git";
+  git_run(git, root.path(), {"clone", "--bare"},
+          {recorded_repo.string(), other_repo.string()});
+  const auto requested = "file://" + recorded_repo.string();
+  const auto other = "file://" + other_repo.string();
+  const auto enclosing = root.path() / "encl";
+  init_repo(git, enclosing);
+  configure_url_rewrite(git, enclosing, requested, other);
+  const auto link = root.path() / "link";
+  std::filesystem::create_directory_symlink(enclosing, link);
+  const auto partial = link / "dest.partial";
+  const auto canonical = std::filesystem::canonical(enclosing);
+  const auto expected_ceiling = "GIT_CEILING_DIRECTORIES=" + canonical.string();
+  requests.clear();
+  biv::repo::UrlDivergenceRun run;
+  biv::repo::ScopedUrlDivergenceRun scoped{run};
+
+  auto restored = biv::repo::restore_entry(
+      git, overlay_entry(requested, sha), partial, root.path() / "stage");
+
+  REQUIRE(restored.has_value());
+  CHECK(run.refused.empty());
+  REQUIRE_FALSE(requests.empty());
+  for (const auto &request : requests) {
+    const auto entries = ceiling_entries(request);
+    REQUIRE(entries.size() == 1U);
+    CHECK(entries.front() == expected_ceiling);
+    const auto emitted = entries.front().substr(
+        std::string{"GIT_CEILING_DIRECTORIES="}.size());
+    CHECK(std::filesystem::path{emitted}.is_absolute());
+    CHECK(emitted != link.string());
+    CHECK(emitted.find(':') == std::string::npos);
+  }
+}
+
+TEST_CASE("W-C4: no enclosing repository retains the overlay restore outcome",
+          "[repo][c1e]") {
+  std::vector<biv::support::SpawnRequest> requests;
+  auto git =
+      resolved_git([&](const auto &request) { requests.push_back(request); });
+  TempDir root{"c1e-w-c4"};
+  const auto publisher = root.path() / "publisher";
+  init_repo(git, publisher);
+  const auto recorded_repo = init_bare_remote(git, root.path());
+  add_remote_and_push(git, publisher, recorded_repo);
+  git_run(git, recorded_repo,
+          {"symbolic-ref", "HEAD", "refs/heads/main"});
+  const auto sha = git_stdout(git_run(git, publisher, {"rev-parse", "HEAD"}));
+  const auto requested = "file://" + recorded_repo.string();
+  const auto partial = root.path() / "plain/dest.partial";
+  requests.clear();
+
+  auto restored = biv::repo::restore_entry(
+      git, overlay_entry(requested, sha), partial, root.path() / "stage");
+
+  REQUIRE(restored.has_value());
+  CHECK(restored->id == "overlay");
+  CHECK(restored->outcome == biv::repo::RepoRestoreOutcome::restored);
+  CHECK(restored->sha == sha);
+  CHECK(git_stdout(git_run(git, partial / "overlay", {"rev-parse", "HEAD"})) ==
+        sha);
+}
+
+TEST_CASE("W-C5: pack-side repository discovery carries no ceiling",
+          "[repo][c1e]") {
+  std::vector<biv::support::SpawnRequest> requests;
+  auto git =
+      resolved_git([&](const auto &request) { requests.push_back(request); });
+  TempDir root{"c1e-w-c5"};
+  const auto outer = root.path() / "outer";
+  init_repo(git, outer);
+  const auto outer_remote = init_bare_remote(git, root.path());
+  add_remote_and_push(git, outer, outer_remote);
+  const auto source = outer / "src";
+  init_repo(git, source);
+  const auto source_remote = root.path() / "source.git";
+  std::filesystem::create_directories(source_remote);
+  git_run(git, source_remote, {"init", "--bare"});
+  add_remote_and_push(git, source, source_remote);
+  const auto requested = "file://" + source_remote.string();
+  git_run(git, source, {"remote", "set-url"}, {"origin", requested});
+  requests.clear();
+
+  auto classified = biv::repo::classify(git, source, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.remotes.size() == 1U);
+  CHECK(classified->entry.remotes[0].url == requested);
+  auto eligible = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::offline);
+  REQUIRE(eligible.has_value());
+  REQUIRE_FALSE(requests.empty());
+  for (const auto &request : requests) {
+    CHECK(ceiling_entries(request).empty());
+  }
+}
+
+TEST_CASE("W-C6: an un-canonicalizable parent is typed and spawns no git",
+          "[repo][c1e]") {
+  std::vector<biv::support::SpawnRequest> requests;
+  auto git =
+      resolved_git([&](const auto &request) { requests.push_back(request); });
+  TempDir root{"c1e-w-c6"};
+  biv::repo::RepoEntry entry;
+  entry.id = "root";
+  entry.relpath = ".";
+  entry.kind = biv::repo::RepoKind::repo;
+  entry.sha = std::string(40U, '1');
+  entry.head_state = biv::repo::HeadState::detached;
+  entry.capture_mode = biv::repo::CaptureMode::overlay;
+  entry.eligibility = biv::repo::Eligibility{
+      .method = "ls-remote-ancestry",
+      .result = biv::repo::EligibilityResult::proven,
+      .checked_at = "fixture",
+      .proof = biv::repo::Proof{.remote = "origin",
+                                .url = "file:///nonexistent.git",
+                                .ref = "refs/heads/main",
+                                .tip_sha = *entry.sha}};
+  const auto partial = root.path() / "parent/dest.partial";
+  requests.clear();
+  ScopedCeilingError inject;
+
+  auto restored =
+      biv::repo::restore_entry(git, entry, partial, root.path() / "stage");
+
+  REQUIRE_FALSE(restored.has_value());
+  CHECK(biv::repo::engine_error_kind(restored.error()) ==
+        biv::repo::EngineErrorKind::repo_restore_failed);
+  CHECK(restored.error().detail.starts_with(
+      "RepoRestoreFailed: clone: ceiling: "));
+  CHECK(requests.empty());
 }
 
 TEST_CASE("F-URL-1 real git k endpoint carrier refuses zero and many") {
