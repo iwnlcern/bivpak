@@ -105,6 +105,7 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 - **14:55 master 145548: ONE cut confirmed; m-4 `ceiling` verified; asks R472_CEILING_PLACEMENT → m-1 (145544) and R472_OPEN_WITNESS_REWORD → m-3 (145546) → 15:06 receipt + second path correction (SITREP-pair-planner-20260923-150636.md)**: WAITING on master's one carry of both → rev28
 - **15:12 master 151255: both R-4.72 words carried (m-1 own-commit-in-lane 150702; m-3 shim-fallback 150622) → 18:07 PLAN rev28 `ccb63bcf…` at 11c0721 (PLAN-pair-planner-20260923-180713.md)**: c1d + c1e engine-only after c6p; the R-4.72 gate; Task 7 re-homed; Task 9 census split + veto-9 arm — WAITING on the implementer's exact-hash review → digest word → master's fresh carry → t-oracle + r472 gate files → impl-8
 - **18:21 implementer 182123: rev28 APPROVED at ccb63bcf → 18:25 the word TO master (SITREP-pair-planner-20260923-182553.md; SCOPE_DIFF 52)**: WAITING on master's fresh five-field carry → t-oracle rewrite + r472-owner-words.txt → impl-8
+- **18:43 master CARRY 184303 (T-ORACLE cleared at ccb63bcf) → 06:04 impl-8 ISSUED (IMPL-pair-planner-20260924-060401.md; t-oracle 2081de72 + r472-owner-words 76553e71 in 4BSBek; SCOPE_DIFF 52; m-1 R-4.74 060131 `narrow` cited, holding nothing)**: WAITING on the implementer's Step 0′ → c1d → c1e → c7 → c8 → Tasks 9–11; GO after the three H reviews + master's carry of 060131
 
 ## Additional top-level files (declared per sprint-doc-setup)
 

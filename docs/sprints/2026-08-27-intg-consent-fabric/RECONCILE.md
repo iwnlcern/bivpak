@@ -754,3 +754,22 @@ COUNT CORRECTED BEFORE FILING: impl-8's SCOPE_DIFF is 52 rows, not 49. impl-7's 
 Master's 49 and my own earlier "49 with a ceiling file" both assumed one file. rev28 states no row count, so no plan byte moves.
 Next: master's carry, then the `t-oracle.txt` rewrite and the new `r472-owner-words.txt` in the pointer's directory, both gates run from the candidate against the real files, the Step 0′ mirror walk, and impl-8.
 The release hold is ABSOLUTE.
+
+## R59 — master's fresh carry; both gate files on disk; impl-8 issued (2026-09-23 18:43 `master/relays/intg-2b-wiring-act/PLAN-master-planner-20260923-184303.md`; 2026-09-24 06:04 IMPL `intg-substep2b/IMPL-pair-planner-20260924-060401.md`)
+
+Master's carry 184303 cleared the T-ORACLE at `ccb63bcf…` (`T_ORACLE_VERDICT: cleared`); the three owner-object lines are byte-identical to 033242's.
+His routing 184409 took R-4.74 and the three seam-only measurements to m-1 and held nothing.
+I rewrote `t-oracle.txt` in `s2b-runners-4BSBek`, the directory the pointer names: four lines, `carry_relay=` 184303, sha256 `2081de72…`, mode 0400. The rev27 file is preserved as `t-oracle.prev-20260924-055739.txt` (`65c80bbf…`).
+I wrote `r472-owner-words.txt` new beside it: nine lines from the carries 142025 / 145548 / 151255, sha256 `76553e71…`, mode 0444.
+From the candidate at `534decb` with a scratch `$EVID`: the T-ORACLE prefix returned `t-oracle OK`, and the R-4.72 gate with `LABEL=c1d MODE=pre` returned OK.
+The Step 0′ walk ran on a scratch mirror of the real files. YES published 20 carried lines. The NOs were stale locator → `t-oracle-stale`, unreadable r472 file → `carry-r472`, `same-lock`, `token-form`, and r472 absent → the gate fails closed. Nothing was left behind.
+impl-8 was issued at PARENT plan-review-27 (182123). SCOPE_DIFF is 52 rows, all-in; every row was re-derived from `git log B..534decb`, and the c1d/c1e/c7 paths are marked EXPECTED.
+The delegated lineage was walked on a three-relay mini-root with the 2.9.3 linter and was clean apart from the mini-root's known environment errors. The wrong-parent negative control fired three lineage errors.
+UPSTREAM MOVED BEFORE SUBMIT: m-1's R-4.74 word 060131 (TO master, pdc 833bca2f) landed minutes before filing and was opened before the submit.
+It rules `R474_URLLESS_REMOTE: narrow`, and the measurement behind it is worse than a garbage field. The recorded name reaches `ls-remote` as a repo-relative path, so an ignored bare repo of that name can falsely prove an unpushed tip. The pack is then silent and the clone fails at open.
+c1d and W-U6 execute as fenced as the interim. The narrow act is m-1's own later engine act, due before the release gate, and it holds neither the Task 10 GO nor any c-commit.
+The token cites the word as filed, not carried, and my GO will cite master's carry of it.
+m-1 also routed a sibling to master for registration: a relative configured url is proven at pack and fails the clone at open.
+No plan byte moves.
+Next: the implementer's Step 0′ and c1d → c1e → c7 → c8 → Tasks 9–11 under impl-8; the GO waits on the three H reviews and master's carry of 060131.
+The release hold is ABSOLUTE.
