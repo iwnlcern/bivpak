@@ -721,3 +721,24 @@ Master confirmed one rev28, no split, and held it for his ONE carry of `R472_CEI
 Consequences taken for rev28: m-3's W-1 loses its product trigger, so the open-grain prompt, refusal, row and accept-flag legs fall back to the labelled shim; m-3's fixture becomes the ceiling's RED witness (NAMED MUTANT: ceiling removed ⇒ the prompt returns); EC-2 adds three legs (the enclosing `.git` byte-unchanged by checksum; a SYMLINKED destination still bounded; the no-enclosing control); EC-4 names the ceiling and the dot-git refusal at both writers as ONE property in one witness family. My six plan changes were accepted as consequences; the veto-9 arm's wording is held, because a ceiling commit of its own would make it admit a sixth engine commit and take the SCOPE_DIFF to 49.
 RECORD DEFECT, SECOND TIME: 145548 cites the asks as …145423 / …145425, which do not exist; the filed asks are …145544 (m-1) and …145546 (m-3). With 140251's identical slip, this looks like a drafting practice (citing draft-time stamps the engine replaces at render); I suggested citing siblings only by the submit JSON's `path`.
 The upstream listing ran as its own command and was read before the submit this time. c6q and c6p stay local and unpushed; c7 onward held. The release hold is ABSOLUTE.
+
+## R57 — both R-4.72 words carried; rev28 cut with two engine commits and a rewritten Task 7 (2026-09-23 15:12 `intg-2b-wiring-act/PLAN-master-planner-20260923-151255.md`; 18:07 PLAN `intg-substep2b/PLAN-pair-planner-20260923-180713.md`)
+
+Master carried m-1's `R472_CEILING_PLACEMENT: own-commit-in-lane` (150702) and m-3's `R472_OPEN_WITNESS_REWORD: shim-fallback` (150622) in one relay citing both by their rendered paths, and owned the cited-path defect with a concordance for the five affected relays.
+I verified both words with the gate's predicates, and every path 151255 cites resolves.
+rev28 (`ccb63bcf…` at 11c0721, 3387 lines) admits c1d (Task 6e: classify reads `config --get-all remote.<name>.url`, first line, at both sites) and c1e (Task 6f: `GIT_CEILING_DIRECTORIES` = the canonical parent of the partial root on every restore invocation), both engine-only after c6p and before c7, under m-1's re-ruled veto-9 form.
+One executable R-4.72 gate binds nine carriers for c1d, c1e and c7.
+Task 7 now runs the pack grain on real config, the open grain on the labelled shim, and the ISO family (W-1′ inverted, W-C2..W-C5, W-2, W-4, W-5), with E3 at the pack verb.
+F-RESTORE-DIVERGE is removed: it had contradicted Task 4's rev13 record of the landed isolation since rev13, which was my defect.
+Task 9's network-class census is split at c1e, because c1e changes restore.cpp's network-class call lines, and its veto-9 arm admits exactly c1d and c1e by recorded sha in the order c6p < c1d < c1e < c7.
+`resume.sh` carries `r472-owner-words.txt`; its prose list had also omitted `red1-owner-words.txt` since rev22, another prose/code drift of mine, now fixed.
+FOUR MEASUREMENTS of this seat, written into the plan and to be flagged to m-1 on the digest word, none a stop:
+(i) a config remote with no url is refused whole-pack under c1d's fence, where at B it recorded the remote's name (W-U6 pins the fence's stated arm);
+(ii) c1e's canonical and no-empty-entry clauses are invisible at product scope, so only the W-C3s seam witness can red them;
+(iii) W-C5's named mutant is visible only at the seam, because pack runs git at the repository top;
+(iv) without the ceiling the clone itself still fetched the recorded url, so the defect is a false divergence at the gate's `--get-url`, and W-1′ reds by the refusal, never by content.
+Also: the landed F-URL-1 engine case configures its rewrite AFTER classify, the order that hid R-4.72.
+The gate walk caught a dead guard of mine before filing (the post-vs-pre comparison sat behind the c1d anchor); it was reordered and walked again: 54 PASS, 0 FAIL, plus six real-relay YES runs.
+The veto-9 and census walk ran 17 PASS, 0 FAIL, and the `resume.sh` mirror walk behaved as intended with zero leftovers.
+Next: the implementer's exact-hash review, then my digest word, master's fresh carry, the `t-oracle.txt` rewrite and the new `r472-owner-words.txt` in the pointer's directory, and then impl-8.
+c6q and c6p stay local and unpushed; c7 onward is held. The release hold is ABSOLUTE.
