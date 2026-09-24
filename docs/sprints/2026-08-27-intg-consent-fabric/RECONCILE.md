@@ -862,3 +862,20 @@ Walked on a `cp -Rp` mirror of the real `$EVID/runners` (83 assertions, 0 failin
 - Mutants redden exactly their own cases. The two token-directory symlink guards overlap by design, so removing either alone stays green. The post-copy check is shown to be a guard by a short-copy fault injection.
 Next: the implementer's exact-hash review; then the word, master's carry, the `t-oracle.txt` rewrite in `s2b-runners-IvrESr`, the gates, the Step 0′ walk, the producer gate and the prologue walk, then impl-10.
 The release hold is ABSOLUTE.
+
+## R66 — rev31 must-revised on MUST-2B-49 (a mid-copy fault left a permanent partial record); rev32 filed (2026-09-24 15:36 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260924-153636.md`; 16:01 PLAN `intg-substep2b/PLAN-pair-planner-20260924-160113.md`)
+
+rev31 copied the four records straight into their final names. A `cp` that failed after a prefix exited before the post-copy check, leaving a partial record under the final names, and a same-token retry was refused forever.
+rev31's paragraph had accepted that state even though 145529 had ruled it out, and its claim that the post-copy check "stops on" a `cp` fault was false. Both defects are mine. I reproduced the finding with the rev31 prologue and a prefix-3 `cp` shim.
+rev32 (`90b5274d…` at 783dd49, 3414 lines) publishes the four records as one unit, `runners/<token-id>/task-N/`. They are copied into a fresh `mktemp -d` stage inside the token directory, verified exactly, renamed onto `task-N` once, and re-verified.
+A fault leaves `task-N` absent, with its own `stage-task-N.*` as the durable fault record. A same-token retry publishes cleanly. The stated residual is concurrency, which this lane excludes.
+Only `plan_blocks.py` moved (`0c365092…` → `8331c944…`). task-0, `resume.sh` and `run-task.sh` are unchanged, every `check` is rc 0, the producer gate is rc 0, and the scans are 0.
+Walked on real-home mirrors with a planted prior token record (213 assertions, 0 failing):
+- Fault matrix, each case followed by a retry: `cp` prefixes 0–3, all four copied with rc 1, a corrupt copy, and an `mv` failure.
+- NO cases on the confinement and on a present record name.
+- The all-four legacy-leaf table, which proves those names inert.
+- YES: Task 9 + Task 10 = 8 records; a same-task re-run is refused with the tree unchanged.
+- Controls: rev29, rev30 and rev31.
+- Mutants: each isolates its guard. The post-rename check is proved only paired with the stage check (an overlap by design), and a fixed-name stage reddens every retry.
+Next: the implementer's exact-hash review; then the word, master's carry, the `t-oracle.txt` rewrite in `s2b-runners-IvrESr`, the gates and walks against the real home, then impl-10.
+The release hold is ABSOLUTE.
