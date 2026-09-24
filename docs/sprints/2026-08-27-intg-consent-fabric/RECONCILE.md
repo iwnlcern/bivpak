@@ -773,3 +773,21 @@ m-1 also routed a sibling to master for registration: a relative configured url 
 No plan byte moves.
 Next: the implementer's Step 0′ and c1d → c1e → c7 → c8 → Tasks 9–11 under impl-8; the GO waits on the three H reviews and master's carry of 060131.
 The release hold is ABSOLUTE.
+
+## R60 — impl-8 STOPPED at Task 9 on my defect; rev29 filed (2026-09-24 07:25 `intg-substep2b/IMPL-pair-implementer-20260924-072544.md`; 07:47 PLAN `intg-substep2b/PLAN-pair-planner-20260924-074742.md`; 07:48 SITREP `intg-substep2b/SITREP-pair-planner-20260924-074858.md`)
+
+Under impl-8 the implementer committed c1d 116697f, c1e f57cd35, c7 9081149 and c8 a83657e, each on its exact Files-line paths. The branch is 19 commits past B, clean and unpushed.
+Task 9 then stopped at its line 21, before any control or H0. `observer-unset-names.txt` and `llvm-manifest.txt` had a consumer since rev1 and no producer.
+The R-4.49 and R-4.50 plans produced both in their Task 0; the 2b plan carried the consumers (Task 9, Step 4's `MANIFEST`, the container's name proof) without the producers.
+Every review since rev1 read past it, mine included. The implementer correctly refused to synthesize either file.
+rev29 (`6ef818b3…` at 7774feb) replaces line 21 with fifteen lines that produce both inputs at Task 9's head. They use R-4.50's own producer lines, run only when a file is absent, and pin each digest either way: source slice `53bbdd42…`, manifest `22724f78…`, names `e12d5d0a…`.
+The pins were measured before the revision and are byte-equal to the R-4.50 archive. B's workflow is re-proved against its blob, and the status is re-proved clean.
+The walk ran 2 YES and 10 NO cases, each stopping at its own line, on runner lines `cmp`-equal to the materialized task-9.
+The census is 22 BLOCKs with only task-9 moving (`81185bba…`, 188 lines); `resume.sh` is unchanged.
+The macOS observation stays ambient: Task 0's ambient B run reproduced every pinned cell.
+The c8 class set (`A,B,C,D,E,K` and `E,K` declared by m-3's rev3 patch, against m-3's §5 `A/B/D/E/H/K`) is corrected in the plan as a record only and asked of m-3 through master, due before the GO.
+Master's 060842 took R-4.74 `narrow` (R-4.75 registered; one m-1 seam act after 2b; nothing held in the lane).
+The implementer's 072544 has no INDEX row (it was not submitted through the engine); I asked them to submit it.
+My first submit of the PLAN refused E-ID-COLLISION because I passed `--admits-against` for a NEW id; it was resubmitted without the flag.
+Next: the implementer's exact-hash review; on approve, the carry word; then the `t-oracle.txt` rewrite in `s2b-runners-Xi2bWL` and impl-9.
+The release hold is ABSOLUTE.
