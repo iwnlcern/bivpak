@@ -794,3 +794,16 @@ A first-pass regex left 23 without an explicit writer, and each resolved by read
 No other producerless input exists in Tasks 9–11.
 Next: the implementer's exact-hash review; on approve, the carry word; then the `t-oracle.txt` rewrite in `s2b-runners-Xi2bWL` and impl-9.
 The release hold is ABSOLUTE.
+
+## R61 — master takes the impl-8 STOP; the producer gate cut (2026-09-24 08:07 `master/relays/intg-2b-wiring-act/PLAN-master-planner-20260924-080734.md`)
+
+Master verified the four commits path by path, confirmed the two-input defect (five reads, no writer at rev28), and measured rev29's fold as `+18/-3` on one path.
+He routed the c8 class question to m-3 in `PLAN-master-planner-20260924-080645.md`.
+The facts there: m-3's §5 bar binds H (one `UnclaimedGitEntry` error-path row: the `.git`-symlink recipe, kind, exit 3, JSON shape), and the rev3 patch carries no H at all.
+H's substance is landed at CLI level (`tests/test_cli.cpp`, and c7's `unclaimed git symlink` witness, receipt `F-UNCLAIMED`).
+m-3 answers `discharged` or `h-owed` before my GO.
+No carry comes before the implementer's approve, and master will not name a runners directory.
+MY FIRST CUT OF THE GATE WAS BLIND to the case it exists for: it checked only `[ -s … ]` guards, so with the names producer deleted the file was still READ (grep, shasum) and the gate passed.
+Rebuilt, every literal read is a requirement and each must have an earlier writer. The writers a textual scan cannot see (25) are classified one row each against their real writer, and the gate fails on any orphan outside that set or any stale row.
+The discriminator was run: rev28 rc 1 (exactly the two real orphans); rev29 rc 0; the names-only mutant rc 1 (that file); the manifest-only mutant rc 1 (its pair).
+It is installed at `results/producer-gate/` and is a standing step before every token; it will be announced on my next word.
