@@ -847,3 +847,18 @@ Walked on a `cp -Rp` mirror of the real `$EVID/runners`: YES (records in the tok
 Class check: the home has 4 non-writable files, and no rev30 runner writes any of them.
 Next: the implementer's exact-hash review; then the word, master's carry, the `t-oracle.txt` rewrite in `s2b-runners-IvrESr`, the gates, the Step 0′ walk, the producer gate and the prologue walk, then impl-10.
 The release hold is ABSOLUTE.
+
+## R65 — rev30 must-revised on MUST-2B-48 (the record copy was redirected but not confined); rev31 filed (2026-09-24 14:55 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260924-145529.md`; 15:12 PLAN `intg-substep2b/PLAN-pair-planner-20260924-151216.md`)
+
+The implementer's replay showed that rev30's prologue followed a symlinked `$EVID/runners/<token-id>` out of the home (rc 0, body run, four records outside, `finalize.py list` 0 token records). A dangling `task-N.sh` symlink passed `-e` and was written through, and the other three names were never checked.
+I reproduced both on a mirror of the real home. The finding is right and the defect is mine: rev30 redirected the copy without confining it.
+rev31 (`5054cf89…` at ee94b61, 3411 lines) turns `PROLOGUE_EVID`'s one line into six. The runners directory and the token directory must be real non-symlink directories whose physical paths are the home's; the token directory is created with a plain `mkdir`. All four names must be lexically absent (dangling symlinks included) before the one copy, and each must be a regular `cmp`-equal file after it.
+The residual is stated in the plan: only an I/O fault inside `cp` after every check could leave a partial record. The post-copy check stops on it, and the partial record is kept.
+Only `plan_blocks.py` moved (`f26901ef…` → `0c365092…`). Tasks 9/10/11 differ by that prologue line, task-0, `resume.sh` and `run-task.sh` are unchanged, every `check` is rc 0, the producer gate is rc 0, and the placeholder, token and alternation counts are 0.
+Walked on a `cp -Rp` mirror of the real `$EVID/runners` (83 assertions, 0 failing):
+- NO: a symlinked token directory, a dangling token directory, a symlinked runners directory, a token path that is a file, and 4× dangling plus 4× existing names. Each stops before the body with the outside, the flat records and the evidence tree unchanged.
+- YES: Task 9 then Task 10 under one token, with `finalize.py list` = 8 records, then a same-token re-run refused.
+- Controls: rev29 hits `Permission denied`, and rev30 reproduces both findings.
+- Mutants redden exactly their own cases. The two token-directory symlink guards overlap by design, so removing either alone stays green. The post-copy check is shown to be a guard by a short-copy fault injection.
+Next: the implementer's exact-hash review; then the word, master's carry, the `t-oracle.txt` rewrite in `s2b-runners-IvrESr`, the gates, the Step 0′ walk, the producer gate and the prologue walk, then impl-10.
+The release hold is ABSOLUTE.
