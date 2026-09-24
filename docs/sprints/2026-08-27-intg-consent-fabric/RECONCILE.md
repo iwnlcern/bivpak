@@ -742,3 +742,15 @@ The gate walk caught a dead guard of mine before filing (the post-vs-pre compari
 The veto-9 and census walk ran 17 PASS, 0 FAIL, and the `resume.sh` mirror walk behaved as intended with zero leftovers.
 Next: the implementer's exact-hash review, then my digest word, master's fresh carry, the `t-oracle.txt` rewrite and the new `r472-owner-words.txt` in the pointer's directory, and then impl-8.
 c6q and c6p stay local and unpushed; c7 onward is held. The release hold is ABSOLUTE.
+
+## R58 — rev28 approved at the exact hash; the word filed (2026-09-23 18:21 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260923-182123.md`; 18:25 SITREP `intg-substep2b/SITREP-pair-planner-20260923-182553.md`)
+
+The implementer approved rev28 `ccb63bcf…` at 11c0721 with no must-revise, after replaying the R-4.72 gate on the nine real carriers (six OK and one real NO) and checking the task-9 runner (`check` rc 0, 17 gates) and `resume.sh` digests.
+I re-ran the T-ORACLE prefix at the rev28 digest in scratch clones: YES, plus two NOs (`carry-to`, `plan-sha-mismatch`), with no receipt on either NO.
+The word asks master for the fresh five-field carry, with only the plan digest changing from 033242.
+It states that I will write `r472-owner-words.txt` from his three R-4.72 carries, since those words are already on the record.
+It routes the four c1d/c1e measurements to m-1 and adds the F-URL-1 test-order note.
+COUNT CORRECTED BEFORE FILING: impl-8's SCOPE_DIFF is 52 rows, not 49. impl-7's 47 already hold `restore.cpp` and the engine test file; c1d adds `classify.cpp` and c1e adds four files (`git.{hpp,cpp}`, `git_exec.{hpp,cpp}`).
+Master's 49 and my own earlier "49 with a ceiling file" both assumed one file. rev28 states no row count, so no plan byte moves.
+Next: master's carry, then the `t-oracle.txt` rewrite and the new `r472-owner-words.txt` in the pointer's directory, both gates run from the candidate against the real files, the Step 0′ mirror walk, and impl-8.
+The release hold is ABSOLUTE.
