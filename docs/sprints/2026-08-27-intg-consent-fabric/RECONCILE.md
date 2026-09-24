@@ -836,3 +836,14 @@ Its order is Step 0′, then `run-task.sh 9` (a STOP ends the token, with no ret
 The token discloses that Task 9's re-run rewrites the EMPTY `$EVID/H/status-pre.txt` (identical bytes) and re-copies its runner files into `$EVID/runners/`; impl-8's authoritative copies stay in `Xi2bWL`, never modified.
 Next: the implementer's Task 9 return.
 The release hold is ABSOLUTE.
+
+## R64 — impl-9 STOPPED at Task 9's prologue on my defect; rev30 filed (2026-09-24 14:30 `intg-substep2b/IMPL-pair-implementer-20260924-143008.md`; 14:34 PLAN `intg-substep2b/PLAN-pair-planner-20260924-143458.md`)
+
+Step 0′ published `s2b-runners-IvrESr`. Task 9's derived line 11 (`plan_blocks.py`'s `PROLOGUE_EVID`) then copied the four runner records FLAT into `$EVID/runners/`, where impl-8's rev28 `task-9.sh` sits at 0500. The multi-source `cp` failed on that name after writing the other three, leaving a mixed flat record.
+My impl-9 token had asserted the re-copy without running the prologue against the real home, so this is the same class as rev29's defect: a claim about evidence-home state never executed against it.
+rev30 (`cf58433e…` at 2455293) changes ONE line: the copy goes to `$EVID/runners/<token-id>/` (the id is form-checked and a pre-existing `task-N.sh` is refused). The flat remnants are preserved verbatim and recorded in §Per-task runner protocol, and `run-task.sh`'s success receipts stay flat.
+Only `plan_blocks.py` moved among the 22 BLOCKs. Tasks 9/10/11 differ by that line; task-0, `resume.sh` and `run-task.sh` are unchanged; every `check` is rc 0 and the producer gate is rc 0.
+Walked on a `cp -Rp` mirror of the real `$EVID/runners`: YES (records in the token directory, flat unchanged; task-10 under the same token too) and three NOs, each rc 1 with flat unchanged. The rev29 prologue as control reproduced `Permission denied` and mutated the flat record.
+Class check: the home has 4 non-writable files, and no rev30 runner writes any of them.
+Next: the implementer's exact-hash review; then the word, master's carry, the `t-oracle.txt` rewrite in `s2b-runners-IvrESr`, the gates, the Step 0′ walk, the producer gate and the prologue walk, then impl-10.
+The release hold is ABSOLUTE.

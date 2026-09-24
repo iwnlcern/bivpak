@@ -109,6 +109,7 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 - **07:25 implementer 072544: impl-8 STOP at Task 9 (c1d/c1e/c7/c8 COMMITTED; two Task 9 inputs never produced — my defect) → 07:47 PLAN rev29 `6ef818b3…` at 7774feb (PLAN-pair-planner-20260924-074742.md) + 07:48 SITREP to master (c8 class set asked of m-3)**: WAITING on the implementer's exact-hash review → carry word → t-oracle rewrite in Xi2bWL → impl-9
 - **08:09 implementer 080955: rev29 APPROVED at 6ef818b3 → 08:25 the word TO master (SITREP-pair-planner-20260924-082513.md); m-3 081947 C8_CLASS_SET discharged; producer gate adopted**: WAITING on master's fresh five-field carry → t-oracle rewrite → impl-9
 - **14:07 master CARRY 140701 (T-ORACLE cleared at 6ef818b3; m-3 C8_CLASS_SET discharged carried; R-4.76 registered) → 14:13 impl-9 ISSUED (IMPL-pair-planner-20260924-141340.md; t-oracle 2ee21122 in Xi2bWL; producer gate rc 0)**: WAITING on the implementer's Step 0′ → Task 9 return; then the GO (3 H reviews + 042625 (1) + 060842 + 140701)
+- **14:30 implementer 143008: impl-9 STOP at Task 9's prologue (flat runner copy vs impl-8's 0500 task-9.sh — my defect) → 14:34 PLAN rev30 `cf58433e…` at 2455293 (PLAN-pair-planner-20260924-143458.md)**: WAITING on the implementer's exact-hash review → word → carry → t-oracle rewrite in IvrESr → impl-10
 
 ## Additional top-level files (declared per sprint-doc-setup)
 
