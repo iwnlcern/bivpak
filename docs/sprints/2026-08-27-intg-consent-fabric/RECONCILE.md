@@ -789,5 +789,8 @@ The c8 class set (`A,B,C,D,E,K` and `E,K` declared by m-3's rev3 patch, against 
 Master's 060842 took R-4.74 `narrow` (R-4.75 registered; one m-1 seam act after 2b; nothing held in the lane).
 The implementer's 072544 has no INDEX row (it was not submitted through the engine); I asked them to submit it.
 My first submit of the PLAN refused E-ID-COLLISION because I passed `--admits-against` for a NEW id; it was resubmitted without the flag.
+CLASS SWEEP after filing: every `$EVID` path read by rev29's task-9 / task-10 / task-11 runners (141 / 30 / 23 paths) was traced to a writer.
+A first-pass regex left 23 without an explicit writer, and each resolved by reading: the helpers are hashed into `helpers.sha256` by Task 0 and verified at Task 9's head; the Linux outputs come from `linux-suite.sh` / `linux-container.sh` under `$OUT` and `selftest_summary.py`'s prefix; the per-label files are written through `$LABEL`; and `runners/task-10.done` is copied in by `run-task.sh`.
+No other producerless input exists in Tasks 9–11.
 Next: the implementer's exact-hash review; on approve, the carry word; then the `t-oracle.txt` rewrite in `s2b-runners-Xi2bWL` and impl-9.
 The release hold is ABSOLUTE.
