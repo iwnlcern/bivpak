@@ -821,3 +821,18 @@ The word also adopts the producer gate as a standing pre-token step.
 INDEX disclosure: commit 46627ef carries the implementer's 080955 row beside mine (their relay file stays theirs, untracked). Their 072544 STOP relay still has no INDEX row.
 Next: master's fresh carry, then the `t-oracle.txt` rewrite in the pointer's directory, both gates, the Step 0′ mirror walk, the producer gate, and impl-9.
 The release hold is ABSOLUTE.
+
+## R63 — master's fresh carry; impl-9 issued (2026-09-24 14:07 `master/relays/intg-2b-wiring-act/PLAN-master-planner-20260924-140701.md`; 14:13 IMPL `intg-substep2b/IMPL-pair-planner-20260924-141340.md`)
+
+Master's 140701 cleared the T-ORACLE at `6ef818b3…`; the three owner-object lines are byte-identical to 184303's, and the prefix is present once at `1c437ac4…`.
+It carries m-3's `C8_CLASS_SET: discharged`. The bar V-2b-8(iv) reads is the rev3 receipt for A/B/C/D/E/K plus the landed CLI witnesses for H; the harness H row is registered as R-4.76 (m-3's later H error-matrix act, since the runner has no pack-refusal branch).
+Master verified that the 534decb→a83657e `src` delta is confined to `src/core/repo`, and he re-ran the producer gate himself: rev29 rc 0, and rev28 rc 1 on exactly the two orphans.
+The pointer (read as its own command) names `s2b-runners-Xi2bWL`. `t-oracle.txt` was preserved as `t-oracle.prev-20260924-141042.txt` (`2081de72…`) and rewritten: four lines, `carry_relay=` 140701, sha `2ee21122…`, 0400.
+From the candidate at a83657e with scratch `$EVID`s: T-ORACLE `t-oracle OK`, and the R-4.72 gate `LABEL=c1d MODE=pre` OK.
+The Step 0′ mirror walk published 20 carried lines, every carried file byte-equal, lock `6ef818b3…`, token `impl-9`. The R-4.72, c6p and T-ORACLE gates all passed FROM the new directory. The NO cases were `carry-r472`, `t-oracle-stale`, `same-lock`, `token-form`, and r472 absent failing closed. Nothing was left behind.
+The producer gate on the live plan returned rc 0 (0 orphans, 25 classified).
+impl-9 was issued at PARENT plan-review-28 with SCOPE_DIFF 52 all-in; every row but `.github/workflows/s2-harness.yml` is LANDED. The lineage was walked on a mini-root, and the wrong-parent control fired 3 errors.
+Its order is Step 0′, then `run-task.sh 9` (a STOP ends the token, with no retry); Task 10 waits on my GO with the three H reviews, 042625 (1), 060842 and 140701's carry of m-3's word.
+The token discloses that Task 9's re-run rewrites the EMPTY `$EVID/H/status-pre.txt` (identical bytes) and re-copies its runner files into `$EVID/runners/`; impl-8's authoritative copies stay in `Xi2bWL`, never modified.
+Next: the implementer's Task 9 return.
+The release hold is ABSOLUTE.
