@@ -5,8 +5,10 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/wait.h>
@@ -110,6 +112,139 @@ struct SplitRunResult {
   bool stdin_tty;
   bool stdout_tty;
   bool stderr_tty;
+};
+
+struct GitFixture {
+  std::filesystem::path root;
+  std::filesystem::path git{"/usr/bin/git"};
+
+  static std::string quote(std::string_view value) {
+    std::string out{"'"};
+    for (const char byte : value) {
+      if (byte == '\'') out += "'\\''";
+      else out += byte;
+    }
+    return out + '\'';
+  }
+
+  void command(const std::string& args,
+               const std::optional<std::filesystem::path>& cwd = std::nullopt) const {
+    const auto command_line =
+        (cwd ? "cd " + quote(cwd->string()) + " && " : std::string{}) +
+        quote(git.string()) + " " + args;
+    const int status = std::system(command_line.c_str());
+    INFO(command_line);
+    REQUIRE(status != -1);
+    REQUIRE(WIFEXITED(status));
+    REQUIRE(WEXITSTATUS(status) == 0);
+  }
+
+  std::string output(
+      const std::string& args,
+      const std::optional<std::filesystem::path>& cwd = std::nullopt) const {
+    static unsigned sequence = 0;
+    const auto capture = root / ("git-output-" + std::to_string(++sequence));
+    const auto command_line =
+        (cwd ? "cd " + quote(cwd->string()) + " && " : std::string{}) +
+        quote(git.string()) + " " + args + " >" + quote(capture.string());
+    const int status = std::system(command_line.c_str());
+    INFO(command_line);
+    REQUIRE(status != -1);
+    REQUIRE(WIFEXITED(status));
+    REQUIRE(WEXITSTATUS(status) == 0);
+    const auto result = read_text(capture);
+    REQUIRE(std::filesystem::remove(capture));
+    return result;
+  }
+
+  std::filesystem::path init_bare(const std::filesystem::path& path) const {
+    std::filesystem::create_directories(path.parent_path());
+    command("init --bare --initial-branch=main " + quote(path.string()));
+    return path;
+  }
+
+  std::filesystem::path init_work(const std::filesystem::path& remote,
+                                  const std::filesystem::path& work) const {
+    std::filesystem::create_directories(work);
+    command("init -b main", work);
+    {
+      std::ofstream ignore{work / ".gitignore"};
+      ignore << "ignored.log\n";
+      std::ofstream tracked{work / "tracked.txt"};
+      tracked << "tracked bytes\n";
+    }
+    command("add .", work);
+    command("-c user.name='Wiring Fixture' -c user.email=wiring@example.invalid "
+            "commit -m base", work);
+    const auto requested = "file://" + remote.generic_string();
+    command("remote add origin " + quote(requested), work);
+    command("push -u origin main", work);
+    command("branch local-topic", work);
+    {
+      std::ofstream ignored{work / "ignored.log"};
+      ignored << "ignored bytes\n";
+    }
+    REQUIRE(output("rev-parse --verify HEAD", work).size() == 41U);
+    REQUIRE(output("remote get-url origin", work) == requested + "\n");
+    return work;
+  }
+
+  void set_instead_of(const std::filesystem::path& repo,
+                      std::string_view requested,
+                      std::string_view effective) const {
+    command("config " + quote("url." + std::string{effective} + ".insteadOf") +
+                " " + quote(requested),
+            repo);
+  }
+
+  std::filesystem::path temp_home_with_instead_of(
+      const std::filesystem::path& home, std::string_view requested,
+      std::string_view effective) const {
+    std::filesystem::create_directories(home);
+    command("config --file " + quote((home / ".gitconfig").string()) + " " +
+            quote("url." + std::string{effective} + ".insteadOf") + " " +
+            quote(requested));
+    return home;
+  }
+
+  std::filesystem::path shim_path(
+      const std::filesystem::path& trace_file) const {
+    const auto bin = trace_file.parent_path() / "bin";
+    const auto shim = bin / "git";
+    std::filesystem::create_directories(bin);
+    {
+      std::ofstream trace{trace_file, std::ios::trunc};
+    }
+    {
+      std::ofstream script{shim};
+      script << "#!/bin/sh\n"
+             << "{ printf '%s' \"$PWD\"; for a in \"$@\"; do printf '\\t%s' \"$a\"; done; printf '\\n'; } >> "
+             << quote(trace_file.string()) << " || exit 98\n"
+             << "exec " << quote(git.string()) << " \"$@\"\n";
+    }
+    std::filesystem::permissions(shim, std::filesystem::perms::owner_all);
+    return bin;
+  }
+
+  std::filesystem::path labelled_divergence_shim(
+      const std::filesystem::path& shim_root) const {
+    const auto bin = shim_root / "bin";
+    const auto trace = shim_root / "trace";
+    const auto shim = bin / "git";
+    std::filesystem::create_directories(bin);
+    std::ofstream{trace, std::ios::trunc};
+    {
+      std::ofstream script{shim};
+      script << "#!/usr/bin/env bash\nBIV_GIT_TRACE='" << trace.string()
+             << "'\nBIV_GIT_REAL='" << git.string() << "'\n"
+             << "[ -n \"${BIV_GIT_TRACE-}\" ] && [ -n \"${BIV_GIT_REAL-}\" ] && [ -x \"${BIV_GIT_REAL}\" ] || exit 97\n"
+             << "{ printf '%s' \"$PWD\"; for a in \"$@\"; do printf '\\t%s' \"$a\"; done; printf '\\n'; } >> \"$BIV_GIT_TRACE\" || exit 98\n"
+             << "for a in \"$@\"; do if [ \"$a\" = --get-url ]; then printf '%s\\n' 'https://effective.invalid/repo'; exit 0; fi; done\n"
+             << "exec \"$BIV_GIT_REAL\" \"$@\"\n";
+    }
+    std::filesystem::permissions(shim, std::filesystem::perms::owner_all);
+    return bin;
+  }
 };
 
 // The legacy runners above stay verbatim. This shell runner also provides the
