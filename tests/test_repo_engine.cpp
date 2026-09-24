@@ -450,6 +450,187 @@ TEST_CASE("F-URL-1 real git a eligibility refuses a repo-local rewrite") {
   CHECK_FALSE(request_has_argv(requests.front(), "--heads"));
 }
 
+TEST_CASE(
+    "W-U1: a repo-local insteadOf leaves the configured url recorded and "
+    "the gate refuses it with no hook",
+    "[repo][c1d]") {
+  auto git = resolved_git();
+  TempDir root{"c1d-w-u1"};
+  const auto remote = init_bare_remote(git, root.path());
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo);
+  add_remote_and_push(git, repo, remote);
+  const auto effective_repo = root.path() / "effective.git";
+  git_run(git, root.path(), {"clone", "--bare"},
+          {remote.string(), effective_repo.string()});
+  const auto requested = "file://" + remote.string();
+  const auto effective = "file://" + effective_repo.string();
+  git_run(git, repo, {"remote", "set-url"}, {"origin", requested});
+  configure_url_rewrite(git, repo, requested, effective);
+
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.remotes.size() == 1U);
+  CHECK(classified->entry.remotes[0].url == requested);
+  auto refused = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
+  REQUIRE_FALSE(refused.has_value());
+  CHECK(biv::repo::engine_error_kind(refused.error()) ==
+        biv::repo::EngineErrorKind::url_divergence_refused);
+  CHECK(refused.error().facts.at("requested") == requested);
+  CHECK(refused.error().facts.at("effective") == effective);
+
+  biv::repo::UrlDivergenceRun run;
+  run.hook = [](const biv::repo::UrlDivergence &) {
+    return biv::repo::UrlDivergenceDecision::proceed;
+  };
+  biv::repo::ScopedUrlDivergenceRun scoped{run};
+  auto again = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(again.has_value());
+  auto proceeded = biv::repo::run_eligibility(
+      git, again->entry, biv::repo::EligibilityMode::network);
+  REQUIRE(proceeded.has_value());
+  CHECK(run.accepted.size() == 1U);
+  CHECK(again->entry.remotes[0].url == requested);
+}
+
+TEST_CASE("W-U2: the same rewrite in global config gives W-U1's outcome",
+          "[repo][c1d]") {
+  TempDir root{"c1d-w-u2"};
+  const auto home = root.path() / "home";
+  std::filesystem::create_directories(home);
+  ScopedEnv fixture_home{"HOME", home.string()};
+  ScopedEnv fixture_no_system{"GIT_CONFIG_NOSYSTEM", "1"};
+  auto git = resolved_git();
+  const auto remote = init_bare_remote(git, root.path());
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo);
+  add_remote_and_push(git, repo, remote);
+  const auto effective_repo = root.path() / "effective.git";
+  git_run(git, root.path(), {"clone", "--bare"},
+          {remote.string(), effective_repo.string()});
+  const auto requested = "file://" + remote.string();
+  const auto effective = "file://" + effective_repo.string();
+  git_run(git, repo, {"remote", "set-url"}, {"origin", requested});
+  git_run(git, repo,
+          {"config", "--global", "url." + effective + ".insteadOf",
+           requested});
+
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.remotes.size() == 1U);
+  CHECK(classified->entry.remotes[0].url == requested);
+  auto refused = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
+  REQUIRE_FALSE(refused.has_value());
+  CHECK(biv::repo::engine_error_kind(refused.error()) ==
+        biv::repo::EngineErrorKind::url_divergence_refused);
+
+  biv::repo::UrlDivergenceRun run;
+  run.hook = [](const biv::repo::UrlDivergence &) {
+    return biv::repo::UrlDivergenceDecision::proceed;
+  };
+  biv::repo::ScopedUrlDivergenceRun scoped{run};
+  auto again = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(again.has_value());
+  auto proceeded = biv::repo::run_eligibility(
+      git, again->entry, biv::repo::EligibilityMode::network);
+  REQUIRE(proceeded.has_value());
+  CHECK(run.accepted.size() == 1U);
+  CHECK(again->entry.remotes[0].url == requested);
+}
+
+TEST_CASE(
+    "W-U3: with no rewrite the configured url is the effective one and "
+    "nothing diverges",
+    "[repo][c1d]") {
+  auto git = resolved_git();
+  TempDir root{"c1d-w-u3"};
+  const auto remote = init_bare_remote(git, root.path());
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo);
+  add_remote_and_push(git, repo, remote);
+  const auto requested = "file://" + remote.string();
+  git_run(git, repo, {"remote", "set-url"}, {"origin", requested});
+
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.remotes.size() == 1U);
+  CHECK(classified->entry.remotes[0].url == requested);
+  biv::repo::UrlDivergenceRun run;
+  biv::repo::ScopedUrlDivergenceRun scoped{run};
+  auto eligible = biv::repo::run_eligibility(
+      git, classified->entry, biv::repo::EligibilityMode::network);
+  REQUIRE(eligible.has_value());
+  CHECK(run.refused.empty());
+  CHECK(run.accepted.empty());
+}
+
+TEST_CASE("W-U4: a multi-valued remote url records the first value, as git "
+          "fetches it",
+          "[repo][c1d]") {
+  auto git = resolved_git();
+  TempDir root{"c1d-w-u4"};
+  const auto remote = init_bare_remote(git, root.path());
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo);
+  add_remote_and_push(git, repo, remote);
+  const auto first = "file://" + remote.string();
+  const auto second = "file://" + (root.path() / "second.git").string();
+  git_run(git, repo, {"remote", "set-url"}, {"origin", first});
+  git_run(git, repo, {"config", "--add", "remote.origin.url", second});
+
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.remotes.size() == 1U);
+  CHECK(classified->entry.remotes[0].url == first);
+}
+
+TEST_CASE("W-U5: the unborn-with-refs branch records the configured url too",
+          "[repo][c1d]") {
+  auto git = resolved_git();
+  TempDir root{"c1d-w-u5"};
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo, false);
+  touch(repo / "payload.txt", "payload\n");
+  git_run(git, repo, {"hash-object", "-w"}, {"payload.txt"});
+  const auto blob = git_stdout(git_run(git, repo, {"hash-object"},
+                                      {"payload.txt"}));
+  git_run(git, repo, {"update-ref", "refs/tags/blob-only", blob});
+  const auto remote = init_bare_remote(git, root.path());
+  const auto effective_repo = root.path() / "effective.git";
+  std::filesystem::create_directories(effective_repo);
+  git_run(git, effective_repo, {"init", "--bare"});
+  const auto requested = "file://" + remote.string();
+  const auto effective = "file://" + effective_repo.string();
+  git_run(git, repo, {"remote", "add"}, {"origin", requested});
+  configure_url_rewrite(git, repo, requested, effective);
+
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE(classified.has_value());
+  REQUIRE(classified->entry.remotes.size() == 1U);
+  CHECK(classified->entry.head_state == biv::repo::HeadState::unborn);
+  CHECK(classified->entry.remotes[0].url == requested);
+}
+
+TEST_CASE("W-U6: a remote with no url is the existing typed command error",
+          "[repo][c1d]") {
+  auto git = resolved_git();
+  TempDir root{"c1d-w-u6"};
+  const auto repo = root.path() / "repo";
+  init_repo(git, repo);
+  git_run(git, repo,
+          {"config", "remote.nourl.fetch",
+           "+refs/heads/*:refs/remotes/nourl/*"});
+
+  auto classified = biv::repo::classify(git, repo, one_repo());
+  REQUIRE_FALSE(classified.has_value());
+  CHECK(biv::repo::engine_error_kind(classified.error()) ==
+        biv::repo::EngineErrorKind::git_invocation_failed);
+  CHECK(classified.error().detail ==
+        "repo classification git invocation failed: remote get-url");
+}
+
 TEST_CASE("F-URL-1 real git b restore ref proof refusal is entry-fatal") {
   auto git = resolved_git();
   TempDir root{"url-real-restore-ref"};

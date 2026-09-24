@@ -255,15 +255,20 @@ expected<Classification> classify(const Git& git,
         const auto end = remote_names.find('\n', cursor);
         const auto name = remote_names.substr(cursor, end - cursor);
         if (!name.empty()) {
-          auto url = invoke_classify({"remote", "get-url", name},
-                                     result.entry.promisor);
+          auto url = invoke_classify(
+              {"config", "--get-all", "remote." + name + ".url"},
+              result.entry.promisor);
           if (!url || url->exit_code != 0) {
             return std::unexpected(url ? command_error(repo, "remote get-url")
                                        : url.error());
           }
-          result.entry.remotes.push_back(
-              Remote{.name = name,
-                     .url = trim_git_newline(git_bytes(url->stdout_bytes))});
+          const auto values = git_bytes(url->stdout_bytes);
+          const auto first =
+              trim_git_newline(values.substr(0, values.find('\n')));
+          if (first.empty()) {
+            return std::unexpected(command_error(repo, "remote get-url"));
+          }
+          result.entry.remotes.push_back(Remote{.name = name, .url = first});
         }
         if (end == std::string::npos) {
           break;
@@ -316,14 +321,19 @@ expected<Classification> classify(const Git& git,
     const auto end = remote_names.find('\n', cursor);
     const auto name = remote_names.substr(cursor, end - cursor);
     if (!name.empty()) {
-      auto url = invoke_classify({"remote", "get-url", name},
-                                 result.entry.promisor);
+      auto url = invoke_classify(
+          {"config", "--get-all", "remote." + name + ".url"},
+          result.entry.promisor);
       if (!url || url->exit_code != 0) {
         return std::unexpected(url ? command_error(repo, "remote get-url")
                                    : url.error());
       }
-      result.entry.remotes.push_back(Remote{
-          .name = name, .url = trim_git_newline(git_bytes(url->stdout_bytes))});
+      const auto values = git_bytes(url->stdout_bytes);
+      const auto first = trim_git_newline(values.substr(0, values.find('\n')));
+      if (first.empty()) {
+        return std::unexpected(command_error(repo, "remote get-url"));
+      }
+      result.entry.remotes.push_back(Remote{.name = name, .url = first});
     }
     if (end == std::string::npos) {
       break;
