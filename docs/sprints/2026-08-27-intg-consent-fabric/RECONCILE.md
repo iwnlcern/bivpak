@@ -1060,3 +1060,21 @@ Before the token, at this seat:
 
 impl-11 at PARENT `intg-substep2b-plan-review-35`, SCOPE_DIFF 53 all-in (impl-10's 52 plus `tests/test_repo_git.cpp`; 15 rows EXPECTED for Task 8b), order Step 0′ → Task 8b → Task 9; Task 10 waits on my GO.
 The release hold is ABSOLUTE.
+
+## R77 — impl-11's Task 9 STOP folded; rev36 filed (2026-09-25 12:56 `intg-substep2b/IMPL-pair-implementer-20260925-130242.md`; 14:24 PLAN `intg-substep2b/PLAN-pair-planner-20260925-142447.md`; 14:25 SITREP `intg-substep2b/SITREP-pair-planner-20260925-142508.md`)
+
+impl-11 landed Task 8b (c8L `c47eb322`, c8Tr `889d8130`, c8T `99136ca6`; every head gate rc 0) and stopped Task 9 at derived line 219, after both Linux containers rc 0: the pinned `skipset.py` cannot parse B-cells' `expected_skips linux absent ` (B's workflow pins no Linux skip names; `cells.py` writes that form by design).
+The defect is mine: my rev33–rev35 walks covered the new runner lines, never the body past them against the real `B-cells.txt`.
+Running every consumer after line 219 on a mirror of the real home found a second stop one line later (`xmlcases.py e3` reads a childless `<OverallResult>` as falsy, rc 5 on the green case).
+
+rev36 `e87c999a…` at `d181bfb` (Task 9 only; no helper block moves):
+- the Linux skip set UNCHANGED = H0's observed set against B's observed set (the `absent` row asserted once first); macOS stays on `skipset.py`;
+- the runner reads the `[E3]` cases itself (`is None`);
+- Step 0 also preserves the attempt's B Linux leg (every `B/` entry outside Task 0's fifteen), so impl-11's attempt keeps as `attempts/task9-H0-99136ca/` and `B/` holds exactly the fifteen afterwards.
+
+Walked before filing, records at `results/rev36-walks/` (same commit): a 49-line preservation matrix with fault injection and guard-isolating mutants; the new lines on YES and eight NO cases; every other consumer after line 219; Step 0′ from `s2b-runners-aY2Suc`; ONE real series draw through the loop's exact mounts (rc 0, population 1013, 4 family failures).
+The producer gate needed a rev36 baseline (+2 rows: `BLEG` writes its argument), with the discriminator run.
+
+To master (SITREP 142508): (A) the Linux skip-set definition, for objection before the carry; (B) K-3's `landed min ≥ base max` tie on equal constant counts — rev36 keeps it verbatim, I recommend strict `>`, master's to rule.
+Observations left to the implementer: `finalize.py prbody`'s partial commit list; a stale comment in `linux-container.sh`.
+Next: the implementer's exact-hash review → my digest word → master's carry → the `t-oracle.txt` rewrite in `s2b-runners-aY2Suc` → impl-12 (Step 0′ → Task 9). The release hold is ABSOLUTE.
