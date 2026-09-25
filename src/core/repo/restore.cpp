@@ -10,14 +10,17 @@ namespace biv::repo {
 
 namespace restore_testing {
 namespace {
-bool forced_ceiling_error = false;
+bool& forced_ceiling_error() noexcept {
+  static bool forced = false;
+  return forced;
+}
 }
 
 void force_ceiling_error(const bool enabled) noexcept {
-  forced_ceiling_error = enabled;
+  forced_ceiling_error() = enabled;
 }
 
-bool ceiling_error_forced() noexcept { return forced_ceiling_error; }
+bool ceiling_error_forced() noexcept { return forced_ceiling_error(); }
 } // namespace restore_testing
 
 namespace {
