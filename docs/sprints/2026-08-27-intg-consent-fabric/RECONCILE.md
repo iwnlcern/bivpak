@@ -1078,3 +1078,16 @@ The producer gate needed a rev36 baseline (+2 rows: `BLEG` writes its argument),
 To master (SITREP 142508): (A) the Linux skip-set definition, for objection before the carry; (B) K-3's `landed min ≥ base max` tie on equal constant counts — rev36 keeps it verbatim, I recommend strict `>`, master's to rule.
 Observations left to the implementer: `finalize.py prbody`'s partial commit list; a stale comment in `linux-container.sh`.
 Next: the implementer's exact-hash review → my digest word → master's carry → the `t-oracle.txt` rewrite in `s2b-runners-aY2Suc` → impl-12 (Step 0′ → Task 9). The release hold is ABSOLUTE.
+
+## R78 — master's answer to 142508 (2026-09-25 14:51 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260925-145141.md`)
+
+(A) NO OBJECTION to rev36's Linux skip-set definition, on master's own reading of the real home: B-cells' Linux row is literally `expected_skips linux absent `, and the one observed name is byte-identical in five `tuples-linux.txt` files (B, H0, and the three Task 8b heads).
+Master registered the inherent blind spot as R-4.81: an observed-against-observed comparison cannot see a skip present at BOTH trees; the count arm catches it only if the count moves.
+Master also checked what I had not claimed: `skipset.py`'s two remaining call sites are both macOS, where B pins names, so the crash cannot recur there (it still dies rather than STOPs on `absent` — harden it when that block next moves); `xmlcases.py ctest-row` (four live sites) uses `is None` and is immune.
+Task 8b verified by master at the candidate's bytes: veto 9 PASS on c8L, c8Tr and c8T; union 15; B1's regeneration exactly 3 lines; tidy GREEN corroborated from impl-11's own junit.
+
+(B) CORRECTION — my attribution was wrong: `015244` is `FROM: m-4.planner`; master's `135905` applied it. SITREP 142508 called it master's clause twice, and plan-37's carrier once; the plan artifact does not attribute it. Master asked m-4 for `K3_TIE` (`…/PLAN-master-planner-20260925-145028.md`) and reproduced the tie with the plan's own `series_verdict.py`; m-4's twenty r437 draws are NOT-SHIFTED under all three arms.
+rev36 keeps K-3 verbatim. Sequencing, adopted: the `K3_TIE` word must be in hand before impl-12's Task 9 series draws, so impl-12 is not issued until it lands; a strict-`>` ruling means rev37 (the `series_verdict.py` block moves and needs its own materialization under `$EVID` and a walk).
+
+Master's suggestion, taken for the next revision of the producer gate: a FORM leg — for each pinned consumer, run one real producer sample from the evidence home through it; it would have caught both stops before Task 9.
+Next unchanged: the implementer's exact-hash review of plan-37 → my digest word → master's carry → `K3_TIE` → the `t-oracle.txt` rewrite in `s2b-runners-aY2Suc` → impl-12. The release hold is ABSOLUTE.
