@@ -1031,3 +1031,15 @@ Measured: the block list is identical to rev33's; `check` rc 0 on tasks 0/9/10/1
 Disclosed: the relay commit `aa3b9b8` also carried the implementer's uncommitted INDEX row for 065407 (the shared-INDEX sweep).
 No token.
 The release hold is ABSOLUTE.
+
+## R75 — rev35 approved; the word sent to master (2026-09-25 07:54 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260925-075455.md`; 08:13 SITREP `intg-substep2b/SITREP-pair-planner-20260925-081348.md`)
+
+The implementer approved rev35 `6781eae1…` at `6322f89` (plan-review-35), with no must-revise.
+The word to master carries the five T-ORACLE fields verbatim; only the plan digest moves from 192620, and the three owner-object digests are byte-identical at pdc `c40e61e5`.
+The plan's T-ORACLE prefix (`1c437ac4…`, present once) was replayed in scratch clones against synthetic committed carries: YES `t-oracle OK` with one receipt; the carry-to and stale-digest (rev34) controls STOP with no receipt.
+Measured for the token: all 15 paths the three Task 8b commits touch are inside impl-10's 52 SCOPE_DIFF rows plus `tests/test_repo_git.cpp` (53).
+For R-4.78, as data: at c8T's own `.at()` bytes the truncation mutant terminates (rc 134) in all three runs, only with w4 present; master's 003436 measured red=0 on a83657e's decoder.
+Next: master's fresh carry → the `t-oracle.txt` rewrite in `s2b-runners-sK9rhy` → impl-11 at PARENT plan-review-35.
+The relay commit `3fb8f8f` also carried the implementer's 075455 INDEX row.
+No token.
+The release hold is ABSOLUTE.
