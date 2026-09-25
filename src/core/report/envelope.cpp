@@ -447,11 +447,12 @@ void write_open_result(json::Writer& writer,
       for (const auto& advisory : row.advisories) writer.value_string(machine_text(advisory));
       writer.end_array();
       if (row.shallow_boundary) {
+        const auto boundaries = row.shallow_boundary.value_or(std::vector<std::string>{});
         writer.key("shallow");
         writer.begin_object();
         writer.key("boundary");
         writer.begin_array();
-        for (const auto& boundary : *row.shallow_boundary) writer.value_string(machine_text(boundary));
+        for (const auto& boundary : boundaries) writer.value_string(machine_text(boundary));
         writer.end_array();
         writer.end_object();
       }
@@ -463,12 +464,14 @@ void write_open_result(json::Writer& writer,
         for (const auto& remote : row.remotes) writer.value_string(machine_text(remote));
         writer.end_array();
         if (row.bundle_path) {
+          const auto bundle_path = row.bundle_path.value_or(std::string{});
           writer.key("bundle_path");
-          writer.value_string(machine_text(*row.bundle_path));
+          writer.value_string(machine_text(bundle_path));
         }
         if (row.reconstruct) {
+          const auto reconstruct = row.reconstruct.value_or(std::string{});
           writer.key("reconstruct");
-          writer.value_string(*row.reconstruct);
+          writer.value_string(reconstruct);
         }
       }
       writer.end_object();

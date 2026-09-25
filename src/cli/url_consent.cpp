@@ -3,6 +3,7 @@
 #include <array>
 #include <istream>
 #include <ostream>
+#include <stdexcept>
 #include <unistd.h>
 
 #include "cli/consent_display_table.hpp"
@@ -58,10 +59,11 @@ void append_u00(std::string& out, const char32_t value) {
 void append_braced(std::string& out, char32_t value) {
   std::array<char, 6> reversed{};
   std::size_t count = 0;
-  do {
+  while (true) {
     reversed.at(count++) = kLowerHex.at(value & 0x0fU);
     value >>= 4U;
-  } while (value != 0);
+    if (value == 0) break;
+  }
 
   out += "\\u{";
   while (count > 0) {
@@ -166,10 +168,16 @@ std::string render_engine_refusal_detail(
       std::string list;
       for (std::size_t index = 0; index < paths.size(); ++index) {
         if (index != 0) list += ", ";
-        list += paths[index];
+        list += paths.at(index);
       }
       std::size_t total = 0;
-      try { total = static_cast<std::size_t>(std::stoull(count)); } catch (...) {}
+      try {
+        total = static_cast<std::size_t>(std::stoull(count));
+      } catch (const std::invalid_argument&) {
+        total = 0;
+      } catch (const std::out_of_range&) {
+        total = 0;
+      }
       if (total > 3) list += " and " + std::to_string(total - 3) + " more";
       return "pack refused: " + repo + " has an unmerged index (" + consent_display(count) + " paths: " + list + "); an in-progress merge cannot be represented. Resolve or abort the merge and re-run.";
     }
@@ -251,14 +259,12 @@ std::string render_network_consent(const std::vector<repo::RepoEntry>& entries,
   return out;
 }
 
-std::string render_offline_bundle_row(
-    const std::string_view relpath, const std::string_view absolute_bundle_path,
-    const std::optional<std::string>& reconstruct) {
-  const auto prefix = consent_display(relpath) + ": ";
+std::string render_offline_bundle_row(const OfflineBundleRow& row) {
+  const auto prefix = consent_display(row.relpath) + ": ";
   constexpr std::string_view suffix =
       "   (partial/manual reconstruction — not a full restore)\n";
-  if (reconstruct) return prefix + *reconstruct + std::string{suffix};
-  return prefix + "bundle at " + consent_display(absolute_bundle_path) +
+  if (row.reconstruct) return prefix + *row.reconstruct + std::string{suffix};
+  return prefix + "bundle at " + consent_display(row.absolute_bundle_path) +
          " — no copy-paste command: the path or branch carries characters a shell line cannot carry faithfully; reconstruct by hand from the bundle" +
          std::string{suffix};
 }

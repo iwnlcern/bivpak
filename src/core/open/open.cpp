@@ -477,9 +477,15 @@ expected<void> write_file_stream(const std::filesystem::path& path,
   return {};
 }
 
-expected<void> ensure_private_directories(
-    const std::filesystem::path& root,
-    const std::filesystem::path& relative) {
+// `relative` is multi-component (.biv/repos/<id>), refused component by component; named members keep it apart from `root`.
+struct PrivateDirectories {
+  std::filesystem::path root;
+  std::filesystem::path relative;
+};
+
+expected<void> ensure_private_directories(const PrivateDirectories& dirs) {
+  const auto& root = dirs.root;
+  const auto& relative = dirs.relative;
   auto current = root;
   for (const auto& component : relative) {
     if (component.empty() || component == "." || component == ".." ||
@@ -561,18 +567,16 @@ bool ascii_prefix(const std::string_view value,
                   const std::string_view prefix) noexcept {
   if (value.size() < prefix.size()) return false;
   for (size_t index = 0; index < prefix.size(); ++index) {
-    if (ascii_fold(value[index]) != prefix[index]) return false;
+    if (ascii_fold(value.at(index)) != prefix.at(index)) return false;
   }
   return true;
 }
 
-bool next_utf8(const std::string_view value, size_t& offset,
-               char32_t& codepoint) noexcept {
-  if (offset >= value.size()) return false;
-  const auto first = static_cast<unsigned char>(value[offset++]);
+std::optional<char32_t> next_utf8(const std::string_view value, size_t& offset) noexcept {
+  if (offset >= value.size()) return std::nullopt;
+  const auto first = static_cast<unsigned char>(value.at(offset++));
   if (first < 0x80U) {
-    codepoint = first;
-    return true;
+    return first;
   }
   size_t continuation_count = 0;
   char32_t decoded = 0;
@@ -590,20 +594,19 @@ bool next_utf8(const std::string_view value, size_t& offset,
     decoded = first & 0x07U;
     minimum = 0x10000U;
   } else {
-    return false;
+    return std::nullopt;
   }
-  if (value.size() - offset < continuation_count) return false;
+  if (value.size() - offset < continuation_count) return std::nullopt;
   for (size_t index = 0; index < continuation_count; ++index) {
-    const auto byte = static_cast<unsigned char>(value[offset++]);
-    if ((byte & 0xC0U) != 0x80U) return false;
+    const auto byte = static_cast<unsigned char>(value.at(offset++));
+    if ((byte & 0xC0U) != 0x80U) return std::nullopt;
     decoded = (decoded << 6U) | (byte & 0x3FU);
   }
   if (decoded < minimum || decoded > 0x10FFFFU ||
       (decoded >= 0xD800U && decoded <= 0xDFFFU)) {
-    return false;
+    return std::nullopt;
   }
-  codepoint = decoded;
-  return true;
+  return decoded;
 }
 
 bool hfs_ignorable(const char32_t value) noexcept {
@@ -617,11 +620,12 @@ bool hfs_dot_name(const std::string_view segment,
   size_t offset = 0;
   size_t matched = 0;
   while (offset < segment.size()) {
-    char32_t codepoint = 0;
-    if (!next_utf8(segment, offset, codepoint)) return false;
+    const auto decoded = next_utf8(segment, offset);
+    if (!decoded) return false;
+    const char32_t codepoint = *decoded;
     if (hfs_ignorable(codepoint)) continue;
     if (codepoint > 0x7FU || matched >= name.size() ||
-        ascii_fold(static_cast<char>(codepoint)) != name[matched]) {
+        ascii_fold(static_cast<char>(codepoint)) != name.at(matched)) {
       return false;
     }
     ++matched;
@@ -641,10 +645,10 @@ bool ntfs_dot_name(const std::string_view segment,
     return false;
   }
   while (offset < segment.size() &&
-         (segment[offset] == '.' || segment[offset] == ' ')) {
+         (segment.at(offset) == '.' || segment.at(offset) == ' ')) {
     ++offset;
   }
-  return offset == segment.size() || segment[offset] == ':';
+  return offset == segment.size() || segment.at(offset) == ':';
 }
 
 bool protected_component(const std::string_view segment,
@@ -832,8 +836,8 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
           std::error_code ec;
           if (!stage) {
             if (auto ok = ensure_private_directories(
-                    partial_dir, std::filesystem::path{".biv"} / "repos" /
-                                     path.parent_path().filename());
+                    {.root = partial_dir,
+                     .relative = std::filesystem::path{".biv"} / "repos" / path.parent_path().filename()});
                 !ok) {
               return std::unexpected(ok.error());
             }
@@ -943,7 +947,7 @@ expected<std::filesystem::path> owned_output_path(
   size_t first_absent = ancestors.size();
   for (size_t index = 0; index < ancestors.size(); ++index) {
     std::error_code ec;
-    const auto status = std::filesystem::symlink_status(ancestors[index], ec);
+    const auto status = std::filesystem::symlink_status(ancestors.at(index), ec);
     if (status.type() == std::filesystem::file_type::not_found) {
       first_absent = index;
       break;
@@ -955,11 +959,11 @@ expected<std::filesystem::path> owned_output_path(
   }
   for (size_t index = first_absent; index < ancestors.size(); ++index) {
     std::error_code ec;
-    if (!std::filesystem::create_directory(ancestors[index], ec) || ec) {
+    if (!std::filesystem::create_directory(ancestors.at(index), ec) || ec) {
       return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
     }
     ec.clear();
-    const auto status = std::filesystem::symlink_status(ancestors[index], ec);
+    const auto status = std::filesystem::symlink_status(ancestors.at(index), ec);
     if (ec || std::filesystem::is_symlink(status) ||
         !std::filesystem::is_directory(status)) {
       return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
@@ -1243,6 +1247,11 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
   // Own only a newly created stage; cleanup also runs if a later operation throws.
   struct StageCleanup {
     std::optional<std::filesystem::path> path;
+    StageCleanup() = default;
+    StageCleanup(const StageCleanup&) = delete;
+    StageCleanup& operator=(const StageCleanup&) = delete;
+    StageCleanup(StageCleanup&&) = delete;
+    StageCleanup& operator=(StageCleanup&&) = delete;
     ~StageCleanup() {
       if (path) {
         std::error_code ignored;
@@ -1363,11 +1372,12 @@ expected<void> write_failed_inventory(const std::filesystem::path& partial_dir,
     for (const auto& advisory : row.advisories) writer.value_string(advisory);
     writer.end_array();
     if (row.shallow_boundary) {
+      const auto shallow_boundaries = row.shallow_boundary.value_or(std::vector<std::string>{});
       writer.key("shallow");
       writer.begin_object();
       writer.key("boundary");
       writer.begin_array();
-      for (const auto& boundary : *row.shallow_boundary) writer.value_string(boundary);
+      for (const auto& boundary : shallow_boundaries) writer.value_string(boundary);
       writer.end_array();
       writer.end_object();
     }

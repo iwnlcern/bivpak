@@ -536,14 +536,15 @@ int main(int argc, char** argv) {
           std::cerr << biv::cli::render_offline_header();
           for (const auto& row : report->repos) {
             if (row.outcome == "offline-pointer") {
-              std::cerr << biv::cli::render_offline_row(row.relpath, row.branch, *row.sha, row.remotes);
+              std::cerr << biv::cli::render_offline_row(row.relpath, row.branch, row.sha.value_or(std::string{}), row.remotes);
             }
           }
           for (const auto& row : report->repos) {
             if (!row.bundle_path) continue;
             const auto bundle = (std::filesystem::path{report->output_dir} / *row.bundle_path)
                                     .lexically_normal().generic_string();
-            std::cerr << biv::cli::render_offline_bundle_row(row.relpath, bundle, row.reconstruct);
+            std::cerr << biv::cli::render_offline_bundle_row(
+                {.relpath = row.relpath, .absolute_bundle_path = bundle, .reconstruct = row.reconstruct});
           }
         }
         return exit_code;

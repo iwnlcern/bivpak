@@ -3,7 +3,7 @@
 // class = General_Category in {Cf, Zl, Zp} UNION Default_Ignorable_Code_Point, as sorted merged ranges.
 // input sha256: 806e9aed65037197f1ec85e12be6e8cd870fc5608b4de0fffd990f689f376a73  UnicodeData.txt
 // input sha256: d367290bc0867e6b484c68370530bdd1a08b6b32404601b8c7accaf83e05628d  DerivedCoreProperties.txt
-// generator sha256: 04b20615e46b2017c2e6d7db7a5a6d76761a2519eb87a951c8c298a0b5c3933c
+// generator sha256: 8ef548490b15395640ef0c93ebb49e6f2f98a1dc1955a3f413ab24c444b62449
 // members: 4208  ranges: 25
 #pragma once
 #include <array>
@@ -41,8 +41,8 @@ inline constexpr bool consent_display_active(char32_t scalar) noexcept {
   std::size_t lo = 0, hi = kConsentDisplayActive.size();
   while (lo < hi) {
     const std::size_t mid = lo + (hi - lo) / 2;
-    if (scalar < kConsentDisplayActive[mid].first) hi = mid;
-    else if (scalar > kConsentDisplayActive[mid].last) lo = mid + 1;
+    if (scalar < kConsentDisplayActive.at(mid).first) hi = mid;
+    else if (scalar > kConsentDisplayActive.at(mid).last) lo = mid + 1;
     else return true;
   }
   return false;

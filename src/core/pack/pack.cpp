@@ -9,6 +9,7 @@
 #include <exception>
 #include <fstream>
 #include <map>
+#include <numeric>
 #include <optional>
 #include <set>
 #include <span>
@@ -628,12 +629,10 @@ BivError fence_error(const repo::RepoBoundary& boundary,
 std::vector<std::size_t> leaves_first(
     const std::vector<repo::RepoEntry>& entries) {
   std::vector<std::size_t> order(entries.size());
-  for (std::size_t index = 0; index < entries.size(); ++index) {
-    order[index] = index;
-  }
+  std::iota(order.begin(), order.end(), std::size_t{0});
   const auto depth = [&](const std::size_t index) {
     std::size_t value = 0;
-    auto parent = entries[index].parent_id;
+    auto parent = entries.at(index).parent_id;
     while (parent && value < entries.size()) {
       const auto found = std::ranges::find(entries, *parent,
                                            &repo::RepoEntry::id);
@@ -649,8 +648,8 @@ std::vector<std::size_t> leaves_first(
   return order;
 }
 
-bool path_has_segment(const std::string_view path,
-                      const std::string_view segment) {
+bool path_has_biv_segment(const std::string_view path) {
+  constexpr std::string_view segment = ".biv";
   size_t start = 0;
   while (start <= path.size()) {
     const auto end = path.find('/', start);
@@ -682,9 +681,9 @@ std::vector<std::string> directory_prefixes(const std::string_view path) {
 }
 
 expected<bool> directory_is_all_penumbra(
-    const std::filesystem::path& repo_root,
     const std::filesystem::path& directory,
-    const std::set<std::string>& penumbra) {
+    const std::set<std::string>& penumbra,
+    const std::filesystem::path& repo_root) {
   std::error_code ec;
   std::filesystem::recursive_directory_iterator iterator{
       directory, std::filesystem::directory_options::none, ec};
@@ -749,7 +748,7 @@ expected<std::vector<scan::Node>> penumbra_nodes(
       if (relative.empty()) continue;
       const std::string full =
           row.empty() ? relative : row + "/" + relative;
-      if (path_has_segment(full, ".biv")) continue;
+      if (path_has_biv_segment(full)) continue;
 
       bool in_deeper_row = false;
       for (size_t other_index = 0; other_index < entries.size();
@@ -820,7 +819,7 @@ expected<std::vector<scan::Node>> penumbra_nodes(
       const auto verdict = matcher.match(ancestor, true);
       if (verdict.ignored) continue;
       auto qualifies = directory_is_all_penumbra(
-          repo_root, source / std::filesystem::path{ancestor}, penumbra);
+          source / std::filesystem::path{ancestor}, penumbra, repo_root);
       if (!qualifies) {
         diagnostics.unreadable.push_back(ancestor);
         continue;

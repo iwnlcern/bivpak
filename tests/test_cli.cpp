@@ -1958,8 +1958,9 @@ TEST_CASE("A10 reconstruct quotes copy-safe shell hazards and rejects display-ac
   CHECK_FALSE(unsafe->repos[0].reconstruct);
   const auto absolute_bundle =
       (std::filesystem::path{unsafe->output_dir} / *unsafe->repos[0].bundle_path).generic_string();
-  const auto fallback = biv::cli::render_offline_bundle_row(
-      unsafe->repos[0].relpath, absolute_bundle, unsafe->repos[0].reconstruct);
+  const auto fallback = biv::cli::render_offline_bundle_row({.relpath = unsafe->repos[0].relpath,
+                                                             .absolute_bundle_path = absolute_bundle,
+                                                             .reconstruct = unsafe->repos[0].reconstruct});
   CHECK(fallback.find("unsafe\\n\\u{202e}repo: bundle at ") == 0);
   CHECK(fallback.find("no copy-paste command") != std::string::npos);
   CHECK(fallback.find("git init") == std::string::npos);

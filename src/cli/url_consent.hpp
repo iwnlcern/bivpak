@@ -39,9 +39,13 @@ std::string render_offline_row(std::string_view relpath,
                                 const std::vector<std::string>& remotes);
 std::string render_network_consent(const std::vector<repo::RepoEntry>& entries,
                                    bool include_prompt);
-std::string render_offline_bundle_row(
-    std::string_view relpath, std::string_view absolute_bundle_path,
-    const std::optional<std::string>& reconstruct);
+// The two displayed paths are both string_views; named members bound by designated initializers keep them from being swapped.
+struct OfflineBundleRow {
+  std::string_view relpath;
+  std::string_view absolute_bundle_path;
+  std::optional<std::string> reconstruct;
+};
+std::string render_offline_bundle_row(const OfflineBundleRow& row);
 bool prompt_url_divergence(const UrlDivergenceFacts& facts, std::istream& in,
                            std::ostream& err);
 

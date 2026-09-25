@@ -491,6 +491,12 @@ TEST_CASE("c6p ownership rows and protected components are behavioral",
   const std::string e_acute{"\xC3\xA9"};
   const std::string malformed =
       std::string{".g"} + static_cast<char>(0xFF) + "it";
+  // Invalid UTF-8 never decodes into a protected alias: a continuation byte failing the mask (its low bits spell U+200C),
+  // a 2-byte and a 3-byte overlong '.', and a truncated sequence.
+  const std::string bad_continuation{"\xE2\x80\x0C"};
+  const std::string overlong_dot_2{"\xC0\xAE"};
+  const std::string overlong_dot_3{"\xE0\x80\xAE"};
+  const std::string truncated{"\xE2\x80"};
   for (const auto& value : std::vector<std::string>{
            ".git", ".GIT", ".gIt", ".g" + zw_non_joiner + "it",
            byte_order_mark + ".git", ".git" + right_to_left_mark,
@@ -501,7 +507,9 @@ TEST_CASE("c6p ownership rows and protected components are behavioral",
   }
   for (const auto& value : std::vector<std::string>{
            ".gitx", "git", ".gi", "x.git", ".git~1", "git~2",
-           ".gitignore", ".g" + e_acute + "t", malformed}) {
+           ".gitignore", ".g" + e_acute + "t", malformed,
+           ".g" + bad_continuation + "it", overlong_dot_2 + "git",
+           overlong_dot_3 + "git", ".git" + truncated}) {
     INFO(value);
     CHECK_FALSE(is_dotgit_component(value));
   }
@@ -517,7 +525,9 @@ TEST_CASE("c6p ownership rows and protected components are behavioral",
   for (const auto& value : std::vector<std::string>{
            ".bivx", "biv", ".bi", "x.biv", ".biv~1", "biv~2",
            ".bivignore", ".b" + e_acute + "v",
-           std::string{".b"} + static_cast<char>(0xFF) + "iv"}) {
+           std::string{".b"} + static_cast<char>(0xFF) + "iv",
+           ".b" + bad_continuation + "iv", overlong_dot_2 + "biv",
+           overlong_dot_3 + "biv", ".biv" + truncated}) {
     INFO(value);
     CHECK_FALSE(is_dotbiv_component(value));
   }
