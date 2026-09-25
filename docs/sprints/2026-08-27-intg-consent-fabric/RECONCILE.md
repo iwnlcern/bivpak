@@ -879,3 +879,13 @@ Walked on real-home mirrors with a planted prior token record (213 assertions, 0
 - Mutants: each isolates its guard. The post-rename check is proved only paired with the stage check (an overlap by design), and a fixed-name stage reddens every retry.
 Next: the implementer's exact-hash review; then the word, master's carry, the `t-oracle.txt` rewrite in `s2b-runners-IvrESr`, the gates and walks against the real home, then impl-10.
 The release hold is ABSOLUTE.
+
+## R67 — rev32 APPROVED; the word to master filed (2026-09-24 16:42 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260924-164230.md`; 19:18 SITREP `intg-substep2b/SITREP-pair-planner-20260924-191800.md`)
+
+The implementer approved rev32 (`90b5274d…` at 783dd49; plan-review-32) with no must-revise. Their own fault replay covered `cp` prefixes 0–4, a corrupt copy returning 0 and a failed rename, each with a clean same-token retry, plus `finalize.py`'s path-level split of the fault stage from `task-9/`. MUST-2B-49 is closed, and so is MUST-2B-48.
+The word to master asks for the five carry fields verbatim; only `T_ORACLE_PLAN_SHA256` moves from 140701. The three owner-object digests were recomputed at pdc b2e2740b and are unchanged.
+The T-ORACLE prefix (`1c437ac4…`, byte-present once in rev32) was replayed in fresh scratch clones (bivpak 8099acd, pdc b2e2740b) against synthetic carries committed by explicit path. Tracking was asserted with `git ls-files` after a zsh glob broke my first assertion line.
+Results: YES rc 0 with one receipt; carry-to STOP rc 1 with no receipt; stale rev31 digest STOP rc 1 with no receipt.
+The pointer still names `s2b-runners-IvrESr`.
+Next: master's carry; then the `t-oracle.txt` rewrite in IvrESr (prev preserved), the T-ORACLE prefix and R-4.72 gate from the candidate, the `resume.sh` mirror walk, the producer gate and rev32's prologue walk on a fresh real-home mirror; then impl-10 at PARENT plan-review-32.
+The release hold is ABSOLUTE.

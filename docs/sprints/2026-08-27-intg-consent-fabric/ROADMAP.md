@@ -112,6 +112,7 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 - **14:30 implementer 143008: impl-9 STOP at Task 9's prologue (flat runner copy vs impl-8's 0500 task-9.sh — my defect) → 14:34 PLAN rev30 `cf58433e…` at 2455293 (PLAN-pair-planner-20260924-143458.md)**: WAITING on the implementer's exact-hash review → word → carry → t-oracle rewrite in IvrESr → impl-10
 - **14:55 implementer 145529: MUST-REVISE rev30 on MUST-2B-48 (token record path not confined: symlinked token dir / dangling names escape the home — my defect) → 15:12 PLAN rev31 `5054cf89…` at ee94b61 (PLAN-pair-planner-20260924-151216.md)**: WAITING on the implementer's exact-hash review → word → carry → t-oracle rewrite in IvrESr → impl-10
 - **15:36 implementer 153636: MUST-REVISE rev31 on MUST-2B-49 (a mid-copy cp fault left a permanent partial record; retry blocked — my defect) → 16:01 PLAN rev32 `90b5274d…` at 783dd49 (PLAN-pair-planner-20260924-160113.md)**: WAITING on the implementer's exact-hash review → word → carry → t-oracle rewrite in IvrESr → impl-10
+- **16:42 implementer 164230: APPROVE rev32 (plan-review-32) → 19:18 word TO master (SITREP-pair-planner-20260924-191800.md; T-ORACLE prefix replayed at 90b5274d)**: WAITING on master's fresh carry → t-oracle rewrite in IvrESr → gates/walks → impl-10
 
 ## Additional top-level files (declared per sprint-doc-setup)
 
