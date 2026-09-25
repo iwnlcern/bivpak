@@ -64,7 +64,10 @@ biv::repo::Git git() {
 
 std::string run_git(const biv::repo::Git& git, const std::filesystem::path& cwd,
                     std::initializer_list<std::string> args) {
-  auto result = git.run(args, {}, {.cwd = cwd, .allow_user_protocol = true});
+  auto result = git.run(args, {}, {.cwd = cwd,
+                                   .ceiling = std::nullopt,
+                                   .allow_user_protocol = true,
+                                   .stdout_file = std::nullopt});
   REQUIRE(result);
   INFO(std::string(reinterpret_cast<const char*>(result->stderr_bytes.data()),
                    result->stderr_bytes.size()));
@@ -3024,8 +3027,10 @@ TEST_CASE("c3 hook installer obeys preapproval and absent noninteractive hook", 
     std::streambuf* previous;
     ~RestoreBuffer() { std::cerr.rdbuf(previous); }
   } restore{std::cerr.rdbuf(captured.rdbuf())};
-  CHECK(consent.run.hook({"https://req", "https://eff", "fetch", "/w/repo"}) ==
-        biv::repo::UrlDivergenceDecision::proceed);
+  // Called outside any assertion: a redirecting reporter (-r xml) re-points
+  // std::cerr at each assertion boundary, which would bypass `captured`.
+  const auto decision = consent.run.hook({"https://req", "https://eff", "fetch", "/w/repo"});
+  CHECK(decision == biv::repo::UrlDivergenceDecision::proceed);
   CHECK(captured.str() ==
         "  fetch: contacting https://eff for /w/repo (requested: https://req — accepted for this run)\n");
 }

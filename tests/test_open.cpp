@@ -73,7 +73,10 @@ biv::repo::Git test_git() {
 void init_repo(const biv::repo::Git& git, const std::filesystem::path& path) {
   std::filesystem::create_directories(path);
   auto run = [&](std::vector<std::string> args) {
-    auto result = git.run(args, {}, {.cwd = path, .allow_user_protocol = true});
+    auto result = git.run(args, {}, {.cwd = path,
+                                     .ceiling = std::nullopt,
+                                     .allow_user_protocol = true,
+                                     .stdout_file = std::nullopt});
     REQUIRE(result);
     REQUIRE(result->exit_code == 0);
   };

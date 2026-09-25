@@ -912,7 +912,9 @@ TEST_CASE("a6-R1 exit composition: one typed aggregator over both sources", "[a6
   nonzero.rows.push_back({.agent = "future-tool",
                           .image_session_id = "session",
                           .row = biv::core_sessions::SessionRowReport::Row::unknown_agent_skipped,
-                          .reason = "unknown-agent"});
+                          .reason = "unknown-agent",
+                          .installed_session_id = std::nullopt,
+                          .detail = std::nullopt});
   CHECK(biv::report::exit_for_open(nonzero, {}) == 2);
   CHECK(biv::report::exit_for_open(nonzero, rows) == 2);
 }
@@ -951,17 +953,20 @@ TEST_CASE("A10 open repos rows are exact outcome-conditioned machine carriers", 
   CHECK(zero.find("\"repos\"") == zero.find("\"repos\": []"));
 
   report.repos.push_back({.id = "restored", .relpath = "repo", .outcome = "restored",
+                          .kind = std::nullopt, .detail = std::nullopt,
                           .sha = std::string(40, 'a'), .branch = std::nullopt,
                           .capture_mode = "overlay", .remotes = {},
                           .bundle_path = std::nullopt, .reconstruct = std::nullopt,
                           .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt});
   report.repos.push_back({.id = "shallow", .relpath = "shallow", .outcome = "shallow-pointer",
+                          .kind = std::nullopt, .detail = std::nullopt,
                           .sha = std::string(40, 'b'), .branch = std::nullopt,
                           .capture_mode = std::nullopt, .remotes = {},
                           .bundle_path = std::nullopt, .reconstruct = std::nullopt,
                           .local_refs = {}, .advisories = {"ShallowPointer"},
                           .shallow_boundary = std::vector<std::string>{std::string(40, 'c')}});
   report.repos.push_back({.id = "offline", .relpath = "offline", .outcome = "offline-pointer",
+                          .kind = std::nullopt, .detail = std::nullopt,
                           .sha = "(no commits)", .branch = "main", .capture_mode = "full",
                           .remotes = {"https://stored.invalid/repo"},
                           .bundle_path = ".biv/repos/offline/repo.bundle",

@@ -43,7 +43,7 @@ TEST_CASE("c6q scan_subtree walks a claimed payload-only repository",
     auto matcher = biv::scan::prepare_matcher(root);
     REQUIRE(matcher.has_value());
     biv::scan::ScanResult into;
-    const biv::scan::ScanExclusions claimed{.claimed_markers = {"r"}};
+    const biv::scan::ScanExclusions claimed{.repo_subtrees = {}, .claimed_markers = {"r"}};
     auto result = biv::scan::scan_subtree(root, matcher->matcher, claimed,
                                           "r", into);
     REQUIRE(result.has_value());
@@ -90,7 +90,7 @@ TEST_CASE("c6q scan_subtree walks a claimed payload-only repository",
     biv::scan::ScanResult into;
     auto result = biv::scan::scan_subtree(
         root, matcher->matcher,
-        biv::scan::ScanExclusions{.claimed_markers = {""}}, "", into);
+        biv::scan::ScanExclusions{.repo_subtrees = {}, .claimed_markers = {""}}, "", into);
     REQUIRE(result.has_value());
     std::vector<std::string> relpaths;
     for (const auto& node : into.payload) relpaths.push_back(node.relpath);
@@ -251,7 +251,8 @@ TEST_CASE("scan exclusions canonicalize and claim repository roots", "[pack-repo
   REQUIRE(matcher.has_value());
   for (const auto& spelling : {std::filesystem::path{"."}, std::filesystem::path{}}) {
     biv::scan::ScanExclusions exclusions{
-        .repo_subtrees = {biv::scan::ScanExclusions::canonical(spelling)}};
+        .repo_subtrees = {biv::scan::ScanExclusions::canonical(spelling)},
+        .claimed_markers = {}};
     auto result = biv::scan::scan(root, matcher->matcher, exclusions);
     REQUIRE(result.has_value());
     CHECK(result->payload.empty());
@@ -270,7 +271,7 @@ TEST_CASE("scan excludes a nested repository subtree as one writer", "[pack-repo
   REQUIRE(matcher.has_value());
   auto result = biv::scan::scan(
       root, matcher->matcher,
-      biv::scan::ScanExclusions{.repo_subtrees = {"lib/vendored"}});
+      biv::scan::ScanExclusions{.repo_subtrees = {"lib/vendored"}, .claimed_markers = {}});
   REQUIRE(result.has_value());
   CHECK(std::ranges::any_of(result->payload, [](const auto& node) {
     return node.relpath == "lib/other.c";

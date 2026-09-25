@@ -69,7 +69,10 @@ void pack_git_run(const biv::repo::Git& git,
                   std::initializer_list<std::string> args,
                   std::initializer_list<std::string> operands = {}) {
   auto result = git.run(args, operands,
-                        {.cwd = cwd, .allow_user_protocol = true});
+                        {.cwd = cwd,
+                         .ceiling = std::nullopt,
+                         .allow_user_protocol = true,
+                         .stdout_file = std::nullopt});
   REQUIRE(result.has_value());
   const std::string diagnostic{
       reinterpret_cast<const char*>(result->stderr_bytes.data()),
@@ -82,7 +85,10 @@ std::string pack_git_stdout(const biv::repo::Git& git,
                             const std::filesystem::path& cwd,
                             std::initializer_list<std::string> args) {
   auto result = git.run(args, {},
-                        {.cwd = cwd, .allow_user_protocol = true});
+                        {.cwd = cwd,
+                         .ceiling = std::nullopt,
+                         .allow_user_protocol = true,
+                         .stdout_file = std::nullopt});
   REQUIRE(result.has_value());
   REQUIRE(result->exit_code == 0);
   return {reinterpret_cast<const char*>(result->stdout_bytes.data()),
@@ -1600,7 +1606,10 @@ TEST_CASE("pack fences dirty nested submodule and unmerged repositories before i
         auto conflict = git.run(
             {"-c", "user.name=Biv Test", "-c",
              "user.email=biv@example.invalid", "merge", "other"}, {},
-            {.cwd = source, .allow_user_protocol = true});
+            {.cwd = source,
+             .ceiling = std::nullopt,
+             .allow_user_protocol = true,
+             .stdout_file = std::nullopt});
         REQUIRE(conflict.has_value());
         REQUIRE(conflict->exit_code != 0);
       } else {
