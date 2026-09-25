@@ -1,0 +1,45 @@
+# consumers after rev35 line 219, run on a mirror of the real home (B/, H/, the pinned helpers, B-cells.txt, B-workflow.yml; helpers.sha256 verified for every .py)
+## rev35 line 219: skipset.py linux
+IndexError: list index out of range
+rc=1
+## skipset.py macos (H0)
+expected n=3 observed n=3 same_set=yes only_in_B=[] only_in_observed=[]
+rc=0
+## cellgate B linux
+UNCHANGED biv_probe_tests linux cell=25,0,0,0
+UNCHANGED biv_repo_engine_tests linux cell=60,0,0,0
+UNCHANGED biv_repo_git_tests linux cell=6,0,0,0
+UNCHANGED biv_subprocess_tests linux cell=12,0,0,0
+UNCHANGED biv_tests linux cell=421,0,0,1
+rc=0
+## cellgate B macos
+UNCHANGED biv_probe_tests macos cell=25,0,0,0
+UNCHANGED biv_repo_engine_tests macos cell=60,0,0,0
+UNCHANGED biv_repo_git_tests macos cell=6,0,0,0
+UNCHANGED biv_subprocess_tests macos cell=12,0,0,0
+UNCHANGED biv_tests macos cell=419,0,0,3
+rc=0
+## rev35 line 222: xmlcases.py e3
+E3 case='c7 pack URL divergence is fail-safe interactive and flag-scoped' success=None
+rc=5
+## xmlcases.py ctest-row harness-e2
+ROW harness-e2 status=run children=none
+rc=0
+## populations
+B=1013 H0=1055
+## series_verdict.py on ten copies each of the real B and H0 draws
+FREQ tree=B test=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop draws=10/10
+FREQ tree=B test=selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration draws=10/10
+FREQ tree=B test=selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite draws=10/10
+FREQ tree=H test=selftest/test_e3_asserts.py::test_c1_zero_session_control_reds_on_file_inserted_at_scandir_stop draws=10/10
+FREQ tree=H test=selftest/test_e3_asserts.py::test_credential_scanner_detects_entry_added_after_directory_enumeration draws=10/10
+FREQ tree=H test=selftest/test_e3_asserts.py::test_file_reader_rejects_same_size_cross_chunk_in_place_rewrite draws=10/10
+K-3 base_mean=3.00 landed_mean=3.00 base_max=3 landed_min=3 delta=0.00
+VERDICT SHIFTED (K-3) — countgate HELD for this candidate; the deselection arm is not pre-authorized here
+rc=1
+## cellpatch -> cells -> final cellgate
+cellpatch rc=0
+4
+cells rc=0
+final-macos rc=0
+final-linux rc=0

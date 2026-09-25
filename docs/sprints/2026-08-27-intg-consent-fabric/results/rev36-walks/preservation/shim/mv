@@ -1,0 +1,8 @@
+#!/bin/bash
+# fault-injecting mv: MV_FAIL_AT=N fails the Nth call (rc 1, nothing moved); MV_CORRUPT_AT=N performs the move then appends one byte to a regular file inside the moved tree
+C=$PWALK_CNT/mv; n=$(( $(cat "$C" 2>/dev/null || echo 0) + 1 )); echo $n > "$C"
+case ",${MV_FAIL_AT:-0}," in *",$n,"*) echo "shim-mv: injected failure at call $n" >&2; exit 1;; esac
+if false; then echo "shim-mv: injected failure at call $n" >&2; exit 1; fi
+/bin/mv "$@"; r=$?
+if [ "$r" -eq 0 ] && [ "${MV_CORRUPT_AT:-0}" = "$n" ]; then d="${@: -1}"; f=$(find "$d" -type f | head -1); printf 'X' >> "$f"; echo "shim-mv: corrupted $f after call $n" >&2; fi
+exit $r

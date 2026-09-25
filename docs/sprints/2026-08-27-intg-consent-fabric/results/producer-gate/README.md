@@ -21,3 +21,9 @@ Discriminator run on rev35 (`6781eae1…`) with rev35's extractor `8331c944…`,
 - the rev33 baseline: rc 0 — 0 orphans, 38 classified, 0 stale;
 - the committed 25-row baseline: rc 1 — exactly those 13 rows as ORPHAN;
 - rev35 plus one read of an unwritten `$EVID/receipts/c8X-unwritten.txt`: rc 1 — that one ORPHAN.
+
+rev36 baseline (2026-09-25, for the successor of impl-11): `baseline-substep2b-rev36.txt` 06ff5dfffcd467be3322aafe14c2a3f1c437cef042f3543e941f85ca5181c215 adds 2 classified rows to the rev33 baseline: Task 9's `BLEG` writes its argument (`> "$1"` inside the function), which the gate cannot see — `work/B-leg.names` before the preservation and `work/B-leg.post` after it.
+Discriminator run on rev36 (`e87c999a…`) with its extractor `8331c944…`, each isolating its predicate:
+- the rev36 baseline: rc 0 — 0 orphans, 40 classified, 0 stale;
+- the rev33 baseline: rc 1 — exactly those 2 rows as ORPHAN;
+- rev36 plus one read of an unwritten `$EVID/H/skipset-linux-unwritten.txt`: rc 1 — that one ORPHAN.

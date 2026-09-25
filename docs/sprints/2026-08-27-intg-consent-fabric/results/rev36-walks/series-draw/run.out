@@ -1,0 +1,18 @@
+Fri Sep 25 14:12:57 PDT 2026
+container rc=0
+summary rc=0
+status=fail
+summary=parsed
+failed=4
+passed=1006
+skipped=3
+population=1013
+names_count=4
+total 0
+drwxr-xr-x   6 jack  wheel   192 Sep 25 14:12 .
+drwxr-xr-x   7 jack  wheel   224 Sep 25 14:12 ..
+drwxr-xr-x  36 jack  wheel  1152 Sep 25 14:23 B-1
+-rw-r--r--   1 jack  wheel     0 Sep 25 14:12 linux-container.sh
+-rw-r--r--   1 jack  wheel     0 Sep 25 14:12 linux-suite.sh
+-rw-r--r--   1 jack  wheel     0 Sep 25 14:12 observer-unset-names.txt
+Fri Sep 25 14:23:41 PDT 2026

@@ -1,0 +1,4 @@
+#!/bin/bash
+C=$PWALK_CNT/py; n=$(( $(cat "$C" 2>/dev/null || echo 0) + 1 )); echo $n > "$C"
+if [ "${PY_FAIL_AT:-0}" = "$n" ]; then echo "shim-python3: injected failure at call $n" >&2; exit 1; fi
+exec /opt/homebrew/bin/python3 "$@"
