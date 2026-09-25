@@ -999,3 +999,19 @@ Walks:
 Recorded for master as data: the truncation mutant terminates only when w4 is present; B5-bix stays green (a RESIDUALS row under m-1); B5-bix's assertion total differed between two runs, and it is not pinned.
 No token.
 The release hold is ABSOLUTE.
+
+## R73 — MUST-2B-50 folded; rev34 filed (2026-09-25 06:33 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260925-063356.md`; 06:41 PLAN `intg-substep2b/PLAN-pair-planner-20260925-064145.md`)
+
+The implementer must-revised rev33 `7bbd6270…`, and was right: VETO 9 MECHANICAL still said "exactly FIVE engine commits … no commit other than those five", while Task 8b, the order rule, Task 9's runner and acceptance 1 require c8Tr.
+My generator had moved the ENGINE BYTES line to six but not the veto's closing clause.
+
+rev34 (`80ea88f4…` at `e18ea66`), prose only, four lines:
+- The veto now reads exactly SIX engine commits (c1a, c1b, c1c, c1d, c1e, c8Tr), c8Tr at `restore.cpp` alone after c7 between c8L and c8T, no spanning.
+- The exclusive "ONLY c1d then c1e" wording is repaired in Task 9's Step 2 prose and in acceptance 1.
+- A rev34 history entry.
+
+Measured: the block list is identical to rev33's; `check` rc 0 on tasks 0/9/10/11; the producer gate rc 0; placeholder, token and census scans 0 with controls; Step 0′ re-walked on the new lock.
+Disclosed in the carrier: four grading-table rows the rev33 carrier had left stale (commit order, count gate, population rule, zero-byte fences), now re-cut.
+Disclosed here: the relay commit `458b176` also carried the implementer's uncommitted INDEX row for 063356 (the shared-INDEX sweep).
+No token.
+The release hold is ABSOLUTE.
