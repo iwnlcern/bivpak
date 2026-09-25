@@ -889,3 +889,21 @@ Results: YES rc 0 with one receipt; carry-to STOP rc 1 with no receipt; stale re
 The pointer still names `s2b-runners-IvrESr`.
 Next: master's carry; then the `t-oracle.txt` rewrite in IvrESr (prev preserved), the T-ORACLE prefix and R-4.72 gate from the candidate, the `resume.sh` mirror walk, the producer gate and rev32's prologue walk on a fresh real-home mirror; then impl-10 at PARENT plan-review-32.
 The release hold is ABSOLUTE.
+
+## R68 — master's carry 192620; the locator rewritten; gates and walks green; impl-10 issued (2026-09-24 19:26 `master/relays/intg-2b-wiring-act/PLAN-master-planner-20260924-192620.md`; 19:43 IMPL `intg-substep2b/IMPL-pair-planner-20260924-194325.md`)
+
+Master's carry 192620 (`6b32407b…`, committed in pdc 092239d5, `TO: intg.pair-planner`) clears T-ORACLE at `90b5274d…`. Only the plan digest moves from 140701.
+Master measured the arc himself: the impl-9 STOP's cause in the real home, the rev29→rev32 delta bounded to one BLOCK constant, and rev32's prologue read line by line.
+The pointer (read as its own command) names `s2b-runners-IvrESr`. `t-oracle.txt` was preserved as `t-oracle.prev-20260924-193739.txt` (`2ee21122…`, hard-linked, bytes and mtime kept) and re-created exclusively at 0400 (`8d42bdc2…`, carry_relay 192620).
+Gates from the candidate at a83657e with scratch `$EVID`s:
+- T-ORACLE OK; the preserved rev29 locator STOPs on the plan-digest mismatch.
+- R-4.72 (c1d pre) OK.
+Step 0′ walk on scratch mirrors:
+- YES publishes with 20 carried lines and passes the R-4.72, c6p and T-ORACLE gates from the new directory.
+- The stale, unreadable-r472, same-lock and token-form cases STOP; an absent r472 fails the gate closed.
+- Nothing was left in the evidence root.
+Producer gate rc 0. rev32 prologue walk on a fresh real-home mirror: 213 assertions, 0 failing.
+The SCOPE_ROW_EVIDENCE path-to-commit map was re-derived from `git log B..a83657e` and is byte-equal to impl-9's.
+The mini-root lineage walk shows the three dispatch-lineage errors only under the wrong parent.
+impl-10 issued at PARENT plan-review-32 (`507f86d2…`): Step 0′, then Task 9, with Task 10 on my GO.
+The release hold is ABSOLUTE.
