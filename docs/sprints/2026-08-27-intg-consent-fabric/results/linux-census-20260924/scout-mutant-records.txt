@@ -1,0 +1,19 @@
+c8Tr record at the c8Tr tree (restore.cpp blob f99caca identical at e6fb4aa, adc8a8f, ac32154), the plan block run at the walk head:
+witness=W-C6 run_rc=0 <OverallResults successes="4" failures="0"
+mutant=Mc5 gating=yes run_rc=42 <OverallResults successes="2" failures="2"
+mutant=M-SEAM gating=yes run_rc=42 <OverallResults successes="2" failures="2"
+c8T mutant record at the c8T tree (ac32154, tree 22b801f0 = c97843d), the plan block run at the walk head:
+mutant=M-MASK gating=yes run_rc=42 <OverallResults successes="57" failures="2"
+mutant=minimum gating=yes run_rc=42 <OverallResults successes="55" failures="4"
+mutant=M-SEC gating=yes run_rc=42 <OverallResults successes="53" failures="6"
+mutant=B6-swap gating=yes run_rc=42 <OverallResults successes="449" failures="2"
+mutant=truncation gating=no run_rc=134 <OverallResults successes="32" failures="1"
+mutant=B5-bix gating=no run_rc=0 <OverallResults successes="21896" failures="0"
+earlier fold records (same tree): the minimum mutant as removed did not build (-Werror unused variable), redone as & 0U; truncation with and without w4:
+mutant=minimum-and0 build_rc=0 run_rc=42 assertions:<OverallResults successes="55" failures="4" stderr_tail=""
+mutant=truncation-with-w4 build_rc=0 run_rc=134 assertions:<OverallResults successes="32" failures="1" stderr_tail="libc++abi: terminating due to uncaught exception of type std::out_of_range: string_view::at "
+mutant=truncation-without-w4 build_rc=0 run_rc=0 assertions:<OverallResults successes="57" failures="0" stderr_tail=""
+mutant=control-without-w4 build_rc=0 run_rc=0 assertions:<OverallResults successes="57" failures="0" stderr_tail=""
+rebuild-after-revert rc=0 clean=yes
+B5-bix, first fold run:
+mutant=B5-bix file=src/core/pack/pack.cpp build_rc=0 run_rc=0 case="ALL" assertions:<OverallResults successes="21899" failures="0" red_cases=""

@@ -1,0 +1,16 @@
+scout heads (tw clone, commit-tree on a83657e): c8L 01ba444b07a0899a71fe647bed6a7ba886968b0b (tree 1fd0bf64e6d55e36cc6dde4962ac91f53d2ecbff) -> c8Tr adc8a8f4d60883861bb18b22abefd587bc85ec6b (tree 17583a966f54627f062237b2067a7136328e02cd) -> c8T c97843d198a46925fafdf0147a56a4eecee05ca3 (tree 22b801f0ef1f5dea10f4cc27a84569f0c9ca42e4)
+patches: repair-12 = git diff a83657e 01ba444 (sha256 d7bb50972e2917d6f480bde62839df3a5f41ee35d1f1b311d05e8f7c22480bc3); repair-3 = git diff 01ba444 adc8a8f (byte-identical to the recorded repair-3); repair-5 = git diff adc8a8f c97843d (sha256 213f9d543b8228ee250413311d641b795f6280edd4b51128ab07b4bfceca6986); repair-4 superseded by repair-5 (003436 cell (B))
+linux canonical container at c8T c97843d198a46925fafdf0147a56a4eecee05ca3: container_rc=0 | phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 | suite_aggregate_rc=0 ledger_write_failed=0 | expected=c97843d198a46925fafdf0147a56a4eecee05ca3 observed=c97843d198a46925fafdf0147a56a4eecee05ca3
+tidy at c8T: findings=0 coverage_lines=1 row="run"
+ctest rows not passed at c8T: fail harness-selftest;notrun safety-asan-ubsan;notrun safety-fuzz-smoke;
+biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0
+biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0
+biv_repo_engine_tests linux successes=82 failures=0 expectedFailures=0 skips=0
+biv_tests linux successes=486 failures=0 expectedFailures=0 skips=1
+biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0
+macOS ci-macos at the same tree (fold ac32154, tree identical), -r xml:
+biv_subprocess_tests successes="12" failures="0" expectedFailures="0" skips="0"
+biv_repo_git_tests successes="6" failures="0" expectedFailures="0" skips="0"
+biv_repo_engine_tests successes="82" failures="0" expectedFailures="0" skips="0"
+biv_tests successes="484" failures="0" expectedFailures="0" skips="3"
+biv_probe_tests successes="25" failures="0" expectedFailures="0" skips="0"

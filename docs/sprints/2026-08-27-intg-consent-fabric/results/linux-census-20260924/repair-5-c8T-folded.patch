@@ -1,0 +1,467 @@
+diff --git a/src/cli/consent_display_table.hpp b/src/cli/consent_display_table.hpp
+index a9941ab..624688f 100644
+--- a/src/cli/consent_display_table.hpp
++++ b/src/cli/consent_display_table.hpp
+@@ -3,7 +3,7 @@
+ // class = General_Category in {Cf, Zl, Zp} UNION Default_Ignorable_Code_Point, as sorted merged ranges.
+ // input sha256: 806e9aed65037197f1ec85e12be6e8cd870fc5608b4de0fffd990f689f376a73  UnicodeData.txt
+ // input sha256: d367290bc0867e6b484c68370530bdd1a08b6b32404601b8c7accaf83e05628d  DerivedCoreProperties.txt
+-// generator sha256: 04b20615e46b2017c2e6d7db7a5a6d76761a2519eb87a951c8c298a0b5c3933c
++// generator sha256: 8ef548490b15395640ef0c93ebb49e6f2f98a1dc1955a3f413ab24c444b62449
+ // members: 4208  ranges: 25
+ #pragma once
+ #include <array>
+@@ -41,8 +41,8 @@ inline constexpr bool consent_display_active(char32_t scalar) noexcept {
+   std::size_t lo = 0, hi = kConsentDisplayActive.size();
+   while (lo < hi) {
+     const std::size_t mid = lo + (hi - lo) / 2;
+-    if (scalar < kConsentDisplayActive[mid].first) hi = mid;
+-    else if (scalar > kConsentDisplayActive[mid].last) lo = mid + 1;
++    if (scalar < kConsentDisplayActive.at(mid).first) hi = mid;
++    else if (scalar > kConsentDisplayActive.at(mid).last) lo = mid + 1;
+     else return true;
+   }
+   return false;
+diff --git a/src/cli/main.cpp b/src/cli/main.cpp
+index b1324f0..cbe2a0c 100644
+--- a/src/cli/main.cpp
++++ b/src/cli/main.cpp
+@@ -536,14 +536,15 @@ int main(int argc, char** argv) {
+           std::cerr << biv::cli::render_offline_header();
+           for (const auto& row : report->repos) {
+             if (row.outcome == "offline-pointer") {
+-              std::cerr << biv::cli::render_offline_row(row.relpath, row.branch, *row.sha, row.remotes);
++              std::cerr << biv::cli::render_offline_row(row.relpath, row.branch, row.sha.value_or(std::string{}), row.remotes);
+             }
+           }
+           for (const auto& row : report->repos) {
+             if (!row.bundle_path) continue;
+             const auto bundle = (std::filesystem::path{report->output_dir} / *row.bundle_path)
+                                     .lexically_normal().generic_string();
+-            std::cerr << biv::cli::render_offline_bundle_row(row.relpath, bundle, row.reconstruct);
++            std::cerr << biv::cli::render_offline_bundle_row(
++                {.relpath = row.relpath, .absolute_bundle_path = bundle, .reconstruct = row.reconstruct});
+           }
+         }
+         return exit_code;
+diff --git a/src/cli/url_consent.cpp b/src/cli/url_consent.cpp
+index 8f8bb28..c4556a1 100644
+--- a/src/cli/url_consent.cpp
++++ b/src/cli/url_consent.cpp
+@@ -3,6 +3,7 @@
+ #include <array>
+ #include <istream>
+ #include <ostream>
++#include <stdexcept>
+ #include <unistd.h>
+ 
+ #include "cli/consent_display_table.hpp"
+@@ -58,10 +59,11 @@ void append_u00(std::string& out, const char32_t value) {
+ void append_braced(std::string& out, char32_t value) {
+   std::array<char, 6> reversed{};
+   std::size_t count = 0;
+-  do {
++  while (true) {
+     reversed.at(count++) = kLowerHex.at(value & 0x0fU);
+     value >>= 4U;
+-  } while (value != 0);
++    if (value == 0) break;
++  }
+ 
+   out += "\\u{";
+   while (count > 0) {
+@@ -166,10 +168,16 @@ std::string render_engine_refusal_detail(
+       std::string list;
+       for (std::size_t index = 0; index < paths.size(); ++index) {
+         if (index != 0) list += ", ";
+-        list += paths[index];
++        list += paths.at(index);
+       }
+       std::size_t total = 0;
+-      try { total = static_cast<std::size_t>(std::stoull(count)); } catch (...) {}
++      try {
++        total = static_cast<std::size_t>(std::stoull(count));
++      } catch (const std::invalid_argument&) {
++        total = 0;
++      } catch (const std::out_of_range&) {
++        total = 0;
++      }
+       if (total > 3) list += " and " + std::to_string(total - 3) + " more";
+       return "pack refused: " + repo + " has an unmerged index (" + consent_display(count) + " paths: " + list + "); an in-progress merge cannot be represented. Resolve or abort the merge and re-run.";
+     }
+@@ -251,14 +259,12 @@ std::string render_network_consent(const std::vector<repo::RepoEntry>& entries,
+   return out;
+ }
+ 
+-std::string render_offline_bundle_row(
+-    const std::string_view relpath, const std::string_view absolute_bundle_path,
+-    const std::optional<std::string>& reconstruct) {
+-  const auto prefix = consent_display(relpath) + ": ";
++std::string render_offline_bundle_row(const OfflineBundleRow& row) {
++  const auto prefix = consent_display(row.relpath) + ": ";
+   constexpr std::string_view suffix =
+       "   (partial/manual reconstruction — not a full restore)\n";
+-  if (reconstruct) return prefix + *reconstruct + std::string{suffix};
+-  return prefix + "bundle at " + consent_display(absolute_bundle_path) +
++  if (row.reconstruct) return prefix + *row.reconstruct + std::string{suffix};
++  return prefix + "bundle at " + consent_display(row.absolute_bundle_path) +
+          " — no copy-paste command: the path or branch carries characters a shell line cannot carry faithfully; reconstruct by hand from the bundle" +
+          std::string{suffix};
+ }
+diff --git a/src/cli/url_consent.hpp b/src/cli/url_consent.hpp
+index 35277d2..782ebe1 100644
+--- a/src/cli/url_consent.hpp
++++ b/src/cli/url_consent.hpp
+@@ -39,9 +39,13 @@ std::string render_offline_row(std::string_view relpath,
+                                 const std::vector<std::string>& remotes);
+ std::string render_network_consent(const std::vector<repo::RepoEntry>& entries,
+                                    bool include_prompt);
+-std::string render_offline_bundle_row(
+-    std::string_view relpath, std::string_view absolute_bundle_path,
+-    const std::optional<std::string>& reconstruct);
++// The two displayed paths are both string_views; named members bound by designated initializers keep them from being swapped.
++struct OfflineBundleRow {
++  std::string_view relpath;
++  std::string_view absolute_bundle_path;
++  std::optional<std::string> reconstruct;
++};
++std::string render_offline_bundle_row(const OfflineBundleRow& row);
+ bool prompt_url_divergence(const UrlDivergenceFacts& facts, std::istream& in,
+                            std::ostream& err);
+ 
+diff --git a/src/core/open/open.cpp b/src/core/open/open.cpp
+index 5432b22..aaaaa8e 100644
+--- a/src/core/open/open.cpp
++++ b/src/core/open/open.cpp
+@@ -477,9 +477,15 @@ expected<void> write_file_stream(const std::filesystem::path& path,
+   return {};
+ }
+ 
+-expected<void> ensure_private_directories(
+-    const std::filesystem::path& root,
+-    const std::filesystem::path& relative) {
++// `relative` is multi-component (.biv/repos/<id>), refused component by component; named members keep it apart from `root`.
++struct PrivateDirectories {
++  std::filesystem::path root;
++  std::filesystem::path relative;
++};
++
++expected<void> ensure_private_directories(const PrivateDirectories& dirs) {
++  const auto& root = dirs.root;
++  const auto& relative = dirs.relative;
+   auto current = root;
+   for (const auto& component : relative) {
+     if (component.empty() || component == "." || component == ".." ||
+@@ -561,18 +567,16 @@ bool ascii_prefix(const std::string_view value,
+                   const std::string_view prefix) noexcept {
+   if (value.size() < prefix.size()) return false;
+   for (size_t index = 0; index < prefix.size(); ++index) {
+-    if (ascii_fold(value[index]) != prefix[index]) return false;
++    if (ascii_fold(value.at(index)) != prefix.at(index)) return false;
+   }
+   return true;
+ }
+ 
+-bool next_utf8(const std::string_view value, size_t& offset,
+-               char32_t& codepoint) noexcept {
+-  if (offset >= value.size()) return false;
+-  const auto first = static_cast<unsigned char>(value[offset++]);
++std::optional<char32_t> next_utf8(const std::string_view value, size_t& offset) noexcept {
++  if (offset >= value.size()) return std::nullopt;
++  const auto first = static_cast<unsigned char>(value.at(offset++));
+   if (first < 0x80U) {
+-    codepoint = first;
+-    return true;
++    return first;
+   }
+   size_t continuation_count = 0;
+   char32_t decoded = 0;
+@@ -590,20 +594,19 @@ bool next_utf8(const std::string_view value, size_t& offset,
+     decoded = first & 0x07U;
+     minimum = 0x10000U;
+   } else {
+-    return false;
++    return std::nullopt;
+   }
+-  if (value.size() - offset < continuation_count) return false;
++  if (value.size() - offset < continuation_count) return std::nullopt;
+   for (size_t index = 0; index < continuation_count; ++index) {
+-    const auto byte = static_cast<unsigned char>(value[offset++]);
+-    if ((byte & 0xC0U) != 0x80U) return false;
++    const auto byte = static_cast<unsigned char>(value.at(offset++));
++    if ((byte & 0xC0U) != 0x80U) return std::nullopt;
+     decoded = (decoded << 6U) | (byte & 0x3FU);
+   }
+   if (decoded < minimum || decoded > 0x10FFFFU ||
+       (decoded >= 0xD800U && decoded <= 0xDFFFU)) {
+-    return false;
++    return std::nullopt;
+   }
+-  codepoint = decoded;
+-  return true;
++  return decoded;
+ }
+ 
+ bool hfs_ignorable(const char32_t value) noexcept {
+@@ -617,11 +620,12 @@ bool hfs_dot_name(const std::string_view segment,
+   size_t offset = 0;
+   size_t matched = 0;
+   while (offset < segment.size()) {
+-    char32_t codepoint = 0;
+-    if (!next_utf8(segment, offset, codepoint)) return false;
++    const auto decoded = next_utf8(segment, offset);
++    if (!decoded) return false;
++    const char32_t codepoint = *decoded;
+     if (hfs_ignorable(codepoint)) continue;
+     if (codepoint > 0x7FU || matched >= name.size() ||
+-        ascii_fold(static_cast<char>(codepoint)) != name[matched]) {
++        ascii_fold(static_cast<char>(codepoint)) != name.at(matched)) {
+       return false;
+     }
+     ++matched;
+@@ -641,10 +645,10 @@ bool ntfs_dot_name(const std::string_view segment,
+     return false;
+   }
+   while (offset < segment.size() &&
+-         (segment[offset] == '.' || segment[offset] == ' ')) {
++         (segment.at(offset) == '.' || segment.at(offset) == ' ')) {
+     ++offset;
+   }
+-  return offset == segment.size() || segment[offset] == ':';
++  return offset == segment.size() || segment.at(offset) == ':';
+ }
+ 
+ bool protected_component(const std::string_view segment,
+@@ -832,8 +836,8 @@ expected<uint64_t> apply_archive(const std::filesystem::path& image,
+           std::error_code ec;
+           if (!stage) {
+             if (auto ok = ensure_private_directories(
+-                    partial_dir, std::filesystem::path{".biv"} / "repos" /
+-                                     path.parent_path().filename());
++                    {.root = partial_dir,
++                     .relative = std::filesystem::path{".biv"} / "repos" / path.parent_path().filename()});
+                 !ok) {
+               return std::unexpected(ok.error());
+             }
+@@ -943,7 +947,7 @@ expected<std::filesystem::path> owned_output_path(
+   size_t first_absent = ancestors.size();
+   for (size_t index = 0; index < ancestors.size(); ++index) {
+     std::error_code ec;
+-    const auto status = std::filesystem::symlink_status(ancestors[index], ec);
++    const auto status = std::filesystem::symlink_status(ancestors.at(index), ec);
+     if (status.type() == std::filesystem::file_type::not_found) {
+       first_absent = index;
+       break;
+@@ -955,11 +959,11 @@ expected<std::filesystem::path> owned_output_path(
+   }
+   for (size_t index = first_absent; index < ancestors.size(); ++index) {
+     std::error_code ec;
+-    if (!std::filesystem::create_directory(ancestors[index], ec) || ec) {
++    if (!std::filesystem::create_directory(ancestors.at(index), ec) || ec) {
+       return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
+     }
+     ec.clear();
+-    const auto status = std::filesystem::symlink_status(ancestors[index], ec);
++    const auto status = std::filesystem::symlink_status(ancestors.at(index), ec);
+     if (ec || std::filesystem::is_symlink(status) ||
+         !std::filesystem::is_directory(status)) {
+       return std::unexpected(BivError{ErrKind::MemberPathUnsafe, meta.path});
+@@ -1243,6 +1247,11 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
+   // Own only a newly created stage; cleanup also runs if a later operation throws.
+   struct StageCleanup {
+     std::optional<std::filesystem::path> path;
++    StageCleanup() = default;
++    StageCleanup(const StageCleanup&) = delete;
++    StageCleanup& operator=(const StageCleanup&) = delete;
++    StageCleanup(StageCleanup&&) = delete;
++    StageCleanup& operator=(StageCleanup&&) = delete;
+     ~StageCleanup() {
+       if (path) {
+         std::error_code ignored;
+@@ -1363,11 +1372,12 @@ expected<void> write_failed_inventory(const std::filesystem::path& partial_dir,
+     for (const auto& advisory : row.advisories) writer.value_string(advisory);
+     writer.end_array();
+     if (row.shallow_boundary) {
++      const auto shallow_boundaries = row.shallow_boundary.value_or(std::vector<std::string>{});
+       writer.key("shallow");
+       writer.begin_object();
+       writer.key("boundary");
+       writer.begin_array();
+-      for (const auto& boundary : *row.shallow_boundary) writer.value_string(boundary);
++      for (const auto& boundary : shallow_boundaries) writer.value_string(boundary);
+       writer.end_array();
+       writer.end_object();
+     }
+diff --git a/src/core/pack/pack.cpp b/src/core/pack/pack.cpp
+index b9f3636..7d71492 100644
+--- a/src/core/pack/pack.cpp
++++ b/src/core/pack/pack.cpp
+@@ -9,6 +9,7 @@
+ #include <exception>
+ #include <fstream>
+ #include <map>
++#include <numeric>
+ #include <optional>
+ #include <set>
+ #include <span>
+@@ -628,12 +629,10 @@ BivError fence_error(const repo::RepoBoundary& boundary,
+ std::vector<std::size_t> leaves_first(
+     const std::vector<repo::RepoEntry>& entries) {
+   std::vector<std::size_t> order(entries.size());
+-  for (std::size_t index = 0; index < entries.size(); ++index) {
+-    order[index] = index;
+-  }
++  std::iota(order.begin(), order.end(), std::size_t{0});
+   const auto depth = [&](const std::size_t index) {
+     std::size_t value = 0;
+-    auto parent = entries[index].parent_id;
++    auto parent = entries.at(index).parent_id;
+     while (parent && value < entries.size()) {
+       const auto found = std::ranges::find(entries, *parent,
+                                            &repo::RepoEntry::id);
+@@ -649,8 +648,8 @@ std::vector<std::size_t> leaves_first(
+   return order;
+ }
+ 
+-bool path_has_segment(const std::string_view path,
+-                      const std::string_view segment) {
++bool path_has_biv_segment(const std::string_view path) {
++  constexpr std::string_view segment = ".biv";
+   size_t start = 0;
+   while (start <= path.size()) {
+     const auto end = path.find('/', start);
+@@ -682,9 +681,9 @@ std::vector<std::string> directory_prefixes(const std::string_view path) {
+ }
+ 
+ expected<bool> directory_is_all_penumbra(
+-    const std::filesystem::path& repo_root,
+     const std::filesystem::path& directory,
+-    const std::set<std::string>& penumbra) {
++    const std::set<std::string>& penumbra,
++    const std::filesystem::path& repo_root) {
+   std::error_code ec;
+   std::filesystem::recursive_directory_iterator iterator{
+       directory, std::filesystem::directory_options::none, ec};
+@@ -749,7 +748,7 @@ expected<std::vector<scan::Node>> penumbra_nodes(
+       if (relative.empty()) continue;
+       const std::string full =
+           row.empty() ? relative : row + "/" + relative;
+-      if (path_has_segment(full, ".biv")) continue;
++      if (path_has_biv_segment(full)) continue;
+ 
+       bool in_deeper_row = false;
+       for (size_t other_index = 0; other_index < entries.size();
+@@ -820,7 +819,7 @@ expected<std::vector<scan::Node>> penumbra_nodes(
+       const auto verdict = matcher.match(ancestor, true);
+       if (verdict.ignored) continue;
+       auto qualifies = directory_is_all_penumbra(
+-          repo_root, source / std::filesystem::path{ancestor}, penumbra);
++          source / std::filesystem::path{ancestor}, penumbra, repo_root);
+       if (!qualifies) {
+         diagnostics.unreadable.push_back(ancestor);
+         continue;
+diff --git a/src/core/report/envelope.cpp b/src/core/report/envelope.cpp
+index b049834..6b7dc1f 100644
+--- a/src/core/report/envelope.cpp
++++ b/src/core/report/envelope.cpp
+@@ -447,11 +447,12 @@ void write_open_result(json::Writer& writer,
+       for (const auto& advisory : row.advisories) writer.value_string(machine_text(advisory));
+       writer.end_array();
+       if (row.shallow_boundary) {
++        const auto boundaries = row.shallow_boundary.value_or(std::vector<std::string>{});
+         writer.key("shallow");
+         writer.begin_object();
+         writer.key("boundary");
+         writer.begin_array();
+-        for (const auto& boundary : *row.shallow_boundary) writer.value_string(machine_text(boundary));
++        for (const auto& boundary : boundaries) writer.value_string(machine_text(boundary));
+         writer.end_array();
+         writer.end_object();
+       }
+@@ -463,12 +464,14 @@ void write_open_result(json::Writer& writer,
+         for (const auto& remote : row.remotes) writer.value_string(machine_text(remote));
+         writer.end_array();
+         if (row.bundle_path) {
++          const auto bundle_path = row.bundle_path.value_or(std::string{});
+           writer.key("bundle_path");
+-          writer.value_string(machine_text(*row.bundle_path));
++          writer.value_string(machine_text(bundle_path));
+         }
+         if (row.reconstruct) {
++          const auto reconstruct = row.reconstruct.value_or(std::string{});
+           writer.key("reconstruct");
+-          writer.value_string(*row.reconstruct);
++          writer.value_string(reconstruct);
+         }
+       }
+       writer.end_object();
+diff --git a/tests/test_cli.cpp b/tests/test_cli.cpp
+index 5040b61..bdc6152 100644
+--- a/tests/test_cli.cpp
++++ b/tests/test_cli.cpp
+@@ -1958,8 +1958,9 @@ TEST_CASE("A10 reconstruct quotes copy-safe shell hazards and rejects display-ac
+   CHECK_FALSE(unsafe->repos[0].reconstruct);
+   const auto absolute_bundle =
+       (std::filesystem::path{unsafe->output_dir} / *unsafe->repos[0].bundle_path).generic_string();
+-  const auto fallback = biv::cli::render_offline_bundle_row(
+-      unsafe->repos[0].relpath, absolute_bundle, unsafe->repos[0].reconstruct);
++  const auto fallback = biv::cli::render_offline_bundle_row({.relpath = unsafe->repos[0].relpath,
++                                                             .absolute_bundle_path = absolute_bundle,
++                                                             .reconstruct = unsafe->repos[0].reconstruct});
+   CHECK(fallback.find("unsafe\\n\\u{202e}repo: bundle at ") == 0);
+   CHECK(fallback.find("no copy-paste command") != std::string::npos);
+   CHECK(fallback.find("git init") == std::string::npos);
+diff --git a/tests/test_open.cpp b/tests/test_open.cpp
+index b49ecd6..2b7f6cb 100644
+--- a/tests/test_open.cpp
++++ b/tests/test_open.cpp
+@@ -491,6 +491,12 @@ TEST_CASE("c6p ownership rows and protected components are behavioral",
+   const std::string e_acute{"\xC3\xA9"};
+   const std::string malformed =
+       std::string{".g"} + static_cast<char>(0xFF) + "it";
++  // Invalid UTF-8 never decodes into a protected alias: a continuation byte failing the mask (its low bits spell U+200C),
++  // a 2-byte and a 3-byte overlong '.', and a truncated sequence.
++  const std::string bad_continuation{"\xE2\x80\x0C"};
++  const std::string overlong_dot_2{"\xC0\xAE"};
++  const std::string overlong_dot_3{"\xE0\x80\xAE"};
++  const std::string truncated{"\xE2\x80"};
+   for (const auto& value : std::vector<std::string>{
+            ".git", ".GIT", ".gIt", ".g" + zw_non_joiner + "it",
+            byte_order_mark + ".git", ".git" + right_to_left_mark,
+@@ -501,7 +507,9 @@ TEST_CASE("c6p ownership rows and protected components are behavioral",
+   }
+   for (const auto& value : std::vector<std::string>{
+            ".gitx", "git", ".gi", "x.git", ".git~1", "git~2",
+-           ".gitignore", ".g" + e_acute + "t", malformed}) {
++           ".gitignore", ".g" + e_acute + "t", malformed,
++           ".g" + bad_continuation + "it", overlong_dot_2 + "git",
++           overlong_dot_3 + "git", ".git" + truncated}) {
+     INFO(value);
+     CHECK_FALSE(is_dotgit_component(value));
+   }
+@@ -517,7 +525,9 @@ TEST_CASE("c6p ownership rows and protected components are behavioral",
+   for (const auto& value : std::vector<std::string>{
+            ".bivx", "biv", ".bi", "x.biv", ".biv~1", "biv~2",
+            ".bivignore", ".b" + e_acute + "v",
+-           std::string{".b"} + static_cast<char>(0xFF) + "iv"}) {
++           std::string{".b"} + static_cast<char>(0xFF) + "iv",
++           ".b" + bad_continuation + "iv", overlong_dot_2 + "biv",
++           overlong_dot_3 + "biv", ".biv" + truncated}) {
+     INFO(value);
+     CHECK_FALSE(is_dotbiv_component(value));
+   }
+diff --git a/tools/gen_consent_display_table.py b/tools/gen_consent_display_table.py
+index d9aa845..6dba740 100644
+--- a/tools/gen_consent_display_table.py
++++ b/tools/gen_consent_display_table.py
+@@ -61,8 +61,8 @@ out.append("inline constexpr bool consent_display_active(char32_t scalar) noexce
+ out.append("  std::size_t lo = 0, hi = kConsentDisplayActive.size();")
+ out.append("  while (lo < hi) {")
+ out.append("    const std::size_t mid = lo + (hi - lo) / 2;")
+-out.append("    if (scalar < kConsentDisplayActive[mid].first) hi = mid;")
+-out.append("    else if (scalar > kConsentDisplayActive[mid].last) lo = mid + 1;")
++out.append("    if (scalar < kConsentDisplayActive.at(mid).first) hi = mid;")
++out.append("    else if (scalar > kConsentDisplayActive.at(mid).last) lo = mid + 1;")
+ out.append("    else return true;")
+ out.append("  }")
+ out.append("  return false;")
