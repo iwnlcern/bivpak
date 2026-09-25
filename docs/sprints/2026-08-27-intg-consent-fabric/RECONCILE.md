@@ -1015,3 +1015,19 @@ Disclosed in the carrier: four grading-table rows the rev33 carrier had left sta
 Disclosed here: the relay commit `458b176` also carried the implementer's uncommitted INDEX row for 063356 (the shared-INDEX sweep).
 No token.
 The release hold is ABSOLUTE.
+
+## R74 — MUST-2B-51 folded; rev35 filed (2026-09-25 06:54 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260925-065407.md`; 07:41 PLAN `intg-substep2b/PLAN-pair-planner-20260925-074108.md`)
+
+The implementer must-revised rev34 `80ea88f4…`, and was right.
+My MUST-2B-50 correction widened acceptance 1's first subject to c8Tr, so c8Tr fell under that clause's "after c6p and before c7" while the same sentence placed it after c7.
+Task 9's Step 2 prose had the same shape (not named by the review), through my rev34 parenthetical inside the c1d/c1e subject.
+
+rev35 (`6781eae1…` at `6322f89`), prose only, three lines:
+- Both sentences are partitioned by c7: c1d then c1e are the only engine commits before c7; c8Tr is the only engine commit after c7, at `restore.cpp` alone, between c8L and c8T, met once; exactly six.
+- A rev35 history entry; rev34's entry and VETO 9 MECHANICAL line are unchanged.
+
+Sweep: every operative sentence was scanned for c8Tr with a before-c7 predicate and for c1d/c1e with after-c7; the only hit is the partitioned clause itself.
+Measured: the block list is identical to rev33's; `check` rc 0 on tasks 0/9/10/11; the producer gate rc 0; scans 0 with controls; Step 0′ re-walked on the new lock.
+Disclosed: the relay commit `aa3b9b8` also carried the implementer's uncommitted INDEX row for 065407 (the shared-INDEX sweep).
+No token.
+The release hold is ABSOLUTE.
