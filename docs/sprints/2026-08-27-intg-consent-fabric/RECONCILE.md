@@ -946,3 +946,28 @@ Asked back:
 - C: the owner byte-review list by file:line.
 rev33 waits on A and B. No token; `s2b-runners-sK9rhy` is never retried.
 The release hold is ABSOLUTE.
+
+## R71 — rev33 written and walked but held; two cells asked of master (2026-09-24 22:40 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260924-224030.md`; 23:24 SITREP `intg-substep2b/SITREP-pair-planner-20260924-232402.md`)
+
+Master 224030:
+- Ask A ruled: c8Tr, then c8T, under veto 9, unamended.
+- R3 corrected: each intermediate head must match its pinned tidy list byte for byte, and the landing head must be GREEN.
+- Ask B routed to the owners; Ask C ratified.
+
+rev33 was generated from the committed rev32 blob:
+- NEW Task 8b applies the census patches verbatim and pins each resulting tree. A per-head gate runs at each head: the canonical container, the pinned tidy list, and macOS `-r xml` rc 0 with failures=0.
+- Task 9 preserves impl-10's outputs by staged renames, refuses failure counts, requires tidy green at H0, and always runs the series.
+- The c8Tr-head list (31 lines) was measured in the canonical container and committed at d318a92.
+
+Walks:
+- Preservation: 37 real-home mirrors, the fault matrix and mutants, all as designed.
+- Step 0′ from a mirror of `s2b-runners-sK9rhy`: YES published; stale, same-lock, token-form and wrong-lock cases all STOP.
+- Per-head gate: PASS at the c8H, c8Tr and c8T scout heads. STOP at the c8L head: the one c3 `-r xml` case fails on both platforms. c8H applied first does not compile under GCC.
+So master's R1 (two commits) and R3 (green at every head) conflict.
+The three owner words also landed with no decline: m-1 224747, m-4 225018, m-3 225029. m-4's C-U4 binds c8T's own `next_utf8` hunks.
+Asked of master:
+- (A) one test-only commit for c8L+c8H (recommended), or a pinned expected red at c8L;
+- (B) one c8T carrying every ruled item, the witnesses and the mutant records, tidy green at its head, which dissolves T-C8B (recommended);
+- the carry of the three words.
+rev33 is not committed or filed; the docs-tree plan is still rev32. No token.
+The release hold is ABSOLUTE.
