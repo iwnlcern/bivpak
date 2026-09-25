@@ -15,3 +15,9 @@ Discriminator run (2026-09-24), each isolating its predicate:
 - rev29 with only the manifest producer removed: rc 1 — the source slice and the manifest.
 
 Digests: `producer_gate.py` 93c30a90235067cf63575b4dcea322222a8862952395040bb44d1f3430122c4c; `baseline-substep2b.txt` 8153bcf8ebd247143746435f6244b0113424fd733b3d1fc7d68d66cd3dfc79e7.
+
+rev33 baseline (2026-09-25, for impl-11): `baseline-substep2b-rev33.txt` b09f297da9962b1c559cd82d313d444e2cd1b261338d4c4550413dd3ef44d0c3 adds 13 classified rows for Task 8b (the three `commits.c8*.txt` written through `$LABEL`, the three `receipts/c8*` written through `$O`) and Task 9 (the preserved attempt's `H0.txt` and `helpers.verify-9.txt`, five `H9/H` container copy-outs), and drops none of the 25.
+Discriminator run on rev35 (`6781eae1…`) with rev35's extractor `8331c944…`, each isolating its predicate:
+- the rev33 baseline: rc 0 — 0 orphans, 38 classified, 0 stale;
+- the committed 25-row baseline: rc 1 — exactly those 13 rows as ORPHAN;
+- rev35 plus one read of an unwritten `$EVID/receipts/c8X-unwritten.txt`: rc 1 — that one ORPHAN.
