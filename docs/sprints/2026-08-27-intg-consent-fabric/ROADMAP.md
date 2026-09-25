@@ -114,6 +114,7 @@ The SOLE remaining pre-dispatch hold is the master-owned rule-3a clearing sweep 
 - **15:36 implementer 153636: MUST-REVISE rev31 on MUST-2B-49 (a mid-copy cp fault left a permanent partial record; retry blocked — my defect) → 16:01 PLAN rev32 `90b5274d…` at 783dd49 (PLAN-pair-planner-20260924-160113.md)**: WAITING on the implementer's exact-hash review → word → carry → t-oracle rewrite in IvrESr → impl-10
 - **16:42 implementer 164230: APPROVE rev32 (plan-review-32) → 19:18 word TO master (SITREP-pair-planner-20260924-191800.md; T-ORACLE prefix replayed at 90b5274d)**: WAITING on master's fresh carry → t-oracle rewrite in IvrESr → gates/walks → impl-10
 - **19:26 master 192620: T-ORACLE carry at 90b5274d → 19:37 t-oracle.txt rewritten in IvrESr (8d42bdc2; prev preserved) → gates, Step 0′ walk, producer gate, prologue walk green → 19:43 impl-10 ISSUED (IMPL-pair-planner-20260924-194325.md)**: WAITING on the implementer's Step 0′ + Task 9 return → GO for Task 10
+- **20:11 implementer 201131: impl-10 Task 9 STOP at H0 Linux build → Linux census (24 GCC errors / 6 test files; c3 test red under -r xml; 32 clang-tidy errors / 7 product files) → 21:23 SITREP TO master (SITREP-pair-planner-20260924-212307.md; census results/linux-census-20260924/)**: WAITING on master's rulings R1 (scope +1) / R2 (tidy class) / R3 → rev33
 
 ## Additional top-level files (declared per sprint-doc-setup)
 

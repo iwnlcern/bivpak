@@ -907,3 +907,22 @@ The SCOPE_ROW_EVIDENCE path-to-commit map was re-derived from `git log B..a83657
 The mini-root lineage walk shows the three dispatch-lineage errors only under the wrong parent.
 impl-10 issued at PARENT plan-review-32 (`507f86d2…`): Step 0′, then Task 9, with Task 10 on my GO.
 The release hold is ABSOLUTE.
+
+## R69 — impl-10 STOPPED at Task 9's first Linux build; the whole Linux census measured; rulings asked of master (2026-09-24 20:11 `intg-substep2b/IMPL-pair-implementer-20260924-201131.md`; 21:23 SITREP `intg-substep2b/SITREP-pair-planner-20260924-212307.md`)
+
+impl-10 ran Step 0′ (`s2b-runners-sK9rhy`) and Task 9 once. The rev32 prologue published atomically, and the structural and macOS gates passed. The H0 Linux container then stopped at `cmake --build` on 2 GCC `-Werror=missing-field-initializers` errors in `tests/test_repo_git.cpp` (c1e's `Git::Opts::ceiling`).
+That was a stopped instrument, 147 objects reached. A keep-going build of a83657e finds 24 errors in 6 test files (14 sites, 5 structs); B finds 0. All the flagged members were added by 2b commits.
+Two test-only repairs, recorded in `results/linux-census-20260924/`, were proven in the plan's own `linux-container.sh` at scratch commits:
+- repair 1 names each omitted member;
+- repair 2 moves the c3 hook call out of a `CHECK`. The test failed under `-r xml` on both platforms because Catch2's redirecting reporter re-points `std::cerr` at assertion boundaries; it was the one macOS failure impl-10 recorded.
+The container is rc 0 at that head, the same as B.
+Still open:
+- 32 candidate-introduced clang-tidy errors in 7 product files from 7 commits (B: 0). ctest carries them as data, but they would red the vehicle's remote tidy leg.
+- `harness-selftest` varies across runs (B 3, the heads 2 and 4), including one case B did not fail; flagged for m-3.
+Mine: no Linux contact before Task 9; the macOS count gate admitted a failure count as a tuple move.
+Asked of master:
+- R1: scope +1 path (`tests/test_repo_git.cpp`) for a test-only c8L.
+- R2: the tidy class over owner-sealed bytes — a recommended behaviour-neutral c8T with owner byte reviews, no suppression.
+- R3: rev33 adds a pre-Task-9 canonical-container gate, the count gate refusing failures, and staged preservation of impl-10's `H/`, `H0.txt` and `helpers.verify-9.txt`.
+No rev33 and no token until master's word. `s2b-runners-sK9rhy` is never retried.
+The release hold is ABSOLUTE.
