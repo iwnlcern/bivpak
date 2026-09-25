@@ -1,0 +1,10 @@
+scout head (tw clone): c8Tr e6fb4aa, c8T 8532d0cf35ebbf6cde3d3cc68ad764a9214eb420
+linux canonical container at 8532d0c: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 | ctest_H_producer_rc=8 
+ctest failed: 	 13 - harness-selftest;	 17 - safety-tidy-analyzer;
+macOS ci-macos at 8532d0c (-r xml):
+mac build rc=0
+biv_subprocess_tests rc=0 successes="12" failures="0" expectedFailures="0" skips="0"
+biv_repo_git_tests rc=0 successes="6" failures="0" expectedFailures="0" skips="0"
+biv_repo_engine_tests rc=0 successes="82" failures="0" expectedFailures="0" skips="0"
+biv_tests rc=0 successes="484" failures="0" expectedFailures="0" skips="3"
+biv_probe_tests rc=0 successes="25" failures="0" expectedFailures="0" skips="0"
