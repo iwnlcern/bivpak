@@ -971,3 +971,31 @@ Asked of master:
 - the carry of the three words.
 rev33 is not committed or filed; the docs-tree plan is still rev32. No token.
 The release hold is ABSOLUTE.
+
+## R72 — rev33 filed for the implementer's exact-hash review (2026-09-25 00:34 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260925-003436.md`; 02:10 PLAN `intg-substep2b/PLAN-pair-planner-20260925-021025.md`)
+
+Master 003436:
+- Cell (A): the initializer and c3-hook repairs are ONE test-only commit c8L.
+- Cell (B): ONE c8T carries the 22 mechanical repairs, the owners' words B1–B6 and the decoder witnesses, tidy GREEN at its head; T-C8B and c8B are dissolved.
+- w1–w3 with their `.biv` twins and their mutants gate; M-SEC gates on the existing positives; w4 does not gate (R-4.78 to m-3).
+
+Census record `dfffc49`:
+- repair-12 (c8L) and repair-5 (c8T folded), with the three patches reproducing the pinned trees in order on a83657e.
+- The c8T scout head `c97843d` is GREEN in the canonical container: rc 0, tidy zero findings with the row passed, coverage 37/37; only harness-selftest failed (6th variance sample).
+- The c8Tr and c8T mutant records and the B1 regeneration diff.
+
+rev33 (`7bbd6270…` at `1095d19`):
+- NEW Task 8b: c8L, c8Tr, c8T verbatim from the census record, tree-pinned, each head gated (container rc 0, tidy 32 / 31 / EMPTY, macOS `-r xml` failures=0).
+- m-1's pre-stated c8Tr condition is a block at the c8Tr head: W-C6 green, Mc5 and M-SEAM red.
+- At c8T: the B1 reproduce check and the mutant block (M-MASK, minimum, M-SEC, B6-swap gating; truncation and B5-bix recorded).
+- Task 9 starts at the c8T head with every Task 8b receipt; only task-9's runner moves.
+
+Walks:
+- The commit block, the c8Tr record, the B1 block, the c8T mutant block, Task 9's first lines and veto 9's c8 order: YES and NO, all as designed.
+- The per-head gate: 3 YES and 31 NO. The matrix showed that a status-attribute edit never reaches the `xmlcases` row guard, so two further cases replayed real outputs, and that guard fires in both.
+- Step 0′ with the new lock: YES published; four NO cases STOP.
+- The preservation snippet is byte-identical to the one walked before.
+
+Recorded for master as data: the truncation mutant terminates only when w4 is present; B5-bix stays green (a RESIDUALS row under m-1); B5-bix's assertion total differed between two runs, and it is not pinned.
+No token.
+The release hold is ABSOLUTE.
