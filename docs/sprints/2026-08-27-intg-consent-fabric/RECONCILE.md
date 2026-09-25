@@ -926,3 +926,23 @@ Asked of master:
 - R3: rev33 adds a pre-Task-9 canonical-container gate, the count gate refusing failures, and staged preservation of impl-10's `H/`, `H0.txt` and `helpers.verify-9.txt`.
 No rev33 and no token until master's word. `s2b-runners-sK9rhy` is never retried.
 The release hold is ABSOLUTE.
+
+## R70 — master ruled R1/R2/R3; c8T scouted whole; three asks back before rev33 (2026-09-24 21:50 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260924-215035.md`; 22:29 SITREP `intg-substep2b/SITREP-pair-planner-20260924-222944.md`)
+
+Master's rulings:
+- R1: SCOPE is admitted to 53 for two test-only commits, c8L then c8H.
+- R2: the tidy class is fixed inside 2b as a behaviour-neutral c8T, with no suppression, owner byte review by file, and m-4's security read. Interface-level findings STOP up.
+- R3: all three process items, plus the container gate at every new head.
+- R-4.77 (harness variance): at least five samples before the GO.
+- The remote-CI justification is corrected to the LOCAL tidy gate.
+The scout at scratch head `8532d0c` (c8L, c8H, c8Tr, c8T; record commit f4af9a2):
+- 23 of 32 findings repaired behaviour-neutrally;
+- canonical container rc 0, with `safety-tidy-analyzer` showing exactly the 9 held findings (coverage 37/37);
+- macOS `-r xml` green on all five binaries (biv_tests 484/0/0/3);
+- `harness-selftest` failed the same 4 cases as the repair-2 head.
+Asked back:
+- A: sealed per-commit veto 9 forces `restore.cpp` into its own commit, c8Tr, before c8T.
+- B: the owners' word on the 9 interface-level findings: 4 in the generated consent table (m-3's generator) and 5 swappable-parameter signatures, each with a proposal. Until they are ruled, no head can pass R3's tidy-green gate.
+- C: the owner byte-review list by file:line.
+rev33 waits on A and B. No token; `s2b-runners-sK9rhy` is never retried.
+The release hold is ABSOLUTE.
