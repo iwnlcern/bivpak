@@ -1,0 +1,17 @@
+diff --git a/tests/test_cli.cpp b/tests/test_cli.cpp
+index a9ab3e7..5040b61 100644
+--- a/tests/test_cli.cpp
++++ b/tests/test_cli.cpp
+@@ -3027,8 +3027,10 @@ TEST_CASE("c3 hook installer obeys preapproval and absent noninteractive hook",
+     std::streambuf* previous;
+     ~RestoreBuffer() { std::cerr.rdbuf(previous); }
+   } restore{std::cerr.rdbuf(captured.rdbuf())};
+-  CHECK(consent.run.hook({"https://req", "https://eff", "fetch", "/w/repo"}) ==
+-        biv::repo::UrlDivergenceDecision::proceed);
++  // Called outside any assertion: a redirecting reporter (-r xml) re-points
++  // std::cerr at each assertion boundary, which would bypass `captured`.
++  const auto decision = consent.run.hook({"https://req", "https://eff", "fetch", "/w/repo"});
++  CHECK(decision == biv::repo::UrlDivergenceDecision::proceed);
+   CHECK(captured.str() ==
+         "  fetch: contacting https://eff for /w/repo (requested: https://req — accepted for this run)\n");
+ }

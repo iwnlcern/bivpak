@@ -1,0 +1,4 @@
+scout commits (scratch clone of intg/substep2b-wiring at a83657e): repair-1 dc4e9f578a37fa814d11481f6c08b90ae5dc91e6, repair-2 2dc273602af610b282dea5718455a4d3e20002f5
+ev/B: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 | ctest_B_producer_rc=8 
+ev/H: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=1 | biv_tests_producer_rc=42 ctest_H_producer_rc=8 
+ev2/H: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 | ctest_H_producer_rc=8 

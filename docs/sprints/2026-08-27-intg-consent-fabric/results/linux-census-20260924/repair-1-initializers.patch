@@ -1,0 +1,169 @@
+diff --git a/tests/test_cli.cpp b/tests/test_cli.cpp
+index 1cc602b..a9ab3e7 100644
+--- a/tests/test_cli.cpp
++++ b/tests/test_cli.cpp
+@@ -64,7 +64,10 @@ biv::repo::Git git() {
+ 
+ std::string run_git(const biv::repo::Git& git, const std::filesystem::path& cwd,
+                     std::initializer_list<std::string> args) {
+-  auto result = git.run(args, {}, {.cwd = cwd, .allow_user_protocol = true});
++  auto result = git.run(args, {}, {.cwd = cwd,
++                                   .ceiling = std::nullopt,
++                                   .allow_user_protocol = true,
++                                   .stdout_file = std::nullopt});
+   REQUIRE(result);
+   INFO(std::string(reinterpret_cast<const char*>(result->stderr_bytes.data()),
+                    result->stderr_bytes.size()));
+diff --git a/tests/test_envelope.cpp b/tests/test_envelope.cpp
+index 8f9a55e..3160c32 100644
+--- a/tests/test_envelope.cpp
++++ b/tests/test_envelope.cpp
+@@ -912,7 +912,9 @@ TEST_CASE("a6-R1 exit composition: one typed aggregator over both sources", "[a6
+   nonzero.rows.push_back({.agent = "future-tool",
+                           .image_session_id = "session",
+                           .row = biv::core_sessions::SessionRowReport::Row::unknown_agent_skipped,
+-                          .reason = "unknown-agent"});
++                          .reason = "unknown-agent",
++                          .installed_session_id = std::nullopt,
++                          .detail = std::nullopt});
+   CHECK(biv::report::exit_for_open(nonzero, {}) == 2);
+   CHECK(biv::report::exit_for_open(nonzero, rows) == 2);
+ }
+@@ -951,17 +953,20 @@ TEST_CASE("A10 open repos rows are exact outcome-conditioned machine carriers",
+   CHECK(zero.find("\"repos\"") == zero.find("\"repos\": []"));
+ 
+   report.repos.push_back({.id = "restored", .relpath = "repo", .outcome = "restored",
++                          .kind = std::nullopt, .detail = std::nullopt,
+                           .sha = std::string(40, 'a'), .branch = std::nullopt,
+                           .capture_mode = "overlay", .remotes = {},
+                           .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                           .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt});
+   report.repos.push_back({.id = "shallow", .relpath = "shallow", .outcome = "shallow-pointer",
++                          .kind = std::nullopt, .detail = std::nullopt,
+                           .sha = std::string(40, 'b'), .branch = std::nullopt,
+                           .capture_mode = std::nullopt, .remotes = {},
+                           .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                           .local_refs = {}, .advisories = {"ShallowPointer"},
+                           .shallow_boundary = std::vector<std::string>{std::string(40, 'c')}});
+   report.repos.push_back({.id = "offline", .relpath = "offline", .outcome = "offline-pointer",
++                          .kind = std::nullopt, .detail = std::nullopt,
+                           .sha = "(no commits)", .branch = "main", .capture_mode = "full",
+                           .remotes = {"https://stored.invalid/repo"},
+                           .bundle_path = ".biv/repos/offline/repo.bundle",
+diff --git a/tests/test_open.cpp b/tests/test_open.cpp
+index f702cc0..b49ecd6 100644
+--- a/tests/test_open.cpp
++++ b/tests/test_open.cpp
+@@ -73,7 +73,10 @@ biv::repo::Git test_git() {
+ void init_repo(const biv::repo::Git& git, const std::filesystem::path& path) {
+   std::filesystem::create_directories(path);
+   auto run = [&](std::vector<std::string> args) {
+-    auto result = git.run(args, {}, {.cwd = path, .allow_user_protocol = true});
++    auto result = git.run(args, {}, {.cwd = path,
++                                     .ceiling = std::nullopt,
++                                     .allow_user_protocol = true,
++                                     .stdout_file = std::nullopt});
+     REQUIRE(result);
+     REQUIRE(result->exit_code == 0);
+   };
+diff --git a/tests/test_pack.cpp b/tests/test_pack.cpp
+index 1e9e5f7..7d00ff3 100644
+--- a/tests/test_pack.cpp
++++ b/tests/test_pack.cpp
+@@ -69,7 +69,10 @@ void pack_git_run(const biv::repo::Git& git,
+                   std::initializer_list<std::string> args,
+                   std::initializer_list<std::string> operands = {}) {
+   auto result = git.run(args, operands,
+-                        {.cwd = cwd, .allow_user_protocol = true});
++                        {.cwd = cwd,
++                         .ceiling = std::nullopt,
++                         .allow_user_protocol = true,
++                         .stdout_file = std::nullopt});
+   REQUIRE(result.has_value());
+   const std::string diagnostic{
+       reinterpret_cast<const char*>(result->stderr_bytes.data()),
+@@ -82,7 +85,10 @@ std::string pack_git_stdout(const biv::repo::Git& git,
+                             const std::filesystem::path& cwd,
+                             std::initializer_list<std::string> args) {
+   auto result = git.run(args, {},
+-                        {.cwd = cwd, .allow_user_protocol = true});
++                        {.cwd = cwd,
++                         .ceiling = std::nullopt,
++                         .allow_user_protocol = true,
++                         .stdout_file = std::nullopt});
+   REQUIRE(result.has_value());
+   REQUIRE(result->exit_code == 0);
+   return {reinterpret_cast<const char*>(result->stdout_bytes.data()),
+@@ -1600,7 +1606,10 @@ TEST_CASE("pack fences dirty nested submodule and unmerged repositories before i
+         auto conflict = git.run(
+             {"-c", "user.name=Biv Test", "-c",
+              "user.email=biv@example.invalid", "merge", "other"}, {},
+-            {.cwd = source, .allow_user_protocol = true});
++            {.cwd = source,
++             .ceiling = std::nullopt,
++             .allow_user_protocol = true,
++             .stdout_file = std::nullopt});
+         REQUIRE(conflict.has_value());
+         REQUIRE(conflict->exit_code != 0);
+       } else {
+diff --git a/tests/test_repo_git.cpp b/tests/test_repo_git.cpp
+index 58e678a..4431dee 100644
+--- a/tests/test_repo_git.cpp
++++ b/tests/test_repo_git.cpp
+@@ -240,6 +240,7 @@ TEST_CASE("Git request pins no-lazy-fetch and mechanically delimits operands") {
+   const auto git = resolve_git(root.path());
+   const auto opts =
+       biv::repo::Git::Opts{.cwd = root.path(),
++                           .ceiling = std::nullopt,
+                            .no_lazy_fetch = true,
+                            .isolate_global_config = false,
+                            .stderr_mode = biv::support::StderrMode::separate,
+@@ -299,6 +300,7 @@ TEST_CASE("Git streams cat-file stdout to a file") {
+   const auto output = root.path() / "blob.out";
+   const auto opts =
+       biv::repo::Git::Opts{.cwd = repo,
++                           .ceiling = std::nullopt,
+                            .no_lazy_fetch = false,
+                            .isolate_global_config = false,
+                            .stderr_mode = biv::support::StderrMode::separate,
+diff --git a/tests/test_scan.cpp b/tests/test_scan.cpp
+index 2a8d857..2e8fad1 100644
+--- a/tests/test_scan.cpp
++++ b/tests/test_scan.cpp
+@@ -43,7 +43,7 @@ TEST_CASE("c6q scan_subtree walks a claimed payload-only repository",
+     auto matcher = biv::scan::prepare_matcher(root);
+     REQUIRE(matcher.has_value());
+     biv::scan::ScanResult into;
+-    const biv::scan::ScanExclusions claimed{.claimed_markers = {"r"}};
++    const biv::scan::ScanExclusions claimed{.repo_subtrees = {}, .claimed_markers = {"r"}};
+     auto result = biv::scan::scan_subtree(root, matcher->matcher, claimed,
+                                           "r", into);
+     REQUIRE(result.has_value());
+@@ -90,7 +90,7 @@ TEST_CASE("c6q scan_subtree walks a claimed payload-only repository",
+     biv::scan::ScanResult into;
+     auto result = biv::scan::scan_subtree(
+         root, matcher->matcher,
+-        biv::scan::ScanExclusions{.claimed_markers = {""}}, "", into);
++        biv::scan::ScanExclusions{.repo_subtrees = {}, .claimed_markers = {""}}, "", into);
+     REQUIRE(result.has_value());
+     std::vector<std::string> relpaths;
+     for (const auto& node : into.payload) relpaths.push_back(node.relpath);
+@@ -251,7 +251,8 @@ TEST_CASE("scan exclusions canonicalize and claim repository roots", "[pack-repo
+   REQUIRE(matcher.has_value());
+   for (const auto& spelling : {std::filesystem::path{"."}, std::filesystem::path{}}) {
+     biv::scan::ScanExclusions exclusions{
+-        .repo_subtrees = {biv::scan::ScanExclusions::canonical(spelling)}};
++        .repo_subtrees = {biv::scan::ScanExclusions::canonical(spelling)},
++        .claimed_markers = {}};
+     auto result = biv::scan::scan(root, matcher->matcher, exclusions);
+     REQUIRE(result.has_value());
+     CHECK(result->payload.empty());
+@@ -270,7 +271,7 @@ TEST_CASE("scan excludes a nested repository subtree as one writer", "[pack-repo
+   REQUIRE(matcher.has_value());
+   auto result = biv::scan::scan(
+       root, matcher->matcher,
+-      biv::scan::ScanExclusions{.repo_subtrees = {"lib/vendored"}});
++      biv::scan::ScanExclusions{.repo_subtrees = {"lib/vendored"}, .claimed_markers = {}});
+   REQUIRE(result.has_value());
+   CHECK(std::ranges::any_of(result->payload, [](const auto& node) {
+     return node.relpath == "lib/other.c";
