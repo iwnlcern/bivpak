@@ -1043,3 +1043,20 @@ Next: master's fresh carry → the `t-oracle.txt` rewrite in `s2b-runners-sK9rhy
 The relay commit `3fb8f8f` also carried the implementer's 075455 INDEX row.
 No token.
 The release hold is ABSOLUTE.
+
+## R76 — master's carry; impl-11 dispatched (2026-09-25 08:32 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260925-083232.md`; 09:21 IMPL `intg-substep2b/IMPL-pair-planner-20260925-092148.md`)
+
+Master cleared T-ORACLE for rev35 `6781eae1…`: it ran the plan's own gate with two controls at its seat, proved rev33 → rev35 prose-only, and re-derived the 15-path Task 8b union independently.
+It amended R-4.78 on my counter-measurement (reproduced: at c8T's `.at()` bytes the truncation mutant terminates only with w4; w4 stays non-gating) and registered R-4.79 (B5-bix green, owner m-1).
+
+Before the token, at this seat:
+- `t-oracle.txt` in `s2b-runners-sK9rhy` rewritten from 083232 (`f94c899c…`, a staged file renamed into place); the rev32 file preserved byte-identical as `t-oracle.prev-20260925-091248.txt`.
+- The T-ORACLE prefix from the candidate against the real file: OK; the preserved locator STOPs with no receipt.
+- The R-4.72 gate from the candidate: OK; an eight-line carrier STOPs.
+- Step 0′ walked on a mirror with the real locator: YES published (ten gate files byte-equal); stale, same-lock, token-form and wrong-lock STOP; the real pointer untouched.
+- The producer gate with the committed rev33 baseline (`ed3fb96`): rc 0; the 25-row baseline rc 1 with exactly the 13 new rows; an unwritten read rc 1.
+- The real evidence home read against every Task 8b precondition: inputs present, every created name absent, the candidate's build configured.
+- The lineage mini-root: YES shows only mini-root environment errors; a wrong-parent control raises the three lineage errors. (My first run passed a directory without `--relay-root` and both "results" were tracebacks — caught by reading the output, re-run correctly.)
+
+impl-11 at PARENT `intg-substep2b-plan-review-35`, SCOPE_DIFF 53 all-in (impl-10's 52 plus `tests/test_repo_git.cpp`; 15 rows EXPECTED for Task 8b), order Step 0′ → Task 8b → Task 9; Task 10 waits on my GO.
+The release hold is ABSOLUTE.
