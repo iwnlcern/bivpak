@@ -8,3 +8,4 @@ biv_repo_git_tests rc=0 successes="6" failures="0" expectedFailures="0" skips="0
 biv_repo_engine_tests rc=0 successes="82" failures="0" expectedFailures="0" skips="0"
 biv_tests rc=0 successes="484" failures="0" expectedFailures="0" skips="3"
 biv_probe_tests rc=0 successes="25" failures="0" expectedFailures="0" skips="0"
+linux canonical container at c8Tr scout head e6fb4aad20a051dfd4472ab8939b04f56619f645: phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 | ctest_H_producer_rc=8  | tidy findings=31 coverage_lines=1
