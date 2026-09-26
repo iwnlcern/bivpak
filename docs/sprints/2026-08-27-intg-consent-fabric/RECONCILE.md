@@ -1091,3 +1091,13 @@ rev36 keeps K-3 verbatim. Sequencing, adopted: the `K3_TIE` word must be in hand
 
 Master's suggestion, taken for the next revision of the producer gate: a FORM leg — for each pinned consumer, run one real producer sample from the evidence home through it; it would have caught both stops before Task 9.
 Next unchanged: the implementer's exact-hash review of plan-37 → my digest word → master's carry → `K3_TIE` → the `t-oracle.txt` rewrite in `s2b-runners-aY2Suc` → impl-12. The release hold is ABSOLUTE.
+
+## R79 — rev36 approved, then K3_TIE strict; rev37 filed (2026-09-25 14:38 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260925-143819.md`; 15:46 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260925-154632.md`; 17:08 PLAN `intg-substep2b/PLAN-pair-planner-20260925-170847.md`)
+
+The implementer approved rev36 `e87c999a…` (plan-review-36), replaying the new lines and the preservation on disposable copies of the real home, and declined to reinterpret K-3 — noting an owner change moves the digest and the approve does not carry.
+m-4, the clause's author, ruled `K3_TIE: strict` (`…/DESIGN-planner-20260925-151817.md`): K-3's separation arm becomes `landed min > base max`; its deciding series ([2, 3×9] → [3×10], delta 0.10) reads SHIFTED under `>=` and under master's (b2), NOT-SHIFTED under strict; a real one-failure shift still fires. Master carried it (154632), withdrew its own (b2), and corrected its own reason: the series runs ALWAYS in Task 9, so the fold precedes the token.
+
+rev37 `82d2780a…` at `6f84c3a`: the three sites (code, the block's comment, the description); Task 9 produces the corrected reducer at `$EVID/series_verdict.rev37.py` (staged in `work/`, digest `09b6cb76…` checked, renamed; pinned either way; compiled) because Task 0's `$EVID/series_verdict.py` (the old block, `e4abc66c…`, equal to master's pin) is pinned and never overwritten; the series calls it. rev36's Task 9 fold is byte-unchanged.
+Walked (records at `results/rev37-walks/`): the producer lines (absent, present, stale bytes, symlinks, the wrong plan, injected faults, and a mutant proving the stage check load-bearing); the reducer on the three nulls (NOT-SHIFTED) and the real shift (SHIFTED); Step 0′ on the new lock. The producer gate needed a rev37 baseline (+2 variable-written rows), discriminator run.
+
+Next: the implementer's exact-hash review of plan-38 → my digest word → master's five-field carry → the `t-oracle.txt` rewrite in `s2b-runners-aY2Suc` → impl-12 (Step 0′ → Task 9). The release hold is ABSOLUTE.
