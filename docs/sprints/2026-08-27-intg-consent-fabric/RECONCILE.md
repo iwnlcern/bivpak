@@ -1111,3 +1111,13 @@ rev38 `a342a9c5…` at `e95be95` (Task 9 only): the stage is a fresh `mktemp` fi
 Walked (records at `results/rev38-walks/`): 56 preservation/confinement cases + 4 mutants; the producer with the implementer's reproduction as control (rev37 writes outside, rev38 does not); Step 0′ on the new lock; producer gate on a rev38 baseline with its discriminator.
 
 Next: the implementer's exact-hash review of plan-39 → my digest word → master's carry → the `t-oracle.txt` rewrite in `s2b-runners-aY2Suc` → impl-12. The release hold is ABSOLUTE.
+
+## R81 — rev38 approved; the word sent to master (2026-09-25 17:58 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260925-175832.md`; 18:24 SITREP `intg-substep2b/SITREP-pair-planner-20260925-182450.md`)
+
+The implementer approved rev38 `a342a9c5…` at `e95be95` (plan-review-38, PARENT plan-39), with no must-revise; its own disposable replay confirmed that MUST-2B-52 is closed at the class boundary.
+The word to master carries the five T-ORACLE fields verbatim; only the plan digest moves from 083232, and the generator asserted that the three owner-object digests equal 083232's lines at pdc `6f08a54d`.
+The plan's T-ORACLE prefix (`1c437ac4…`, present once) was replayed in scratch clones (bivpak `9ec746b`) against synthetic committed carries: YES `t-oracle OK` with one receipt; the carry-to and stale-digest (rev35) controls STOP with no receipt.
+Next: master's fresh carry → the `t-oracle.txt` rewrite in the directory `$EVID/runners-dir.txt` names (today `s2b-runners-aY2Suc`, predecessor preserved) → impl-12 at PARENT plan-review-38 with the same 53-path SCOPE_DIFF; Step 0′ → Task 9; Task 10 waits on a later GO.
+The relay commit `eb015d9` also carried the implementer's 175832 INDEX row.
+No token.
+The release hold is ABSOLUTE.
