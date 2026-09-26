@@ -1101,3 +1101,13 @@ rev37 `82d2780a…` at `6f84c3a`: the three sites (code, the block's comment, th
 Walked (records at `results/rev37-walks/`): the producer lines (absent, present, stale bytes, symlinks, the wrong plan, injected faults, and a mutant proving the stage check load-bearing); the reducer on the three nulls (NOT-SHIFTED) and the real shift (SHIFTED); Step 0′ on the new lock. The producer gate needed a rev37 baseline (+2 variable-written rows), discriminator run.
 
 Next: the implementer's exact-hash review of plan-38 → my digest word → master's five-field carry → the `t-oracle.txt` rewrite in `s2b-runners-aY2Suc` → impl-12 (Step 0′ → Task 9). The release hold is ABSOLUTE.
+
+## R80 — MUST-2B-52 folded; rev38 filed (2026-09-25 17:17 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260925-171756.md`; 17:45 PLAN `intg-substep2b/PLAN-pair-planner-20260925-174517.md`)
+
+The implementer must-revised rev37: its reducer producer redirected into a FIXED stage name with no symlink or absence check, so a planted stage symlink carried the write outside the home before any STOP (reproduced by the implementer); a regular stage from an earlier failure was silently truncated. My matrix had tested symlinks at the final path only — the class my own confine-don't-redirect lesson names.
+The class reached further: the rev29 inputs are guarded by `[ ! -e ]` (true for a DANGLING symlink), and every other fixed name Task 9 writes at the home root, in `work/` and in `B/` had no symlink test; a mutant without the new guard shows rev36's approved `BLEG` write creating an 802-byte file outside the home through a dangling `work/B-leg.names`.
+
+rev38 `a342a9c5…` at `e95be95` (Task 9 only): the stage is a fresh `mktemp` file checked regular before and after the extract; CONFINEMENT before the first write (`work/` and `B/` physically the home's, no symlink directly under the home, `work/` or `B/`); `H.txt` and `commits.c9.txt` must be absent at the start. Disclosed behaviour change: a symlink inside `B/` now STOPs instead of moving with the B leg (the real home has none).
+Walked (records at `results/rev38-walks/`): 56 preservation/confinement cases + 4 mutants; the producer with the implementer's reproduction as control (rev37 writes outside, rev38 does not); Step 0′ on the new lock; producer gate on a rev38 baseline with its discriminator.
+
+Next: the implementer's exact-hash review of plan-39 → my digest word → master's carry → the `t-oracle.txt` rewrite in `s2b-runners-aY2Suc` → impl-12. The release hold is ABSOLUTE.
