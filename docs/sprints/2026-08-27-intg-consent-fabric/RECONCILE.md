@@ -1121,3 +1121,23 @@ Next: master's fresh carry → the `t-oracle.txt` rewrite in the directory `$EVI
 The relay commit `eb015d9` also carried the implementer's 175832 INDEX row.
 No token.
 The release hold is ABSOLUTE.
+
+## R82 — master's carry; impl-12 dispatched (2026-09-25 18:52 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260925-185232.md`; 2026-09-26 00:17 IMPL `intg-substep2b/IMPL-pair-planner-20260926-001717.md`)
+
+Master cleared T-ORACLE for rev38 `a342a9c5…` (carry `e0f2ead7…`, committed at pdc `4c3ab243`; its addendum at `5689e538` re-ran the prefix against the real carry).
+It ran the plan's gate with two controls, the rev35→rev38 block census with the canonical extractor, the strict K-3 block over seven fixture series and 400 000 random series, the producer over seven cases, and MUST-2B-52's closure with a guard-removed mutant.
+It registered R-4.82 as a watch item for my next Task 9 revision: `series/`'s three targets are covered only by the start fence, because `mkdir -p` accepts an existing directory or a symlink to one.
+It also noted that rev38's lead under-describes the coverage of fixed output names; each one is covered, some by other mechanisms.
+
+Before the token, at this seat:
+- `t-oracle.txt` in `s2b-runners-aY2Suc` rewritten from 185232 (`1910b60c…`, a staged file renamed into place); impl-11's file preserved byte-identical as `t-oracle.prev-20260926-000012.txt`.
+- The T-ORACLE prefix from the candidate (`99136ca`) against the real file: OK, the receipt naming 185232 at `e0f2ead7…`; the preserved locator STOPs with no receipt.
+- The R-4.72 gate, re-extracted from rev38 (byte-equal to the rev33 extraction): OK; an eight-line carrier STOPs.
+- Step 0′ walked on a mirror with the real locator and `resume.sh` from the live plan: YES published (ten gate files byte-equal, 20 carried lines); stale, same-lock, token-form and wrong-lock STOP; the real pointer untouched.
+- The producer gate with the committed rev38 baseline: rc 0 (42 classified); the rev37 baseline rc 1.
+- The real home against Task 9's start fences: every created name absent, zero symlinks at depth one, `work/` and `B/` confined, helpers verifying, `B/` 51 entries.
+- The lineage mini-root: YES shows only the four mini-root environment errors; a wrong-parent control raises the three lineage errors.
+
+impl-12 at PARENT `intg-substep2b-plan-review-38`, the same 53-path SCOPE_DIFF all-in (the 15 Task 8b paths now LANDED; the only EXPECTED row is c9), order Step 0′ → Task 9; Task 10 waits on my GO.
+The relay commit is `1f069f1`.
+The release hold is ABSOLUTE.
