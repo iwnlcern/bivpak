@@ -1,0 +1,20 @@
+canonical=/Users/jack/Programming/bivpak-evidence/s2b-runners-aY2Suc newlock=82d2780a08b02ec8
+yes rc=0 stderr= new-dirs=1 pointer-same=no
+  published: pointer=NEW seal-files=8 carried-lines=20 lock=82d2780a08b02ec8 token=intg-substep2b-impl-12
+  carried m3-harness-patch.txt: byte-equal-to-canonical
+  carried m3-addendum-10-lock.txt: byte-equal-to-canonical
+  carried m3-addendum-11-lock.txt: byte-equal-to-canonical
+  carried m3-addendum-9-lock.txt: byte-equal-to-canonical
+  carried m3-r462-patch.txt: byte-equal-to-canonical
+  carried m1-fence-rev4.txt: byte-equal-to-canonical
+  carried m3-help-order.txt: byte-equal-to-canonical
+  carried red1-owner-words.txt: byte-equal-to-canonical
+  carried r472-owner-words.txt: byte-equal-to-canonical
+  carried task-0.done: byte-equal-to-canonical
+  carried t-oracle.txt names the new lock: 1
+  plan_blocks.py in NEW == rev33 extractor: yes
+stale rc=1 stderr=STOP-resume t-oracle-stale line=23 new-dirs=0 pointer-same=yes
+same rc=1 stderr=STOP-resume same-lock line=16 new-dirs=0 pointer-same=yes
+tok rc=1 stderr=STOP-resume token-form line=11 new-dirs=0 pointer-same=yes
+wronglock rc=1 stderr=STOP-resume plan-not-the-new-lock line=15 new-dirs=0 pointer-same=yes
+leftover new dirs: 0  real pointer: /Users/jack/Programming/bivpak-evidence/s2b-runners-aY2Suc

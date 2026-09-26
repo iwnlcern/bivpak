@@ -27,3 +27,9 @@ Discriminator run on rev36 (`e87c999a…`) with its extractor `8331c944…`, eac
 - the rev36 baseline: rc 0 — 0 orphans, 40 classified, 0 stale;
 - the rev33 baseline: rc 1 — exactly those 2 rows as ORPHAN;
 - rev36 plus one read of an unwritten `$EVID/H/skipset-linux-unwritten.txt`: rc 1 — that one ORPHAN.
+
+rev37 baseline (2026-09-25): `baseline-substep2b-rev37.txt` 80af2b4f07beeae0332fe57846a9e042f81acb6c431414da610dfcf7e4939b65 adds 2 classified rows to the rev36 baseline: Task 9 writes `series_verdict.rev37.py` and its `work/series_verdict.rev37.stage` through variables (`$V37`, `$V37S`), which the gate cannot see.
+Discriminator run on rev37 (`82d2780a…`) with its extractor `8331c944…`, each isolating its predicate:
+- the rev37 baseline: rc 0 — 0 orphans, 42 classified, 0 stale;
+- the rev36 baseline: rc 1 — exactly those 2 rows as ORPHAN;
+- rev37 plus one read of an unwritten `$EVID/series_verdict.unwritten.py`: rc 1 — that one ORPHAN.

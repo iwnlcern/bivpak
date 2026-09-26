@@ -1,0 +1,8 @@
+real-copies v36 rc=1 :: K-3 base_mean=3.00 landed_mean=3.00 base_max=3 landed_min=3 delta=0.00 VERDICT SHIFTED (K-3) — countgate HELD for this candidate; the deselection arm is not pre-authorized here 
+real-copies v37 rc=0 :: K-3 base_mean=3.00 landed_mean=3.00 base_max=3 landed_min=3 delta=0.00 VERDICT NOT-SHIFTED draws=20 population_B=1013 population_H=1055 
+const3 v36 rc=1 :: K-3 base_mean=3.00 landed_mean=3.00 base_max=3 landed_min=3 delta=0.00 VERDICT SHIFTED (K-3) — countgate HELD for this candidate; the deselection arm is not pre-authorized here 
+const3 v37 rc=0 :: K-3 base_mean=3.00 landed_mean=3.00 base_max=3 landed_min=3 delta=0.00 VERDICT NOT-SHIFTED draws=20 population_B=1013 population_H=1013 
+m4-sixth v36 rc=1 :: K-3 base_mean=2.90 landed_mean=3.00 base_max=3 landed_min=3 delta=0.10 VERDICT SHIFTED (K-3) — countgate HELD for this candidate; the deselection arm is not pre-authorized here 
+m4-sixth v37 rc=0 :: K-3 base_mean=2.90 landed_mean=3.00 base_max=3 landed_min=3 delta=0.10 VERDICT NOT-SHIFTED draws=20 population_B=1013 population_H=1013 
+m4-seventh v36 rc=1 :: K-3 base_mean=2.50 landed_mean=3.50 base_max=3 landed_min=3 delta=1.00 VERDICT SHIFTED (K-3) — countgate HELD for this candidate; the deselection arm is not pre-authorized here 
+m4-seventh v37 rc=1 :: K-3 base_mean=2.50 landed_mean=3.50 base_max=3 landed_min=3 delta=1.00 VERDICT SHIFTED (K-3) — countgate HELD for this candidate; the deselection arm is not pre-authorized here 
