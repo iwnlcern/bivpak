@@ -33,3 +33,9 @@ Discriminator run on rev37 (`82d2780a…`) with its extractor `8331c944…`, eac
 - the rev37 baseline: rc 0 — 0 orphans, 42 classified, 0 stale;
 - the rev36 baseline: rc 1 — exactly those 2 rows as ORPHAN;
 - rev37 plus one read of an unwritten `$EVID/series_verdict.unwritten.py`: rc 1 — that one ORPHAN.
+
+rev38 baseline (2026-09-25): `baseline-substep2b-rev38.txt` faac87f4f88940fc37d7cd43095f7382b32b9da38a42473f347ddc2535ba441c replaces rev37's fixed-stage row with the `mktemp` template row (`work/series_verdict.rev37.XXXXXX`).
+Discriminator run on rev38 (`a342a9c5…`) with its extractor `8331c944…`, each isolating its predicate:
+- the rev38 baseline: rc 0 — 0 orphans, 42 classified, 0 stale;
+- the rev37 baseline: rc 1 — the template as ORPHAN and the old stage row as STALE;
+- rev38 plus one read of an unwritten `$EVID/series_verdict.unwritten.py`: rc 1 — that one ORPHAN.
