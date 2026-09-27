@@ -1141,3 +1141,20 @@ Before the token, at this seat:
 impl-12 at PARENT `intg-substep2b-plan-review-38`, the same 53-path SCOPE_DIFF all-in (the 15 Task 8b paths now LANDED; the only EXPECTED row is c9), order Step 0′ → Task 9; Task 10 waits on my GO.
 The relay commit is `1f069f1`.
 The release hold is ABSOLUTE.
+
+## R83 — Task 9 accepted; m-3 MUST-REVISE (MUST-H-1) withholds the GO; the engine at 2.9.5 (2026-09-26 15:21 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260926-152147.md`; 16:47 `…/PLAN-master-planner-20260926-164725.md`; 17:05 SITREP `intg-substep2b/SITREP-pair-planner-20260926-170555.md`)
+
+impl-12 ran Task 9 once to rc 0: FINAL H `2893bc53`, c9 = four `successes` cells (macOS 60→82, 419→484; Linux 60→82, 421→486).
+I verified it at the bytes, and master re-measured and accepted it (152147).
+The implementer's return is still an unadmitted draft (`.engine/drafts/intg.pair-implementer/IMPL-pair-implementer-20260926-145636.md`, sha256 `457b14fa…`); the engine now matches its 2.9.5 client.
+My SITREP (drafted 15:08) was refused twice by the old daemon's fingerprint and filed at 17:05 after master's 2.9.5 migration; its commit `ab6f89c` carries the engine's recovery back-fill of four implementer rows (2026-09-21/22/24 stamps, appended out of time order).
+
+Owner reviews of H: m-1 no-red (160158), m-4 no-red (160548), m-3 MUST-REVISE (160359).
+MUST-H-1: a url-divergence-refused row renders `kind` / `detail` as null into a schema whose row object admits neither, so the envelope fails its own schema exactly when the consent fail-safe fires.
+m-3's fix: F1 `kind: "UrlDivergenceEntryRefused"`; F2 `detail` = A6 `:537`'s per-entry sentence; F3 the schema gains both, required iff `failed`, with the selftest schema pins recomputed; F4 the writer never emits a null, and a `failed` row lacking either is a typed internal error; F5 whole-envelope validation witnesses plus two named mutants.
+Master widened it: the two-argument `repo_row` overload (`open.cpp:1143`, `restore_entry`'s `failed` default) is a second door, so F4 is the load-bearing arm.
+The fix moves H: m-1's and m-4's no-reds go stale, and all three reviews are retaken at the true final head, after any count-cell re-cut.
+The fix paths are inside the 53 but outside impl-12's token, so a plan revision and a fresh dispatch are needed.
+R-4.83 accepted as m-3 ruled it (the only-red census belongs in both branches); R-4.77 NOT-SHIFTED stands (Fisher p 0.47 / 0.58 / 1.00 / 1.00).
+Next: rev39 — the MUST-H-1 fix as a new CODE task (tests first), its per-head gate, then Task 9 again at the new head (count gate, companion iff moved, FINAL H), with R-4.83's hoist and R-4.82's fence folded.
+The release hold is ABSOLUTE.
