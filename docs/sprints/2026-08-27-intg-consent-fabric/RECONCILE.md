@@ -1329,3 +1329,12 @@ Two facts the GO states for the operator and the implementer:
 - Task 10 continues under impl-15's runners (`j6w4EX`, token-id impl-15), because `resume.sh` STOPs `same-lock` on an unchanged plan. The runner records land under that token by design (line 593). The GO invites the implementer to STOP up if it reads the authority as short.
 Next: the operator's typed act into `/Users/jack/Programming/bivpak-evidence/s2b-runners-j6w4EX/task-10-go.txt`, then Task 10 (ONE push, ONE draft PR), then the return.
 The release hold is ABSOLUTE.
+
+## R98 — the operator waived the typed act; `task-10-go.txt` written by this seat (notice `intg-substep2b/SITREP-pair-planner-20260927-043806.md` sha256 8c5b3bed…, commit 5950186)
+
+The operator's word, verbatim (2026-09-27): "just cite it, you dont need my typed ack".
+`s2b-runners-j6w4EX/task-10-go.txt` was created (none existed; a staged file renamed into place) with one line, the GO 043411's absolute path, mode 0400, sha256 86890681….
+The controller's continuation check (plan line 3604) and Task 10's Step 1 GO/owner lines (block 39–66) both pass on the real file.
+The notice records the waiver for the implementer. The GO is unchanged except for its release condition.
+Next: the implementer runs Task 10 once (ONE push, ONE draft PR) and returns.
+The release hold is ABSOLUTE.
