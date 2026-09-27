@@ -1359,3 +1359,21 @@ It stopped before the pre-push hook check, the dry-run, the push and the PR. Non
 Consequence: `task-10.exit` (rc=1) and `task-10.sh` now exist in `s2b-runners-j6w4EX`, so the controller's one-shot fence (line 19) refuses a re-run there. `resume.sh` refuses a new runners directory on the unchanged lock (`same-lock`). Any continuation therefore needs a plan revision (rev42), whatever the visibility decision.
 Pushing the candidate to a PUBLIC repository would publish unreleased code, which the release hold and the plan's PRIVATE predicate both exclude. This is the operator's decision; it has been put to the operator. No relay has been filed yet.
 The release hold is ABSOLUTE.
+
+## R101 — the operator chose to publish ("2"); rev42 filed as plan-44 (plan `37ca6530…` at 78e87b3; PLAN `intg-substep2b/PLAN-pair-planner-20260927-144310.md`, commit fba3011)
+
+The operator's word, verbatim (2026-09-27): "2": keep the repository public and publish the branch. That discharges the charter's operator-gated publication act (charter rev3 :54) for this push. The undraft, the merge and release stay the operator's.
+Measured before any plan byte:
+- GitHub's `main` is B (`git ls-remote`, a read), so the push adds exactly the 26 B..H commits.
+- All 26 carry `@local` placeholder identities.
+- The census alternation has 0 hits in the B..H patches. The H tree's 40 hit files are identical at B, all the `sk-complete` false positive, already public.
+- The real PR body from `finalize.rev41.py` has 0 hits and no local path. Its `H0=H0=` line is cosmetic, left unfixed so the sealed helper does not drift.
+rev42 changes Task 10 only:
+- Step 0 preserves a prior attempt by rename into `attempts/task10-<k>/` (manifest-verified) and STOPs on any push/PR receipt.
+- Visibility accepts `PRIVATE` or `PUBLIC`.
+- The exposure census runs before the dry-run.
+- Protocol (e) records the typed-act waiver and the absolute invocation.
+Walked (`results/rev42-walks/`, the invalid run named). The producer gate is rc 0 against the unchanged rev41 baseline, and `check` passes for tasks 0, 9, 10 and 11.
+One slip: the exposure scout wrote two file-list temp files under `/tmp` rather than the scratchpad; they were deleted.
+Next: the implementer's exact-hash review. Then the digest word, master's carry, `t-oracle.txt` and `task-10-go.txt` in `s2b-runners-j6w4EX` (predecessors kept), and impl-16: Step 0′ → Task 10 via `"$RUNNERS"/run-task.sh 10` → return.
+The release hold is ABSOLUTE.
