@@ -1,0 +1,10 @@
+walk44 run 2026-09-27T16:33:51-0700; rev44 sha 7d55f0b86a3ccf4078c9da2cbf2c8c8364e441e4b87bf26f68efa8ed28e1f500
+rev44 lines: URL=https://github.com/iwnlcern/bivpak.git; REPO=github.com/iwnlcern/bivpak   
+rev43 lines: URL=https://github.com/iwnlcern/bivpak.git; REPO=iwnlcern/bivpak
+rev44-no-GH_HOST rc=0 | VIS-OK PUBLIC REPO=github.com/iwnlcern/bivpak 
+rev44-GH_HOST-injected rc=0 | VIS-OK PUBLIC REPO=github.com/iwnlcern/bivpak 
+rev43-GH_HOST-injected-CONTROL rc=1 | error connecting to gh-host-control.invalid check your internet connection or https://githubstatus.com STOP-task-10 line=3 
+rev44-GH_HOST-and-GH_REPO-injected rc=0 | VIS-OK PUBLIC REPO=github.com/iwnlcern/bivpak 
+static: gh calls in rev44 Task 10 not naming "$REPO": 0
+static: REPO assignments in rev44 Task 10: 1; host-qualified: 1
+gh 2.97.0: pr create --repo takes [HOST/]OWNER/REPO; gh pr create NOT run (no dry-run: its help says it may still push)
