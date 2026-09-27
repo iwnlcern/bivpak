@@ -1158,3 +1158,18 @@ The fix paths are inside the 53 but outside impl-12's token, so a plan revision 
 R-4.83 accepted as m-3 ruled it (the only-red census belongs in both branches); R-4.77 NOT-SHIFTED stands (Fisher p 0.47 / 0.58 / 1.00 / 1.00).
 Next: rev39 — the MUST-H-1 fix as a new CODE task (tests first), its per-head gate, then Task 9 again at the new head (count gate, companion iff moved, FINAL H), with R-4.83's hoist and R-4.82's fence folded.
 The release hold is ABSOLUTE.
+
+## R84 — master's crossing correction; "lighter regate pls"; rev39 filed for review (2026-09-26 17:43 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260926-174349.md`; the operator's word; 18:29 PLAN `intg-substep2b/PLAN-pair-planner-20260926-182900.md`)
+
+Master's 174349: my 17:05 SITREP crossed its 164725, so its ask was already discharged, and two of its statements were false as filed (a verbatim re-file of a 15:08 draft; the engine is 2.9.5 on the operator's word, and a 2.9.3 client cannot submit).
+The correction lives in master's relay; mine stands as filed. Lesson saved: re-read every state claim before re-filing a stale draft, and cite an unadmitted relay by digest, never by a draft path.
+The operator directed "lighter regate pls": Task 9 is not re-run. That changes R83's "Task 9 again at the new head".
+rev39 `d5a868d3…` (4024 lines) is committed at `12ee0f9e` with its walk records (`results/rev39-walks/`) and the rev39 producer-gate baseline (`5a4f3620…`).
+Task 8c is c10, the MUST-H-1 fix: tests RED first, F1–F4 with F4's `failed_rows_complete` returning a typed `InternalError`, three gating mutants, and the head gate at c10.
+Task 9b (`regate.sh`) is the lighter re-gate at c10. It re-runs the censuses c10 could move, checks `failures=0`, the count gate against c9, both skip sets, E3 and `harness-e2`, and R-4.83's row census in both branches. The population must EQUAL Task 9's (a moved one STOPs and routes up; no series). c11 lands iff a count cell moved, and `R/H.txt` is written last.
+`resume.sh` now carries Task 9's receipts. rev38's carried Task 0's only, which would have stopped Task 10 at its controller (walked both ways).
+Disclosed: the `c10-mutants.sh` mutant arm is walkable only at the real c10.
+plan-40 is filed TO the implementer for its exact-hash review (commit `8adc0a8`).
+Next: the implementer's review; then my digest word to master, master's five-field carry, the `t-oracle.txt` rewrite in `s2b-runners-UG0MP0`, and impl-13 (Step 0′ → Task 8c → Task 9b); then the three owner reviews at the FINAL H, the GO, and Task 10.
+The implementer's impl-12 return is still unadmitted (`457b14fa…`); only that seat can submit it.
+The release hold is ABSOLUTE.
