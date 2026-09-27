@@ -1193,3 +1193,17 @@ The prefix replay ran in scratch clones (bivpak a7c7b9b, pdc 42e8bd05): YES rc 0
 The INDEX's pre-existing non-monotonic rows (including the migration back-fill at lines 582/584) fire `relay-lint --index`. They are not this seat's rows and not this seat's to repair.
 Next: master's five-field carry TO intg.pair-planner, then the `t-oracle.txt` rewrite in `s2b-runners-UG0MP0` (predecessor kept), the prefix and R-4.72 gates on the real files, Step 0′ walked, the producer gate, and impl-13 at PARENT `intg-substep2b-plan-review-40` (SCOPE 53: Step 0′ → Task 8c → Task 9b, STOP before Task 10).
 The release hold is ABSOLUTE.
+
+## R87 — master's carry 203312 (+ addendum 203555); impl-13 dispatched (2026-09-26 20:33 / 20:35 `../pdc/master/relays/intg-2b-wiring-act/PLAN-master-planner-20260926-203312.md`, `…-203555.md`; 20:47 IMPL `intg-substep2b/IMPL-pair-planner-20260926-204715.md`)
+
+Master cleared T-ORACLE for rev39 (five fields; only the plan digest moved from 185232) and re-ran the gate on the filed carry itself (203555, carry sha256 `dbf5d9c3…`).
+Master registered the operator's Plan-contract waiver, reading it to cover the snippet-byte-binding clause for this artifact through 2b ("narrow it if wider than meant").
+Master corrected its migration note: 2.9.5 adds §Plan contract and §Delivery mode to every seat's protocol. Under 2.9.5, MUST-2B-54 (a carrier-only defect) could have ridden an `-erratum-N` with a delta review instead of a full re-carry; I use that path next time.
+Master also pre-stated four items: the Task 9b population STOP is designed; the owner reviews retake at `R/H.txt`; the host-path coupling (15 absolute paths in the runner blocks) is due at the next sub-step's plan; the standing conditions are unchanged.
+`t-oracle.txt` in `s2b-runners-UG0MP0` was rewritten from 203312 (sha256 `ccbec7ea…`); impl-12's file is kept as `t-oracle.prev-20260926-204313.txt` (`1910b60c…`).
+From the candidate with scratch `$EVID`s: T-ORACLE prefix OK, and the preserved locator gives plan-sha-mismatch. R-4.72 is OK (owner words equal to the real c1d.pre receipt), and an eight-line carrier gives field-count-8.
+Step 0′ was walked on a fresh mirror of the real runners directory: 31 carried lines, the six NO cases STOP, and the consumer reaches only the absent GO. The producer gate is rc 0 (52). All of Task 8c's and Task 9b's start fences are clean on the real home.
+The lineage was walked on a mini-root: 0 lineage errors with the true parent, 2 with a wrong parent.
+impl-13 (PARENT `intg-substep2b-plan-review-40`, SCOPE 53, all-in; EXPECTED rows = c10's ten Files-line paths, and c11 on the workflow count cells iff moved) runs Step 0′ → Task 8c → Task 9b, then STOPs before Task 10.
+Next: the implementer's return. Then the three owner reviews at `R/H.txt`, my GO, and Task 10.
+The release hold is ABSOLUTE.
