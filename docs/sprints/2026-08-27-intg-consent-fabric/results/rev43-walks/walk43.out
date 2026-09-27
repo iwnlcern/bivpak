@@ -1,0 +1,29 @@
+walk43 run 2026-09-27T15:42:27-0700; rev43 sha 096e47b457d88e9e9163e0c7e76dfe8ad2fb6c4c212b77b33421ce816d2e3708
+dest script map: block 83..95 -> lines 3..15 (85=fetch-url->5, 86=url-rewrite->6, 87/88=push-url->7/8, 89=remote-branch-before->9, 90=visibility->10)
+== MUST-2B-55 destination binding
+yes-real rc=0 DEST-OK
+https://github.com/iwnlcern/bivpak.git
+https://github.com/iwnlcern/bivpak.git
+PUBLIC
+       0
+yes-GH_REPO-elsewhere rc=0 DEST-OK
+control: rev42's unqualified gh repo view under the same GH_REPO rc=0 PUBLIC 
+split-fetch-push rc=1 STOP-task-10 line=5
+insteadOf rc=1 STOP-task-10 line=5
+pushInsteadOf rc=1 STOP-task-10 line=6
+env-injected-rewrite rc=1 STOP-task-10 line=5
+  split-fetch-push: remote-read/push receipts written = 0
+  insteadOf: remote-read/push receipts written = 0
+  pushInsteadOf: remote-read/push receipts written = 0
+  env-injected-rewrite: remote-read/push receipts written = 0
+static: remote reads/writes in task-10 not naming $URL/$REPO: 0
+== MUST-2B-56 retention on the real prior-attempt byte set
+retention rc=0 STEP0-COMPILE-OK /private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r43/w/ret/attempts/task10-1
+  prior pyc preserved byte-equal in attempts/task10-1/__pycache__/
+  home __pycache__ before: 13 entries; after: 12 entries; finalize.rev41.* after: 0
+  finalize.rev41.py in place: sha=unchanged mtime=unchanged digest-is-a9eec925=yes
+  manifest: 9 rows; verify: 9 OK
+control (rev42 py_compile on the same shape) rc=0 REV42-COMPILE-DONE -> finalize.rev41.* in the home __pycache__ after: 1
+  (rev42-compile control: prior pyc also preserved first by rev43 Step 0, so the control isolates the compile line)
+pyc-symlink rc=1 STOP-task-10 line=6
+push-receipt rc=1 STOP-task-10 line=3
