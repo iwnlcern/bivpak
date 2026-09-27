@@ -1251,3 +1251,14 @@ The rev40 `resume.sh` walk from fresh mirrors of r9Akl6 publishes 31 lines, and 
 The producer gate is rc 0 (52 classified). The start fences on the real home hold: the rev40 record and work directory, `heads/c10`, `heads/c11`, `commits.c11.txt` and `R/` are absent, and impl-13's rev39 record and work directory are present.
 impl-14 was issued at PARENT `intg-substep2b-plan-review-41`: Step 0′ → Task 8c Steps 5–7 at c10 → Task 9b → STOP before Task 10. The lineage was walked on a mini-root: 0 lineage errors with the true parent, and the two expected ones with plan-42 as the parent.
 The release hold is ABSOLUTE.
+
+## R92 — impl-14 STOPped at c10's canonical Linux build; rev41 filed as plan-43 (impl-14 return `intg-substep2b/IMPL-pair-implementer-20260926-231301.md` sha256 779bff88…; PLAN `intg-substep2b/PLAN-pair-planner-20260927-001730.md` sha256 7d56aded…)
+
+impl-14 ran Step 0′ (published `s2b-runners-dv8k9v`) and Task 8c Step 5: `receipts/c10-mutants.rev40.txt` ends in `verdict=ok`, each mutant killed by its named witness. Step 6's one head gate at c10 then STOPped in the canonical Linux container on GCC 13 `-Werror=missing-field-initializers` at c10's two new failed-row test initializers (`tests/test_envelope.cpp:75`, `:85`) — c8L's class re-introduced.
+The miss is shared. The plan checked c10 green on macOS only, and I issued impl-14 without scouting c10 on the canonical Linux toolchain, which my standing rule requires before a gate token.
+The scout was measured before any plan byte (`results/c10t-scout-20260926/`, dbea9b75): the retained log's error lines are exactly the 18, and c10 plus repair-13 passed the WHOLE canonical container (tidy 0 at 37/37, only harness-selftest red, population EQUAL to Task 9's 1055). macOS tuples equal c10's, and the mutant record reproduces impl-14's rows.
+rev41 `0140f69e…` (df0b928) adds NEW Task 8d, c10t on `tests/test_envelope.cpp` only: the RED is taken from the retained log, repair-13 is pinned with the tree pinned before the commit, and the mutant record and head gate are re-taken at c10t. `regate.sh` and Task 10 are retargeted to c10t.
+It also folds a latent rev39 defect found by tracing Task 10's inputs. Task 0's sealed `finalize.py` (`helpers.sha256`) made rev39's edits dead: the sealed PR body lists 6 of 24 commits and omits the veto-9 engine commits. Task 10 now produces `finalize.rev41.py` beside it with the rev37 pattern.
+Walks are in `results/rev41-walks/`, with every invalid run named. The producer baseline is rev41 (`e34d8895…`, 54). Host touch: one stray append to the main repo's `.git/info/exclude` (a relative git-dir), removed exactly.
+Next: the implementer's exact-hash review of plan-43, then the digest word, master's carry, `t-oracle.txt` in `s2b-runners-dv8k9v`, and impl-15 (Step 0′ → Task 8d → Task 9b).
+The release hold is ABSOLUTE.
