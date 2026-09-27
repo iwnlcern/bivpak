@@ -15,6 +15,12 @@ std::string machine_text(const std::string_view raw) {
   return support::sanitize_utf8(raw);
 }
 
+bool failed_rows_complete(const biv::open::OpenReport& report) {
+  return std::ranges::all_of(report.repos, [](const auto& row) {
+    return row.outcome != "failed" || (row.kind.has_value() && row.detail.has_value());
+  });
+}
+
 namespace {
 
 void write_warnings(json::Writer& writer, const std::vector<pack::Warning>& warnings) {
@@ -412,12 +418,14 @@ void write_open_result(json::Writer& writer,
       writer.key("outcome");
       writer.value_string(row.outcome);
       if (row.outcome == "failed") {
-        writer.key("kind");
-        if (row.kind) writer.value_string(*row.kind);
-        else writer.value_null();
-        writer.key("detail");
-        if (row.detail) writer.value_string(machine_text(*row.detail));
-        else writer.value_null();
+        if (row.kind) {
+          writer.key("kind");
+          writer.value_string(*row.kind);
+        }
+        if (row.detail) {
+          writer.key("detail");
+          writer.value_string(machine_text(*row.detail));
+        }
       }
       writer.key("sha");
       if (row.sha) writer.value_string(machine_text(*row.sha));

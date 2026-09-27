@@ -163,11 +163,13 @@ target_link_libraries(biv_tests PRIVATE
   biv_probe_test_seam bivcore biv_adapters biv_support Catch2::Catch2WithMain)
 target_compile_options(biv_tests PRIVATE -Wall -Wextra -Werror)
 set(BIV_GENERATED_ENVELOPE "${CMAKE_CURRENT_BINARY_DIR}/generated-detail-envelope.v1.json")
+set(BIV_DIVERGENCE_ENVELOPE "${CMAKE_CURRENT_BINARY_DIR}/generated-divergence-envelope.v1.json")
 target_compile_definitions(biv_tests PRIVATE
   BIV_PROBE_TESTING=1
   BIV_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
   BIV_BINARY_PATH="$<TARGET_FILE:biv>"
-  BIV_GENERATED_ENVELOPE_PATH="${BIV_GENERATED_ENVELOPE}")
+  BIV_GENERATED_ENVELOPE_PATH="${BIV_GENERATED_ENVELOPE}"
+  BIV_DIVERGENCE_ENVELOPE_PATH="${BIV_DIVERGENCE_ENVELOPE}")
 add_test(NAME biv_tests COMMAND biv_tests)
 
 add_executable(biv_probe_tests tests/test_probe.cpp)
@@ -282,15 +284,35 @@ Draft202012Validator(schema).validate(document)"
           "${CMAKE_SOURCE_DIR}/schemas/biv-json-envelope.v1.schema.json"
           "${BIV_GENERATED_ENVELOPE}")
 
+add_test(
+  NAME divergence_envelope_conforms
+  COMMAND "${BIVHARNESS_PYTHON}" -c
+          "import json, sys
+from jsonschema import Draft202012Validator
+schema = json.load(open(sys.argv[1], encoding='utf-8'))
+document = json.load(open(sys.argv[2], encoding='utf-8'))
+Draft202012Validator.check_schema(schema)
+Draft202012Validator(schema).validate(document)"
+          "${CMAKE_SOURCE_DIR}/schemas/biv-json-envelope.v1.schema.json"
+          "${BIV_DIVERGENCE_ENVELOPE}")
+
 add_test(NAME generated_envelope_reset
   COMMAND "${CMAKE_COMMAND}" -E rm -f "${BIV_GENERATED_ENVELOPE}")
+add_test(NAME divergence_envelope_reset
+  COMMAND "${CMAKE_COMMAND}" -E rm -f "${BIV_DIVERGENCE_ENVELOPE}")
 set_tests_properties(generated_envelope_reset PROPERTIES
   FIXTURES_SETUP generated_envelope_clean
   RESOURCE_LOCK generated_envelope_artifact)
 set_tests_properties(biv_tests PROPERTIES
-  FIXTURES_SETUP generated_envelope
-  FIXTURES_REQUIRED generated_envelope_clean
-  RESOURCE_LOCK generated_envelope_artifact)
+  FIXTURES_SETUP "generated_envelope;divergence_envelope"
+  FIXTURES_REQUIRED "generated_envelope_clean;divergence_envelope_clean"
+  RESOURCE_LOCK "generated_envelope_artifact;divergence_envelope_artifact")
 set_tests_properties(generated_envelope_conforms PROPERTIES
   FIXTURES_REQUIRED generated_envelope
   RESOURCE_LOCK generated_envelope_artifact)
+set_tests_properties(divergence_envelope_reset PROPERTIES
+  FIXTURES_SETUP divergence_envelope_clean
+  RESOURCE_LOCK divergence_envelope_artifact)
+set_tests_properties(divergence_envelope_conforms PROPERTIES
+  FIXTURES_REQUIRED divergence_envelope
+  RESOURCE_LOCK divergence_envelope_artifact)

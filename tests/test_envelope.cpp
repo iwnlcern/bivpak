@@ -70,6 +70,30 @@ TEST_CASE("exit map classifies refusal, mid-fail, and usage") {
   CHECK(biv::report::exit_for_error(biv::ErrKind::EntrySchemaSkipped) == 0);
 }
 
+TEST_CASE("failed row completeness rejects a missing kind") {
+  biv::open::OpenReport report{};
+  report.repos.push_back({.id = "repo", .relpath = "path", .outcome = "failed",
+                          .kind = std::nullopt, .detail = "failure"});
+  CHECK_FALSE(biv::report::failed_rows_complete(report));
+
+  report.repos.front().kind = "UrlDivergenceEntryRefused";
+  CHECK(biv::report::failed_rows_complete(report));
+}
+
+TEST_CASE("failed row completeness rejects a missing detail and complete rows emit no null carriers") {
+  biv::open::OpenReport report{};
+  report.repos.push_back({.id = "repo", .relpath = "path", .outcome = "failed",
+                          .kind = "UrlDivergenceEntryRefused", .detail = std::nullopt});
+  CHECK_FALSE(biv::report::failed_rows_complete(report));
+
+  report.repos.front().detail = "path: restore failed";
+  REQUIRE(biv::report::failed_rows_complete(report));
+  const auto encoded = biv::report::envelope(
+      "open", std::nullopt, report, std::nullopt, 2);
+  CHECK(encoded.find("\"kind\": null") == std::string::npos);
+  CHECK(encoded.find("\"detail\": null") == std::string::npos);
+}
+
 TEST_CASE("pack success envelope includes advisories") {
   biv::pack::PackReport report;
   report.image_path = "/tmp/sample.bvpk";

@@ -124,6 +124,8 @@
                   "id": {"type": "string"},
                   "relpath": {"type": "string"},
                   "outcome": {"enum": ["restored", "shallow-pointer", "payload-only-unborn", "failed", "offline-pointer"]},
+                  "kind": {"type": "string"},
+                  "detail": {"type": "string"},
                   "sha": {"type": ["string", "null"]},
                   "capture_mode": {"enum": ["overlay", "full", null]},
                   "local_refs": {
@@ -151,6 +153,15 @@
                   "reconstruct": {"type": "string"}
                 },
                 "allOf": [
+                  {
+                    "if": {"properties": {"outcome": {"const": "failed"}}},
+                    "then": {"required": ["kind", "detail"]},
+                    "else": {
+                      "not": {"anyOf": [
+                        {"required": ["kind"]}, {"required": ["detail"]}
+                      ]}
+                    }
+                  },
                   {
                     "if": {"properties": {"outcome": {"enum": ["shallow-pointer", "payload-only-unborn"]}}},
                     "then": {"properties": {"capture_mode": {"const": null}}},

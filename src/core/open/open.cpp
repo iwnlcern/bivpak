@@ -25,6 +25,7 @@
 #include "core/json/writer.hpp"
 #include "core/manifest/checksums.hpp"
 #include "core/manifest/manifest.hpp"
+#include "core/report/envelope.hpp"
 #include "cli/url_consent.hpp"
 namespace biv::open {
 
@@ -1145,7 +1146,12 @@ expected<void> restore_repos(const std::filesystem::path& image,
         const auto& facts = restored.error().facts;
         report.url_divergence_refusals.push_back({entry->id, entry->relpath.generic_string(),
                                                   facts.at("requested"), facts.at("effective"), facts.at("op")});
-        report.repos.push_back(repo_row(*entry));
+        auto row = repo_row(*entry);
+        row.kind = to_string(ErrKind::UrlDivergenceEntryRefused);
+        row.detail = cli::render_entry_refusal_sentence(
+            entry->relpath.generic_string(), facts.at("op"),
+            facts.at("effective"), facts.at("requested"));
+        report.repos.push_back(std::move(row));
       } else {
         return std::unexpected(record_open_engine_failure(restored.error(), *entry, partial_dir, report));
       }
@@ -1299,6 +1305,11 @@ expected<OpenReport> execute_archive(const std::filesystem::path& image,
   if (auto ok = restore_repos(image, plan, partial_dir, stage, dirs, verify, report);
       !ok) {
     return std::unexpected(with_partial_dir(ok.error(), partial_dir));
+  }
+  if (!biv::report::failed_rows_complete(report)) {
+    return std::unexpected(with_partial_dir(
+        BivError{ErrKind::InternalError, {}, "incomplete-failed-repository-row"},
+        partial_dir));
   }
   for (auto it = dirs.rbegin(); it != dirs.rend(); ++it) {
     const auto rel = it->path.substr(std::string_view{"payload/"}.size());

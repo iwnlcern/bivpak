@@ -202,12 +202,23 @@ std::string render_engine_refusal_detail(
   }
 }
 
+std::string render_entry_refusal_sentence(const std::string_view relpath,
+                                          const std::string_view op,
+                                          const std::string_view effective,
+                                          const std::string_view requested) {
+  return std::string{relpath} + ": restore failed — " + std::string{op} +
+         " would contact " + std::string{effective} +
+         " instead of the requested " + std::string{requested} +
+         "; approval was not given.";
+}
+
 std::string render_entry_refusal_line(std::string_view relpath,
                                       const UrlDivergenceFacts& facts) {
-  return "  " + consent_display(relpath) + ": restore failed — " +
-         consent_display(facts.op) + " would contact " +
-         consent_display(facts.effective) + " instead of the requested " +
-         consent_display(facts.requested) + "; approval was not given.\n";
+  return "  " + render_entry_refusal_sentence(
+                     consent_display(relpath), consent_display(facts.op),
+                     consent_display(facts.effective),
+                     consent_display(facts.requested)) +
+         '\n';
 }
 
 std::string render_run_guidance_line(std::size_t refused_count) {

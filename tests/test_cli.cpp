@@ -1483,10 +1483,14 @@ TEST_CASE("A6-R4 accepted notice bytes are golden", "[a6-fabric]") {
 
 TEST_CASE("A6-R4 refusal + guidance bytes are golden", "[a6-fabric]") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
+  const auto machine_detail = biv::cli::render_entry_refusal_sentence(
+      "a/b.txt", facts.op, facts.effective, facts.requested);
+  CHECK(machine_detail ==
+        "a/b.txt: restore failed — fetch would contact https://eff instead of the requested https://req; approval was not given.");
   CHECK(biv::cli::render_pack_refusal_detail(facts) ==
         "pack refused: fetch for /w/repo would contact https://eff instead of the requested https://req; approval was not given. Re-run interactively to review, or pass --accept-url-divergence to proceed.");
   CHECK(biv::cli::render_entry_refusal_line("a/b.txt", facts) ==
-        "  a/b.txt: restore failed — fetch would contact https://eff instead of the requested https://req; approval was not given.\n");
+        "  " + machine_detail + "\n");
   CHECK(biv::cli::render_run_guidance_line(2) ==
         "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
 }
@@ -2029,6 +2033,31 @@ TEST_CASE("open repos typed refusal continues in encounter order to a clean entr
   CHECK(std::string_view(refusals.at(0)["relpath"]) == "refused-one");
   CHECK(std::string_view(refusals.at(1)["relpath"]) == "refused-two");
   CHECK(std::string_view(refusals.at(0)["kind"]) == "UrlDivergenceEntryRefused");
+  const simdjson::dom::array repos = document["result"]["repos"];
+  REQUIRE(repos.size() == 3);
+  const auto expected_detail = [](const std::string_view relpath) {
+    return std::string{relpath} +
+           ": restore failed — clone would contact https://effective.invalid/repo "
+           "instead of the requested https://requested.invalid/repo; approval was not given.";
+  };
+  for (std::size_t index = 0; index < 2; ++index) {
+    const auto row = repos.at(index);
+    CHECK(std::string_view{row["outcome"]} == "failed");
+    CHECK(std::string_view{row["kind"]} == "UrlDivergenceEntryRefused");
+    const auto detail = std::string_view{row["detail"]};
+    const auto relpath = index == 0 ? std::string_view{"refused-one"}
+                                    : std::string_view{"refused-two"};
+    CHECK(detail == expected_detail(relpath));
+    CHECK(result.err.find("  " + std::string{detail} + "\n") != std::string::npos);
+  }
+  {
+    std::ofstream output{BIV_DIVERGENCE_ENVELOPE_PATH,
+                         std::ios::binary | std::ios::trunc};
+    REQUIRE(output);
+    output << result.out;
+    output.close();
+    REQUIRE(output);
+  }
   const auto trace = read_text(root / "trace");
   const std::string request = "\tls-remote\t--get-url\t--\thttps://requested.invalid/repo";
   const auto first_request = trace.find(request);
