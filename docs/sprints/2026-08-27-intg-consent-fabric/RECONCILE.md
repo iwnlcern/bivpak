@@ -1262,3 +1262,12 @@ It also folds a latent rev39 defect found by tracing Task 10's inputs. Task 0's 
 Walks are in `results/rev41-walks/`, with every invalid run named. The producer baseline is rev41 (`e34d8895…`, 54). Host touch: one stray append to the main repo's `.git/info/exclude` (a relative git-dir), removed exactly.
 Next: the implementer's exact-hash review of plan-43, then the digest word, master's carry, `t-oracle.txt` in `s2b-runners-dv8k9v`, and impl-15 (Step 0′ → Task 8d → Task 9b).
 The release hold is ABSOLUTE.
+
+## R93 — plan-43 APPROVED; the rev41 digest word sent (PLAN-REVIEW `intg-substep2b/PLAN-REVIEW-pair-implementer-20260927-003803.md`, `intg-substep2b-plan-review-43`; SITREP `intg-substep2b/SITREP-pair-planner-20260927-004149.md` sha256 bb2ede69…, commit 14fe54c)
+
+The implementer approved rev41 `0140f69e…` at the exact hash. 003803 supersedes its own duplicated-body 003628, with the same verdict, and records the operator's registered Plan-contract waiver as covering rev41.
+The word asks master for the five-field carry TO intg.pair-planner. Only `T_ORACLE_PLAN_SHA256` moves from 222327. The three owner-object lines are byte-identical to 222327's and were re-hashed at pdc 5138396e at filing.
+The T-ORACLE prefix replayed at the new digest in scratch clones (bivpak 72c4875, pdc 5138396e, synthetic committed carries). YES: rc 0, one receipt. Widened TO: `STOP-t-oracle carry-to`, no receipt. rev40 digest: `plan-sha-mismatch`, no receipt.
+The word's commit carried both 003628/003803 INDEX rows (the known shared-INDEX sweep; the daemon wrote them, none hand-edited).
+Next: master's carry, then `t-oracle.txt` rewritten in `s2b-runners-dv8k9v` (predecessor kept), the gates walked on the real files, and impl-15 at PARENT plan-review-43 (Step 0′ → Task 8d → Task 9b → STOP before Task 10).
+The release hold is ABSOLUTE.
