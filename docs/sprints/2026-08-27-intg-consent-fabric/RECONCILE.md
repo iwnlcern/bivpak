@@ -1173,3 +1173,13 @@ plan-40 is filed TO the implementer for its exact-hash review (commit `8adc0a8`)
 Next: the implementer's review; then my digest word to master, master's five-field carry, the `t-oracle.txt` rewrite in `s2b-runners-UG0MP0`, and impl-13 (Step 0′ → Task 8c → Task 9b); then the three owner reviews at the FINAL H, the GO, and Task 10.
 The implementer's impl-12 return is still unadmitted (`457b14fa…`); only that seat can submit it.
 The release hold is ABSOLUTE.
+
+## R85 — rev39 must-revised (MUST-2B-53/54); the operator waives the 2.9.5 Plan contract for this plan; plan-41 re-carries rev39 (2026-09-26 18:59 review draft sha256 `ddb7cdc0…`, unadmitted; the operator's word `a`; 19:05 PLAN `intg-substep2b/PLAN-pair-planner-20260926-190529.md`; 19:06 SITREP `intg-substep2b/SITREP-pair-planner-20260926-190611.md`)
+
+The implementer returned must-revise on rev39 `d5a868d3…`, with no design, scope, order or acceptance defect found in its declarations.
+MUST-2B-54 was my defect: plan-40's grading heading still named rev38's `a342a9c5…`. It is fixed in plan-41.
+MUST-2B-53: the 2.9.5 pair protocol's §Plan contract (new since 2.9.3; not in master's migration note) forbids implementation bodies, test bodies and operational scripts in a PLAN, and says execution does not bind snippet bytes. This plan is body-bearing by design, since its measurement tasks run byte-exact from the locked plan.
+The operator chose (a), verbatim `a`: the contract's body clauses are waived for `PL-intg-substep2b-20260915` only, through sub-step 2b's close. The waiver covers all 21 named BLOCKs (including `c10-mutants.sh` and `regate.sh`), RUN blocks task-0/9/10/11 and the inline code of Tasks 1–8c. The contract applies from the next sub-step's plan.
+rev39 is unchanged, so its walks stand. plan-41 carries it for the exact-hash verdict, and the SITREP asks master for the register row.
+Both implementer drafts (impl-12 return `457b14fa…`, review `ddb7cdc0…`) are still unadmitted.
+The release hold is ABSOLUTE.
