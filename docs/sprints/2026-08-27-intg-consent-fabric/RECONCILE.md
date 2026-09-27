@@ -1299,3 +1299,18 @@ Verified at my seat:
 The SITREP asks master to re-route the three owner byte reviews at cb19326a, with the same `S2B_REVIEW_*` lines and traps; the 2893bc53 reviews are stale (m-1 and m-4 no-red; m-3 must-revise, answered by c10). It names the scope delta since 2893bc53: c10's MUST-H-1 hunks, c10t and c11.
 Next: the three reviews through master, then my Task 10 GO relay (`TASK10_GO: yes`, `TASK10_H: cb19326a…`, three `OWNER_REVIEW_H:` lines, master's standing conditions).
 The release hold is ABSOLUTE.
+
+## R96 — master ACCEPTED Task 9b at FINAL H cb19326a; owner reviews routed; F-H1-DOOR2 registered (master `PLAN-master-planner-20260927-032725.md` sha256 ba4385fd…, pdc 280fe84c)
+
+`TASK_9B: accepted`. Master re-measured the chain, both boundaries and all six cited digests.
+- He re-derived c11 from the sealed `cellpatch.py` and c10t's tuples: byte-identical to c11's workflow blob (`da599e34…`), with a c8T-tuple control differing in exactly the two cells. So the workflow at H differs from the base only in cell literals.
+- c10t's tree equals rev41's pre-computed pin.
+- veto 9 over `186adf7d..H`: 26 commits, six engine commits, zero spanning.
+- The ctest row set at H equals c8T's plus exactly the two MUST-H-1 conformance rows, with the same fail/notrun triple.
+Two notes for the record:
+- The c10t mutant receipt equals the rev40 record because the format carries no timestamp; its freshness is its write time and the c10t-vintage logs.
+- The R-4.35 family failed 4 names at c10t and 3 at c11 (a workflow-only commit): R-4.77 variance, recorded as data. `R/linux-selftest-bar.txt` is c10t-vintage, and the empty `R/c10t-H.delta` compares count cells, not selftest names.
+F-H1-DOOR2 (under m-3, m-1 CC): MUST-H-1's invariant is gated at the envelope (open.cpp:1309, exit 4) but holds at the failed inventory (`write_failed_inventory`, which substitutes `value_or`) only by construction. c10 fixed the divergence-refused row at its producer, so the inventory is correct at H. It has no schema, consumer or composition witness. Master registered it as not a red and seeks no change in this scope (it is sealed ADDENDUM 11 text).
+The owner reviews are asked at H in `032730` (m-1), `032734` (m-3) and `032738` (m-4). None has arrived yet.
+Next: collect the three no-red reviews, walk the GO against Task 10's Step 1 gate lines, then file the GO SITREP (`TASK10_GO: yes`, `TASK10_H: cb19326a…`, three `OWNER_REVIEW_H: ../pdc/master/relays/intg-2b-wiring-act/<file> | FROM=m-N.planner | VERDICT=no-red` lines).
+The release hold is ABSOLUTE.
