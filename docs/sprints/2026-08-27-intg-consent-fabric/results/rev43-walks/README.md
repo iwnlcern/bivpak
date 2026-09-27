@@ -24,3 +24,4 @@ The in-memory `compile()` then passes and the home `__pycache__` goes from 13 to
 This isolates the compile line as the writer.
 - Step 0 NO cases: a symlinked prior pyc STOPs at the pyc loop (t10 line 30); a pre-existing `push-rc.txt` STOPs at the receipt fence (t10 line 27).
 Neither creates an `attempts/task10-*` directory or moves any file.
+- `rev42-to-rev43.diff`: `git diff 78e87b3 e8b3ab2 -- docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-substep2b-20260915.md`, the plan file only.
