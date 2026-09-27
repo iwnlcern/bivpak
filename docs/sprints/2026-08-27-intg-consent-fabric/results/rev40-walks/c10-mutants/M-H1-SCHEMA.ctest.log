@@ -1,0 +1,19 @@
+Test project /private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r39/mw/wt/build/ci-macos
+    Start 13: generated_envelope_reset
+1/4 Test #13: generated_envelope_reset .........   Passed    0.00 sec
+    Start 14: divergence_envelope_reset
+2/4 Test #14: divergence_envelope_reset ........   Passed    0.00 sec
+    Start  4: biv_tests
+3/4 Test  #4: biv_tests ........................   Passed   69.19 sec
+    Start 12: divergence_envelope_conforms
+4/4 Test #12: divergence_envelope_conforms .....***Failed    0.24 sec
+
+75% tests passed, 1 tests failed out of 4
+
+Total Test time (real) =  69.43 sec
+
+The following tests FAILED:
+	 12 - divergence_envelope_conforms (Failed)
+Errors while running CTest
+Output from these tests are in: /private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r39/mw/wt/build/ci-macos/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.

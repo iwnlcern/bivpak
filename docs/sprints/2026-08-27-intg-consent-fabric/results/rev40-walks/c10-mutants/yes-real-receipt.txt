@@ -1,0 +1,4 @@
+mutant=M-H1-PRE gating=yes case_rc=42 ctest_rc=8 biv_tests=failed conforms=notrun failed_cases=1
+mutant=M-H1-SCHEMA gating=yes case_rc=0 ctest_rc=8 biv_tests=passed conforms=failed failed_cases=0
+mutant=M-H1-F4 gating=yes case_rc=42 ctest_rc=8 biv_tests=failed conforms=notrun failed_cases=2
+verdict=ok

@@ -2171,7 +2171,7 @@ printf 'headgate label=%s head=%s tidy_expected=%s tidy_findings=%s coverage=37/
 printf 'headgate %s OK %s\n' "$LABEL" "$HX"
 ```
 
-### Task 8c — c10, MUST-H-1: a failed repository row renders its `kind` and `detail`, never null, and the envelope validates against the product's own schema (rev39; m-3 `../pdc/master/relays/intg-2b-wiring-act/DESIGN-planner-20260926-160359.md` MUST-H-1 with F1–F5; master `PLAN-master-planner-20260926-164725.md`, F4 widened to both doors; the operator's "lighter regate pls", 2026-09-26)
+### Task 8c — c10, MUST-H-1: a failed repository row renders its `kind` and `detail`, never null, and the envelope validates against the product's own schema (rev40: Steps 0–4 EXECUTED under impl-13, c10 `2291a46`; Step 5 runs rev40's mutant record; rev39; m-3 `../pdc/master/relays/intg-2b-wiring-act/DESIGN-planner-20260926-160359.md` MUST-H-1 with F1–F5; master `PLAN-master-planner-20260926-164725.md`, F4 widened to both doors; the operator's "lighter regate pls", 2026-09-26)
 
 **Why this task exists.** Task 9 completed at H `2893bc53` (impl-12), and m-3's owner byte review of that H returned MUST-REVISE. A url-divergence-refused row is pushed as `repo_row(*entry)` with `kind` and `detail` unset (`open.cpp:1148` at H). `write_open_result` then writes both keys on every `failed` row, as null when unset (`envelope.cpp:414-420`). The schema's `result.anyOf[1].properties.repos.items` is `additionalProperties: false` over twelve properties, neither of them `kind` nor `detail`. So the envelope fails the product's own schema exactly when the consent fail-safe fires. m-3 reproduced it with the harness validator. Master confirmed it at its own bytes and found a second door: the two-argument `repo_row` maps `RepoRestoreOutcome::failed` to `"failed"` without setting either field (`open.cpp:1069-1088`, pushed at `:1143`), and `restore_entry` initializes its row as `failed` (`restore.cpp:491`). Hence F4, the writer-side invariant, is the load-bearing arm. The fix moves H, so m-1's and m-4's no-reds at `2893bc53` go stale: all three owner reviews are retaken at the FINAL head Task 9b writes.
 
@@ -2186,43 +2186,65 @@ printf 'headgate %s OK %s\n' "$LABEL" "$HX"
 
 **The witnesses (F5).** (w1) The A10 divergence shim test in `tests/test_cli.cpp` (`url_divergence_refusals` at about `:2027`) additionally asserts each refused row's `kind` and `detail` bytes for the fixture's `op`, `effective` and `requested`, and writes its `--json` stdout to `BIV_DIVERGENCE_ENVELOPE_PATH`. That compile definition is set beside `BIV_GENERATED_ENVELOPE_PATH` in `CMakeLists.txt`, with a reset row `divergence_envelope_reset` and a new ctest row `divergence_envelope_conforms` that validates the file with the same `Draft202012Validator` command as `generated_envelope_conforms` (`FIXTURES_REQUIRED` on `biv_tests`'s setup, `RESOURCE_LOCK` on the artifact). (w2) For display-inert values the human line equals two spaces, the machine `detail`, then `\n`. (w3) `tests/test_envelope.cpp`: `failed_rows_complete` is false for a report with a `failed` row lacking `kind`, false for one lacking `detail`, true for a complete one, and the complete report's envelope carries no `null` for either key.
 
-**THE MUTANT RECORD at the c10 head** (block `c10-mutants.sh`; each mutant applied to the working tree only, built, run, recorded in `$EVID/receipts/c10-mutants.txt` and reverted, the tree proved clean after each; a mutant that does not compile is a STOP). All three GATE:
-- M-H1-PRE: `src/core/open/open.cpp` reverted to c9's bytes (the divergence row back to unset fields, the predicate never evaluated). (w1) goes red in `biv_tests`, and `divergence_envelope_conforms` goes red on the regenerated file.
-- M-H1-SCHEMA: `schemas/biv-json-envelope.v1.schema.json` reverted to c9's bytes. `divergence_envelope_conforms` goes red, because the fixed row now carries two properties c9's schema forbids.
-- M-H1-F4: the predicate made constant `true`, as a one-hunk patch the implementer prepares at `$EVID/code/c10-M-H1-F4.patch` touching `src/core/report/envelope.cpp` only (the block refuses any other path). (w3) goes red.
+**THE MUTANT RECORD at the c10 head** (block `c10-mutants.sh`; each mutant applied to the working tree only, built, run, recorded in `$EVID/receipts/c10-mutants.rev40.txt` and reverted, the tree proved clean after each; a mutant that does not compile is a STOP; the record ends in ONE `verdict=ok` line written last, and Task 9b reads that line, never the file's mere presence). rev40 (impl-13's STOP `intg-substep2b/IMPL-pair-implementer-20260926-211822.md`): `divergence_envelope_conforms` REQUIRES the fixture `biv_tests` sets up, so when a mutant reddens `biv_tests` CTest reports the consumer `Not Run`, never `Failed`. rev39 demanded a conforms failure under M-H1-PRE that this topology makes impossible. Each mutant is therefore killed by the NAMED witness it reddens: the per-mutant record carries both CTest rows' statuses and the failed Catch2 cases by name. impl-13's rev39 record (`receipts/c10-mutants.txt`, sha256 `4fe1c976…`) and work directory `code/c10-mutants/` stay where they are as the attempt's record. All three GATE:
+- M-H1-PRE: `src/core/open/open.cpp` reverted to c9's bytes (the divergence row back to unset fields, the predicate never evaluated). (w1) goes red in `biv_tests` — exactly ONE failed case, `open repos typed refusal continues in encounter order to a clean entry` — and `divergence_envelope_conforms` is `Not Run` by the fixture (recorded, never counted as a kill; under M-H1-PRE the case aborts on the null `kind` before it writes the envelope, so no conformance run could observe it).
+- M-H1-SCHEMA: `schemas/biv-json-envelope.v1.schema.json` reverted to c9's bytes. Every case stays green (`biv_tests` `Passed`, zero failed cases), and `divergence_envelope_conforms` alone goes red (`Failed`), because the fixed row now carries two properties c9's schema forbids — the whole-envelope validation's independent kill.
+- M-H1-F4: the predicate made constant `true`, as a one-hunk patch the implementer prepares at `$EVID/code/c10-M-H1-F4.patch` touching `src/core/report/envelope.cpp` only (the block refuses any other path). (w3) goes red in `biv_tests` — exactly its TWO cases, `failed row completeness rejects a missing kind` and `failed row completeness rejects a missing detail and complete rows emit no null carriers` — with `divergence_envelope_conforms` `Not Run` by the fixture.
 
 - [ ] **Step 0: the precondition** — HEAD is c9 (`commits.c9.txt`), which is Task 9's FINAL H (`H.txt`); the tree clean; `commits.c10.txt`, `heads/c10`, `receipts/c10-red.txt`, `receipts/c10-mutants.txt` and `code/c10-mutants` all absent.
 - [ ] **Step 1: the failing tests first** — write (w1)–(w3) and the CMake rows; build; run the three named cases and the `divergence_envelope_conforms` row; record each as RED at c9's product bytes in `$EVID/receipts/c10-red.txt` (one `case=<name> rc=<n>` line each, `rc` non-zero for all four).
 - [ ] **Step 2: F1–F4** — the minimal product change above; nothing outside the Files line.
 - [ ] **Step 3: green** — the three cases, `biv_tests` whole, `generated_envelope_conforms`, `divergence_envelope_conforms` and harness-selftest's `test_envelope.py` all green on macOS.
 - [ ] **Step 4: the commit** — `git add` the Files line's paths only; `git commit -m "open: MUST-H-1 -- the failed row's kind and detail rendered, never null; the schema admits both iff failed (m-3 160359 F1-F5; master 164725)"`; `git rev-parse HEAD > "$EVID/commits.c10.txt"`; the tree clean.
-- [ ] **Step 5: the mutant record** — prepare `$EVID/code/c10-M-H1-F4.patch`, then `bash` the block `c10-mutants.sh` (extracted from this plan by `plan_blocks.py extract`) from the worktree.
+- [ ] **Step 5: the mutant record** — prepare `$EVID/code/c10-M-H1-F4.patch`, then `bash` the block `c10-mutants.sh` (extracted from this plan by `plan_blocks.py extract`) from the worktree. rev40 (resumption): Steps 0–4 are EXECUTED under impl-13 — c10 `2291a46e7ff70c4c06055c8d0aab9e6709cb134d` at its ten Files-line paths, `receipts/c10-red.txt` (`801bc78e…`) and the patch `code/c10-M-H1-F4.patch` (one file, one hunk) all in place; under the successor token Task 8c RESUMES HERE, with HEAD at c10 and the tree clean, and nothing of Steps 0–4 is re-run or re-written.
 - [ ] **Step 6: the head gate** — `bash` the block `headgate.sh` with `c10` (tidy list EMPTY, coverage 37/37, macOS failures 0, the canonical container rc 0, every ctest row but harness-selftest passed): `heads/c10/headgate.txt`.
 - [ ] **Step 7: record** — the IMPL return enumerates c10's paths against the Files line (master 042625 (1)).
 
 <!-- BLOCK: c10-mutants.sh -->
 ```bash
-# Task 8c — the c10 mutant record (rev39; m-3 160359 F5, master 164725): run ONCE at the c10 head, before its head gate; usage  bash <this block>  from the worktree with EVID exported
+# Task 8c — the c10 mutant record (rev40; impl-13's rev39 attempt preserved; m-3 160359 F5, master 164725): run ONCE at the c10 head, before its head gate; usage  bash <this block>  from the worktree with EVID exported
 set -o pipefail
 STOP() { printf 'STOP-c10-mutants %s line=%s\n' "$1" "${BASH_LINENO[0]}" >&2; exit 1; }
 [ -n "${EVID-}" ] && [ -d "$EVID/receipts" ] && [ -d "$EVID/code" ] || STOP env
 z=0; C10=$(cat "$EVID/commits.c10.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C10" ] && [ "$(git rev-parse HEAD)" = "$C10" ] || STOP not-at-c10
 z=0; C9=$(cat "$EVID/commits.c9.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C9" ] && [ "$(git rev-parse HEAD~1)" = "$C9" ] || STOP parent-not-c9
 git diff --cached --quiet && git diff HEAD --quiet || STOP dirty
-O=$EVID/receipts/c10-mutants.txt; [ ! -e "$O" ] && [ ! -L "$O" ] || STOP record-exists
-P=$EVID/code/c10-M-H1-F4.patch; [ -s "$P" ] && [ ! -L "$P" ] || STOP f4-patch-absent
+# impl-13's rev39 attempt stays exactly where it is: its record (the M-H1-PRE assertion rev39 could not meet) and its work directory
+Q=$EVID/receipts/c10-mutants.txt; [ -f "$Q" ] && [ ! -L "$Q" ] || STOP rev39-record-absent
+h=0; s=$(shasum -a 256 "$Q" | cut -d' ' -f1) || h=$?; [ "$h" -eq 0 ] && [ "$s" = 4fe1c9768bc4e6305611cf371c3259ca6d2efcfc16990f2339fee60724145afc ] || STOP rev39-record-moved
+[ -d "$EVID/code/c10-mutants" ] && [ ! -L "$EVID/code/c10-mutants" ] || STOP rev39-work-absent
+O=$EVID/receipts/c10-mutants.rev40.txt; [ ! -e "$O" ] && [ ! -L "$O" ] || STOP record-exists
+P=$EVID/code/c10-M-H1-F4.patch; [ -f "$P" ] && [ -s "$P" ] && [ ! -L "$P" ] || STOP f4-patch-absent
 g=0; k=$(grep -c -E '^\+\+\+ ' "$P") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP f4-patch-files; g=0; k=$(grep -c -x -F '+++ b/src/core/report/envelope.cpp' "$P") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP f4-patch-path
 g=0; k=$(grep -c -E '^@@ ' "$P") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP f4-patch-hunks
 a=0; git apply --check "$P" || a=$?; [ "$a" -eq 0 ] || STOP f4-patch-applies
-M=$EVID/code/c10-mutants; [ ! -e "$M" ] && [ ! -L "$M" ] || STOP work-exists; m=0; mkdir "$M" || m=$?; [ "$m" -eq 0 ] || STOP work-mkdir
-DW=divergence_envelope_conforms
-run() { local name=$1; shift
+M=$EVID/code/c10-mutants.rev40; [ ! -e "$M" ] && [ ! -L "$M" ] || STOP work-exists; m=0; mkdir "$M" || m=$?; [ "$m" -eq 0 ] || STOP work-mkdir
+# the named witnesses at c10 (w1, w3), by their TEST_CASE names; divergence_envelope_conforms REQUIRES the fixture biv_tests sets up, so CTest runs it only when biv_tests passes
+W1='open repos typed refusal continues in encounter order to a clean entry'
+W3A='failed row completeness rejects a missing kind'
+W3B='failed row completeness rejects a missing detail and complete rows emit no null carriers'
+status() { local log=$1 name=$2 n p f r; g=0; p=$(grep -c -E "Test +#[0-9]+: $name \.+ +Passed " "$log") || g=$?; [ "$g" -le 1 ] || STOP "status-grep-$name"
+  g=0; f=$(grep -c -E "Test +#[0-9]+: $name \.+\*\*\*Failed " "$log") || g=$?; [ "$g" -le 1 ] || STOP "status-grep-$name"
+  g=0; r=$(grep -c -E "Test +#[0-9]+: $name \.+\*\*\*Not Run " "$log") || g=$?; [ "$g" -le 1 ] || STOP "status-grep-$name"
+  n=$((p + f + r)); [ "$n" -eq 1 ] || STOP "status-count-$name-$n"
+  if [ "$p" -eq 1 ]; then printf passed; elif [ "$f" -eq 1 ]; then printf failed; else printf notrun; fi; }
+run() { local name=$1 bs ds
   b=0; cmake --build --preset ci-macos > "$M/$name.build.log" 2>&1 || b=$?; [ "$b" -eq 0 ] || { git checkout -q HEAD -- .; STOP "build-$name"; }
-  x=0; ./build/ci-macos/biv_tests "$@" -r xml > "$M/$name.xml" 2> "$M/$name.stderr" || x=$?
+  x=0; ./build/ci-macos/biv_tests -r xml > "$M/$name.xml" 2> "$M/$name.stderr" || x=$?
+  f=0; python3 -c 'import sys, xml.etree.ElementTree as E
+r = E.parse(sys.argv[1]).getroot()
+for t in r.iter("TestCase"):
+    o = t.find("OverallResult")
+    if o is not None and o.get("success") == "false":
+        print(t.get("name"))' "$M/$name.xml" > "$M/$name.failed-cases.txt" || f=$?
+  [ "$f" -eq 0 ] || { git checkout -q HEAD -- .; STOP "cases-$name"; }
   y=0; ctest --preset ci-macos -R '^(generated_envelope_reset|divergence_envelope_reset|biv_tests|divergence_envelope_conforms)$' > "$M/$name.ctest.log" 2>&1 || y=$?
-  g=0; w=$(grep -c -E "[0-9]+ - $DW \(Failed\)" "$M/$name.ctest.log") || g=$?; [ "$g" -le 1 ] || STOP "ctest-grep-$name"
+  bs=$(status "$M/$name.ctest.log" biv_tests) || { git checkout -q HEAD -- .; exit 1; }
+  ds=$(status "$M/$name.ctest.log" divergence_envelope_conforms) || { git checkout -q HEAD -- .; exit 1; }
+  g=0; nf=$(grep -c . "$M/$name.failed-cases.txt") || g=$?; [ "$g" -le 1 ] || { git checkout -q HEAD -- .; STOP "cases-count-$name"; }
   c=0; git checkout -q HEAD -- . || c=$?; [ "$c" -eq 0 ] || STOP "revert-$name"; git diff --cached --quiet && git diff HEAD --quiet || STOP "not-clean-after-$name"
-  printf 'mutant=%s gating=yes case_rc=%s ctest_rc=%s conforms_failed=%s\n' "$name" "$x" "$y" "$w" >> "$O" || STOP record-write; }
+  printf 'mutant=%s gating=yes case_rc=%s ctest_rc=%s biv_tests=%s conforms=%s failed_cases=%s\n' "$name" "$x" "$y" "$bs" "$ds" "$nf" >> "$O" || STOP record-write; }
+has() { g=0; k=$(grep -c -x -F -- "$2" "$M/$1.failed-cases.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP "$3"; }
 g=0; git checkout -q "$C9" -- src/core/open/open.cpp || g=$?; [ "$g" -eq 0 ] || STOP apply-M-H1-PRE
 run M-H1-PRE
 g=0; git checkout -q "$C9" -- schemas/biv-json-envelope.v1.schema.json || g=$?; [ "$g" -eq 0 ] || STOP apply-M-H1-SCHEMA
@@ -2232,9 +2254,16 @@ run M-H1-F4
 b=0; cmake --build --preset ci-macos > "$M/rebuild.log" 2>&1 || b=$?; [ "$b" -eq 0 ] || STOP rebuild
 git diff --cached --quiet && git diff HEAD --quiet || STOP dirty-after
 g=0; k=$(grep -c -E '^mutant=M-H1-(PRE|SCHEMA|F4) gating=yes ' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 3 ] || STOP record-rows
-g=0; k=$(grep -c -E '^mutant=M-H1-PRE gating=yes case_rc=[1-9][0-9]* ctest_rc=[1-9][0-9]* conforms_failed=1$' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-PRE
-g=0; k=$(grep -c -E '^mutant=M-H1-SCHEMA gating=yes case_rc=[0-9]+ ctest_rc=[1-9][0-9]* conforms_failed=1$' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-SCHEMA
-g=0; k=$(grep -c -E '^mutant=M-H1-F4 gating=yes case_rc=[1-9][0-9]* ' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-F4
+# M-H1-PRE: killed by (w1) alone inside biv_tests; the conforms consumer is NOT RUN by the fixture, never counted as a kill
+g=0; k=$(grep -c -E '^mutant=M-H1-PRE gating=yes case_rc=[1-9][0-9]* ctest_rc=[1-9][0-9]* biv_tests=failed conforms=notrun failed_cases=1$' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-PRE
+has M-H1-PRE "$W1" M-H1-PRE-not-w1
+# M-H1-SCHEMA: every case green, and the whole-envelope validation (the conforms row) alone red
+g=0; k=$(grep -c -E '^mutant=M-H1-SCHEMA gating=yes case_rc=0 ctest_rc=[1-9][0-9]* biv_tests=passed conforms=failed failed_cases=0$' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-SCHEMA
+# M-H1-F4: killed by (w3)'s two cases alone inside biv_tests; the conforms consumer NOT RUN
+g=0; k=$(grep -c -E '^mutant=M-H1-F4 gating=yes case_rc=[1-9][0-9]* ctest_rc=[1-9][0-9]* biv_tests=failed conforms=notrun failed_cases=2$' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-F4
+has M-H1-F4 "$W3A" M-H1-F4-not-w3a; has M-H1-F4 "$W3B" M-H1-F4-not-w3b
+printf 'verdict=ok\n' >> "$O" || STOP verdict-write
+g=0; k=$(grep -c -x -F 'verdict=ok' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP verdict-read
 printf 'c10 mutants OK (%s)\n' "$O"
 ```
 
@@ -2592,7 +2621,8 @@ z=0; C9=$(cat "$EVID/commits.c9.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C9" ] &&
 [ "$(cat "$EVID/H.txt")" = "H=$C9" ] || STOP task9-H-not-c9
 [ "$(cat "$EVID/runners/task-9.done")" = rc=0 ] || STOP task9-not-done
 G=$EVID/heads/c10
-[ -s "$G/headgate.txt" ] && [ -s "$EVID/receipts/c10-mutants.txt" ] && [ -s "$EVID/receipts/c10-red.txt" ] || STOP task8c-receipts
+[ -s "$G/headgate.txt" ] && [ -s "$EVID/receipts/c10-red.txt" ] || STOP task8c-receipts
+g=0; k=$(grep -c -x -F 'verdict=ok' "$EVID/receipts/c10-mutants.rev40.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP task8c-mutants-verdict
 g=0; k=$(grep -c -E "^headgate label=c10 head=$C10 tidy_expected=none tidy_findings=0 " "$G/headgate.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP headgate-c10
 git diff --cached --quiet && git diff HEAD --quiet || STOP dirty
 u=$(git ls-files --others --exclude-standard); r=$?; [ "$r" -eq 0 ] && [ -z "$u" ] || STOP untracked
@@ -2825,7 +2855,7 @@ exit 0
 
 14. (rev33) Task 8b: each of c8L, c8Tr, c8T applied VERBATIM from its census patch (sha256-bound, `receipts/<label>-commit.txt`) to the tree pinned in the block; at each head `heads/<label>/headgate.txt` — the canonical container rc 0, the tidy set byte-equal to the head's pinned list (32 / 31 / EMPTY with the row passed at c8T) with coverage 37/37, macOS five producers rc 0 with `failures=0`, Linux tuples `failures=0`, every other ctest row passed but `harness-selftest`; at c8Tr W-C6 GREEN with Mc5 and M-SEAM RED (`receipts/c8Tr-mutants.txt`); at c8T B1's header reproduced by the tool with exactly its three lines changed (`receipts/c8T-b1-regeneration.txt`) and M-MASK, minimum, M-SEC and B6-swap RED with truncation and B5-bix recorded (`receipts/c8T-mutants.txt`); at H0 the tidy row GREEN with zero findings (`H/tidy-H0.txt`) and, if c9 exists, at H (`H9/c9-gate.txt`); the count gate refused any failure count on both platforms; the R-4.77 series ran with its `FREQ` table (`H/selftest-series.txt`); impl-10's Task 9 outputs preserved byte-identical in `attempts/task9-H0-a83657e/` and impl-11's — with its 36-file B Linux leg — in `attempts/task9-H0-99136ca/` (`H/preserved-attempt.txt` names the latest, MANIFEST.pre == MANIFEST.post in each; `B/` holds exactly Task 0's fifteen before the B leg is re-measured); no NOLINT and no `.clang-tidy` byte in `git diff B H`.
 
-15. (rev39, MUST-H-1) Task 8c: c10 at its Files line only, on top of c9; `receipts/c10-red.txt` shows the three named cases and `divergence_envelope_conforms` RED at c9's product bytes; the same four green at c10; `receipts/c10-mutants.txt` shows M-H1-PRE, M-H1-SCHEMA and M-H1-F4 each RED; `heads/c10/headgate.txt` (tidy EMPTY, coverage 37/37, macOS failures 0, container rc 0, only harness-selftest red, `divergence_envelope_conforms` run and passed).
+15. (rev39, MUST-H-1) Task 8c: c10 at its Files line only, on top of c9; `receipts/c10-red.txt` shows the three named cases and `divergence_envelope_conforms` RED at c9's product bytes; the same four green at c10; `receipts/c10-mutants.rev40.txt` ends in ONE `verdict=ok` line: M-H1-PRE killed by (w1)'s one case with the conforms row `Not Run` by the fixture, M-H1-SCHEMA killed by the conforms row alone with every case green, M-H1-F4 killed by (w3)'s two cases (rev40); impl-13's rev39 record preserved unchanged; `heads/c10/headgate.txt` (tidy EMPTY, coverage 37/37, macOS failures 0, container rc 0, only harness-selftest red, `divergence_envelope_conforms` run and passed).
 
 16. (rev39) Task 9b: `R/` complete — c10's path set inside its Files line and the E2 / closure / network censuses unmoved from c9; the A8 facts census, the no-spawn and zero-byte fences; the count gate against c9's cells as data; both skip sets unchanged; E3 Linux and `harness-e2` on both platforms rc 0; the selftest population EQUAL to Task 9's and the bar passed; c11 iff moved, its head gated; both final count gates rc 0; `git diff c10 H` outside the workflow EMPTY; `R/H.txt` written LAST.
 
@@ -3450,8 +3480,9 @@ for f in proof-0.txt task-0.sha256 task-0.invocation.txt task-0.exit task-0.proo
 T9=0; if [ -e "$OLD/task-9.done" ] || [ -L "$OLD/task-9.done" ]; then T9=1; [ -f "$OLD/task-9.done" ] && [ ! -L "$OLD/task-9.done" ] && [ "$(cat "$OLD/task-9.done")" = rc=0 ] || STOP task-9-not-done
   for f in task-9.done task-9.exit proof-9.tail plan_blocks.sha256-9; do c=0; cmp "$OLD/$f" "$EVID/runners/$f" >&2 || c=$?; [ "$c" -eq 0 ] || STOP "task-9-copy-mismatch-$f"; done
   h=0; s=$(shasum -a 256 "$OLD/task-9.sh" | cut -d' ' -f1) || h=$?; r=$(cut -d' ' -f1 "$OLD/task-9.sha256") || STOP task-9-sha-read; [ "$h" -eq 0 ] && [ -n "$r" ] && [ "$s" = "$r" ] || STOP task-9-sh-altered
-  OT=$(cat "$OLD/token-id.txt") || STOP old-token; printf '%s' "$OT" | grep -q -E '^intg-substep2b-impl-[0-9]+$' || STOP old-token-form
-  for f in task-9.sh proof-9.txt task-9.sha256 task-9.invocation.txt; do c=0; cmp "$OLD/$f" "$EVID/runners/$OT/task-9/$f" >&2 || c=$?; [ "$c" -eq 0 ] || STOP "task-9-record-mismatch-$f"; done
+  # rev40: the records of the ONE token whose Task 9 run these are, found by content (impl-12 ran Task 9; impl-13's directory carried it; impl-14 resumes from impl-13's)
+  n=0; for td in "$EVID"/runners/intg-substep2b-impl-*/task-9; do [ -d "$td" ] && [ ! -L "$td" ] || continue; m=1; for f in task-9.sh proof-9.txt task-9.sha256 task-9.invocation.txt; do cmp -s "$OLD/$f" "$td/$f" || m=0; done; [ "$m" -eq 0 ] || n=$((n + 1)); done
+  [ "$n" -eq 1 ] || STOP "task-9-record-owner-$n"
   for f in task-9.proof-tail task-9.self.sha256 plan-hash-9.txt; do [ -s "$OLD/$f" ] || STOP "receipt-absent-$f"; done
 fi
 if [ -e "$OLD/t-oracle.txt" ]; then g=0; n=$(grep -c -E '^plan_sha256=' "$OLD/t-oracle.txt") || g=$?; [ "$g" -le 1 ] && [ "$n" -eq 1 ] || STOP t-oracle-stale; g=0; k=$(grep -c -x -F -- "plan_sha256=$NEWLOCK" "$OLD/t-oracle.txt") || g=$?; [ "$g" -le 1 ] && [ "$k" -eq 1 ] || STOP t-oracle-stale; fi
@@ -3983,6 +4014,7 @@ exit "$suite_aggregate_rc"
 
 ## Revision history
 
+- rev40 (2026-09-26): folds impl-13's STOP (`intg-substep2b/IMPL-pair-implementer-20260926-211822.md`, `STOP-c10-mutants survived-M-H1-PRE`). c10 `2291a46` LANDED green at its ten paths, and every mutant was killed by a named witness (M-H1-PRE by (w1), M-H1-SCHEMA by the conforms row, M-H1-F4 by (w3)). But rev39's block demanded a `divergence_envelope_conforms` FAILURE under M-H1-PRE, and CTest reports that consumer `Not Run` whenever the `biv_tests` fixture it requires fails — an assertion rev39's own topology made impossible, in the one arm rev39 disclosed as unwalked. `c10-mutants.sh` rev40: each mutant is killed by the witness it NAMES — the per-mutant record carries both CTest rows' statuses and the failed Catch2 cases by name (exactly (w1)'s one case under M-H1-PRE; zero cases with the conforms row alone `Failed` under M-H1-SCHEMA; exactly (w3)'s two under M-H1-F4). The record is `receipts/c10-mutants.rev40.txt`, ending in ONE `verdict=ok` line written last; impl-13's rev39 record and work directory stay in place, the record pinned by digest. The same STOP exposed a second defect: `regate.sh` gated Task 8c on `[ -s receipts/c10-mutants.txt ]`, which impl-13's FAILED record satisfies. Task 9b now reads the rev40 record's `verdict=ok`. A third defect, found by walking Step 0′ for the NEXT token from a mirror of impl-13's runners directory: rev39's `resume.sh` bound Task 9's records to `$EVID/runners/<the previous directory's token>/task-9/`, which holds only for the FIRST successor after Task 9; from impl-13's directory it STOPs `task-9-record-mismatch`. rev40 binds them by CONTENT to exactly one token's `task-9/` record set. Task 8c resumes at Step 5 (Steps 0–4 EXECUTED under impl-13). Every other block is unchanged, `regate.sh` apart from that one line.
 - rev39 (2026-09-26): folds m-3's MUST-H-1 (owner byte review of H `2893bc53`, `../pdc/master/relays/intg-2b-wiring-act/DESIGN-planner-20260926-160359.md`, F1–F5) as carried and widened by master (`PLAN-master-planner-20260926-164725.md`, F4 the load-bearing arm across both doors), under the operator's "lighter regate pls" (2026-09-26). NEW Task 8c: c10, the failed row's `kind` and `detail` rendered and never null, the schema admitting both iff failed, a failed row lacking either a typed `InternalError`; tests first; three gating mutants (block `c10-mutants.sh`); the per-head gate, now the named block `headgate.sh`, with the `c10` / `c11` labels. NEW Task 9b: the re-gate at the c10 head (block `regate.sh`) — the censuses c10 could move, the count gate against c9's cells, both skip sets, E3 and `harness-e2`, the selftest population EQUAL to Task 9's (a moved population is a STOP routed up), the companion c11 iff moved, the FINAL H into `R/H.txt` LAST; R-4.83's whole-census form and R-4.82's plain-`mkdir` form carried for this block. Task 9 stands as EXECUTED (impl-12); nothing in its outputs moves. `resume.sh` carries Task 9's eleven receipts once Task 9 is done (Task 10's controller requires `task-9.done`; the gap would have stopped Task 10 under any later token). Task 10, Task 11 and `finalize.py` read the FINAL H and the re-gate receipts from `R/`. The topology gains c10 and c11; acceptance gains 15 and 16.
 - rev38 (2026-09-25): folds MUST-2B-52 of the implementer's exact-hash review of rev37 `82d2780a…` (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260925-171756.md`): rev37's producer redirected the extractor into a FIXED stage name, `work/series_verdict.rev37.stage`, with no lexical-absence check and no regular-file check after the extract, so a planted stage symlink carried the write outside the home before any STOP (reproduced by the implementer: an outside sentinel rewritten, then the symlink renamed into the final name), and a regular stage from an earlier failure was silently truncated. My matrix tested symlinks at the final path only. The stage is now a fresh `mktemp` file in `work/` (never a fixed name, so an earlier failed stage is kept byte-identical rather than truncated), checked regular and empty before the extract and regular and non-empty after it, then digest-checked and renamed. The same class — a `>` onto a fixed name that could be a symlink — also reached the rev29 inputs (`[ ! -e ]` is true for a DANGLING symlink) and every other fixed name Task 9 writes at the home root, in `work/` and in `B/`. So before its first write the runner now proves `work/` and `B/` physically the home's own and finds NO symlink directly under the home, `work/` or `B/`; `H/`, `H9/` and `series/` are made fresh. It also STOPs on a pre-existing `H.txt` or `commits.c9.txt`, joining the existing `series/` and `H9/` absences. m-4's strict rule, master's carry, rev36's approved fixes and every other block are unchanged.
 - rev37 (2026-09-25): folds m-4's `K3_TIE: strict` (`master/relays/intg-2b-wiring-act/DESIGN-planner-20260925-151817.md`, the clause's author; carried by master's `…/PLAN-master-planner-20260925-154632.md`, R-4.80 discharged). K-3's separation arm becomes `landed min > base max` at the three sites carrying it: the `series_verdict.py` code line, the block's own K-3 comment, and the instruments description; Task 9 Step 4's "complete separation" wording already said the intent and now names the strict form. m-4's reasons: `015244`'s own SUBJECT said "complete separation", and `>=` treats touching ranges as separated, so two identical constant series read SHIFTED at delta 0.00 (the pair's `142508` probe, reproduced at master), and a near-null series (base [2, 3×9] against landed [3×10], delta 0.10) read SHIFTED too; on integer counts the strict arm implies delta ≥ 1.0, so it never fires without the mean arm, while a real one-failure shift ([2×5, 3×5] → [3×5, 4×5]) still fires. The series runs ALWAYS in Task 9, so an unfolded clause would STOP on a null with certainty. Because Task 0 materialized the old block into `$EVID/series_verdict.py` (pinned by `helpers.sha256`, verified at Tasks 9–11, never overwritten), Task 9 now PRODUCES the corrected block at `$EVID/series_verdict.rev37.py` from this plan when absent (extracted into a `work/` stage, digest-checked, then renamed into place, so a failed extract never leaves a bad file under the final name), pins it by digest either way (`09b6cb7612907972bb9cf340a8ffcbf406a71da1194d034ce45c85de6127d452`), compiles it, and the series calls it. Tasks 0, 10 and 11 and every other block are unchanged; rev36's Task 9 fold (the Linux skip set, the E3 read, the B-leg preservation — master's no-objection `145141`, R-4.81) stands byte-unchanged.

@@ -1,0 +1,11 @@
+case=yes-stubbed rc=0 out=c10 mutants OK (/private/tmp/claude-501/-Users-jack-Programming-bivpak verdict=1 tree=0
+case=pre-gets-schema rc=1 out=STOP-c10-mutants survived-M-H1-PRE line=54 verdict=0 tree=0
+case=pre-gets-f4 rc=1 out=STOP-c10-mutants survived-M-H1-PRE line=54 verdict=0 tree=0
+case=pre-other-case rc=1 out=STOP-c10-mutants M-H1-PRE-not-w1 line=43 verdict=0 tree=0
+case=schema-gets-pre rc=1 out=STOP-c10-mutants survived-M-H1-SCHEMA line=57 verdict=0 tree=0
+case=f4-gets-pre rc=1 out=STOP-c10-mutants survived-M-H1-F4 line=59 verdict=0 tree=0
+case=f4-one-w3-renamed rc=1 out=STOP-c10-mutants M-H1-F4-not-w3a line=43 verdict=0 tree=0
+case=conforms-row-absent rc=1 out=STOP-c10-mutants status-count-divergence_envelope_conforms-0 line=25 verdict= tree=0
+case=rev39-record-moved rc=1 out=STOP-c10-mutants rev39-record-moved line=10 verdict= tree=0
+case=rev39-work-absent rc=1 out=STOP-c10-mutants rev39-work-absent line=11 verdict= tree=0
+case=record-exists rc=1 out=STOP-c10-mutants record-exists line=12 verdict=0 tree=0

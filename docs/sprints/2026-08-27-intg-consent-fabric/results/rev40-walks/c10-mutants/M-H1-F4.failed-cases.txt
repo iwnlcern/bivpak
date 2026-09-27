@@ -1,0 +1,2 @@
+failed row completeness rejects a missing kind
+failed row completeness rejects a missing detail and complete rows emit no null carriers
