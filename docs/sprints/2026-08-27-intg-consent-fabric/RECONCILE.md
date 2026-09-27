@@ -1350,3 +1350,12 @@ The GO cites the operator's standing authorization (043806); the first attempt n
 `task-10-go.txt` was re-cited to 044557 (809eec72…, 0400), the predecessor preserved as `task-10-go.prev-20260927-044608.txt` (86890681…). The continuation check and the gate lines pass on the real file.
 Next: Task 10 once by the exact invocation (ONE push, ONE draft PR), then the return.
 The release hold is ABSOLUTE.
+
+## R100 — Task 10 (successor) STOPped at the live visibility preflight: the repository is PUBLIC, the gate requires PRIVATE; no push or PR (return `intg-substep2b/IMPL-pair-implementer-20260927-045007.md` sha256 1def0e50…)
+
+The exact absolute invocation ran once. The controller authenticated and materialized Task 10 (`task-10.sh` 7f6069cd…), and the GO, owner set, final receipts, pinned push URL and remote-branch-absent checks all passed.
+Line 73's `gh repo view --json visibility` then succeeded and returned `PUBLIC` (`visibility.txt` 8527237a…), so the `= PRIVATE` predicate STOPped as designed.
+It stopped before the pre-push hook check, the dry-run, the push and the PR. None of their receipts exists; the candidate is clean at cb19326a, with no upstream.
+Consequence: `task-10.exit` (rc=1) and `task-10.sh` now exist in `s2b-runners-j6w4EX`, so the controller's one-shot fence (line 19) refuses a re-run there. `resume.sh` refuses a new runners directory on the unchanged lock (`same-lock`). Any continuation therefore needs a plan revision (rev42), whatever the visibility decision.
+Pushing the candidate to a PUBLIC repository would publish unreleased code, which the release hold and the plan's PRIVATE predicate both exclude. This is the operator's decision; it has been put to the operator. No relay has been filed yet.
+The release hold is ABSOLUTE.
