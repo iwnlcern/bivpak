@@ -1,0 +1,20 @@
+frag10 home=f/bar rc=1 STOP-frag line=6
+frag11 home=f/bar rc=0 frag11 OK H0=e9ee2d4adb2bc31a22a0cbbfbc8c48c281b0364e H=076e57534310d642f3224493bb993ea1a6eca7ec
+frag10 home=f/c10-container rc=1 STOP-frag line=5
+frag11 home=f/c10-container rc=0 frag11 OK H0=e9ee2d4adb2bc31a22a0cbbfbc8c48c281b0364e H=076e57534310d642f3224493bb993ea1a6eca7ec
+frag10 home=f/e2m rc=1 STOP-frag line=5
+frag11 home=f/e2m rc=0 frag11 OK H0=e9ee2d4adb2bc31a22a0cbbfbc8c48c281b0364e H=076e57534310d642f3224493bb993ea1a6eca7ec
+frag10 home=f/e3 rc=1 STOP-frag line=5
+frag11 home=f/e3 rc=0 frag11 OK H0=e9ee2d4adb2bc31a22a0cbbfbc8c48c281b0364e H=076e57534310d642f3224493bb993ea1a6eca7ec
+frag10 home=f/final-red rc=1 STOP-frag line=4
+frag11 home=f/final-red rc=0 frag11 OK H0=e9ee2d4adb2bc31a22a0cbbfbc8c48c281b0364e H=076e57534310d642f3224493bb993ea1a6eca7ec
+frag10 home=f/no-H rc=1 STOP-frag line=3
+frag11 home=f/no-H rc=1 STOP-frag line=3
+frag10 home=f/oldH-only rc=1 STOP-frag line=3
+frag11 home=f/oldH-only rc=1 STOP-frag line=3
+frag10 home=f/pop rc=1 STOP-frag line=6
+frag11 home=f/pop rc=0 frag11 OK H0=e9ee2d4adb2bc31a22a0cbbfbc8c48c281b0364e H=076e57534310d642f3224493bb993ea1a6eca7ec
+frag10 home=f/yes-unchanged-full rc=0 frag10 OK H=ad2b119055f104b884af45291a7cf68f5498c4f9
+frag11 home=f/yes-unchanged-full rc=0 frag11 OK H0=ad2b119055f104b884af45291a7cf68f5498c4f9 H=ad2b119055f104b884af45291a7cf68f5498c4f9
+frag10 home=f/yes-moved-full rc=0 frag10 OK H=29947a65f7db7e61ec7d5bd09333f407753f515f
+frag11 home=f/yes-moved-full rc=0 frag11 OK H0=ccc9f0165544378d73bf09ce933e4bf3e89745a8 H=29947a65f7db7e61ec7d5bd09333f407753f515f

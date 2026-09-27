@@ -1,0 +1,23 @@
+case=yes-unchanged rc=0 out=regate OK H=ad2b119055f104b884af45291a7cf68f5498c4f9 R=present H=H=ad2b119055 c11=no head=walk c10
+case=yes-moved rc=0 out=regate OK H=29947a65f7db7e61ec7d5bd09333f407753f515f R=present H=H=29947a65f7 c11=yes head=ci: re-pin case counts at the 
+case=not-at-c10 rc=1 out=STOP-regate not-at-c10 line=10 R=absent H= c11=no head=ci: pin case counts at H (macO
+case=h-mismatch rc=1 out=STOP-regate task9-H-not-c9 line=12 R=absent H= c11=no head=walk c10
+case=no-receipts rc=1 out=STOP-regate task8c-receipts line=15 R=absent H= c11=no head=walk c10
+case=hg-label rc=1 out=STOP-regate headgate-c10 line=16 R=absent H= c11=no head=walk c10
+case=dirty rc=1 out=STOP-regate dirty line=17 R=absent H= c11=no head=walk c10
+case=r-exists rc=1 out=STOP-regate exists-R line=20 R=present H= c11=no head=walk c10
+case=r-dangling rc=1 out=STOP-regate exists-R line=20 R=absent H= c11=no head=walk c10
+case=c11-exists rc=1 out=STOP-regate exists-commits.c11.txt line=20 R=absent H= c11=yes head=walk c10
+case=home-symlink rc=1 out=STOP-regate home-symlink line=21 R=absent H= c11=no head=walk c10
+case=foreign-path rc=1 out=STOP-regate c10-foreign-path line=27 R=present H= c11=no head=walk c10
+case=census-moved rc=1 out=STOP-regate census-moved-E2 line=29 R=present H= c11=no head=walk c10
+case=a8-raw rc=1 out=STOP-regate a8-raw-fact line=35 R=present H= c11=no head=walk c10
+case=failures rc=1 out=STOP-regate tuples-failures-macos line=38 R=present H= c11=no head=walk c10
+case=skip-linux rc=1 out=STOP-regate skipset-linux line=43 R=present H= c11=no head=walk c10
+case=e3-red rc=1 out=STOP-regate E3-linux line=58 R=present H= c11=no head=walk c10
+case=e2-mac rc=1 out=STOP-regate harness-e2-macos line=60 R=present H= c11=no head=walk c10
+case=foreign-red rc=1 out=STOP-regate ctest-foreign-red line=62 R=present H= c11=no head=walk c10
+case=witness-absent rc=1 out=STOP-regate witness-row-linux line=63 R=present H= c11=no head=walk c10
+case=pop-moved rc=1 out=STOP-regate population-moved line=67 R=present H= c11=no head=walk c10
+case=bar-red rc=1 out=STOP-regate bar-fail-not-the-one-row line=73 R=present H= c11=no head=walk c10
+case=hg-c11-red rc=1 out=STOP-regate headgate-c11 line=85 R=present H= c11=yes head=ci: re-pin case counts at the 

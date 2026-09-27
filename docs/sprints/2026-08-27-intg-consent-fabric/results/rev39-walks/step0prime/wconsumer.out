@@ -1,0 +1,14 @@
+canonical=/Users/jack/Programming/bivpak-evidence/s2b-runners-UG0MP0 newlock=d5a868d3fc8f0203
+yes rc=0 stderr= new-dirs=1 pointer-same=no
+  published: pointer=NEW carried-lines=31 (want 31) task-9.done=rc=0 lock=d5a868d3fc8f0203 token=intg-substep2b-impl-13
+  carried files byte-equal to the old dir: all
+  carried t-oracle names the new lock: 1
+  task-9.sh mode: 500
+  consumer run-task.sh 10: rc=1 STOP-controller-task-10-no-continuation
+no9 rc=0 stderr= new-dirs=1 pointer-same=no
+  published: pointer=NEW carried-lines=20 (want 20) task-9.done=absent lock=d5a868d3fc8f0203 token=intg-substep2b-impl-13
+  carried files byte-equal to the old dir: all
+  carried t-oracle names the new lock: 1
+  task-9.sh mode: none
+  consumer run-task.sh 10: rc=1 STOP-controller-task-10 line=16
+leftover new dirs: 0  real pointer: /Users/jack/Programming/bivpak-evidence/s2b-runners-UG0MP0

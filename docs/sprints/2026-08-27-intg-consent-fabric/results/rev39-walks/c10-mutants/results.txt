@@ -1,0 +1,10 @@
+case=reaches-build rc=1 STOP-c10-mutants build-M-H1-PRE line=16 tree=0 workdir=made
+case=patch-stale rc=1 STOP-c10-mutants f4-patch-applies line=12 tree=0 workdir=none
+case=patch-path rc=1 STOP-c10-mutants f4-patch-path line=10 tree=0 workdir=none
+case=not-at-c10 rc=1 STOP-c10-mutants not-at-c10 line=5 tree=0 workdir=none
+case=record-exists rc=1 STOP-c10-mutants record-exists line=8 tree=0 workdir=none
+case=patch-absent rc=1 STOP-c10-mutants f4-patch-absent line=9 tree=0 workdir=none
+case=patch-hunks rc=1 STOP-c10-mutants f4-patch-hunks line=11 tree=0 workdir=none
+case=dirty rc=1 STOP-c10-mutants dirty line=7 tree=1 workdir=none
+case=work-exists rc=1 STOP-c10-mutants work-exists line=13 tree=0 workdir=made
+case=work-dangling rc=1 STOP-c10-mutants work-exists line=13 tree=0 workdir=none

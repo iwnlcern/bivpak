@@ -39,3 +39,9 @@ Discriminator run on rev38 (`a342a9c5…`) with its extractor `8331c944…`, eac
 - the rev38 baseline: rc 0 — 0 orphans, 42 classified, 0 stale;
 - the rev37 baseline: rc 1 — the template as ORPHAN and the old stage row as STALE;
 - rev38 plus one read of an unwritten `$EVID/series_verdict.unwritten.py`: rc 1 — that one ORPHAN.
+
+rev39 baseline (2026-09-26): `baseline-substep2b-rev39.txt` 5a4f36207f5ef7c1b24a02c344d962f4f411084ca25948bc6d629d419a1ceefa adds 10 classified rows to the rev38 baseline: Task 10 and Task 11 read Task 9b's `R/` records and `heads/c10/linux-container.rc`, which Task 9b and Task 8c (both prose-driven, not runner tasks) write.
+Discriminator run on rev39 (`d5a868d3…`) with its extractor `8331c944…`, each isolating its predicate (outputs in `../rev39-walks/producer-gate/`):
+- the rev39 baseline: rc 0 — 0 orphans, 52 classified, 0 stale;
+- the rev38 baseline: rc 1 — exactly those 10 rows as ORPHAN;
+- rev39 plus one read of an unwritten `$EVID/R/unwritten.txt`: rc 1 — that one ORPHAN.

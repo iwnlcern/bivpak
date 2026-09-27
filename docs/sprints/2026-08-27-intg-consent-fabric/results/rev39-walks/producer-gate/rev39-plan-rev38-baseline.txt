@@ -1,0 +1,15 @@
+ALLOWED $EVID/helpers.sha256 <- task-0 writes it relative inside cd "$EVID"
+ORPHAN task-10 line 27: $EVID/R/H.txt
+ALLOWED $RUNNERS/task-10-go.txt <- the pair Planner GO relay — an external input the controller requires by design
+ORPHAN task-10 line 57: $EVID/R/count-gate-final-macos.rc
+ORPHAN task-10 line 57: $EVID/R/count-gate-final-linux.rc
+ORPHAN task-10 line 58: $EVID/heads/c10/linux-container.rc
+ORPHAN task-10 line 58: $EVID/R/E3-linux.rc
+ORPHAN task-10 line 58: $EVID/R/harness-e2-macos.rc
+ORPHAN task-10 line 58: $EVID/R/harness-e2-linux.rc
+ORPHAN task-10 line 59: $EVID/R/selftest-population.rc
+ORPHAN task-10 line 59: $EVID/R/linux-selftest-bar.txt
+ALLOWED $EVID/runners/task-10.done <- run-task.sh copies task-N.done into "$EVID/runners/" after rc 0
+ORPHAN task-11 line 29: $EVID/R/H0.txt
+ALLOWED $EVID/census-raw/H0/population-H0.txt <- census_population.sh writes its OUT_POP argument
+orphans=10 classified=42 stale=0

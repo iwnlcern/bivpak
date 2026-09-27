@@ -1,0 +1,6 @@
+ALLOWED $EVID/helpers.sha256 <- task-0 writes it relative inside cd "$EVID"
+ALLOWED $RUNNERS/task-10-go.txt <- the pair Planner GO relay — an external input the controller requires by design
+ORPHAN task-10 line 77: $EVID/R/unwritten.txt
+ALLOWED $EVID/runners/task-10.done <- run-task.sh copies task-N.done into "$EVID/runners/" after rc 0
+ALLOWED $EVID/census-raw/H0/population-H0.txt <- census_population.sh writes its OUT_POP argument
+orphans=1 classified=52 stale=0
