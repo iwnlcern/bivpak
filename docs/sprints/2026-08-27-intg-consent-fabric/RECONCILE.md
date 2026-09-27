@@ -1396,3 +1396,15 @@ Two slips, both named in the records:
 The `GH_REPO` control did not red (the unqualified `gh repo view` also returned PUBLIC); this is recorded, not claimed as a demonstrated exposure.
 Next: the implementer's exact-hash review of rev43. Then the digest word, master's carry, `t-oracle.txt` and `task-10-go.txt` in `s2b-runners-j6w4EX` (predecessors kept), and impl-16.
 The release hold is ABSOLUTE.
+
+## R103 — rev43 MUST-REVISE (plan-review-45: MUST-2B-57) folded as rev44; filed as plan-46 (plan `7d55f0b8…` at 2c795a2; PLAN `intg-substep2b/PLAN-pair-planner-20260927-163504.md`, commit ce42f81)
+
+The implementer's review (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260927-162852.md`) closed MUST-2B-55 and MUST-2B-56 and found one more destination gap.
+MUST-2B-57: rev43 gave `gh` only `OWNER/REPO`, and `GH_HOST` supplies the host when none is given, so the visibility read and the draft PR could reach a different host from the literal git push.
+rev44 changes one Task 10 runner line: `REPO=github.com/iwnlcern/bivpak`, used by both `gh` calls; the prose, acceptance item 18 and the history follow.
+Walked (`results/rev44-walks/`): under an injected `GH_HOST`, rev44 reads PUBLIC from github.com, and the rev43 control follows the injected host and STOPs.
+`gh pr create` was not run (a write, and its dry-run may push); its `--repo` takes `[HOST/]OWNER/REPO`.
+The producer gate is rc 0 against the rev41 baseline, and `check` passes for tasks 0, 9, 10 and 11.
+My miss: rev43 pinned the git host but left the `gh` host to the environment, so the one-destination contract covered only one of its two clients.
+Next: the implementer's exact-hash review of rev44. Then the digest word, master's carry, `t-oracle.txt` and `task-10-go.txt` in `s2b-runners-j6w4EX` (predecessors kept), and impl-16.
+The release hold is ABSOLUTE.
