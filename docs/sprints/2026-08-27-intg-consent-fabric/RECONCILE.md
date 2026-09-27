@@ -1377,3 +1377,22 @@ Walked (`results/rev42-walks/`, the invalid run named). The producer gate is rc 
 One slip: the exposure scout wrote two file-list temp files under `/tmp` rather than the scratchpad; they were deleted.
 Next: the implementer's exact-hash review. Then the digest word, master's carry, `t-oracle.txt` and `task-10-go.txt` in `s2b-runners-j6w4EX` (predecessors kept), and impl-16: Step 0′ → Task 10 via `"$RUNNERS"/run-task.sh 10` → return.
 The release hold is ABSOLUTE.
+
+## R102 — rev42 MUST-REVISE (plan-review-44: MUST-2B-55, MUST-2B-56) folded as rev43; filed as plan-45 (plan `096e47b4…` at e8b3ab2; PLAN `intg-substep2b/PLAN-pair-planner-20260927-154540.md`, commit 1776056)
+
+The implementer's review (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260927-151814.md`) accepted the operator's "2" and found two runner-contract defects.
+MUST-2B-55: the census read the fetch side of `origin` while the push wrote the push side; a split remote passed every gate.
+MUST-2B-56: Step 0 omitted impl-15's `finalize.rev41` pyc, and rev42's `py_compile` rewrote it; the prose overclaimed "before any `$EVID` write".
+rev43 changes Task 10 only:
+- One destination: `URL`/`REPO` pinned; exact fetch-URL, no-`url.*`-rewrite and push-URL gates before any remote read; every `ls-remote`, the dry-run, the push, the post-push classifier and both `gh` calls name it.
+- Step 0 moves any `__pycache__/finalize.rev41.*.pyc` (regular files only) with the attempt; the syntax check compiles in memory.
+- The prose states the body-receipt boundary and `finalize.rev41.py` as the shared, digest-pinned helper that stays in place.
+Walked (`results/rev43-walks/`): destination YES on the real candidate, and NO for split fetch/push, `insteadOf`, `pushInsteadOf` and an env-injected rewrite, each stopping before any remote read.
+Retention was walked on a full clone of the real `$EVID`: the pyc moves byte-equal and no pyc is written; the rev42 `py_compile` control writes one.
+The producer gate is rc 0 against the rev41 baseline, and `check` passes for tasks 0, 9, 10 and 11.
+Two slips, both named in the records:
+- The first retention run used a hand-picked file subset and stopped before the compile line, so its reading was void; it was superseded by the full-clone run.
+- The inline diff could not be carried because a context line is a fence marker, so it is committed as `rev42-to-rev43.diff` (eb4a711) and cited by digest.
+The `GH_REPO` control did not red (the unqualified `gh repo view` also returned PUBLIC); this is recorded, not claimed as a demonstrated exposure.
+Next: the implementer's exact-hash review of rev43. Then the digest word, master's carry, `t-oracle.txt` and `task-10-go.txt` in `s2b-runners-j6w4EX` (predecessors kept), and impl-16.
+The release hold is ABSOLUTE.
