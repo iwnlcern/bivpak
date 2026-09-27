@@ -188,7 +188,9 @@ c10 open: MUST-H-1 — a failed row's kind and detail rendered, never null (m-3 
          master 164725's F4 widening): the divergence row carries UrlDivergenceEntryRefused and A6           schemas/biv-json-envelope.v1.schema.json, harness/selftest/test_envelope.py (the pin),
          :537's sentence; the schema admits both iff failed; a failed row lacking either is a typed          tests/test_cli.cpp, tests/test_envelope.cpp, CMakeLists.txt
          InternalError; rev39, after Task 9 completed at c9
-c11 ci: count cells re-pinned (IFF a case tuple at the c10 head differs from c9's cells) —            Task 9b  .github/workflows/s2-harness.yml only
+c10t test: the two c10 failed-row initializers name every RepoOutcomeRow member (Linux GCC         Task 8d  tests/test_envelope.cpp only
+         -Werror=missing-field-initializers; impl-14 231301; repair-13); rev41, after c10's head gate STOPped
+c11 ci: count cells re-pinned (IFF a case tuple at the c10t head differs from c9's cells) —           Task 9b  .github/workflows/s2-harness.yml only
          committed INSIDE the re-gate block by cellpatch.py
 ORDER RULE: c1a c1b c1c c2 c3 c4a c5 are the token's UNCONDITIONAL prefix (every one of them lands as a COMMIT with no working-tree residue — a
 working-tree partial is not a history prefix; MUST-2B-14); c3h, c6a, c4b, c6b land AFTER c5 in the order their locks land (each its own
@@ -197,12 +199,12 @@ each its own NEW commit, never a rewrite of c4a / c5; c6p HOLDS on T-RED1); rev2
 due before c6p lands; its own NEW commit, never a rewrite of c5), and c6p also HOLDS on T-C6P; rev28: c1d then c1e land after c6p and BEFORE c7 (R-4.72; each its own NEW engine-only commit, each
 HOLDING on the R-4.72 gate `$RUNNERS/r472-owner-words.txt`, m-1's re-ruled mechanical form); c7 lands after the LAST of them and after
 c1e (its A9/A10/A11 legs need their bytes; its R-T and workspace-root legs need c6p's; its pack-grain M legs need c1d's and its ISO legs
-c1e's); c8 after c7; rev33: c8L, c8Tr, c8T after c8 in that order (Task 8b; each head passes the per-head gate); c9 last of Task 9; rev39: c10 after c9 (Task 8c; its head passes the per-head gate), then c11 iff moved (Task 9b), last. Veto 9 holds regardless of that order: none of c3h/c6a/c4b/c6b/c6m/c6q/c6p touches src/core/repo, and
+c1e's); c8 after c7; rev33: c8L, c8Tr, c8T after c8 in that order (Task 8b; each head passes the per-head gate); c9 last of Task 9; rev39: c10 after c9 (Task 8c); rev41: c10t after c10 (Task 8d; ITS head passes the per-head gate — c10's head gate STOPped under impl-14 and `heads/c10/` stays as that record), then c11 iff moved (Task 9b), last. Veto 9 holds regardless of that order: none of c3h/c6a/c4b/c6b/c6m/c6q/c6p touches src/core/repo, and
 c1d/c1e touch nothing outside it but tests/test_repo_engine.cpp; c8Tr touches src/core/repo/restore.cpp and nothing else, and c8L/c8T touch no
 src/core/repo path.
 H0 = the branch head after c8T (rev33: the last Task 8b commit; the object every suite observation and owner census is taken on); H = the FINAL head after c9 (== H0 iff no cell
 moved); the runner proves `git diff H0 H -- . ':!.github/workflows/s2-harness.yml'` EMPTY so every H0 receipt carries to H, and writes H.txt LAST.
-rev39: Task 9's H0 (`99136ca`, c8T) and H (`2893bc53`, c9) stand as EXECUTED under impl-12. The re-gate object is the c10 head (`R/H0.txt`), and the FINAL H is the head after c11 (== c10 iff no cell moved since c9), written LAST as `R/H.txt`; Task 9b proves `git diff c10 H -- . ':!.github/workflows/s2-harness.yml'` EMPTY. From rev39 the three owner byte reviews, the GO relay and the vehicle bind THAT H. c10 touches no src/core/repo path; c11 touches the workflow alone.
+rev39: Task 9's H0 (`99136ca`, c8T) and H (`2893bc53`, c9) stand as EXECUTED under impl-12. The re-gate object is the c10 head (`R/H0.txt`), and the FINAL H is the head after c11 (== c10 iff no cell moved since c9), written LAST as `R/H.txt`; Task 9b proves `git diff c10 H -- . ':!.github/workflows/s2-harness.yml'` EMPTY. From rev39 the three owner byte reviews, the GO relay and the vehicle bind THAT H. c10 touches no src/core/repo path; c11 touches the workflow alone. rev41: the re-gate object is the c10t head (Task 8d) — `R/H0.txt` names c10t, the FINAL H is c10t iff no cell moved since c9, and Task 9b proves `git diff c10t H -- . ':!.github/workflows/s2-harness.yml'` EMPTY; c10t touches `tests/test_envelope.cpp` alone.
 The three owner byte reviews, the GO relay and the vehicle bind H. NO commit touches both {src/core/repo} and {src/cli, src/core/pack,
 src/core/scan, src/core/open}.
 ```
@@ -2101,7 +2103,7 @@ printf 'c8T mutants OK (%s)\n' "$O"
 
 <!-- BLOCK: headgate.sh -->
 ```bash
-# Task 8b — the per-head gate at ONE new head (rev33; master 215035 R3 as corrected by 224030, final form 003436): usage  bash <this block> <LABEL>  with LABEL in c8L c8Tr c8T (rev39: also c10, Task 8c, and c11, Task 9b), run at that commit's head before the next commit
+# Task 8b — the per-head gate at ONE new head (rev33; master 215035 R3 as corrected by 224030, final form 003436): usage  bash <this block> <LABEL>  with LABEL in c8L c8Tr c8T (rev39: also c10, Task 8c, and c11, Task 9b; rev41: c10t, Task 8d), run at that commit's head before the next commit
 set -o pipefail
 STOP() { printf 'STOP-headgate %s line=%s\n' "$1" "${BASH_LINENO[0]}" >&2; exit 1; }
 LABEL=${1-}; MAIN=/Users/jack/Programming/bivpak; CR=dfffc4912b721717b152d84960abf1df0c19b253; RD=docs/sprints/2026-08-27-intg-consent-fabric/results/linux-census-20260924
@@ -2110,7 +2112,7 @@ case "$LABEL" in
   c8L) TL=clang-tidy-errors-patched.txt; TS=7c8b1d6cc80679d1fee0a7478b230774fa231c824dfabae137006b0fe461cb06; NT=32;;
   c8Tr) TL=clang-tidy-held-after-c8Tr.txt; TS=deef500a00896d789970d9d9b124844231583c2f66efae5e32f789e288f4d589; NT=31;;
   c8T) TL=none; TS=none; NT=0;;
-  c10|c11) TL=none; TS=none; NT=0;;
+  c10|c10t|c11) TL=none; TS=none; NT=0;;
   *) STOP label;;
 esac
 [ -s "$EVID/commits.$LABEL.txt" ] || STOP no-commit
@@ -2171,7 +2173,7 @@ printf 'headgate label=%s head=%s tidy_expected=%s tidy_findings=%s coverage=37/
 printf 'headgate %s OK %s\n' "$LABEL" "$HX"
 ```
 
-### Task 8c — c10, MUST-H-1: a failed repository row renders its `kind` and `detail`, never null, and the envelope validates against the product's own schema (rev40: Steps 0–4 EXECUTED under impl-13, c10 `2291a46`; Step 5 runs rev40's mutant record; rev39; m-3 `../pdc/master/relays/intg-2b-wiring-act/DESIGN-planner-20260926-160359.md` MUST-H-1 with F1–F5; master `PLAN-master-planner-20260926-164725.md`, F4 widened to both doors; the operator's "lighter regate pls", 2026-09-26)
+### Task 8c — c10, MUST-H-1: a failed repository row renders its `kind` and `detail`, never null, and the envelope validates against the product's own schema (rev41: Step 5 EXECUTED under impl-14 — `receipts/c10-mutants.rev40.txt`, `verdict=ok` — and Step 6 STOPPED on the canonical Linux build, repaired by Task 8d as c10t; rev40: Steps 0–4 EXECUTED under impl-13, c10 `2291a46`; Step 5 runs rev40's mutant record; rev39; m-3 `../pdc/master/relays/intg-2b-wiring-act/DESIGN-planner-20260926-160359.md` MUST-H-1 with F1–F5; master `PLAN-master-planner-20260926-164725.md`, F4 widened to both doors; the operator's "lighter regate pls", 2026-09-26)
 
 **Why this task exists.** Task 9 completed at H `2893bc53` (impl-12), and m-3's owner byte review of that H returned MUST-REVISE. A url-divergence-refused row is pushed as `repo_row(*entry)` with `kind` and `detail` unset (`open.cpp:1148` at H). `write_open_result` then writes both keys on every `failed` row, as null when unset (`envelope.cpp:414-420`). The schema's `result.anyOf[1].properties.repos.items` is `additionalProperties: false` over twelve properties, neither of them `kind` nor `detail`. So the envelope fails the product's own schema exactly when the consent fail-safe fires. m-3 reproduced it with the harness validator. Master confirmed it at its own bytes and found a second door: the two-argument `repo_row` maps `RepoRestoreOutcome::failed` to `"failed"` without setting either field (`open.cpp:1069-1088`, pushed at `:1143`), and `restore_entry` initializes its row as `failed` (`restore.cpp:491`). Hence F4, the writer-side invariant, is the load-bearing arm. The fix moves H, so m-1's and m-4's no-reds at `2893bc53` go stale: all three owner reviews are retaken at the FINAL head Task 9b writes.
 
@@ -2197,8 +2199,8 @@ printf 'headgate %s OK %s\n' "$LABEL" "$HX"
 - [ ] **Step 3: green** — the three cases, `biv_tests` whole, `generated_envelope_conforms`, `divergence_envelope_conforms` and harness-selftest's `test_envelope.py` all green on macOS.
 - [ ] **Step 4: the commit** — `git add` the Files line's paths only; `git commit -m "open: MUST-H-1 -- the failed row's kind and detail rendered, never null; the schema admits both iff failed (m-3 160359 F1-F5; master 164725)"`; `git rev-parse HEAD > "$EVID/commits.c10.txt"`; the tree clean.
 - [ ] **Step 5: the mutant record** — prepare `$EVID/code/c10-M-H1-F4.patch`, then `bash` the block `c10-mutants.sh` (extracted from this plan by `plan_blocks.py extract`) from the worktree. rev40 (resumption): Steps 0–4 are EXECUTED under impl-13 — c10 `2291a46e7ff70c4c06055c8d0aab9e6709cb134d` at its ten Files-line paths, `receipts/c10-red.txt` (`801bc78e…`) and the patch `code/c10-M-H1-F4.patch` (one file, one hunk) all in place; under the successor token Task 8c RESUMES HERE, with HEAD at c10 and the tree clean, and nothing of Steps 0–4 is re-run or re-written.
-- [ ] **Step 6: the head gate** — `bash` the block `headgate.sh` with `c10` (tidy list EMPTY, coverage 37/37, macOS failures 0, the canonical container rc 0, every ctest row but harness-selftest passed): `heads/c10/headgate.txt`.
-- [ ] **Step 7: record** — the IMPL return enumerates c10's paths against the Files line (master 042625 (1)).
+- [ ] **Step 6: the head gate** — `bash` the block `headgate.sh` with `c10` (tidy list EMPTY, coverage 37/37, macOS failures 0, the canonical container rc 0, every ctest row but harness-selftest passed): `heads/c10/headgate.txt`. rev41: EXECUTED under impl-14 and STOPPED (`STOP-headgate container`: GCC 13 `-Werror=missing-field-initializers` at `tests/test_envelope.cpp:75` and `:85`, the retained `heads/c10/H/linux-build.log` `6b0c66e5…`); `heads/c10/` is that STOP's record, never modified, and the head gate is taken at c10t (Task 8d).
+- [ ] **Step 7: record** — the IMPL return enumerates c10's paths against the Files line (master 042625 (1)). rev41: EXECUTED under impl-14 (its return 231301).
 
 <!-- BLOCK: c10-mutants.sh -->
 ```bash
@@ -2265,6 +2267,152 @@ has M-H1-F4 "$W3A" M-H1-F4-not-w3a; has M-H1-F4 "$W3B" M-H1-F4-not-w3b
 printf 'verdict=ok\n' >> "$O" || STOP verdict-write
 g=0; k=$(grep -c -x -F 'verdict=ok' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP verdict-read
 printf 'c10 mutants OK (%s)\n' "$O"
+```
+
+### Task 8d — c10t: the two c10 failed-row test initializers name every `RepoOutcomeRow` member, so the canonical Linux GCC build compiles (rev41; impl-14's STOP `intg-substep2b/IMPL-pair-implementer-20260926-231301.md`)
+
+**Why this task exists.** impl-14 ran Task 8c Step 5 green (`receipts/c10-mutants.rev40.txt`, `verdict=ok`); Step 6's one head gate at c10 then STOPped in the canonical Linux container. GCC 13 rejects c10's two new `report.repos.push_back({...})` rows in `tests/test_envelope.cpp` (`:75`, `:85`) under `-Wall -Wextra -Werror` as `-Werror=missing-field-initializers`: each names five of `RepoOutcomeRow`'s fourteen members, and Apple clang accepts that. It is the class c8L (`c47eb32`) already repaired for the 2b structs, re-introduced by c10's new rows: Task 8c checked c10 green on macOS only (Step 3) and met the canonical Linux toolchain first at its head gate. The census is complete, not a stopped build's first page: the retained log's error lines are exactly those 18 (the nine trailing members at each row), and a scout at c10 plus the repair built and passed the WHOLE canonical container — tidy clean at 37/37, only harness-selftest red, the selftest population EQUAL to Task 9's — with macOS tuples equal to c10's and the mutant record reproducing impl-14's three rows (`results/c10t-scout-20260926/scout-summary.txt` at `dbea9b75`).
+
+**Files:** `tests/test_envelope.cpp` only (inside c10's Files line and the 53-path allowlist). ONE new commit, c10t, on top of c10; c10 is not amended; no product byte moves; nothing under `src/core/repo`, so veto 9 is untouched.
+
+**The repair (repair-13, pinned).** Each of the two rows names the nine trailing members explicitly, as the rows at `tests/test_envelope.cpp:979` already do: `.sha = std::nullopt, .branch = std::nullopt, .capture_mode = std::nullopt, .remotes = {}, .bundle_path = std::nullopt, .reconstruct = std::nullopt, .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt` — the values the omitted members already took, so neither case's meaning moves. The patch is `results/c10t-scout-20260926/repair-13-c10t-initializers.patch` at `dbea9b75` (sha256 `0508c70f…`, +8/−2); the block applies it verbatim and pins the commit's TREE to the scout's (`36331eb0…`).
+
+**Outputs:** `receipts/c10t-red.txt` (the canonical RED, from impl-14's retained build log), `commits.c10t.txt`, `receipts/c10t-mutants.txt` with `code/c10t-mutants/` (the mutant record re-taken at c10t, ending in ONE `verdict=ok`), and `heads/c10t/` (the head gate). `heads/c10/` stays exactly as impl-14 left it: the STOP's record.
+
+- [ ] **Steps 0–4: the block `c10t.sh`** — `bash` it ONCE from the worktree at the c10 head with `EVID` exported. It checks the preconditions: HEAD c10, parent c9, the tree clean, Task 8c's rev40 `verdict=ok`, and `heads/c10/` holding the STOP by content (container rc 1, no `headgate.txt`, the retained build log `6b0c66e5…`). It writes the RED receipt from that log: exactly the 18 lines, nothing foreign. It applies repair-13 (sha-checked; +8/−2 on the one path) and proves it green on macOS: the build, `biv_tests` whole with (w3)'s two cases passed, and the rows `generated_envelope_conforms` and `divergence_envelope_conforms` passed. It then commits with the exact message, pins the commit's tree to the scout's, and writes `commits.c10t.txt`. Any STOP before the commit restores the working tree.
+- [ ] **Step 5: the mutant record at c10t** — `bash` the block `c10t-mutants.sh`: Task 8c's three gating mutants with the same named witnesses and verdict lines (M-H1-PRE and M-H1-SCHEMA restore their files from c9; M-H1-F4 applies `code/c10-M-H1-F4.patch`), recorded in `receipts/c10t-mutants.txt` and ending in ONE `verdict=ok`. Task 8c's rev40 record and work directory stay where they are, the record pinned by digest.
+- [ ] **Step 6: the head gate** — `bash` the block `headgate.sh` with `c10t` (tidy list EMPTY, coverage 37/37, macOS failures 0, the canonical container rc 0, every ctest row but harness-selftest passed): `heads/c10t/headgate.txt`.
+- [ ] **Step 7: record** — the IMPL return enumerates c10t's one path against this Files line (master 042625 (1)).
+
+<!-- BLOCK: c10t.sh -->
+```bash
+# Task 8d — c10t (rev41; impl-14's STOP 231301): the two c10 failed-row test initializers name every RepoOutcomeRow member (repair-13, pinned); run ONCE at the c10 head; usage  bash <this block>  from the worktree with EVID exported
+set -o pipefail
+STOP() { printf 'STOP-c10t %s line=%s\n' "$1" "${BASH_LINENO[0]}" >&2; exit 1; }
+MAIN=/Users/jack/Programming/bivpak; CR=dbea9b75bcbe0c7ee3f2b9096ef21af1678b5746; RP=docs/sprints/2026-08-27-intg-consent-fabric/results/c10t-scout-20260926/repair-13-c10t-initializers.patch
+RS=0508c70fd9ef76a7c91238e135b42512dfc4c669bf77c837610e1cd1b2874472; LS=6b0c66e5f2882bd7eaf20b6a2dbce194b804c190bc573297d5edabd037e74404; TREE=36331eb01cc53efcf8dfafd803948a2cc0f765af
+[ -n "${EVID-}" ] && [ -d "$EVID" ] && [ ! -L "$EVID" ] && [ -d "$EVID/receipts" ] && [ -d "$EVID/work" ] || STOP env
+z=0; C10=$(cat "$EVID/commits.c10.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C10" ] && [ "$(git rev-parse HEAD)" = "$C10" ] || STOP not-at-c10
+z=0; C9=$(cat "$EVID/commits.c9.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C9" ] && [ "$(git rev-parse HEAD~1)" = "$C9" ] || STOP parent-not-c9
+git diff --cached --quiet && git diff HEAD --quiet || STOP dirty
+u=$(git ls-files --others --exclude-standard); r=$?; [ "$r" -eq 0 ] && [ -z "$u" ] || STOP untracked
+# Task 8c's standing record: the rev40 mutant verdict, and the c10 head gate's STOP kept exactly as impl-14 left it (container rc 1, no headgate.txt, the build log by digest)
+g=0; k=$(grep -c -x -F 'verdict=ok' "$EVID/receipts/c10-mutants.rev40.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP c10-mutants-verdict
+[ -d "$EVID/heads/c10" ] && [ ! -L "$EVID/heads/c10" ] && [ "$(cat "$EVID/heads/c10/linux-container.rc")" = 1 ] && [ ! -e "$EVID/heads/c10/headgate.txt" ] && [ ! -L "$EVID/heads/c10/headgate.txt" ] || STOP c10-stop-record
+L=$EVID/heads/c10/H/linux-build.log; [ -f "$L" ] && [ ! -L "$L" ] || STOP c10-build-log
+h=0; s=$(shasum -a 256 "$L" | cut -d' ' -f1) || h=$?; [ "$h" -eq 0 ] && [ "$s" = "$LS" ] || STOP c10-build-log-sha
+for x in commits.c10t.txt receipts/c10t-red.txt heads/c10t receipts/c10t-mutants.txt code/c10t-mutants work/c10t-red.errors work/c10t-repair-13.patch; do [ ! -e "$EVID/$x" ] && [ ! -L "$EVID/$x" ] || STOP "exists-$x"; done
+# (1) the RED is the canonical build's own: every error line of the retained log is one of the 18 — tests/test_envelope.cpp:75 and :85, the nine trailing RepoOutcomeRow members at each — and none is foreign
+g=0; grep -E ': error: ' "$L" > "$EVID/work/c10t-red.errors" || g=$?; [ "$g" -eq 0 ] || STOP red-grep
+MEM='sha|branch|capture_mode|remotes|bundle_path|reconstruct|local_refs|advisories|shallow_boundary'
+g=0; k=$(grep -c -x -E "/work/repo/tests/test_envelope\.cpp:(75|85):25: error: missing initializer for member 'biv::open::RepoOutcomeRow::($MEM)' \[-Werror=missing-field-initializers\]" "$EVID/work/c10t-red.errors") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 18 ] || STOP red-shape
+a=0; n=$(awk 'END { print NR }' "$EVID/work/c10t-red.errors") || a=$?; [ "$a" -eq 0 ] && [ "$n" -eq 18 ] || STOP red-foreign
+s=0; d=$(sed -E 's/^[^:]+:([0-9]+):25: .*::([a-z_]+).*$/\1 \2/' "$EVID/work/c10t-red.errors" | LC_ALL=C sort -u | awk 'END { print NR }') || s=$?; [ "$s" -eq 0 ] && [ "$d" -eq 18 ] || STOP red-distinct
+w=0; printf 'log=heads/c10/H/linux-build.log sha256=%s\nerrors=18 at=tests/test_envelope.cpp:75,85 members=9-each distinct=18 foreign=0\n' "$LS" > "$EVID/receipts/c10t-red.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/receipts/c10t-red.txt" ] || STOP red-receipt
+# (2) repair-13, the pinned patch, applied to the working tree: exactly tests/test_envelope.cpp, +8/-2
+PT=$EVID/work/c10t-repair-13.patch
+g=0; git -C "$MAIN" show "${CR}:${RP}" > "$PT" || g=$?; [ "$g" -eq 0 ] && [ -s "$PT" ] || STOP patch-read
+h=0; s=$(shasum -a 256 "$PT" | cut -d' ' -f1) || h=$?; [ "$h" -eq 0 ] && [ "$s" = "$RS" ] || STOP patch-sha
+a=0; git apply --check "$PT" || a=$?; [ "$a" -eq 0 ] || STOP patch-check
+a=0; git apply "$PT" || a=$?; [ "$a" -eq 0 ] || { git checkout -q HEAD -- .; STOP patch-apply; }
+n=0; ns=$(git diff --numstat) || n=$?; [ "$n" -eq 0 ] && [ "$ns" = "$(printf '8\t2\ttests/test_envelope.cpp')" ] || { git checkout -q HEAD -- .; STOP patch-numstat; }
+# (3) green on macOS: the build; biv_tests whole, with (w3)'s two cases passed; the envelope rows passed
+b=0; cmake --build --preset ci-macos > "$EVID/work/c10t-build-macos.log" 2>&1 || b=$?; [ "$b" -eq 0 ] || { git checkout -q HEAD -- .; STOP build; }
+x=0; ./build/ci-macos/biv_tests -r xml > "$EVID/work/c10t-biv_tests.xml" 2> "$EVID/work/c10t-biv_tests.stderr" || x=$?; [ "$x" -eq 0 ] || { git checkout -q HEAD -- .; STOP biv-tests; }
+f=0; python3 - "$EVID/work/c10t-biv_tests.xml" > "$EVID/work/c10t-w3.txt" <<'PY' || f=$?
+import sys, xml.etree.ElementTree as E
+want = {"failed row completeness rejects a missing kind", "failed row completeness rejects a missing detail and complete rows emit no null carriers"}
+seen = {}
+for t in E.parse(sys.argv[1]).getroot().iter("TestCase"):
+    if t.get("name") in want:
+        o = t.find("OverallResult")
+        seen[t.get("name")] = None if o is None else o.get("success")
+for n in sorted(want):
+    print("case=%r success=%s" % (n, seen.get(n)))
+sys.exit(0 if all(seen.get(n) == "true" for n in want) else 5)
+PY
+[ "$f" -eq 0 ] || { git checkout -q HEAD -- .; STOP w3-cases; }
+y=0; ctest --preset ci-macos -R '^(generated_envelope_reset|divergence_envelope_reset|biv_tests|generated_envelope_conforms|divergence_envelope_conforms)$' > "$EVID/work/c10t-ctest.log" 2>&1 || y=$?; [ "$y" -eq 0 ] || { git checkout -q HEAD -- .; STOP envelope-rows; }
+for row in biv_tests generated_envelope_conforms divergence_envelope_conforms; do g=0; k=$(grep -c -E "Test +#[0-9]+: $row \.+ +Passed " "$EVID/work/c10t-ctest.log") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || { git checkout -q HEAD -- .; STOP "row-$row"; }; done
+# (4) the commit: the one path staged, its tree the scout's BEFORE the commit (git write-tree), the exact message; its parent c10; the tree clean after
+g=0; git add -- tests/test_envelope.cpp || g=$?; [ "$g" -eq 0 ] || { git reset -q; git checkout -q HEAD -- .; STOP stage; }
+g=0; IT=$(git write-tree) || g=$?; [ "$g" -eq 0 ] && [ "$IT" = "$TREE" ] || { git reset -q; git checkout -q HEAD -- .; STOP index-tree; }
+g=0; git commit -q -m "test: name every RepoOutcomeRow member in c10's two failed-row initializers (Linux GCC -Werror=missing-field-initializers) -- c10t, test-only (impl-14 231301; repair-13)" || g=$?; [ "$g" -eq 0 ] || STOP commit
+[ "$(git rev-parse HEAD~1)" = "$C10" ] || STOP commit-parent
+[ "$(git rev-parse 'HEAD^{tree}')" = "$TREE" ] || STOP commit-tree
+g=0; P1=$(git diff-tree --no-commit-id --name-only -r HEAD) || g=$?; [ "$g" -eq 0 ] && [ "$P1" = tests/test_envelope.cpp ] || STOP commit-paths
+git diff --cached --quiet && git diff HEAD --quiet || STOP dirty-after
+u=$(git ls-files --others --exclude-standard); r=$?; [ "$r" -eq 0 ] && [ -z "$u" ] || STOP untracked-after
+w=0; git rev-parse HEAD > "$EVID/commits.c10t.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/commits.c10t.txt" ] || STOP w-commit
+printf 'c10t OK %s\n' "$(cat "$EVID/commits.c10t.txt")"
+```
+
+<!-- BLOCK: c10t-mutants.sh -->
+```bash
+# Task 8d — the c10t mutant record (rev41; Task 8c's rev40 record preserved; m-3 160359 F5 and its F5_M_H1_PRE accept 222938, master 164725): run ONCE at the c10t head, before its head gate; usage  bash <this block>  from the worktree with EVID exported
+set -o pipefail
+STOP() { printf 'STOP-c10t-mutants %s line=%s\n' "$1" "${BASH_LINENO[0]}" >&2; exit 1; }
+[ -n "${EVID-}" ] && [ -d "$EVID/receipts" ] && [ -d "$EVID/code" ] || STOP env
+z=0; C10T=$(cat "$EVID/commits.c10t.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C10T" ] && [ "$(git rev-parse HEAD)" = "$C10T" ] || STOP not-at-c10t
+z=0; C10=$(cat "$EVID/commits.c10.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C10" ] && [ "$(git rev-parse HEAD~1)" = "$C10" ] || STOP parent-not-c10
+z=0; C9=$(cat "$EVID/commits.c9.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C9" ] && [ "$(git rev-parse HEAD~2)" = "$C9" ] || STOP grandparent-not-c9
+git diff --cached --quiet && git diff HEAD --quiet || STOP dirty
+# Task 8c's rev40 record (verdict=ok at c10, impl-14) stays exactly where it is, with its work directory
+Q=$EVID/receipts/c10-mutants.rev40.txt; [ -f "$Q" ] && [ ! -L "$Q" ] || STOP rev40-record-absent
+h=0; s=$(shasum -a 256 "$Q" | cut -d' ' -f1) || h=$?; [ "$h" -eq 0 ] && [ "$s" = 725ee7fd1bc7ea13a99aa457713a899e5f5cb7df71e83fb7ed5c29d59b2c67bf ] || STOP rev40-record-moved
+[ -d "$EVID/code/c10-mutants.rev40" ] && [ ! -L "$EVID/code/c10-mutants.rev40" ] || STOP rev40-work-absent
+O=$EVID/receipts/c10t-mutants.txt; [ ! -e "$O" ] && [ ! -L "$O" ] || STOP record-exists
+P=$EVID/code/c10-M-H1-F4.patch; [ -f "$P" ] && [ -s "$P" ] && [ ! -L "$P" ] || STOP f4-patch-absent
+g=0; k=$(grep -c -E '^\+\+\+ ' "$P") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP f4-patch-files; g=0; k=$(grep -c -x -F '+++ b/src/core/report/envelope.cpp' "$P") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP f4-patch-path
+g=0; k=$(grep -c -E '^@@ ' "$P") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP f4-patch-hunks
+a=0; git apply --check "$P" || a=$?; [ "$a" -eq 0 ] || STOP f4-patch-applies
+M=$EVID/code/c10t-mutants; [ ! -e "$M" ] && [ ! -L "$M" ] || STOP work-exists; m=0; mkdir "$M" || m=$?; [ "$m" -eq 0 ] || STOP work-mkdir
+# the named witnesses at c10t (w1, w3), by their TEST_CASE names; divergence_envelope_conforms REQUIRES the fixture biv_tests sets up, so CTest runs it only when biv_tests passes
+W1='open repos typed refusal continues in encounter order to a clean entry'
+W3A='failed row completeness rejects a missing kind'
+W3B='failed row completeness rejects a missing detail and complete rows emit no null carriers'
+status() { local log=$1 name=$2 n p f r; g=0; p=$(grep -c -E "Test +#[0-9]+: $name \.+ +Passed " "$log") || g=$?; [ "$g" -le 1 ] || STOP "status-grep-$name"
+  g=0; f=$(grep -c -E "Test +#[0-9]+: $name \.+\*\*\*Failed " "$log") || g=$?; [ "$g" -le 1 ] || STOP "status-grep-$name"
+  g=0; r=$(grep -c -E "Test +#[0-9]+: $name \.+\*\*\*Not Run " "$log") || g=$?; [ "$g" -le 1 ] || STOP "status-grep-$name"
+  n=$((p + f + r)); [ "$n" -eq 1 ] || STOP "status-count-$name-$n"
+  if [ "$p" -eq 1 ]; then printf passed; elif [ "$f" -eq 1 ]; then printf failed; else printf notrun; fi; }
+run() { local name=$1 bs ds
+  b=0; cmake --build --preset ci-macos > "$M/$name.build.log" 2>&1 || b=$?; [ "$b" -eq 0 ] || { git checkout -q HEAD -- .; STOP "build-$name"; }
+  x=0; ./build/ci-macos/biv_tests -r xml > "$M/$name.xml" 2> "$M/$name.stderr" || x=$?
+  f=0; python3 -c 'import sys, xml.etree.ElementTree as E
+r = E.parse(sys.argv[1]).getroot()
+for t in r.iter("TestCase"):
+    o = t.find("OverallResult")
+    if o is not None and o.get("success") == "false":
+        print(t.get("name"))' "$M/$name.xml" > "$M/$name.failed-cases.txt" || f=$?
+  [ "$f" -eq 0 ] || { git checkout -q HEAD -- .; STOP "cases-$name"; }
+  y=0; ctest --preset ci-macos -R '^(generated_envelope_reset|divergence_envelope_reset|biv_tests|divergence_envelope_conforms)$' > "$M/$name.ctest.log" 2>&1 || y=$?
+  bs=$(status "$M/$name.ctest.log" biv_tests) || { git checkout -q HEAD -- .; exit 1; }
+  ds=$(status "$M/$name.ctest.log" divergence_envelope_conforms) || { git checkout -q HEAD -- .; exit 1; }
+  g=0; nf=$(grep -c . "$M/$name.failed-cases.txt") || g=$?; [ "$g" -le 1 ] || { git checkout -q HEAD -- .; STOP "cases-count-$name"; }
+  c=0; git checkout -q HEAD -- . || c=$?; [ "$c" -eq 0 ] || STOP "revert-$name"; git diff --cached --quiet && git diff HEAD --quiet || STOP "not-clean-after-$name"
+  printf 'mutant=%s gating=yes case_rc=%s ctest_rc=%s biv_tests=%s conforms=%s failed_cases=%s\n' "$name" "$x" "$y" "$bs" "$ds" "$nf" >> "$O" || STOP record-write; }
+has() { g=0; k=$(grep -c -x -F -- "$2" "$M/$1.failed-cases.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP "$3"; }
+g=0; git checkout -q "$C9" -- src/core/open/open.cpp || g=$?; [ "$g" -eq 0 ] || STOP apply-M-H1-PRE
+run M-H1-PRE
+g=0; git checkout -q "$C9" -- schemas/biv-json-envelope.v1.schema.json || g=$?; [ "$g" -eq 0 ] || STOP apply-M-H1-SCHEMA
+run M-H1-SCHEMA
+a=0; git apply "$P" || a=$?; [ "$a" -eq 0 ] || STOP apply-M-H1-F4
+run M-H1-F4
+b=0; cmake --build --preset ci-macos > "$M/rebuild.log" 2>&1 || b=$?; [ "$b" -eq 0 ] || STOP rebuild
+git diff --cached --quiet && git diff HEAD --quiet || STOP dirty-after
+g=0; k=$(grep -c -E '^mutant=M-H1-(PRE|SCHEMA|F4) gating=yes ' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 3 ] || STOP record-rows
+# M-H1-PRE: killed by (w1) alone inside biv_tests; the conforms consumer is NOT RUN by the fixture, never counted as a kill
+g=0; k=$(grep -c -E '^mutant=M-H1-PRE gating=yes case_rc=[1-9][0-9]* ctest_rc=[1-9][0-9]* biv_tests=failed conforms=notrun failed_cases=1$' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-PRE
+has M-H1-PRE "$W1" M-H1-PRE-not-w1
+# M-H1-SCHEMA: every case green, and the whole-envelope validation (the conforms row) alone red
+g=0; k=$(grep -c -E '^mutant=M-H1-SCHEMA gating=yes case_rc=0 ctest_rc=[1-9][0-9]* biv_tests=passed conforms=failed failed_cases=0$' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-SCHEMA
+# M-H1-F4: killed by (w3)'s two cases alone inside biv_tests; the conforms consumer NOT RUN
+g=0; k=$(grep -c -E '^mutant=M-H1-F4 gating=yes case_rc=[1-9][0-9]* ctest_rc=[1-9][0-9]* biv_tests=failed conforms=notrun failed_cases=2$' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP survived-M-H1-F4
+has M-H1-F4 "$W3A" M-H1-F4-not-w3a; has M-H1-F4 "$W3B" M-H1-F4-not-w3b
+printf 'verdict=ok\n' >> "$O" || STOP verdict-write
+g=0; k=$(grep -c -x -F 'verdict=ok' "$O") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP verdict-read
+printf 'c10t mutants OK (%s)\n' "$O"
 ```
 
 ### Task 9 — (EXECUTED under impl-12 at H `2893bc53`; rev39 re-gates the c10 head in Task 9b) the gates at H0, both platforms; the companion count-cell commit INSIDE the runner; the FINAL H written last (E2/E5 + closure; veto 9; the type-scoped RepoEntry census; the C-2 hunk; the A8 / predicate / hook censuses; the count gate; the Linux parity leg for H0 and B; the E3 Linux witness; the harness-e2 receipts; the harness-selftest bar and, rev33, the 015244 series ALWAYS; the c8T head first; an earlier attempt preserved first; tidy GREEN at H0)
@@ -2596,18 +2744,20 @@ printf 'H=%s\n' "$H" > "$EVID/H.txt" || STOP; [ -s "$EVID/H.txt" ] || STOP
 exit 0
 ```
 
-### Task 9b — the re-gate at the c10 head: the count cells re-pinned INSIDE the block iff a case tuple moved since c9 (c11), the FINAL H written last into `R/` (rev39; the operator's "lighter regate pls", 2026-09-26; m-3 R-4.83 and master R-4.82 folded for this block)
+### Task 9b — the re-gate at the c10t head (rev41; c10 + Task 8d's c10t): the count cells re-pinned INSIDE the block iff a case tuple moved since c9 (c11), the FINAL H written last into `R/` (rev39; the operator's "lighter regate pls", 2026-09-26; m-3 R-4.83 and master R-4.82 folded for this block)
 
 **Why a lighter re-gate and not Task 9 again.** Task 9 ran once to rc 0 under impl-12 and stands as EXECUTED: its receipts under `H/`, `H9/`, `series/` and `B/` are the record for H0 `99136ca` and its H `2893bc53`, and nothing here moves or rewrites them. c10 changes only the failed-row rendering, its schema and its witnesses. Task 8c's head gate already observes the c10 head on both platforms: the five macOS producers and the canonical Linux container, tidy clean at 37/37, E3 inside `biv_tests`, every ctest row but harness-selftest passed (R-4.83's property, taken from the whole row census rather than inside a population branch), and the selftest summary. This block adds only what the head gate does not carry: c10's path set and the censuses c10 could move; the count gate against c9's cells; both skip sets; the macOS `harness-e2` row; the selftest population, which must EQUAL Task 9's (a moved population needs the series and is a STOP routed up, never a lighter pass); the count-cell companion c11 iff c10 moved a tuple; and the FINAL H.
+
+**rev41 (impl-14's STOP).** The re-gate object is the c10t head — c10 plus Task 8d's test-only c10t — because c10's head gate STOPped on the canonical Linux build. Wherever this task says "the c10 head" or "Task 8c's head gate", read the c10t head and Task 8d's head gate at `heads/c10t/`. The block checks c10's path set against Task 8c's Files line AND c10t's against Task 8d's (exactly `tests/test_envelope.cpp`); it requires both mutant records' `verdict=ok`; it compares the censuses between c9 and c10t; and it proves `git diff c10t H` outside the workflow EMPTY.
 
 **Outputs:** everything under a fresh `$EVID/R/` (created by plain `mkdir`, so an existing directory or a symlink STOPs — R-4.82's form), `$EVID/commits.c11.txt` iff c11 lands, and `heads/c11/` from the head gate iff c11 lands. `R/H.txt` is written LAST and is the object the three owner byte reviews, the GO and Task 10 bind.
 
 - [ ] **Step 1: run the block** — `bash` the block `regate.sh` (extracted from this plan by `plan_blocks.py extract`) ONCE from the worktree, with `EVID` and `RUNNERS` exported as the token names them. A STOP ends the token: report it with its line and receipts, never retry, never weaken a predicate.
-- [ ] **Step 2: record** — the IMPL return enumerates c10's paths (and c11's, iff it landed) against their Files lines and quotes `R/H.txt`.
+- [ ] **Step 2: record** — the IMPL return enumerates c10's and c10t's paths (and c11's, iff it landed) against their Files lines and quotes `R/H.txt`.
 
 <!-- BLOCK: regate.sh -->
 ```bash
-# Task 9b — the re-gate at the c10 head (rev39): usage  bash <this block>  from the worktree with EVID and RUNNERS exported; run ONCE after Task 8c's head gate
+# Task 9b — the re-gate at the c10t head (rev39; rev41: c10 + c10t, impl-14's STOP 231301): usage  bash <this block>  from the worktree with EVID and RUNNERS exported; run ONCE after Task 8d's head gate
 set -o pipefail
 STOP() { printf 'STOP-regate %s line=%s\n' "$1" "${BASH_LINENO[0]}" >&2; exit 1; }
 MAIN=/Users/jack/Programming/bivpak; B=186adf7d67171bd7afe621f39b657a1a113ce299
@@ -2615,15 +2765,17 @@ MAIN=/Users/jack/Programming/bivpak; B=186adf7d67171bd7afe621f39b657a1a113ce299
 [ "$(cat "$RUNNERS/evid.txt")" = "$EVID" ] || STOP evid-pointer
 PLAN=$(cat "$RUNNERS/plan-path.txt") || STOP plan-pointer; [ -s "$PLAN" ] || STOP plan-absent
 h=0; d=$(shasum -a 256 "$PLAN" | cut -d' ' -f1) || h=$?; [ "$h" -eq 0 ] && [ "$d" = "$(cat "$RUNNERS/plan-lock.txt")" ] || STOP plan-not-the-lock
-# the preconditions: HEAD is c10; its parent is c9, Task 9's FINAL H; Task 9 done; Task 8c's receipts; the tree clean
-z=0; C10=$(cat "$EVID/commits.c10.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C10" ] && [ "$(git rev-parse HEAD)" = "$C10" ] || STOP not-at-c10
-z=0; C9=$(cat "$EVID/commits.c9.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C9" ] && [ "$(git rev-parse HEAD~1)" = "$C9" ] || STOP parent-not-c9
+# the preconditions: HEAD is c10t; its parent is c10; c10's parent is c9, Task 9's FINAL H; Task 9 done; Task 8c's and Task 8d's receipts; the tree clean
+z=0; C10T=$(cat "$EVID/commits.c10t.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C10T" ] && [ "$(git rev-parse HEAD)" = "$C10T" ] || STOP not-at-c10t
+z=0; C10=$(cat "$EVID/commits.c10.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C10" ] && [ "$(git rev-parse HEAD~1)" = "$C10" ] || STOP parent-not-c10
+z=0; C9=$(cat "$EVID/commits.c9.txt") || z=$?; [ "$z" -eq 0 ] && [ -n "$C9" ] && [ "$(git rev-parse HEAD~2)" = "$C9" ] || STOP grandparent-not-c9
 [ "$(cat "$EVID/H.txt")" = "H=$C9" ] || STOP task9-H-not-c9
 [ "$(cat "$EVID/runners/task-9.done")" = rc=0 ] || STOP task9-not-done
-G=$EVID/heads/c10
-[ -s "$G/headgate.txt" ] && [ -s "$EVID/receipts/c10-red.txt" ] || STOP task8c-receipts
+G=$EVID/heads/c10t
+[ -s "$G/headgate.txt" ] && [ -s "$EVID/receipts/c10-red.txt" ] && [ -s "$EVID/receipts/c10t-red.txt" ] || STOP task8c-8d-receipts
 g=0; k=$(grep -c -x -F 'verdict=ok' "$EVID/receipts/c10-mutants.rev40.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP task8c-mutants-verdict
-g=0; k=$(grep -c -E "^headgate label=c10 head=$C10 tidy_expected=none tidy_findings=0 " "$G/headgate.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP headgate-c10
+g=0; k=$(grep -c -x -F 'verdict=ok' "$EVID/receipts/c10t-mutants.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP task8d-mutants-verdict
+g=0; k=$(grep -c -E "^headgate label=c10t head=$C10T tidy_expected=none tidy_findings=0 " "$G/headgate.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP headgate-c10t
 git diff --cached --quiet && git diff HEAD --quiet || STOP dirty
 u=$(git ls-files --others --exclude-standard); r=$?; [ "$r" -eq 0 ] && [ -z "$u" ] || STOP untracked
 # confinement before the first write (rev38's form): R/ and commits.c11.txt absent, no symlink directly under the home, R/ made by a plain mkdir and physically the home's own
@@ -2631,12 +2783,13 @@ for x in R commits.c11.txt; do [ ! -e "$EVID/$x" ] && [ ! -L "$EVID/$x" ] || STO
 f=0; LNK=$(find "$EVID" -maxdepth 1 -type l) || f=$?; [ "$f" -eq 0 ] && [ -z "$LNK" ] || STOP home-symlink
 m=0; mkdir "$EVID/R" || m=$?; [ "$m" -eq 0 ] || STOP R-mkdir
 p=0; RH=$(cd "$EVID" && pwd -P) || p=$?; [ "$p" -eq 0 ] && [ -d "$EVID/R" ] && [ ! -L "$EVID/R" ] && [ "$(cd "$EVID/R" && pwd -P)" = "$RH/R" ] || STOP R-confined
-w=0; printf 'H0=%s\n' "$C10" > "$EVID/R/H0.txt" || w=$?; [ "$w" -eq 0 ] || STOP w-H0
-# (1) c10's path set inside Task 8c's Files line, none under src/core/repo; the censuses c10 could move, compared by CONTENT between c9 and c10
+w=0; printf 'H0=%s\n' "$C10T" > "$EVID/R/H0.txt" || w=$?; [ "$w" -eq 0 ] || STOP w-H0
+# (1) c10's path set inside Task 8c's Files line and c10t's EXACTLY tests/test_envelope.cpp, none under src/core/repo; the censuses c10 and c10t could move, compared by CONTENT between c9 and c10t
 g=0; git diff-tree --no-commit-id --name-only -r "$C10" > "$EVID/R/c10-paths.txt" || g=$?; [ "$g" -eq 0 ] && [ -s "$EVID/R/c10-paths.txt" ] || STOP c10-paths
 o=0; grep -v -x -E 'src/core/open/open\.cpp|src/core/report/envelope\.(hpp|cpp)|src/cli/url_consent\.(hpp|cpp)|schemas/biv-json-envelope\.v1\.schema\.json|harness/selftest/test_envelope\.py|tests/test_cli\.cpp|tests/test_envelope\.cpp|CMakeLists\.txt' "$EVID/R/c10-paths.txt" > "$EVID/R/c10-paths.foreign" || o=$?; [ "$o" -eq 1 ] && [ ! -s "$EVID/R/c10-paths.foreign" ] || STOP c10-foreign-path
-CEN() { local tag=$1 pat=$2 T; for T in "$C9" "$C10"; do local g=0; git grep -n -E "$pat" "$T" -- src ':!src/core/repo' > "$EVID/work/regate-$tag-$T.raw" || g=$?; [ "$g" -le 1 ] || STOP "census-$tag"; local s=0; sed -E "s/^${T}:([^:]+):[0-9]+:/\1: /" "$EVID/work/regate-$tag-$T.raw" > "$EVID/work/regate-$tag-$T.txt" || s=$?; [ "$s" -eq 0 ] || STOP "census-strip-$tag"; done
-  local d=0; diff "$EVID/work/regate-$tag-$C9.txt" "$EVID/work/regate-$tag-$C10.txt" > "$EVID/R/census-$tag.delta" || d=$?; [ "$d" -eq 0 ] || STOP "census-moved-$tag"; }
+g=0; git diff-tree --no-commit-id --name-only -r "$C10T" > "$EVID/R/c10t-paths.txt" || g=$?; [ "$g" -eq 0 ] && [ "$(cat "$EVID/R/c10t-paths.txt")" = tests/test_envelope.cpp ] || STOP c10t-paths
+CEN() { local tag=$1 pat=$2 T; for T in "$C9" "$C10T"; do local g=0; git grep -n -E "$pat" "$T" -- src ':!src/core/repo' > "$EVID/work/regate-$tag-$T.raw" || g=$?; [ "$g" -le 1 ] || STOP "census-$tag"; local s=0; sed -E "s/^${T}:([^:]+):[0-9]+:/\1: /" "$EVID/work/regate-$tag-$T.raw" > "$EVID/work/regate-$tag-$T.txt" || s=$?; [ "$s" -eq 0 ] || STOP "census-strip-$tag"; done
+  local d=0; diff "$EVID/work/regate-$tag-$C9.txt" "$EVID/work/regate-$tag-$C10T.txt" > "$EVID/R/census-$tag.delta" || d=$?; [ "$d" -eq 0 ] || STOP "census-moved-$tag"; }
 CEN E2 'repo::(discover|classify|run_eligibility|capture|restore_entry)\('
 CEN closure 'invoke_git\('
 CEN network 'GitCallClass::network'
@@ -2649,9 +2802,9 @@ for T in macos linux; do g=0; k=$(grep -c -x -E "biv_[a-z_]+ $T successes=[0-9]+
 c=0; python3 "$EVID/cells.py" .github/workflows/s2-harness.yml > "$EVID/R/c9-cells.txt" || c=$?; [ "$c" -eq 0 ] && [ -s "$EVID/R/c9-cells.txt" ] || STOP c9-cells
 for T in macos linux; do c=0; python3 "$EVID/cellgate.py" "$EVID/R/c9-cells.txt" "$T" "$G/tuples-$T.txt" > "$EVID/R/count-gate-$T.txt" 2>&1 || c=$?; printf 'count_gate_%s_rc=%s\n' "$T" "$c" > "$EVID/R/count-gate-$T.rc" || STOP "w-count-gate-$T"; [ "$c" -eq 0 ] || [ "$c" -eq 5 ] || STOP "count-gate-$T"; done
 q=0; python3 "$EVID/skipset.py" "$EVID/B-cells.txt" "$G/tuples-macos.txt" macos > "$EVID/R/skipset-macos.txt" || q=$?; [ "$q" -eq 0 ] || STOP skipset-macos
-for T in B c10; do if [ "$T" = B ]; then TF=$EVID/B/tuples-linux.txt; else TF=$G/tuples-linux.txt; fi; g=0; grep -E '^expected_skips_observed linux n=[0-9]+ ' "$TF" > "$EVID/R/skipset-linux-$T.txt" || g=$?; [ "$g" -eq 0 ] || STOP "skipset-linux-$T"; a=0; n=$(awk 'END { print NR }' "$EVID/R/skipset-linux-$T.txt") || a=$?; [ "$a" -eq 0 ] && [ "$n" -eq 1 ] || STOP "skipset-linux-rows-$T"; done
-q=0; cmp "$EVID/R/skipset-linux-B.txt" "$EVID/R/skipset-linux-c10.txt" > "$EVID/R/skipset-linux.cmp" 2>&1 || q=$?; printf 'skipset_linux_rc=%s\n' "$q" > "$EVID/R/skipset-linux.rc"; [ "$q" -eq 0 ] || STOP skipset-linux
-# (3) E3 Linux, harness-e2 on both platforms, and the ctest row census at c10 (only harness-selftest may fail; the new witness row ran and passed)
+for T in B c10t; do if [ "$T" = B ]; then TF=$EVID/B/tuples-linux.txt; else TF=$G/tuples-linux.txt; fi; g=0; grep -E '^expected_skips_observed linux n=[0-9]+ ' "$TF" > "$EVID/R/skipset-linux-$T.txt" || g=$?; [ "$g" -eq 0 ] || STOP "skipset-linux-$T"; a=0; n=$(awk 'END { print NR }' "$EVID/R/skipset-linux-$T.txt") || a=$?; [ "$a" -eq 0 ] && [ "$n" -eq 1 ] || STOP "skipset-linux-rows-$T"; done
+q=0; cmp "$EVID/R/skipset-linux-B.txt" "$EVID/R/skipset-linux-c10t.txt" > "$EVID/R/skipset-linux.cmp" 2>&1 || q=$?; printf 'skipset_linux_rc=%s\n' "$q" > "$EVID/R/skipset-linux.rc"; [ "$q" -eq 0 ] || STOP skipset-linux
+# (3) E3 Linux, harness-e2 on both platforms, and the ctest row census at c10t (only harness-selftest may fail; the new witness row ran and passed)
 x=0; python3 - "$G/H/biv_tests-linux.xml" > "$EVID/R/E3-linux.txt" <<'PY' || x=$?
 import sys, xml.etree.ElementTree as ET
 rows = []
@@ -2668,27 +2821,27 @@ PY
 printf 'e3_linux_rc=%s\n' "$x" > "$EVID/R/E3-linux.rc"; [ "$x" -eq 0 ] || STOP E3-linux
 x=0; python3 "$EVID/xmlcases.py" ctest-row harness-e2 "$G/H/ctest-linux-H.junit.xml" > "$EVID/R/harness-e2-linux.txt" || x=$?; printf 'harness_e2_linux_rc=%s\n' "$x" > "$EVID/R/harness-e2-linux.rc"; [ "$x" -eq 0 ] || STOP harness-e2-linux
 e=0; ctest --preset ci-macos -R '^harness-e2$' --output-on-failure > "$EVID/R/harness-e2-macos.log" 2>&1 || e=$?; printf 'harness_e2_macos_rc=%s\n' "$e" > "$EVID/R/harness-e2-macos.rc"; [ "$e" -eq 0 ] || STOP harness-e2-macos
-o=0; grep -E '^fail ' "$G/ctest-status.txt" > "$EVID/R/ctest-failed-c10.txt" || o=$?; [ "$o" -le 1 ] || STOP ctest-failed-grep
-o=0; grep -v -x -F 'fail harness-selftest' "$EVID/R/ctest-failed-c10.txt" > "$EVID/R/ctest-failed-c10.foreign" || o=$?; [ "$o" -eq 1 ] && [ ! -s "$EVID/R/ctest-failed-c10.foreign" ] || STOP ctest-foreign-red
+o=0; grep -E '^fail ' "$G/ctest-status.txt" > "$EVID/R/ctest-failed-c10t.txt" || o=$?; [ "$o" -le 1 ] || STOP ctest-failed-grep
+o=0; grep -v -x -F 'fail harness-selftest' "$EVID/R/ctest-failed-c10t.txt" > "$EVID/R/ctest-failed-c10t.foreign" || o=$?; [ "$o" -eq 1 ] && [ ! -s "$EVID/R/ctest-failed-c10t.foreign" ] || STOP ctest-foreign-red
 g=0; k=$(grep -c -x -F 'run divergence_envelope_conforms' "$G/ctest-status.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP witness-row-linux
 # (4) the selftest population EQUAL to Task 9's, and the bar (a moved population needs the series: a STOP routed up, never a lighter pass)
 s=0; sed -n 's/^population=//p' "$EVID/H/selftest-H.kv" > "$EVID/R/selftest-population-task9.txt" || s=$?; [ "$s" -eq 0 ] && [ -s "$EVID/R/selftest-population-task9.txt" ] || STOP population-task9
-s=0; sed -n 's/^population=//p' "$G/selftest-H.kv" > "$EVID/R/selftest-population-c10.txt" || s=$?; [ "$s" -eq 0 ] && [ -s "$EVID/R/selftest-population-c10.txt" ] || STOP population-c10
-p=0; cmp "$EVID/R/selftest-population-task9.txt" "$EVID/R/selftest-population-c10.txt" > "$EVID/R/selftest-population.cmp" 2>&1 || p=$?; printf 'population_equal_rc=%s\n' "$p" > "$EVID/R/selftest-population.rc"; [ "$p" -eq 0 ] || STOP population-moved
+s=0; sed -n 's/^population=//p' "$G/selftest-H.kv" > "$EVID/R/selftest-population-c10t.txt" || s=$?; [ "$s" -eq 0 ] && [ -s "$EVID/R/selftest-population-c10t.txt" ] || STOP population-c10t
+p=0; cmp "$EVID/R/selftest-population-task9.txt" "$EVID/R/selftest-population-c10t.txt" > "$EVID/R/selftest-population.cmp" 2>&1 || p=$?; printf 'population_equal_rc=%s\n' "$p" > "$EVID/R/selftest-population.rc"; [ "$p" -eq 0 ] || STOP population-moved
 rcL=$(cat "$G/H/ctest-linux-H.rc") || STOP rcL; [ -n "$rcL" ] || STOP rcL-empty
 hsum=$(sed -n 's/^summary=//p' "$G/selftest-H.kv"); nfail=$(sed -n 's/^failed=//p' "$G/selftest-H.kv"); nf=$(sed -n 's/^names_count=//p' "$G/selftest-H.kv"); [ -n "$hsum" ] && [ -n "$nfail" ] && [ -n "$nf" ] || STOP selftest-kv
 o=0; grep -v -x -F -f "$EVID/H/r435-family.txt" "$G/selftest-H.names" > "$EVID/R/linux-selftest-foreign.names" || o=$?; [ "$o" -le 1 ] || STOP foreign-names
 bar=fail; if [ "$rcL" -eq 0 ]; then bar=pass-green; elif [ "$rcL" -ne 8 ]; then bar=fail-not-the-one-row; elif [ "$hsum" != parsed ] || [ "$nf" -lt 1 ] || [ "$nf" -ne "$nfail" ]; then bar=stop-invalid-candidate-result; elif [ -s "$EVID/R/linux-selftest-foreign.names" ]; then bar=fail-foreign-selftest-red; else bar=pass-r435-disclosed-registered-red; fi
 printf 'rcL=%s summary=%s failed=%s names=%s bar=%s\n' "$rcL" "$hsum" "$nfail" "$nf" "$bar" > "$EVID/R/linux-selftest-bar.txt" || STOP w-bar
 case "$bar" in pass-green|pass-r435-disclosed-registered-red) :;; *) STOP "bar-$bar";; esac
-# (5) the companion count-cell commit c11 INSIDE the block iff c10's tuples differ from c9's cells; its head gated by headgate.sh; then the FINAL gates against HEAD's own cells
+# (5) the companion count-cell commit c11 INSIDE the block iff c10t's tuples differ from c9's cells; its head gated by headgate.sh; then the FINAL gates against HEAD's own cells
 p=0; python3 "$EVID/cellpatch.py" "$EVID/B-workflow.yml" "$G/tuples-macos.txt" "$G/tuples-linux.txt" > "$EVID/work/s2-harness.regate.yml" || p=$?; [ "$p" -eq 0 ] && [ -s "$EVID/work/s2-harness.regate.yml" ] || STOP cellpatch
 c=0; cmp -s "$EVID/work/s2-harness.regate.yml" .github/workflows/s2-harness.yml || c=$?
 if [ "$c" -eq 0 ]; then
   printf 'unchanged-since-c9\n' > "$EVID/R/count-gate.txt" || STOP w-count-gate
 elif [ "$c" -eq 1 ]; then
   c=0; cp "$EVID/work/s2-harness.regate.yml" .github/workflows/s2-harness.yml || c=$?; [ "$c" -eq 0 ] || STOP cellpatch-copy
-  g=0; git add .github/workflows/s2-harness.yml && git commit -q -m "ci: re-pin case counts at the c10 head (macOS/Linux) -- m-3 count-cell companion" || g=$?; [ "$g" -eq 0 ] || STOP c11-commit
+  g=0; git add .github/workflows/s2-harness.yml && git commit -q -m "ci: re-pin case counts at the c10t head (macOS/Linux) -- m-3 count-cell companion" || g=$?; [ "$g" -eq 0 ] || STOP c11-commit
   w=0; git rev-parse HEAD > "$EVID/commits.c11.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/commits.c11.txt" ] || STOP w-c11
   g=0; git diff-tree --no-commit-id --name-only -r HEAD > "$EVID/R/c11-paths.txt" || g=$?; [ "$g" -eq 0 ] && [ "$(cat "$EVID/R/c11-paths.txt")" = .github/workflows/s2-harness.yml ] || STOP c11-paths
   HG=$(mktemp "$EVID/work/headgate.regate.XXXXXX") || STOP hg-mktemp; x=0; python3 "$RUNNERS/plan_blocks.py" extract "$PLAN" headgate.sh > "$HG" || x=$?; [ "$x" -eq 0 ] && [ -s "$HG" ] || STOP hg-extract
@@ -2697,9 +2850,9 @@ elif [ "$c" -eq 1 ]; then
 else STOP cellpatch-cmp; fi
 c=0; python3 "$EVID/cells.py" .github/workflows/s2-harness.yml > "$EVID/R/H-cells.txt" || c=$?; [ "$c" -eq 0 ] && [ -s "$EVID/R/H-cells.txt" ] || STOP H-cells
 for T in macos linux; do c=0; python3 "$EVID/cellgate.py" "$EVID/R/H-cells.txt" "$T" "$G/tuples-$T.txt" > "$EVID/R/count-gate-final-$T.txt" 2>&1 || c=$?; printf 'count_gate_final_%s_rc=%s\n' "$T" "$c" > "$EVID/R/count-gate-final-$T.rc" || STOP "w-final-$T"; [ "$c" -eq 0 ] || STOP "count-gate-final-$T"; done
-# (6) the FINAL H: nothing but the workflow's cells between c10 and H, the tree clean, R/H.txt LAST
+# (6) the FINAL H: nothing but the workflow's cells between c10t and H, the tree clean, R/H.txt LAST
 H=$(git rev-parse HEAD) || STOP head
-d=0; git diff --stat "$C10" "$H" -- . ':!.github/workflows/s2-harness.yml' > "$EVID/R/c10-H.delta" || d=$?; [ "$d" -eq 0 ] && [ ! -s "$EVID/R/c10-H.delta" ] || STOP c10-H-delta
+d=0; git diff --stat "$C10T" "$H" -- . ':!.github/workflows/s2-harness.yml' > "$EVID/R/c10t-H.delta" || d=$?; [ "$d" -eq 0 ] && [ ! -s "$EVID/R/c10t-H.delta" ] || STOP c10t-H-delta
 s=0; git status --porcelain > "$EVID/R/status-post.txt" || s=$?; [ "$s" -eq 0 ] && [ ! -s "$EVID/R/status-post.txt" ] || STOP status-post
 w=0; printf 'H=%s\n' "$H" > "$EVID/R/H.txt" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/R/H.txt" ] || STOP w-H
 printf 'regate OK H=%s\n' "$H"
@@ -2707,7 +2860,7 @@ printf 'regate OK H=%s\n' "$H"
 
 ### Task 10 — the vehicle (ONLY after the pair Planner's GO relay carrying EXACTLY ONE no-red byte review of H from EACH of m-1, m-3 and m-4 through master): ONE push to ONE pinned destination, ONE draft PR
 
-rev39: H is Task 9b's FINAL H (`R/H.txt`); the final count gates, E3 Linux, both `harness-e2` rows and the population rule are read from `R/` (the population EQUAL, the bar passed), and the container receipts from `heads/c10/` and `B/`.
+rev39: H is Task 9b's FINAL H (`R/H.txt`); the final count gates, E3 Linux, both `harness-e2` rows and the population rule are read from `R/` (the population EQUAL, the bar passed), and the container receipts from `heads/c10t/` (rev41) and `B/`. rev41: Step 3's PR body is built by `$EVID/finalize.rev41.py`, produced at the START of the runner — before any gate, push or PR — from THIS plan's `finalize.py` block only when absent (a fresh `mktemp` stage in the confined `work/`, checked regular before and after the extract, digest-checked, then renamed into place) and digest-pinned either way, beside Task 0's sealed `finalize.py`, which is never overwritten. Task 0 sealed its helpers in `helpers.sha256` before rev39 changed the block, so rev39's `finalize.py` edits could never reach the sealed copy; this is the rev37 `series_verdict.rev37.py` pattern.
 
 Protocol (e): before `run-task.sh 10` the operator's ONE typed act is the GO relay's path into `$RUNNERS/task-10-go.txt`; the runner's FIRST gate binds the GO relay (an engine-filed SITREP in `.relays/intg/intg-substep2b/`, `FROM: intg.pair-planner`, `TO: intg.pair-implementer`, `TASK10_GO: yes`, `TASK10_H: <sha>`, and EXACTLY THREE `OWNER_REVIEW_H: <path> | FROM=<seat> | VERDICT=no-red` lines — one whose seat owner is `m-1`, one `m-3`, one `m-4`, three DISTINCT paths under `../pdc/master/relays/`, each relay carrying `S2B_REVIEW_OBJECT: H=<sha>`, `S2B_REVIEW_SCOPE:` and `S2B_REVIEW_VERDICT: no-red` and no red status line).
 
@@ -2725,6 +2878,16 @@ MAIN=/Users/jack/Programming/bivpak
 B=186adf7d67171bd7afe621f39b657a1a113ce299
 cd "$WORKTREE" || STOP
 v=0; (cd "$EVID" && shasum -a 256 -c helpers.sha256 > helpers.verify-10.txt 2>&1) || v=$?; [ "$v" -eq 0 ] || STOP
+# rev41: the PR-body finalizer, produced beside Task 0's sealed `finalize.py` (never overwritten) from THIS plan's block only when absent (a fresh mktemp stage in the confined work/, checked regular before and after the extract, digest-checked, then renamed into place), digest-pinned either way — before any gate, push or PR
+F41=$EVID/finalize.rev41.py
+if [ ! -e "$F41" ] && [ ! -L "$F41" ]; then
+PLANP=$(cat "$RUNNERS/plan-path.txt") || STOP; [ -s "$PLANP" ] || STOP; F41S=$(mktemp "$EVID/work/finalize.rev41.XXXXXX") || STOP; [ -f "$F41S" ] && [ ! -L "$F41S" ] && [ ! -s "$F41S" ] || STOP; x=0; python3 "$RUNNERS/plan_blocks.py" extract "$PLANP" finalize.py > "$F41S" || x=$?; [ "$x" -eq 0 ] && [ -f "$F41S" ] && [ ! -L "$F41S" ] && [ -s "$F41S" ] || STOP
+m=0; fs=$(shasum -a 256 "$F41S" | cut -d' ' -f1) || m=$?; [ "$m" -eq 0 ] && [ "$fs" = a9eec92599b4575b4c7b20a68a25da2ef645873fec75d4d7c8d5a30109f609c0 ] || STOP
+[ ! -e "$F41" ] && [ ! -L "$F41" ] || STOP; v=0; mv "$F41S" "$F41" || v=$?; [ "$v" -eq 0 ] || STOP
+fi
+[ -f "$F41" ] && [ ! -L "$F41" ] || STOP
+m=0; fs=$(shasum -a 256 "$F41" | cut -d' ' -f1) || m=$?; [ "$m" -eq 0 ] && [ "$fs" = a9eec92599b4575b4c7b20a68a25da2ef645873fec75d4d7c8d5a30109f609c0 ] || STOP
+p=0; python3 -m py_compile "$F41" || p=$?; [ "$p" -eq 0 ] || STOP
 H=$(sed 's/^H=//' "$EVID/R/H.txt") || STOP; [ -n "$H" ] || STOP   # rev39: the FINAL H is Task 9b's
 [ "$(git rev-parse HEAD)" = "$H" ] || STOP
 # Step 1 — the GO relay and the owner set
@@ -2756,7 +2919,7 @@ while IFS= read -r line; do
 done < "$EVID/work/owner-lines.txt"
 [ -s "$EVID/task-10-go.txt" ] || STOP
 [ "$(cat "$EVID/R/count-gate-final-macos.rc")" = count_gate_final_macos_rc=0 ] && [ "$(cat "$EVID/R/count-gate-final-linux.rc")" = count_gate_final_linux_rc=0 ] || STOP
-[ "$(cat "$EVID/heads/c10/linux-container.rc")" = 0 ] && [ "$(cat "$EVID/B/linux-container.rc")" = 0 ] && [ "$(cat "$EVID/R/E3-linux.rc")" = e3_linux_rc=0 ] && [ "$(cat "$EVID/R/harness-e2-macos.rc")" = harness_e2_macos_rc=0 ] && [ "$(cat "$EVID/R/harness-e2-linux.rc")" = harness_e2_linux_rc=0 ] || STOP
+[ "$(cat "$EVID/heads/c10t/linux-container.rc")" = 0 ] && [ "$(cat "$EVID/B/linux-container.rc")" = 0 ] && [ "$(cat "$EVID/R/E3-linux.rc")" = e3_linux_rc=0 ] && [ "$(cat "$EVID/R/harness-e2-macos.rc")" = harness_e2_macos_rc=0 ] && [ "$(cat "$EVID/R/harness-e2-linux.rc")" = harness_e2_linux_rc=0 ] || STOP
 [ "$(cat "$EVID/R/selftest-population.rc")" = population_equal_rc=0 ] || STOP; g=0; k=$(grep -c -E ' bar=(pass-green|pass-r435-disclosed-registered-red)$' "$EVID/R/linux-selftest-bar.txt") || g=$?; [ "$g" -eq 0 ] && [ "$k" -eq 1 ] || STOP   # rev39: the lighter re-gate admits only an EQUAL population
 u=0; git remote get-url --push --all origin > "$EVID/push-url.txt" || u=$?; [ "$u" -eq 0 ] && [ -s "$EVID/push-url.txt" ] || STOP; a=0; nurl=$(awk 'END { print NR }' "$EVID/push-url.txt") || a=$?; [ "$a" -eq 0 ] && [ "$nurl" -eq 1 ] || STOP
 [ "$(cat "$EVID/push-url.txt")" = https://github.com/iwnlcern/bivpak.git ] || STOP
@@ -2771,7 +2934,7 @@ o=0; git ls-remote --heads origin intg/substep2b-wiring > "$EVID/remote-branch-a
 if [ "$o" -ne 0 ]; then class=d; elif [ "$p" -eq 0 ] && [ "$remote_after" = "$H" ]; then class=a; elif [ "$p" -eq 0 ]; then class=e; elif [ "$remote_after" = "$H" ]; then class=c; elif [ -z "$remote_after" ]; then class=b; else class=f; fi
 printf 'class=%s\n' "$class" > "$EVID/push-class.txt"; [ "$class" = a ] || STOP
 # Step 3 — the draft PR
-w=0; python3 "$EVID/finalize.py" prbody "$EVID" "$B" "$H" > "$EVID/pr-body.md" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/pr-body.md" ] || STOP
+w=0; python3 "$F41" prbody "$EVID" "$B" "$H" > "$EVID/pr-body.md" || w=$?; [ "$w" -eq 0 ] && [ -s "$EVID/pr-body.md" ] || STOP
 g=0; k=$(grep -c -E 'sk-[A-Za-z0-9]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[abprs]-' "$EVID/pr-body.md") || g=$?; [ "$g" -eq 1 ] && [ "$k" -eq 0 ] || STOP
 q=0; gh pr create --base main --head intg/substep2b-wiring --title "pack/open: wire the repo engine and the consent fabric at product scope (sub-step 2b)" --body-file "$EVID/pr-body.md" --draft > "$EVID/pr-create.txt" 2>&1 || q=$?; printf 'pr_rc=%s\n' "$q" > "$EVID/pr.rc"; [ "$q" -eq 0 ] || STOP
 exit 0
@@ -2855,9 +3018,11 @@ exit 0
 
 14. (rev33) Task 8b: each of c8L, c8Tr, c8T applied VERBATIM from its census patch (sha256-bound, `receipts/<label>-commit.txt`) to the tree pinned in the block; at each head `heads/<label>/headgate.txt` — the canonical container rc 0, the tidy set byte-equal to the head's pinned list (32 / 31 / EMPTY with the row passed at c8T) with coverage 37/37, macOS five producers rc 0 with `failures=0`, Linux tuples `failures=0`, every other ctest row passed but `harness-selftest`; at c8Tr W-C6 GREEN with Mc5 and M-SEAM RED (`receipts/c8Tr-mutants.txt`); at c8T B1's header reproduced by the tool with exactly its three lines changed (`receipts/c8T-b1-regeneration.txt`) and M-MASK, minimum, M-SEC and B6-swap RED with truncation and B5-bix recorded (`receipts/c8T-mutants.txt`); at H0 the tidy row GREEN with zero findings (`H/tidy-H0.txt`) and, if c9 exists, at H (`H9/c9-gate.txt`); the count gate refused any failure count on both platforms; the R-4.77 series ran with its `FREQ` table (`H/selftest-series.txt`); impl-10's Task 9 outputs preserved byte-identical in `attempts/task9-H0-a83657e/` and impl-11's — with its 36-file B Linux leg — in `attempts/task9-H0-99136ca/` (`H/preserved-attempt.txt` names the latest, MANIFEST.pre == MANIFEST.post in each; `B/` holds exactly Task 0's fifteen before the B leg is re-measured); no NOLINT and no `.clang-tidy` byte in `git diff B H`.
 
-15. (rev39, MUST-H-1) Task 8c: c10 at its Files line only, on top of c9; `receipts/c10-red.txt` shows the three named cases and `divergence_envelope_conforms` RED at c9's product bytes; the same four green at c10; `receipts/c10-mutants.rev40.txt` ends in ONE `verdict=ok` line: M-H1-PRE killed by (w1)'s one case with the conforms row `Not Run` by the fixture, M-H1-SCHEMA killed by the conforms row alone with every case green, M-H1-F4 killed by (w3)'s two cases (rev40); impl-13's rev39 record preserved unchanged; `heads/c10/headgate.txt` (tidy EMPTY, coverage 37/37, macOS failures 0, container rc 0, only harness-selftest red, `divergence_envelope_conforms` run and passed).
+15. (rev39, MUST-H-1) Task 8c: c10 at its Files line only, on top of c9; `receipts/c10-red.txt` shows the three named cases and `divergence_envelope_conforms` RED at c9's product bytes; the same four green at c10; `receipts/c10-mutants.rev40.txt` ends in ONE `verdict=ok` line: M-H1-PRE killed by (w1)'s one case with the conforms row `Not Run` by the fixture, M-H1-SCHEMA killed by the conforms row alone with every case green, M-H1-F4 killed by (w3)'s two cases (rev40); impl-13's rev39 record preserved unchanged; rev41: `heads/c10/` holds impl-14's head-gate STOP (container rc 1, no `headgate.txt`), unchanged — the head gate passes at c10t (item 17).
 
-16. (rev39) Task 9b: `R/` complete — c10's path set inside its Files line and the E2 / closure / network censuses unmoved from c9; the A8 facts census, the no-spawn and zero-byte fences; the count gate against c9's cells as data; both skip sets unchanged; E3 Linux and `harness-e2` on both platforms rc 0; the selftest population EQUAL to Task 9's and the bar passed; c11 iff moved, its head gated; both final count gates rc 0; `git diff c10 H` outside the workflow EMPTY; `R/H.txt` written LAST.
+16. (rev39) Task 9b: `R/` complete — c10's path set inside its Files line and c10t's exactly `tests/test_envelope.cpp` (rev41), the E2 / closure / network censuses unmoved from c9 at c10t; the A8 facts census, the no-spawn and zero-byte fences; the count gate against c9's cells as data; both skip sets unchanged; E3 Linux and `harness-e2` on both platforms rc 0; the selftest population EQUAL to Task 9's and the bar passed; c11 iff moved, its head gated; both final count gates rc 0; `git diff c10t H` outside the workflow EMPTY; `R/H.txt` written LAST.
+
+17. (rev41) Task 8d: c10t on top of c10, `tests/test_envelope.cpp` only, +8/−2, its tree the scout's; `receipts/c10t-red.txt` records the canonical RED from impl-14's retained build log (the 18 missing-initializer errors, nothing foreign); (w3)'s two cases, `biv_tests`, `generated_envelope_conforms` and `divergence_envelope_conforms` green on macOS at c10t; `receipts/c10t-mutants.txt` ends in ONE `verdict=ok` with item 15's three named kills; `heads/c10t/headgate.txt` (tidy EMPTY, coverage 37/37, macOS failures 0, container rc 0, only harness-selftest red, `divergence_envelope_conforms` run and passed). Task 10's PR body comes from `finalize.rev41.py`, produced from this plan's block beside Task 0's sealed `finalize.py` and digest-pinned, and lists every `commits.<label>.txt` in `B..H` order.
 
 ## Out of scope (an act here is a STOP, not a judgement)
 
@@ -2886,7 +3051,7 @@ REGISTERED, not acts of this plan (rev28, R-4.72; each gating nothing here): R-4
 - `resume.sh` (rev17) — protocol step 0′: binds a NEW runners directory to a later token's lock and id while carrying Task 0's receipts and every gate file; run once per later token, before any task; its gates are the ones §Per-task runner protocol states.
 - `cells.py`, `tuples.py`, `skipset.py`, `selftest_summary.py` — verbatim. (rev36: `skipset.py` gates macOS only — B's workflow pins no Linux name set and `cells.py` writes that as `expected_skips linux absent `, which `skipset.py` does not parse; Task 9 compares the two Linux observed sets directly.)
 - `cellgate.py` — the 2b form: `cellgate.py <cells.txt> <target> <tuples.txt>` exits 0 iff every literal cell equals the observed tuple on `<target>`; prints one `MOVED <binary> literal=… observed=…` line per differing cell (data, not a STOP — a moved `biv_tests` cell is EXPECTED in this act and drives the companion commit) and `UNCHANGED <binary>` otherwise.
-- `finalize.py` — verbatim except the finalizer receipts name Task 11, and the `prbody` subcommand (the PR body from the record files).
+- `finalize.py` — verbatim except the finalizer receipts name Task 11, and the `prbody` subcommand (the PR body from the record files). rev41: Task 0 sealed its copy in `helpers.sha256` before rev39 changed the block, so Task 10 runs `$EVID/finalize.rev41.py`, produced from THIS block beside the sealed copy (never overwritten) and digest-pinned — the rev37 `series_verdict.rev37.py` pattern; `prbody` lists every `commits.<label>.txt` in `B..H` order (the rev1–rev40 form listed only the numeric labels c1–c11, omitting c1a–c1e, c3h, c4a/c4b, c6a/c6b/c6m/c6p/c6q, c8L/c8Tr/c8T, c10t and r462). Task 11's `list` and `check` are byte-identical in both copies and keep the sealed one.
 - `linux-container.sh` — the R-4.49 container (Phases R / T / S: base provision, the pinned clang-tidy-22 mirror assets, the non-root `suite` user, the branch clone at the expected head, the suite) with Phase L (the read-trace leg) REMOVED, the branch literal `intg/substep2b-wiring`, and labels `B`, `H`, `B-<n>`, `H-<n>` (the series draws).
 - `linux-suite.sh` — verbatim except the label set.
 - `git-shim.sh` — the request-trace instrument: first on the child's `PATH`, appends `argv` to `$BIV_GIT_TRACE` (one line per spawn, tab-separated, cwd first) and `exec`s the real git named by `$BIV_GIT_REAL`.
@@ -3663,7 +3828,7 @@ if __name__ == "__main__":
 #                                     == MANIFEST PATHS, in order and multiplicity; every manifest digest equals the tracked
 #                                     file's sha256 recomputed here (hashlib); every tracked file's digest equals its home
 #                                     twin's. 5 = a difference (the first ones printed); 2 = usage or an unreadable input.
-import hashlib, os, re, sys
+import hashlib, os, re, subprocess, sys
 SCRATCH = (re.compile(r"^work$"), re.compile(r"^census-raw$"), re.compile(r"^strace-[HB]\.log$"), re.compile(r"^llvm22-assets-[HB]\.[A-Za-z0-9]+$"),
            re.compile(r"^__pycache__$"), re.compile(r"^stale-ci-macos$"))
 # the FINALIZER's own controller receipts: written by run-task.sh into the home AFTER the Task 11 runner exits, so they can never
@@ -3749,7 +3914,10 @@ def main(argv):
         def rd(rel):
             p = os.path.join(evid, rel)
             return open(p, encoding="utf-8").read().strip() if os.path.isfile(p) else "(absent)"
-        commits = "\n".join("- c%s = %s" % (k, rd("commits.c%s.txt" % k)) for k in range(1, 12) if os.path.isfile(os.path.join(evid, "commits.c%s.txt" % k)))
+        labels = [f[len("commits."):-len(".txt")] for f in os.listdir(evid) if re.fullmatch(r"commits\.(c[0-9]+[A-Za-z]*|r462)\.txt", f)]
+        order = subprocess.run(["git", "rev-list", "--reverse", base + ".." + head], capture_output=True, text=True, check=True).stdout.split()
+        pos = {c: i for i, c in enumerate(order)}
+        commits = "\n".join("- %s = %s%s" % (l, rd("commits.%s.txt" % l), "" if rd("commits.%s.txt" % l) in pos else " (NOT in B..H)") for _, l in sorted((pos.get(rd("commits.%s.txt" % l), len(order)), l) for l in labels))
         legs = sorted(f for f in os.listdir(os.path.join(evid, "legs")) if f.endswith(".txt")) if os.path.isdir(os.path.join(evid, "legs")) else []
         body = ["Sub-step 2b: wire biv pack and biv open to the repo engine and the landed consent fabric at product scope (sealed M/N/O, A6/A7/A8/A9, SR-URL; the R-4.47 bar).", "",
                 "B (published pin) = %s" % base, "H0 (suite object) = %s" % rd("H0.txt"), "H (branch head) = %s" % head, "", "Commits (veto-9 mechanical order):", commits, "",
@@ -3757,7 +3925,7 @@ def main(argv):
                 "veto 9:", "```", rd("H/veto9.txt"), "```", "Count gate (final): macOS %s / linux %s; %s" % (rd("H/count-gate-final-macos.rc"), rd("H/count-gate-final-linux.rc"), rd("H/count-gate.txt")),
                 "E3 (both platforms): macOS receipt legs/E3.txt; linux %s" % rd("H/E3-linux.rc"), "harness-e2: macOS %s; linux %s" % (rd("H/harness-e2-macos.rc"), rd("H/harness-e2-linux.rc")),
                 "Selftest population: %s%s" % (rd("H/selftest-population.rc"), (" ; series " + rd("H/selftest-series.rc")) if os.path.isfile(os.path.join(evid, "H/selftest-series.rc")) else (" ; bar " + rd("H/linux-selftest-bar.txt"))),
-                "Re-gate at c10 (Task 9b, rev39): object %s; count gate %s; final macOS %s / linux %s; E3 linux %s; harness-e2 macOS %s / linux %s; population %s; bar %s" % (rd("R/H0.txt"), rd("R/count-gate.txt"), rd("R/count-gate-final-macos.rc"), rd("R/count-gate-final-linux.rc"), rd("R/E3-linux.rc"), rd("R/harness-e2-macos.rc"), rd("R/harness-e2-linux.rc"), rd("R/selftest-population.rc"), rd("R/linux-selftest-bar.txt")),
+                "Re-gate at the c10t head (Task 9b, rev39; rev41): object %s; count gate %s; final macOS %s / linux %s; E3 linux %s; harness-e2 macOS %s / linux %s; population %s; bar %s" % (rd("R/H0.txt"), rd("R/count-gate.txt"), rd("R/count-gate-final-macos.rc"), rd("R/count-gate-final-linux.rc"), rd("R/E3-linux.rc"), rd("R/harness-e2-macos.rc"), rd("R/harness-e2-linux.rc"), rd("R/selftest-population.rc"), rd("R/linux-selftest-bar.txt")),
                 "Leg receipts (%d): %s" % (len(legs), ", ".join(legs)), "Registered (S-6): %s" % rd("legs/registered.txt"),
                 "", "Merge != push != release; the release hold is ABSOLUTE. Draft until the operator's merge token."]
         sys.stdout.write("\n".join(body) + "\n")
@@ -4014,6 +4182,7 @@ exit "$suite_aggregate_rc"
 
 ## Revision history
 
+- rev41 (2026-09-26): folds impl-14's STOP (`intg-substep2b/IMPL-pair-implementer-20260926-231301.md`, `STOP-headgate container` at c10). Step 0′ and Task 8c Step 5 passed: `receipts/c10-mutants.rev40.txt` ends in `verdict=ok`, each mutant killed by its named witness. Step 6's one head gate then STOPped in the canonical Linux container on GCC 13 `-Werror=missing-field-initializers` at c10's two new failed-row initializers in `tests/test_envelope.cpp` (`:75`, `:85`), each naming five of `RepoOutcomeRow`'s fourteen members — c8L's class, re-introduced; Task 8c had proved c10 green on macOS only. NEW Task 8d: c10t, `tests/test_envelope.cpp` only (repair-13, pinned at `dbea9b75`, the commit's tree pinned to the scout's), its RED taken from impl-14's retained build log (exactly the 18 errors, nothing foreign), green on macOS, the mutant record re-taken at c10t (block `c10t-mutants.sh`, rev40's block with its head, parent, record and work names moved), and the head gate at c10t (`headgate.sh` gains the `c10t` label). The census was measured before this revision, not inferred from a stopped build: a scout at c10 plus repair-13 passed the whole canonical container (tidy 0 at 37/37, only harness-selftest red, the selftest population EQUAL to Task 9's 1055), macOS tuples equal to c10's, and the mutant record reproduced impl-14's three rows (`results/c10t-scout-20260926/`). Task 9b re-gates the c10t head: `regate.sh` binds HEAD c10t → c10 → c9, both mutant verdicts, `heads/c10t/`, c10t's one path, and the censuses and final delta against c10t. Task 10 reads `heads/c10t/`. A latent rev39 defect, found while tracing Task 10's inputs: Task 0 sealed `finalize.py` in `helpers.sha256` (verified by Tasks 9, 10 and 11) before rev39 edited the block, so rev39's re-gate line and its c10/c11 commit list could never run — the class rev37 met with `series_verdict.py`. Task 10 now produces `finalize.rev41.py` beside the sealed copy (the rev37 pattern) before any gate, push or PR, and its `prbody` lists every `commits.<label>.txt` in `B..H` order; the rev1–rev40 form listed only numeric labels, omitting the veto-9 engine commits c1a–c1e among others. `heads/c10/` stays as impl-14's STOP record. Every other block is unchanged.
 - rev40 (2026-09-26): folds impl-13's STOP (`intg-substep2b/IMPL-pair-implementer-20260926-211822.md`, `STOP-c10-mutants survived-M-H1-PRE`). c10 `2291a46` LANDED green at its ten paths, and every mutant was killed by a named witness (M-H1-PRE by (w1), M-H1-SCHEMA by the conforms row, M-H1-F4 by (w3)). But rev39's block demanded a `divergence_envelope_conforms` FAILURE under M-H1-PRE, and CTest reports that consumer `Not Run` whenever the `biv_tests` fixture it requires fails — an assertion rev39's own topology made impossible, in the one arm rev39 disclosed as unwalked. `c10-mutants.sh` rev40: each mutant is killed by the witness it NAMES — the per-mutant record carries both CTest rows' statuses and the failed Catch2 cases by name (exactly (w1)'s one case under M-H1-PRE; zero cases with the conforms row alone `Failed` under M-H1-SCHEMA; exactly (w3)'s two under M-H1-F4). The record is `receipts/c10-mutants.rev40.txt`, ending in ONE `verdict=ok` line written last; impl-13's rev39 record and work directory stay in place, the record pinned by digest. The same STOP exposed a second defect: `regate.sh` gated Task 8c on `[ -s receipts/c10-mutants.txt ]`, which impl-13's FAILED record satisfies. Task 9b now reads the rev40 record's `verdict=ok`. A third defect, found by walking Step 0′ for the NEXT token from a mirror of impl-13's runners directory: rev39's `resume.sh` bound Task 9's records to `$EVID/runners/<the previous directory's token>/task-9/`, which holds only for the FIRST successor after Task 9; from impl-13's directory it STOPs `task-9-record-mismatch`. rev40 binds them by CONTENT to exactly one token's `task-9/` record set. Task 8c resumes at Step 5 (Steps 0–4 EXECUTED under impl-13). Every other block is unchanged, `regate.sh` apart from that one line.
 - rev39 (2026-09-26): folds m-3's MUST-H-1 (owner byte review of H `2893bc53`, `../pdc/master/relays/intg-2b-wiring-act/DESIGN-planner-20260926-160359.md`, F1–F5) as carried and widened by master (`PLAN-master-planner-20260926-164725.md`, F4 the load-bearing arm across both doors), under the operator's "lighter regate pls" (2026-09-26). NEW Task 8c: c10, the failed row's `kind` and `detail` rendered and never null, the schema admitting both iff failed, a failed row lacking either a typed `InternalError`; tests first; three gating mutants (block `c10-mutants.sh`); the per-head gate, now the named block `headgate.sh`, with the `c10` / `c11` labels. NEW Task 9b: the re-gate at the c10 head (block `regate.sh`) — the censuses c10 could move, the count gate against c9's cells, both skip sets, E3 and `harness-e2`, the selftest population EQUAL to Task 9's (a moved population is a STOP routed up), the companion c11 iff moved, the FINAL H into `R/H.txt` LAST; R-4.83's whole-census form and R-4.82's plain-`mkdir` form carried for this block. Task 9 stands as EXECUTED (impl-12); nothing in its outputs moves. `resume.sh` carries Task 9's eleven receipts once Task 9 is done (Task 10's controller requires `task-9.done`; the gap would have stopped Task 10 under any later token). Task 10, Task 11 and `finalize.py` read the FINAL H and the re-gate receipts from `R/`. The topology gains c10 and c11; acceptance gains 15 and 16.
 - rev38 (2026-09-25): folds MUST-2B-52 of the implementer's exact-hash review of rev37 `82d2780a…` (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260925-171756.md`): rev37's producer redirected the extractor into a FIXED stage name, `work/series_verdict.rev37.stage`, with no lexical-absence check and no regular-file check after the extract, so a planted stage symlink carried the write outside the home before any STOP (reproduced by the implementer: an outside sentinel rewritten, then the symlink renamed into the final name), and a regular stage from an earlier failure was silently truncated. My matrix tested symlinks at the final path only. The stage is now a fresh `mktemp` file in `work/` (never a fixed name, so an earlier failed stage is kept byte-identical rather than truncated), checked regular and empty before the extract and regular and non-empty after it, then digest-checked and renamed. The same class — a `>` onto a fixed name that could be a symlink — also reached the rev29 inputs (`[ ! -e ]` is true for a DANGLING symlink) and every other fixed name Task 9 writes at the home root, in `work/` and in `B/`. So before its first write the runner now proves `work/` and `B/` physically the home's own and finds NO symlink directly under the home, `work/` or `B/`; `H/`, `H9/` and `series/` are made fresh. It also STOPs on a pre-existing `H.txt` or `commits.c9.txt`, joining the existing `series/` and `H9/` absences. m-4's strict rule, master's carry, rev36's approved fixes and every other block are unchanged.

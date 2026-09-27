@@ -1,0 +1,6 @@
+case=n-not-at-c10t rc=1 out="" stop="STOP-c10t-mutants not-at-c10t line=5" head=2291a46 dirty=0 record=no
+case=n-grandparent rc=1 out="" stop="STOP-c10t-mutants grandparent-not-c9 line=7" head=c79c063 dirty=0 record=no
+case=n-rev40-moved rc=1 out="" stop="STOP-c10t-mutants rev40-record-moved line=11" head=c79c063 dirty=0 record=no
+case=n-rev40-work-absent rc=1 out="" stop="STOP-c10t-mutants rev40-work-absent line=12" head=c79c063 dirty=0 record=no
+case=n-record-exists rc=1 out="" stop="STOP-c10t-mutants record-exists line=13" head=c79c063 dirty=0 record=yes
+case=n-dirty rc=1 out="" stop="STOP-c10t-mutants dirty line=8" head=c79c063 dirty=1 record=no

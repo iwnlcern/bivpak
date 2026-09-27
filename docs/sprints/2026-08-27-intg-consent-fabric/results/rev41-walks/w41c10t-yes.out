@@ -1,0 +1,6 @@
+case=yes rc=0 out="c10t OK c79c0633a3c46750a7af26f40c38d906d8f20345" stop="" head=c79c063 dirty=0 c10t=yes red=yes
+log=heads/c10/H/linux-build.log sha256=6b0c66e5f2882bd7eaf20b6a2dbce194b804c190bc573297d5edabd037e74404
+errors=18 at=tests/test_envelope.cpp:75,85 members=9-each distinct=18 foreign=0
+tree=36331eb01cc53efcf8dfafd803948a2cc0f765af parent=2291a46e7ff70c4c06055c8d0aab9e6709cb134d msg=test: name every RepoOutcomeRow member in c10's two failed-row initializers (Linux GCC -Werror=missing-field-initializers) -- c10t, test-only (impl-14 231301; repair-13)
+case='failed row completeness rejects a missing detail and complete rows emit no null carriers' success=true
+case='failed row completeness rejects a missing kind' success=true

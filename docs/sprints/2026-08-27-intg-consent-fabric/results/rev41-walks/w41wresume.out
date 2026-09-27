@@ -1,0 +1,20 @@
+canonical=/Users/jack/Programming/bivpak-evidence/s2b-runners-dv8k9v newlock=0140f69eeebbf410
+yes rc=0 stderr= new-dirs=1 pointer-same=no
+  published: pointer=NEW carried-lines=31 (want 31) task-9.done=rc=0 lock=0140f69eeebbf410 token=intg-substep2b-impl-15
+  carried files byte-equal to the old dir: all
+  carried t-oracle names the new lock: 1
+  task-9.sh mode: 500
+no9 rc=0 stderr= new-dirs=1 pointer-same=no
+  published: pointer=NEW carried-lines=20 (want 20) task-9.done=absent lock=0140f69eeebbf410 token=intg-substep2b-impl-15
+  carried files byte-equal to the old dir: all
+  carried t-oracle names the new lock: 1
+  task-9.sh mode: none
+done-red rc=1 stderr=STOP-resume task-9-not-done line=24 new-dirs=0 pointer-same=yes
+exit-mismatch rc=1 stderr=STOP-resume task-9-copy-mismatch-task-9.exit line=25 new-dirs=0 pointer-same=yes
+sh-altered rc=1 stderr=STOP-resume task-9-sh-altered line=26 new-dirs=0 pointer-same=yes
+record-mismatch rc=1 stderr=STOP-resume task-9-record-owner-0 line=29 new-dirs=0 pointer-same=yes
+owner-none rc=1 stderr=STOP-resume task-9-record-owner-0 line=29 new-dirs=0 pointer-same=yes
+owner-two rc=1 stderr=STOP-resume task-9-record-owner-2 line=29 new-dirs=0 pointer-same=yes
+receipt-absent rc=1 stderr=STOP-resume receipt-absent-plan-hash-9.txt line=30 new-dirs=0 pointer-same=yes
+done-symlink rc=1 stderr=STOP-resume task-9-not-done line=24 new-dirs=0 pointer-same=yes
+leftover new dirs: 0  real pointer: /Users/jack/Programming/bivpak-evidence/s2b-runners-dv8k9v

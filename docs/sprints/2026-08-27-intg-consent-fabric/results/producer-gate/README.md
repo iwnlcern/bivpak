@@ -45,3 +45,9 @@ Discriminator run on rev39 (`d5a868d3…`) with its extractor `8331c944…`, eac
 - the rev39 baseline: rc 0 — 0 orphans, 52 classified, 0 stale;
 - the rev38 baseline: rc 1 — exactly those 10 rows as ORPHAN;
 - rev39 plus one read of an unwritten `$EVID/R/unwritten.txt`: rc 1 — that one ORPHAN.
+
+rev41 baseline (2026-09-27, for impl-15): `baseline-substep2b-rev41.txt` e34d889500990dd1a0c980f541c96bdfaba7d6781749b28a4bdc51abbbcc60b5 moves the head-gate container row from `heads/c10/` to `heads/c10t/` (Task 10 now reads c10t's; c10's head gate STOPped under impl-14), and adds 2 rows for Task 10's `finalize.rev41.py` and its `mktemp` stage (the rev37 `series_verdict.rev37.py` form).
+Discriminator run on rev41 (`0140f69e…`) with its extractor `8331c944…`, each isolating its predicate:
+- the rev41 baseline: rc 0 — 0 orphans, 54 classified, 0 stale;
+- the rev39 baseline: rc 1 — exactly the three new reads as ORPHAN and the `heads/c10/` row as STALE;
+- rev41 plus one read of an unwritten `$EVID/heads/c10t/unwritten-probe.txt`: rc 1 — that one ORPHAN.

@@ -1,0 +1,35 @@
+case=yes-unchanged rc=0 out=regate OK H=5f41d0a54fdfbb9ed6430c503aed90a5511b07df R=present H0=5f41d0a H=H=5f41d0a54f c11=no head=walk c10t
+  H0-is-c10t=yes c10t-paths=tests/test_envelope.cpp
+case=yes-moved rc=0 out=regate OK H=1a324da38cc67c8be307fae99d402cafbdca79a3 R=present H0=263269d H=H=1a324da38c c11=yes head=ci: re-pin case counts at the c10t head 
+  c11-parent-is-c10t=yes
+case=not-at-c10t rc=1 out=STOP-regate not-at-c10t line=10 R=absent H0= H= c11=no head=walk c10
+case=parent-not-c10 rc=1 out=STOP-regate parent-not-c10 line=11 R=absent H0= H= c11=no head=walk c10t
+case=grandparent rc=1 out=STOP-regate grandparent-not-c9 line=12 R=absent H0= H= c11=no head=walk c10t
+case=h-mismatch rc=1 out=STOP-regate task9-H-not-c9 line=13 R=absent H0= H= c11=no head=walk c10t
+case=no-c10-red rc=1 out=STOP-regate task8c-8d-receipts line=16 R=absent H0= H= c11=no head=walk c10t
+case=no-c10t-red rc=1 out=STOP-regate task8c-8d-receipts line=16 R=absent H0= H= c11=no head=walk c10t
+case=c10-verdict-absent rc=1 out=STOP-regate task8c-mutants-verdict line=17 R=absent H0= H= c11=no head=walk c10t
+case=c10t-verdict-absent rc=1 out=STOP-regate task8d-mutants-verdict line=18 R=absent H0= H= c11=no head=walk c10t
+case=c10t-verdict-twice rc=1 out=STOP-regate task8d-mutants-verdict line=18 R=absent H0= H= c11=no head=walk c10t
+case=c10t-record-absent rc=1 out=STOP-regate task8d-mutants-verdict line=18 R=absent H0= H= c11=no head=walk c10t
+case=hg-label-c10 rc=1 out=STOP-regate headgate-c10t line=19 R=absent H0= H= c11=no head=walk c10t
+case=hg-absent rc=1 out=STOP-regate task8c-8d-receipts line=16 R=absent H0= H= c11=no head=walk c10t
+case=dirty rc=1 out=STOP-regate dirty line=20 R=absent H0= H= c11=no head=walk c10t
+case=r-exists rc=1 out=STOP-regate exists-R line=23 R=present H0= H= c11=no head=walk c10t
+case=r-dangling rc=1 out=STOP-regate exists-R line=23 R=absent H0= H= c11=no head=walk c10t
+case=c11-exists rc=1 out=STOP-regate exists-commits.c11.txt line=23 R=absent H0= H= c11=yes head=walk c10t
+case=home-symlink rc=1 out=STOP-regate home-symlink line=24 R=absent H0= H= c11=no head=walk c10t
+case=c10-foreign-path rc=1 out=STOP-regate c10-foreign-path line=30 R=present H0=9e721e9 H= c11=no head=walk c10t
+case=c10t-second-path rc=1 out=STOP-regate c10t-paths line=31 R=present H0=49e3610 H= c11=no head=walk c10t
+case=c10t-product-path rc=1 out=STOP-regate c10t-paths line=31 R=present H0=c83472b H= c11=no head=walk c10t
+case=census-moved rc=1 out=STOP-regate census-moved-E2 line=33 R=present H0=16b4124 H= c11=no head=walk c10t
+case=a8-raw rc=1 out=STOP-regate a8-raw-fact line=39 R=present H0=d78214c H= c11=no head=walk c10t
+case=failures rc=1 out=STOP-regate tuples-failures-macos line=42 R=present H0=f62ee24 H= c11=no head=walk c10t
+case=skip-linux rc=1 out=STOP-regate skipset-linux line=47 R=present H0=04e01bf H= c11=no head=walk c10t
+case=e3-red rc=1 out=STOP-regate E3-linux line=62 R=present H0=033788c H= c11=no head=walk c10t
+case=e2-mac rc=1 out=STOP-regate harness-e2-macos line=64 R=present H0=f6aa303 H= c11=no head=walk c10t
+case=foreign-red rc=1 out=STOP-regate ctest-foreign-red line=66 R=present H0=f25a906 H= c11=no head=walk c10t
+case=witness-absent rc=1 out=STOP-regate witness-row-linux line=67 R=present H0=cfe17a5 H= c11=no head=walk c10t
+case=pop-moved rc=1 out=STOP-regate population-moved line=71 R=present H0=cfdd7de H= c11=no head=walk c10t
+case=bar-red rc=1 out=STOP-regate bar-fail-not-the-one-row line=77 R=present H0=539a406 H= c11=no head=walk c10t
+case=hg-c11-red rc=1 out=STOP-regate headgate-c11 line=89 R=present H0=6b8c47b H= c11=yes head=ci: re-pin case counts at the c10t head 

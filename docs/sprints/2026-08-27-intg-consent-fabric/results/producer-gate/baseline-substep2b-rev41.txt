@@ -1,0 +1,54 @@
+RUNNERS plan-path.txt	bootstrap/resume.sh: printf > "$NEW/plan-path.txt" (runners prepared before task-0 / by Step 0')
+RUNNERS token-id.txt	resume.sh: printf "$NEWTOKEN" > "$NEW/token-id.txt"
+RUNNERS plan_blocks.py	bootstrap/resume.sh: the extractor installed into the runners dir
+RUNNERS run-task.sh	bootstrap/resume.sh: the controller installed into the runners dir
+RUNNERS run-task.sha256	bootstrap/resume.sh: the controller digest
+RUNNERS blocks.txt	bootstrap/resume.sh: plan_blocks.py list > "$NEW/blocks.txt"
+RUNNERS plan-lock.txt	resume.sh: printf "$NEWLOCK" > "$NEW/plan-lock.txt"
+EVID B	task-0 line 26: mkdir "$EVID/runners" "$EVID/B" "$EVID/H" ... (multi-operand mkdir)
+EVID H	task-0 line 26: multi-operand mkdir
+EVID work	task-0 line 26: multi-operand mkdir
+EVID census-raw	task-0 line 26: multi-operand mkdir
+EVID code	task-0 line 26: multi-operand mkdir
+EVID legs	task-0 line 26: multi-operand mkdir
+EVID receipts	task-0 line 26: multi-operand mkdir
+EVID work/ucd	task-0 line 26: multi-operand mkdir
+EVID work/ucd/DerivedCoreProperties.txt	task-0 line 78: for f in ...; curl -o "$EVID/work/ucd/$f"
+EVID work/ucd/UnicodeData.txt	task-0 line 78: for f in ...; curl -o "$EVID/work/ucd/$f"
+EVID work/rc-control	task-9: mkdir -p "$EVID/work/rc-mutant" "$EVID/work/rc-control" (multi-operand)
+EVID work/rc-mutant/pack	task-9: cp -R src/core/pack "$EVID/work/rc-mutant/"
+EVID work/rc-control/pack	task-9: cp -R src/core/pack "$EVID/work/rc-control/"
+EVID H/biv_tests-linux.xml	linux-suite.sh run_binary(): > "$OUT/$binary-linux.xml", copied out to /evidence/$LABEL
+EVID B/selftest-B.kv	selftest_summary.py <junit> <prefix>: writes <prefix>.kv (prefix "$EVID/$LABEL/selftest-$LABEL")
+EVID H/selftest-H.kv	selftest_summary.py prefix .kv
+EVID B/selftest-B.names	selftest_summary.py prefix .names
+EVID H/selftest-H.names	selftest_summary.py prefix .names
+EVID commits.c8L.txt	Task 8b commit block: printf > "$EVID/commits.$LABEL.txt" with LABEL=c8L (a variable path the literal harvest cannot expand)
+EVID commits.c8Tr.txt	Task 8b commit block: printf > "$EVID/commits.$LABEL.txt" with LABEL=c8Tr
+EVID commits.c8T.txt	Task 8b commit block: printf > "$EVID/commits.$LABEL.txt" with LABEL=c8T
+EVID receipts/c8Tr-mutants.txt	Task 8b c8Tr record block: O=$EVID/receipts/c8Tr-mutants.txt; printf ... >> "$O" (a variable path the literal harvest cannot expand)
+EVID receipts/c8T-mutants.txt	Task 8b c8T mutant block: O=$EVID/receipts/c8T-mutants.txt; printf ... >> "$O"
+EVID receipts/c8T-b1-regeneration.txt	Task 8b B1 block: O=$EVID/receipts/c8T-b1-regeneration.txt; cp "$EVID/code/c8T-header.diff" "$O"
+EVID H0.txt	read by the preservation only when present: written by an EARLIER Task 9 run (impl-10 wrote it at a83657e; present in the home); the same runner writes it again later
+EVID helpers.verify-9.txt	read by the preservation only when present: written by an EARLIER Task 9 run (impl-10; present in the home); the same runner writes it again later
+EVID H9/H/container-payload.rc	linux-container.sh copies its outputs into /evidence/$LABEL = the mounted "$EVID/H9" + H (cp -p "$OUT"/* "/evidence/$LABEL/")
+EVID H9/H/linux-run-head-receipt.txt	linux-container.sh copy-out into the mounted "$EVID/H9"/H
+EVID H9/H/linux-ledger.txt	linux-container.sh copy-out into the mounted "$EVID/H9"/H
+EVID H9/H/linux-suite-ledger.txt	linux-container.sh copy-out into the mounted "$EVID/H9"/H
+EVID H9/H/ctest-linux-H.junit.xml	linux-container.sh copy-out into the mounted "$EVID/H9"/H
+EVID work/B-leg.names	Task 9's BLEG writes its argument (BLEG() { python3 - "$EVID/B" > "$1" <<'PY' … }), called as BLEG "$EVID/work/B-leg.names" before the preservation (rev36)
+EVID work/B-leg.post	Task 9's BLEG writes its argument, called as BLEG "$EVID/work/B-leg.post" after the preservation (rev36)
+EVID series_verdict.rev37.py	Task 9 writes it through its variable (V37=$EVID/series_verdict.rev37.py, then plan_blocks.py extract … > "$V37" when absent) before any read (rev37)
+EVID work/series_verdict.rev37.XXXXXX	Task 9 creates it with mktemp (V37S=$(mktemp "$EVID/work/series_verdict.rev37.XXXXXX")) and writes the extract into "$V37S" on the same line; the literal is the mktemp template, never a fixed name (rev38)
+EVID R/H.txt	regate.sh (Task 9b, rev39): printf 'H=%s\n' "$H" > "$EVID/R/H.txt", written LAST
+EVID R/H0.txt	regate.sh (Task 9b, rev39): printf 'H0=%s\n' "$C10" > "$EVID/R/H0.txt"
+EVID R/count-gate-final-macos.rc	regate.sh (Task 9b, rev39): printf 'count_gate_final_%s_rc=%s\n' > "$EVID/R/count-gate-final-$T.rc" (for T in macos linux)
+EVID R/count-gate-final-linux.rc	regate.sh (Task 9b, rev39): the same $T loop
+EVID heads/c10t/linux-container.rc	headgate.sh c10t (Task 8d Step 6, rev41): printf '%s\n' "$o" > "$G/linux-container.rc" with G=$EVID/heads/$LABEL (c10's head gate STOPped under impl-14; Task 10 reads c10t's)
+EVID R/E3-linux.rc	regate.sh (Task 9b, rev39): printf 'e3_linux_rc=%s\n' > "$EVID/R/E3-linux.rc"
+EVID R/harness-e2-macos.rc	regate.sh (Task 9b, rev39): printf 'harness_e2_macos_rc=%s\n' > "$EVID/R/harness-e2-macos.rc"
+EVID R/harness-e2-linux.rc	regate.sh (Task 9b, rev39): printf 'harness_e2_linux_rc=%s\n' > "$EVID/R/harness-e2-linux.rc"
+EVID R/selftest-population.rc	regate.sh (Task 9b, rev39): printf 'population_equal_rc=%s\n' > "$EVID/R/selftest-population.rc"
+EVID R/linux-selftest-bar.txt	regate.sh (Task 9b, rev39): printf 'rcL=%s … bar=%s\n' > "$EVID/R/linux-selftest-bar.txt"
+EVID finalize.rev41.py	Task 10 writes it through its variable (F41=$EVID/finalize.rev41.py, then plan_blocks.py extract … into a mktemp stage, digest-checked, mv'd to "$F41" when absent) before any read (rev41; the rev37 series_verdict pattern)
+EVID work/finalize.rev41.XXXXXX	Task 10 creates it with mktemp (F41S=$(mktemp "$EVID/work/finalize.rev41.XXXXXX")) and writes the extract into "$F41S" on the same line; the literal is the mktemp template, never a fixed name (rev41)

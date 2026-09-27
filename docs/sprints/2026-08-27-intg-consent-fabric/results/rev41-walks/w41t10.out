@@ -1,0 +1,14 @@
+case=yes rc=1 stop="STOP-task-10 line=41" f41=file f41sha=a9eec92599b4 stages=0 exit=rc=1
+    1:STOP-task-10 line=41
+  producer line reached: 86 runner lines; stop after the producer: 41
+28:F41=$EVID/finalize.rev41.py
+40:[ -s "$RUNNERS/task-10-go.txt" ] || STOP; a=0; ng=$(awk '
+44:for pat in '^FROM: intg\.pair-planner$' '^TO: intg\.pair-
+case=rerun-present rc=1 stop="STOP-task-10 line=41" f41=file f41sha=a9eec92599b4 stages=0 exit=rc=1
+    1:STOP-task-10 line=41
+case=n-f41-wrong rc=1 stop="STOP-task-10 line=35" f41=file f41sha=73cb3858a687 stages=0 exit=rc=1
+    1:STOP-task-10 line=35
+case=n-f41-symlink rc=1 stop="STOP-task-10 line=34" f41=symlink f41sha=3b6dc53126b6 stages=0 exit=rc=1
+    1:STOP-task-10 line=34
+case=n-block-differs rc=1 stop="STOP-task-10 line=31" f41=absent f41sha= stages=1 exit=rc=1
+    1:STOP-task-10 line=31

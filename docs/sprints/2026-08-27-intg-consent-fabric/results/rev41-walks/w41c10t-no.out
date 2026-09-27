@@ -1,0 +1,16 @@
+case=n-not-at-c10 rc=1 out="" stop="STOP-c10t not-at-c10 line=7" head=2893bc5 dirty=0 c10t=no red=no
+case=n-dirty rc=1 out="" stop="STOP-c10t dirty line=9" head=2291a46 dirty=1 c10t=no red=no
+case=n-verdict rc=1 out="" stop="STOP-c10t c10-mutants-verdict line=12" head=2291a46 dirty=0 c10t=no red=no
+case=n-headgate-present rc=1 out="" stop="STOP-c10t c10-stop-record line=13" head=2291a46 dirty=0 c10t=no red=no
+case=n-container-rc0 rc=1 out="" stop="STOP-c10t c10-stop-record line=13" head=2291a46 dirty=0 c10t=no red=no
+case=n-log-altered rc=1 out="" stop="STOP-c10t c10-build-log-sha line=15" head=2291a46 dirty=0 c10t=no red=no
+case=n-exists-c10t rc=1 out="" stop="STOP-c10t exists-commits.c10t.txt line=16" head=2291a46 dirty=0 c10t=yes red=no
+case=n-red-foreign rc=1 out="" stop="STOP-c10t red-foreign line=21" head=2291a46 dirty=0 c10t=no red=no
+case=n-red-shape rc=0 out="c10t OK db2c758ef85cc50a51a74a77e52b5f8d641ba498" stop="" head=db2c758 dirty=0 c10t=yes red=yes
+case=n-red-distinct rc=1 out="" stop="STOP-c10t red-distinct line=22" head=2291a46 dirty=0 c10t=no red=no
+case=n-patch-sha rc=1 out="" stop="STOP-c10t patch-sha line=27" head=2291a46 dirty=0 c10t=no red=yes
+case=n-w3-case rc=1 out="" stop="STOP-c10t w3-cases line=46" head=2291a46 dirty=0 c10t=no red=yes
+case=n-index-tree rc=1 out="" stop="STOP-c10t index-tree line=51" head=2291a46 dirty=0 c10t=no red=yes
+mutant applied
+1
+case=n-red-shape rc=1 out="" stop="STOP-c10t red-shape line=20" head=2291a46 dirty=0 c10t=no red=no
