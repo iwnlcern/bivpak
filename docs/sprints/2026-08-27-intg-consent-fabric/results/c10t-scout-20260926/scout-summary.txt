@@ -1,0 +1,25 @@
+scout head (scratch clone of the candidate, commit on c10 2291a46e7ff70c4c06055c8d0aab9e6709cb134d): f9a44f2ef67395500b29e1fdcacd3adf2e1a1911 = c10 + repair-13 (tests/test_envelope.cpp only)
+repair-13 = git diff 2291a46 f9a44f2ef67395500b29e1fdcacd3adf2e1a1911; numstat: 8 2 tests/test_envelope.cpp
+the RED it repairs: impl-14's authenticated c10 head gate, heads/c10/H/linux-build.log sha256 6b0c66e5f2882bd7eaf20b6a2dbce194b804c190bc573297d5edabd037e74404: 18 errors, 18 error lines in total
+linux canonical container at the scout head (the plan's linux-container.sh / linux-suite.sh / observer-unset-names.txt, byte-equal to the home's; ubuntu:24.04 linux/amd64 --init; the verified clang-tidy-22 mirror): container_rc=0 | phase_R_base_provision_rc=0 phase_R_asset_provision_rc=0 phase_T_transition_fixture_rc=0 phase_S_suite_rc=0 | suite_aggregate_rc=0 ledger_write_failed=0 | expected=f9a44f2ef67395500b29e1fdcacd3adf2e1a1911 observed=f9a44f2ef67395500b29e1fdcacd3adf2e1a1911
+headgate.sh post-container predicates (lines 42-66 of the rev40 block, NT=0, run over the scout outputs): all pass; tidy findings=0 coverage 37/37 row green
+ctest rows not passed: fail harness-selftest;notrun safety-asan-ubsan;notrun safety-fuzz-smoke;
+linux biv_subprocess_tests linux successes=12 failures=0 expectedFailures=0 skips=0
+linux biv_repo_git_tests linux successes=6 failures=0 expectedFailures=0 skips=0
+linux biv_repo_engine_tests linux successes=82 failures=0 expectedFailures=0 skips=0
+linux biv_tests linux successes=488 failures=0 expectedFailures=0 skips=1
+linux biv_probe_tests linux successes=25 failures=0 expectedFailures=0 skips=0
+linux expected_skips_observed linux n=1 threshold-parity per-agent distribution
+selftest population at the scout head: 1055 (Task 9's H/selftest-H.kv: 1055; cmp equal)
+macOS ci-macos at the scout head (-r xml, tuples.py):
+biv_subprocess_tests macos successes=12 failures=0 expectedFailures=0 skips=0
+biv_repo_git_tests macos successes=6 failures=0 expectedFailures=0 skips=0
+biv_repo_engine_tests macos successes=82 failures=0 expectedFailures=0 skips=0
+biv_tests macos successes=486 failures=0 expectedFailures=0 skips=3
+biv_probe_tests macos successes=25 failures=0 expectedFailures=0 skips=0
+mutant record at the scout head (rev40 c10-mutants.sh with ONE substitution: the parent check HEAD~1 -> HEAD~2 against the real commits.c9.txt; scratch EVID):
+mutant=M-H1-PRE gating=yes case_rc=42 ctest_rc=8 biv_tests=failed conforms=notrun failed_cases=1
+mutant=M-H1-SCHEMA gating=yes case_rc=0 ctest_rc=8 biv_tests=passed conforms=failed failed_cases=0
+mutant=M-H1-F4 gating=yes case_rc=42 ctest_rc=8 biv_tests=failed conforms=notrun failed_cases=2
+verdict=ok
+method note: a first mutant run with commits.c9.txt set to c10 made M-H1-PRE and M-H1-SCHEMA no-ops (the block restores their files from commits.c9.txt) and they 'survived'; that run measured nothing and is not evidence.
