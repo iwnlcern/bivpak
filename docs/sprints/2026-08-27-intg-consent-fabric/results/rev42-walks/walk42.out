@@ -1,0 +1,35 @@
+exposure script map (block 85..89 -> lines 4..8):
+  4: # rev42: the exposure census — what the push publishes, me
+  5: l=0; git ls-remote origin refs/heads/main > "$EVID/exposure-
+  6: c=0; n=$(git rev-list --count "$B..$H") || c=$?; [ "$c" -eq 
+  7: g=0; git log --format='%ae%n%ce' "$B..$H" > "$EVID/exposure-
+  8: g=0; git log -p "$B..$H" > "$EVID/work/exposure-patches.txt"
+== Step 0 (preservation)
+yes rc=0 STEP0-OK /private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r42/w/yes/E/attempts/task10-1
+./helpers.verify-10.txt ./MANIFEST.pre ./MANIFEST.verify ./push-url.txt ./remote-branch-before.txt ./task-10-go.txt ./visibility.txt ./work/owner-lines.txt ./work/owner-paths.txt ./work/owner-paths.uniq 
+attempts work 
+moved bytes equal to the real files: checked
+yes rc=0 STEP0-OK none
+(second run on the emptied home: no-op expected)
+second rc=0 STEP0-OK /private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r42/w/second/E/attempts/task10-2
+push-receipt rc=1 STOP-task-10 line=3
+pr-receipt rc=1 STOP-task-10 line=3
+linked rc=1 STOP-task-10 line=4
+attempts-link rc=1 STOP-task-10 line=6
+== visibility
+vis='PUBLIC' rc=0 VIS-OK
+vis='PRIVATE' rc=0 VIS-OK
+vis='INTERNAL' rc=1 STOP-task-10 line=3
+vis='public' rc=1 STOP-task-10 line=3
+vis='' rc=1 STOP-task-10 line=3
+== exposure census (real candidate; ls-remote is a read)
+yes rc=0 EXPOSURE-OK
+intg.pair-implementer@local
+intg.pair-implementer@local
+intg.pair-implementer@local
+intg.pair-implementer@local
+wrong-B rc=1 STOP-task-10 line=5
+count-25 rc=1 STOP-task-10 line=6
+foreign-author rc=1 STOP-task-10 line=7
+secret-in-patch rc=1 STOP-task-10 line=8
+control-noop-hook rc=0 EXPOSURE-OK
