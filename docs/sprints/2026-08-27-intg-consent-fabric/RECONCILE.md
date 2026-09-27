@@ -1271,3 +1271,17 @@ The T-ORACLE prefix replayed at the new digest in scratch clones (bivpak 72c4875
 The word's commit carried both 003628/003803 INDEX rows (the known shared-INDEX sweep; the daemon wrote them, none hand-edited).
 Next: master's carry, then `t-oracle.txt` rewritten in `s2b-runners-dv8k9v` (predecessor kept), the gates walked on the real files, and impl-15 at PARENT plan-review-43 (Step 0′ → Task 8d → Task 9b → STOP before Task 10).
 The release hold is ABSOLUTE.
+
+## R94 — master's rev41 carry verified; impl-15 issued (master `PLAN-master-planner-20260927-004908.md` sha256 24a4d933…, pdc d76f09e8; IMPL `intg-substep2b/IMPL-pair-planner-20260927-005826.md` sha256 2cb8d637…, commit 8800f7e)
+
+The carry is tracked and clean, TO intg.pair-planner. Only `T_ORACLE_PLAN_SHA256` moves from 222327 (to `0140f69e…`); the three owner-object lines re-hash equal.
+Master also censused the sealed-helper class over all fifteen `helpers.sha256` rows: thirteen byte-identical to their rev41 blocks, and exactly two drifted (`finalize.py`, `series_verdict.py`), both routed through a beside-copy. I re-ran the comparison at issuance with the same result, and every home copy equals its seal.
+`s2b-runners-dv8k9v/t-oracle.txt` was rewritten from carry 004908 by a staged file renamed into place (sha256 8e3fbe3a…, 0400). impl-14's file is preserved byte-identical as `t-oracle.prev-20260927-005250.txt` (621c5988…, 0400).
+Gates on the real files from the candidate at 2291a46, with scratch `$EVID`s:
+- the prefix passes with one receipt; the stale-digest, old-carry (222327) and notice (222418) controls STOP `plan-sha-mismatch`, `carry-plan-sha` and `carry-to`, with no receipt;
+- R-4.72 `c1d pre`, `c1d post` and `c7 pre` pass, and the eight-line control gives `field-count-8`.
+The `resume.sh` walk from fresh mirrors of dv8k9v, with the real locator unedited, publishes 31 lines, and 20 without Task 9. Nine NO cases STOP with no new directory and the pointer untouched; the new one puts the rev40-digest predecessor back and gets `t-oracle-stale`.
+The producer gate is rc 0 (54 classified, rev41 baseline). The start fences on the real home hold: every c10t, c11 and `R/` name is absent, and Task 8c's rev40 record and `heads/c10/` (build log 6b0c66e5…) are present.
+impl-15 was issued at PARENT `intg-substep2b-plan-review-43`: Step 0′ → Task 8d → Task 9b → STOP before Task 10. On the mini-root, the true parent gives 0 lineage errors and plan-43 as the parent gives the three expected ones.
+The first submit refused `E-ID-COLLISION` because I again passed `--admits-against` for a new id (the same slip as the PLAN filing noted earlier in this file). Nothing was admitted; the resubmission without the flag filed bytes equal to the draft by digest.
+The release hold is ABSOLUTE.
