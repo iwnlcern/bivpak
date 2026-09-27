@@ -73,7 +73,10 @@ TEST_CASE("exit map classifies refusal, mid-fail, and usage") {
 TEST_CASE("failed row completeness rejects a missing kind") {
   biv::open::OpenReport report{};
   report.repos.push_back({.id = "repo", .relpath = "path", .outcome = "failed",
-                          .kind = std::nullopt, .detail = "failure"});
+                          .kind = std::nullopt, .detail = "failure",
+                          .sha = std::nullopt, .branch = std::nullopt, .capture_mode = std::nullopt,
+                          .remotes = {}, .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                          .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt});
   CHECK_FALSE(biv::report::failed_rows_complete(report));
 
   report.repos.front().kind = "UrlDivergenceEntryRefused";
@@ -83,7 +86,10 @@ TEST_CASE("failed row completeness rejects a missing kind") {
 TEST_CASE("failed row completeness rejects a missing detail and complete rows emit no null carriers") {
   biv::open::OpenReport report{};
   report.repos.push_back({.id = "repo", .relpath = "path", .outcome = "failed",
-                          .kind = "UrlDivergenceEntryRefused", .detail = std::nullopt});
+                          .kind = "UrlDivergenceEntryRefused", .detail = std::nullopt,
+                          .sha = std::nullopt, .branch = std::nullopt, .capture_mode = std::nullopt,
+                          .remotes = {}, .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                          .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt});
   CHECK_FALSE(biv::report::failed_rows_complete(report));
 
   report.repos.front().detail = "path: restore failed";
