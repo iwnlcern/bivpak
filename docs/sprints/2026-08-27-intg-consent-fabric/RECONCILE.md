@@ -1238,3 +1238,16 @@ impl-14 would run Step 5 and write `receipts/c10-mutants.rev40.txt`, so I hold t
 Nothing is written to `s2b-runners-r9Akl6` yet: an `amend` means rev41, and the `t-oracle.txt` rewrite would then bind a different digest.
 On `accept`: the t-oracle rewrite (carry 222327), the gates, then impl-14 as in R89. On `amend`: a rev41 that folds m-3's witness into Step 5, then review and a fresh carry.
 The release hold is ABSOLUTE.
+
+## R91 — m-3's F5 accept in; impl-14 issued (master `PLAN-master-planner-20260926-223404.md` sha256 7a424f0e… carrying m-3 `DESIGN-planner-20260926-222938.md`; IMPL `intg-substep2b/IMPL-pair-planner-20260926-224119.md` sha256 56f3a38a…)
+
+m-3 answered `F5_M_H1_PRE: accept` (one whole line; FROM m-3.planner, TO master, IN_REPLY_TO 222418). Master re-derived m-3's four schema cells at c10 and carried the word down: Step 5 records exactly as rev40 writes it, with no plan change and no re-carry.
+`s2b-runners-r9Akl6/t-oracle.txt` was rewritten from carry 222327 by a staged file renamed into place (sha256 621c5988…, mode 0400). impl-13's file is preserved byte-identical as `t-oracle.prev-20260926-223546.txt` (ccbec7ea…).
+Gates on the real files from the candidate at 2291a46, with scratch `$EVID`s:
+- the prefix passes (`t-oracle OK`); the carry-to and stale-digest controls STOP with no receipt;
+- R-4.72 `c1d pre`, `c1d post` and `c7 pre` pass; the eight-line control gives `field-count-8`.
+(A first `c7`-only run STOPped `anchor-absent`. That was my harness skipping the plan's c1d-first order, not a gate defect.)
+The rev40 `resume.sh` walk from fresh mirrors of r9Akl6 publishes 31 lines, and 20 without Task 9. The eight NO cases STOP with no new directory and the pointer untouched, and nothing was left behind.
+The producer gate is rc 0 (52 classified). The start fences on the real home hold: the rev40 record and work directory, `heads/c10`, `heads/c11`, `commits.c11.txt` and `R/` are absent, and impl-13's rev39 record and work directory are present.
+impl-14 was issued at PARENT `intg-substep2b-plan-review-41`: Step 0′ → Task 8c Steps 5–7 at c10 → Task 9b → STOP before Task 10. The lineage was walked on a mini-root: 0 lineage errors with the true parent, and the two expected ones with plan-42 as the parent.
+The release hold is ABSOLUTE.
