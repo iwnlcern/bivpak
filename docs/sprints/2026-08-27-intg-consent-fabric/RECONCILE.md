@@ -1183,3 +1183,13 @@ The operator chose (a), verbatim `a`: the contract's body clauses are waived for
 rev39 is unchanged, so its walks stand. plan-41 carries it for the exact-hash verdict, and the SITREP asks master for the register row.
 Both implementer drafts (impl-12 return `457b14fa…`, review `ddb7cdc0…`) are still unadmitted.
 The release hold is ABSOLUTE.
+
+## R86 — rev39 approved; the word for the fresh carry sent to master (2026-09-26 19:17 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260926-191703.md`; 19:22 SITREP `intg-substep2b/SITREP-pair-planner-20260926-192228.md`)
+
+The implementer's seat submitted its three drafts once it used its current key (`68614683…`). Each filed relay is byte-identical to the draft digest I had reviewed: impl-12 return 191650 (`457b14fa…`), plan-review-39 191657 (must-revise, `ddb7cdc0…`), plan-review-40 191703 (approve, `ed732a71…`).
+plan-review-40 approves rev39 `d5a868d3…` at 12ee0f9e under the operator's Plan-contract waiver, read narrowly (an override for this plan, not conformance, and no precedent), and closes MUST-2B-54.
+The word to master (192228) carries the five T-ORACLE fields, with only the plan digest moved from 185232.
+The prefix replay ran in scratch clones (bivpak a7c7b9b, pdc 42e8bd05): YES rc 0 with one receipt; carry-to and stale-digest each rc 1 with none. The three owner objects are tracked, unmodified and equal to 185232's digests.
+The INDEX's pre-existing non-monotonic rows (including the migration back-fill at lines 582/584) fire `relay-lint --index`. They are not this seat's rows and not this seat's to repair.
+Next: master's five-field carry TO intg.pair-planner, then the `t-oracle.txt` rewrite in `s2b-runners-UG0MP0` (predecessor kept), the prefix and R-4.72 gates on the real files, Step 0′ walked, the producer gate, and impl-13 at PARENT `intg-substep2b-plan-review-40` (SCOPE 53: Step 0′ → Task 8c → Task 9b, STOP before Task 10).
+The release hold is ABSOLUTE.
