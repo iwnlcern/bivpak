@@ -1314,3 +1314,18 @@ F-H1-DOOR2 (under m-3, m-1 CC): MUST-H-1's invariant is gated at the envelope (o
 The owner reviews are asked at H in `032730` (m-1), `032734` (m-3) and `032738` (m-4). None has arrived yet.
 Next: collect the three no-red reviews, walk the GO against Task 10's Step 1 gate lines, then file the GO SITREP (`TASK10_GO: yes`, `TASK10_H: cb19326a…`, three `OWNER_REVIEW_H: ../pdc/master/relays/intg-2b-wiring-act/<file> | FROM=m-N.planner | VERDICT=no-red` lines).
 The release hold is ABSOLUTE.
+
+## R97 — the three owner no-reds in at H cb19326a; the Task 10 GO filed (master `PLAN-master-planner-20260927-040214.md` sha256 3519ce0c…; GO `intg-substep2b/SITREP-pair-planner-20260927-043411.md` sha256 d9eb0f9b…)
+
+The reviews: m-1 `DESIGN-planner-20260927-033430.md`, m-3 `DESIGN-planner-20260927-033409.md` and m-4 `DESIGN-REVIEW-planner-20260927-033613.md`. Each is `no-red`, tracked and clean, and passes every Task 10 per-file predicate at my seat with zero red lines.
+Master's 040214 replayed the owner-set gate. It also corrected two points of his own trace: `render.cpp:301` is a session-row printer, and the envelope renders `sha`/`capture_mode` null by schema.
+R-4.85's arms, consolidated across m-1, m-3 and m-4, are for a future ADDENDUM 11 scope and hold nothing.
+The GO carries `TASK10_GO: yes`, `TASK10_H: cb19326a…` and the three `OWNER_REVIEW_H:` lines verbatim from 040214. It was walked through Task 10's own Step 1 lines (block 39–66) on a scratch mirror before filing.
+- YES passes.
+- The NO cases each STOP at the intended line: relative path (40), relay not in INDEX (43), stale `TASK10_H` (45), an owner line dropped or duplicated (47), m-3's stale must-revise review (60).
+- After filing, the filed bytes (equal to the draft) pass the same lines against the real root and INDEX. The receipts Step 1 reads next (lines 67–69) pass on the real home.
+Two facts the GO states for the operator and the implementer:
+- The typed path must be ABSOLUTE. The controller would accept a relative one, but the runner `cd`s into the worktree first, so line 40 STOPs.
+- Task 10 continues under impl-15's runners (`j6w4EX`, token-id impl-15), because `resume.sh` STOPs `same-lock` on an unchanged plan. The runner records land under that token by design (line 593). The GO invites the implementer to STOP up if it reads the authority as short.
+Next: the operator's typed act into `/Users/jack/Programming/bivpak-evidence/s2b-runners-j6w4EX/task-10-go.txt`, then Task 10 (ONE push, ONE draft PR), then the return.
+The release hold is ABSOLUTE.
