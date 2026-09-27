@@ -1338,3 +1338,15 @@ The controller's continuation check (plan line 3604) and Task 10's Step 1 GO/own
 The notice records the waiver for the implementer. The GO is unchanged except for its release condition.
 Next: the implementer runs Task 10 once (ONE push, ONE draft PR) and returns.
 The release hold is ABSOLUTE.
+
+## R99 — Task 10's first attempt STOPped at the controller's entry guard (no write, no remote act); successor GO filed with the exact invocation (return `intg-substep2b/IMPL-pair-implementer-20260927-044136.md` sha256 902851f6…; GO `intg-substep2b/SITREP-pair-planner-20260927-044557.md` sha256 86219667…)
+
+The implementer ran `./run-task.sh 10` once from the runners directory. The controller's line 7 requires `$0` to be exactly the absolute `$RUNNERS/run-task.sh`, so it STOPped `controller-invoked-off-path` before its first write (`plan-hash-10.txt`, line 10, absent) and before any remote probe. The implementer did not retry or reinterpret.
+The defect is mine. My GO 043411 said "runs `run-task.sh 10` ONCE from that runners directory". I walked Task 10's gate lines and the controller's continuation check, but not the controller's entry line, so the relative form went unwalked.
+The successor GO gives the exact invocation `/Users/jack/Programming/bivpak-evidence/s2b-runners-j6w4EX/run-task.sh 10`. Walk results:
+- The controller's lines 1–7, run on a mirror, pass for the absolute path (direct and via `bash`, from `/`), and STOP for `./run-task.sh` and a bare `run-task.sh`.
+- The gate lines pass YES and all six NO cases on the successor's bytes.
+The GO cites the operator's standing authorization (043806); the first attempt never reached Task 10.
+`task-10-go.txt` was re-cited to 044557 (809eec72…, 0400), the predecessor preserved as `task-10-go.prev-20260927-044608.txt` (86890681…). The continuation check and the gate lines pass on the real file.
+Next: Task 10 once by the exact invocation (ONE push, ONE draft PR), then the return.
+The release hold is ABSOLUTE.
