@@ -1207,3 +1207,17 @@ The lineage was walked on a mini-root: 0 lineage errors with the true parent, 2 
 impl-13 (PARENT `intg-substep2b-plan-review-40`, SCOPE 53, all-in; EXPECTED rows = c10's ten Files-line paths, and c11 on the workflow count cells iff moved) runs Step 0′ → Task 8c → Task 9b, then STOPs before Task 10.
 Next: the implementer's return. Then the three owner reviews at `R/H.txt`, my GO, and Task 10.
 The release hold is ABSOLUTE.
+
+## R88 — impl-13 STOPped in the c10 mutant gate; rev40 filed (2026-09-26 21:18 `intg-substep2b/IMPL-pair-implementer-20260926-211822.md`; 21:48 PLAN `intg-substep2b/PLAN-pair-planner-20260926-214841.md`)
+
+impl-13: Step 0′ published `s2b-runners-r9Akl6` (31 carried lines). Task 8c Steps 0–4 ran red → green, and c10 `2291a46` was committed at exactly its ten paths.
+Then `c10-mutants.sh` STOPped `survived-M-H1-PRE`. rev39 demanded a `divergence_envelope_conforms` failure under M-H1-PRE, but that consumer requires the `biv_tests` fixture and is `Not Run` whenever `biv_tests` fails.
+Every mutant was killed (M-H1-PRE by (w1), M-H1-SCHEMA by the conforms row, M-H1-F4 by (w3)), measured from the retained logs. The defect is mine, in the one arm rev39 disclosed as unwalked.
+rev40 `682ceb88…` (e86c891) has three block changes:
+- `c10-mutants.sh`: each mutant is killed by the witness it names (CTest row statuses plus failed Catch2 cases by name), in `receipts/c10-mutants.rev40.txt` ending in `verdict=ok`; the rev39 record is kept, pinned by digest.
+- `regate.sh`: reads that verdict. rev39's `[ -s ]` check would have admitted impl-13's FAILED record.
+- `resume.sh`: binds Task 9's records by content. Found by walking Step 0′ for impl-14 from a mirror of `r9Akl6`: rev39's binding to the previous directory's token holds only for the first successor.
+This time the mutant arm was walked FOR REAL, on a scratch clone at c10 with its own venv and build (7 min; `verdict=ok`), with ten NO cases served the real artifacts.
+plan-42 is filed TO the implementer for the exact-hash review.
+Next: review; then digest word, master carry, t-oracle in `r9Akl6`, and impl-14 (Step 0′ → Task 8c from Step 5 → Task 9b).
+The release hold is ABSOLUTE.
