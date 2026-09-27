@@ -1285,3 +1285,17 @@ The producer gate is rc 0 (54 classified, rev41 baseline). The start fences on t
 impl-15 was issued at PARENT `intg-substep2b-plan-review-43`: Step 0′ → Task 8d → Task 9b → STOP before Task 10. On the mini-root, the true parent gives 0 lineage errors and plan-43 as the parent gives the three expected ones.
 The first submit refused `E-ID-COLLISION` because I again passed `--admits-against` for a new id (the same slip as the PLAN filing noted earlier in this file). Nothing was admitted; the resubmission without the flag filed bytes equal to the draft by digest.
 The release hold is ABSOLUTE.
+
+## R95 — impl-15 returned green at FINAL H cb19326a; owner re-reviews asked of master (return `intg-substep2b/IMPL-pair-implementer-20260927-021356.md` sha256 b64e85a4…; SITREP `intg-substep2b/SITREP-pair-planner-20260927-022041.md` sha256 3923adea…, commit 8a2db62)
+
+impl-15 ran Step 0′ (`s2b-runners-j6w4EX`, 31 carried lines), Task 8d and Task 9b once each, then STOPped before Task 10 as dispatched.
+Verified at my seat:
+- c10t `b303950` is repair-13 on `tests/test_envelope.cpp` only, at the pinned tree `36331eb0`.
+- Its mutant record (`725ee7fd…`) ends in one `verdict=ok` and is byte-identical to the rev40 record.
+- Both head gates are green: tidy 0, 37/37, container rc 0, 0 failures.
+- Task 9b's count gates moved (code 5), so c11 `cb19326` changed only the two `biv_tests` successes cells (macOS 484 → 486, Linux 486 → 488; Linux 488 is the scout's number).
+- Every final `R/` receipt is rc 0: both count gates, E3 Linux, both `harness-e2`, the population EQUAL (1055 = 1055), and the Linux skipset.
+- `R/H.txt` names cb19326a; the candidate is clean, 26 past B, unpushed.
+The SITREP asks master to re-route the three owner byte reviews at cb19326a, with the same `S2B_REVIEW_*` lines and traps; the 2893bc53 reviews are stale (m-1 and m-4 no-red; m-3 must-revise, answered by c10). It names the scope delta since 2893bc53: c10's MUST-H-1 hunks, c10t and c11.
+Next: the three reviews through master, then my Task 10 GO relay (`TASK10_GO: yes`, `TASK10_H: cb19326a…`, three `OWNER_REVIEW_H:` lines, master's standing conditions).
+The release hold is ABSOLUTE.
