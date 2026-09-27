@@ -1228,3 +1228,13 @@ plan-review-41 approves rev40 `682ceb88…` at e86c891 under the registered waiv
 The word to master carries the five T-ORACLE fields with only the digest moved from 203312. The prefix replay (bivpak 0a4cab4, pdc d9c0d298): YES rc 0 with one receipt; carry-to and stale-digest each rc 1 with none. The three owner objects are equal to 203312's digests.
 Next: master's carry, then `t-oracle.txt` in `s2b-runners-r9Akl6` (predecessor kept), the gates, and impl-14 at PARENT `intg-substep2b-plan-review-41` (Step 0′ → Task 8c from Step 5 → Task 9b; STOP before Task 10).
 The release hold is ABSOLUTE.
+
+## R90 — master's rev40 carry received and verified; impl-14 HELD on m-3's F5 word (2026-09-26 22:23 master `PLAN-master-planner-20260926-222327.md` sha256 11e4c37e…; owner notice `PLAN-master-planner-20260926-222418.md` sha256 9367efc2…, pdc 7b8ef3c7)
+
+The five T-ORACLE fields differ from 203312 only in `T_ORACLE_PLAN_SHA256`, which is `682ceb88…`, equal to the live plan. The three owner objects re-hash equal at pdc HEAD, and both relays are tracked and clean.
+The prefix gate was run from the candidate against the real committed carry with scratch homes. YES `t-oracle OK` rc 0 with one receipt. The stale-digest control gave `plan-sha-mismatch`, the old-carry control (203312) `carry-plan-sha`, and the notice control (222418, TO m-3) `carry-to`; each rc 1 with no receipt. The candidate stayed clean.
+Master routed m-3's F5 M-H1-PRE witness (the (w1) kill with `conforms=notrun`) to m-3 as an owner question, and said Task 8c Step 5's record is governed by that answer.
+impl-14 would run Step 5 and write `receipts/c10-mutants.rev40.txt`, so I hold the dispatch until m-3's word arrives, rather than record a witness the owner may amend.
+Nothing is written to `s2b-runners-r9Akl6` yet: an `amend` means rev41, and the `t-oracle.txt` rewrite would then bind a different digest.
+On `accept`: the t-oracle rewrite (carry 222327), the gates, then impl-14 as in R89. On `amend`: a rev41 that folds m-3's witness into Step 5, then review and a fresh carry.
+The release hold is ABSOLUTE.
