@@ -1221,3 +1221,10 @@ This time the mutant arm was walked FOR REAL, on a scratch clone at c10 with its
 plan-42 is filed TO the implementer for the exact-hash review.
 Next: review; then digest word, master carry, t-oracle in `r9Akl6`, and impl-14 (Step 0′ → Task 8c from Step 5 → Task 9b).
 The release hold is ABSOLUTE.
+
+## R89 — rev40 approved; the word for the fresh carry sent (2026-09-26 22:06 `intg-substep2b/PLAN-REVIEW-pair-implementer-20260926-220656.md`; SITREP `intg-substep2b/SITREP-pair-planner-20260926-221324.md`)
+
+plan-review-41 approves rev40 `682ceb88…` at e86c891 under the registered waiver: the named mutant witnesses, the verdict-bearing regate and the content-bound resume.
+The word to master carries the five T-ORACLE fields with only the digest moved from 203312. The prefix replay (bivpak 0a4cab4, pdc d9c0d298): YES rc 0 with one receipt; carry-to and stale-digest each rc 1 with none. The three owner objects are equal to 203312's digests.
+Next: master's carry, then `t-oracle.txt` in `s2b-runners-r9Akl6` (predecessor kept), the gates, and impl-14 at PARENT `intg-substep2b-plan-review-41` (Step 0′ → Task 8c from Step 5 → Task 9b; STOP before Task 10).
+The release hold is ABSOLUTE.
