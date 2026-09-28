@@ -1495,3 +1495,13 @@ R-4.88 (operator): publish the 2,343-file record? (a) publish with precedent (ma
 The gap, reported to master: under rev46, (a)'s "rides the landing push" is unreachable, because Task 12 starts after the merge head is on main (after the push) and the plan never pushes main. Also, Task 12's `landing-census.txt` inside RESDIR makes `finalize.py check` fail against the sealed manifest 187a1a10.
 Forms: (a1) commit the 2,343 paths pre-landing by explicit path and write the census beside the record (recommended); (a2) re-seal plus a second authorized push. The census-outside-RESDIR change is needed under any option, which means a rev47 Task 12 byte before the token.
 Next: the operator's option word and sequencing form (via master), then rev47, then the implementer's exact-hash review, then the undraft and bare merge token. The release hold is ABSOLUTE.
+
+## R113 — the operator's R-4.88 word is (b), keep the record local (master `PLAN-master-planner-20260928-024840.md`); rev47 filed as plan-49 (`intg-substep2b/PLAN-pair-planner-20260928-032237.md`)
+
+Arm (b): the 2,343-file record is never committed and is cited by `SHA256SUMS` 187a1a10…, 2,342 rows and 2,343 files. Master's 023917 §5 is superseded by a single no-commit predicate (`git ls-files` on the record path must be empty).
+rev47 `32c93d2a` (8ef5d10) changes Task 12's prose and the LANDING row only:
+- the predicate runs in the landing act BEFORE the push of main, not in Task 12, which runs post-push;
+- the merge-head census receipt moves to `$EVID/landing/landing-census.txt`, carrying my 024612 seal point, which 024840 did not cite;
+- the closure cites the record by identity and states that it is local.
+Checks: 27/27 blocks equal; producer gate rc 0; T-ORACLE prefix present once. Predicate walk: absent and untracked PASS; add -A and committed each `STOP record-tracked-2343`; the real worktree untouched.
+Next: the implementer's exact-hash review of 32c93d2a, then the operator's undraft of PR #28 and the bare merge token, then the landing, then Task 12. The release hold is ABSOLUTE.
