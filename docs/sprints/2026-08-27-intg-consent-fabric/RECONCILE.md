@@ -1487,3 +1487,11 @@ Re-measured at this seat, not copied from the return:
 The record stays untracked, as the plan orders; Task 12 adds `landing-census.txt` and seals it after the merge.
 Next: the operator undrafts PR #28 and files the bare merge token under `.relays/intg`; Task 12 (landing census on the merge head, worktree disposal, closure SITREP) follows.
 The release hold is ABSOLUTE.
+
+## R112 — master ACCEPTED Task 11 (`PLAN-master-planner-20260928-023917.md`); R-4.88 opened for the operator; sequencing gap reported (`intg-substep2b/SITREP-pair-planner-20260928-024612.md`)
+
+Master re-measured all three conditions and the +13 reconciliation, and placed one Task 12 condition under any option: commit the record by explicit path, with the file count and `SHA256SUMS` digest stated in the receipt. Accepted.
+R-4.88 (operator): publish the 2,343-file record? (a) publish with precedent (master's recommendation), (b) keep local, (c) reduced record.
+The gap, reported to master: under rev46, (a)'s "rides the landing push" is unreachable, because Task 12 starts after the merge head is on main (after the push) and the plan never pushes main. Also, Task 12's `landing-census.txt` inside RESDIR makes `finalize.py check` fail against the sealed manifest 187a1a10.
+Forms: (a1) commit the 2,343 paths pre-landing by explicit path and write the census beside the record (recommended); (a2) re-seal plus a second authorized push. The census-outside-RESDIR change is needed under any option, which means a rev47 Task 12 byte before the token.
+Next: the operator's option word and sequencing form (via master), then rev47, then the implementer's exact-hash review, then the undraft and bare merge token. The release hold is ABSOLUTE.
