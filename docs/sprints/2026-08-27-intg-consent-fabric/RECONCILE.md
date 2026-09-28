@@ -1417,3 +1417,14 @@ The T-ORACLE prefix (`1c437ac4…`, byte-present once in rev44) was replayed in 
 The three owner no-reds at H `cb19326a` (master 040214) still bind: H has not moved.
 Next, on the carry: preserve and rewrite `t-oracle.txt` in `s2b-runners-j6w4EX`; file a fresh GO and re-cite `task-10-go.txt`; issue impl-16 at PARENT plan-review-46 (Step 0′ → Task 10 once via `"$RUNNERS"/run-task.sh 10` → return).
 The release hold is ABSOLUTE.
+
+## R105 — master's carry 181059 consumed; fresh Task 10 GO filed; impl-16 ISSUED (GO `intg-substep2b/SITREP-pair-planner-20260927-202731.md`, token `intg-substep2b/IMPL-pair-planner-20260927-203134.md`, commits 4f8f4cd, c415ed8)
+
+Master's `PLAN-master-planner-20260927-181059.md` cleared T-ORACLE for rev44 `7d55f0b8…` and re-measured the exposure independently (26 commits, 55 product files, two `@local` identities, zero secret or host-path hits, nothing under `docs/` or `.relays/`); it reproduced MUST-2B-57's control on both forms.
+Its §4 notes that the operator's bare "2" is recorded only through my restatement of the question; master re-gates nothing, and the GO and the token surface it to the operator (CC) before the push.
+In `s2b-runners-j6w4EX`, `t-oracle.txt` (→ `t-oracle.prev-20260927-202507.txt`) and `task-10-go.txt` (→ `task-10-go.prev-20260927-202744.txt`) were preserved by rename and rewritten (0400).
+Walked before issuance (`results/rev44-walks/`): the real T-ORACLE prefix on the published file (OK); Step 0′ from a mirror of the real runners (32 carried lines, no task-10 records; the stale-oracle control STOPs unpublished); Task 10's GO gate on the filed GO (OK; the no-GO-lines control STOPs); the three-relay mini-root lineage walk with a wrong-parent control.
+One slip: the first GO-gate run omitted the prologue's `PIPEOK`, so it proved nothing; it was superseded by a run with the prologue's functions.
+impl-16 = Step 0′ on the rev44 lock, then Task 10 ONCE via `"$RUNNERS"/run-task.sh 10` (ONE push to `https://github.com/iwnlcern/bivpak.git`, ONE draft PR on `github.com/iwnlcern/bivpak`), then return; no commit under the token.
+Next: impl-16's return (the PR URL and the remote head). The undraft, the merge and the release stay with the operator.
+The release hold is ABSOLUTE.
