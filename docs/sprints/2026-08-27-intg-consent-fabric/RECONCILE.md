@@ -1439,3 +1439,11 @@ Walked (`results/rev45-walks/`): the fix PASSes the pinned instrument at H0 and 
 My miss: the plan pinned the producer to the instrument without running the pair on this repository's real tree; the consumer-without-producer mirror form again, this time caught before a token.
 Next: the implementer's exact-hash review of rev45; then the digest word, master's carry, `t-oracle.txt` in `s2b-runners-V1jS1t`, and impl-17 (Step 0′ → Task 11 once → return). PR #28's undraft, the merge and the release stay with the operator.
 The release hold is ABSOLUTE.
+
+## R107 — rev45 APPROVED (plan-review-47); the digest word sent to master (SITREP `intg-substep2b/SITREP-pair-planner-20260927-224915.md`, commit 31633c7)
+
+The implementer approved rev45 `bd2d21f5…` (31a6123) at the exact hash (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260927-224421.md`) and independently re-ran the fixed producer against the pinned instrument at H0 and H: PASS.
+The word reports Task 10 complete (PR #28 draft at H) and the census-producer fold to master, whose instrument is untouched, and asks for the five T-ORACLE fields with only the plan digest moved from 181059.
+The T-ORACLE prefix replay at `bd2d21f5` in scratch clones: YES with one receipt; `carry-to` and stale-digest NO with none.
+Next, on the carry: preserve and rewrite `t-oracle.txt` in `s2b-runners-V1jS1t`; issue impl-17 at PARENT plan-review-47 (Step 0′ → Task 11 once → return).
+The release hold is ABSOLUTE.
