@@ -1,0 +1,10 @@
+canonical=/Users/jack/Programming/bivpak-evidence/s2b-runners-V1jS1t newlock=86f0f7d305567828
+(the mirror t-oracle.txt is the real published file, byte-equal)
+yes rc=0 stderr= new-dirs=1 pointer-same=no
+  owner search (Task 10): intg-substep2b-impl-16 
+  NEW s2b-runners-NHSfzx: carried-lines=43 task-9.done=rc=0 task-10.done=rc=0 task-10 receipts carried=11
+  carried byte-equal: all
+  controller task 11 rc=1 : STOP-task-11 line=26 task-11 exited 1 — STOP; the token ends here 
+  proof-11 tail: rc=0 task-11.exit: rc=1 prologue record: proof-11.txt task-11.invocation.txt task-11.sh task-11.sha256  helpers.verify-11 FAILED lines: 1
+  real MAIN results dir absent: yes
+leftover walk dirs: 0  real pointer: /Users/jack/Programming/bivpak-evidence/s2b-runners-V1jS1t

@@ -18,3 +18,9 @@ The Task 11 body itself (unchanged since rev45) was walked end to end in `result
 - NO, each in pre-flight with nothing published and the pointer unchanged: `task-10.done` rc=1 → `task-10-not-done`; the controller's `task-10.exit` copy differing → `task-10-copy-mismatch-task-10.exit`; `task-10.sh` altered → `task-10-sh-altered`; a second token directory holding the same Task 10 records → `task-10-record-owner-2`.
 - Regression: a previous directory with no Task 10 records resumes as before (32 carried lines, no `task-10.done`).
 - No walk directory is left in the evidence root; the real pointer still names `s2b-runners-V1jS1t`.
+
+## Pre-token walks for impl-17 (after master's carry 012951)
+
+- `t-oracle-replay.txt`: the T-ORACLE prefix in scratch clones against synthetic carries at `86f0f7d3` (run before the digest word): YES, `carry-to` NO, stale-digest NO.
+After the carry, `s2b-runners-V1jS1t/t-oracle.txt` was rewritten to 012951 (rev45's file kept as `t-oracle.prev-20260928-014723.txt`) and the prefix passed on the published file.
+- `w46real.sh` / `w46real.out`: the same handoff on the REAL state (the live plan, the real published `t-oracle.txt` byte-equal in the mirror): Step 0′ publishes 43 carried lines; the Task 10 owner search resolves to `intg-substep2b-impl-16`; the controller proves Task 11 and runs its prologue; the body STOPs only at the deliberately tampered helper; no walk directory left, the real pointer unchanged.
