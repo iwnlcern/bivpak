@@ -1473,3 +1473,17 @@ Pre-token handoff walk on the REAL state (`results/rev46-walks/w46real.*`, commi
 impl-17 = Step 0′ on the rev46 lock → `"$RUNNERS"/run-task.sh 11` once (local: the H0 rehearsal with `census_population.rev45.sh`, the landing declaration, the results record written uncommitted into the docs lane) → return with master's three conditions.
 Next: impl-17's return. PR #28's undraft, the merge token and the release stay with the operator.
 The release hold is ABSOLUTE.
+
+## R111 — impl-17 returned rc0: TASK 11 COMPLETE; reported to master (`intg-substep2b/SITREP-pair-planner-20260928-021758.md`)
+
+The implementer's `IMPL-pair-implementer-20260928-021324.md` returned rc 0: Step 0′ published `s2b-runners-fr9fJW`, then Task 11 ran once.
+Re-measured at this seat, not copied from the return:
+- `carried.sha256` has 43 lines and `shasum -c` over them returns 0; `task-11.exit` and `task-11.done` read rc=0.
+- `H/census-rehearsal.rc` is 0, and exactly one rehearsal line ends in `result=PASS` (81 rows, A=3 B=76 C=2, H0 as history ref).
+- The declaration's two lines name `census_population.rev45.sh` at 0c7124d7 and the instrument at 9c9391d5.
+- `results/s2b-intg-substep2b-impl-1/` holds 2,342 files plus `SHA256SUMS`, and `shasum -c` over it returns 0.
+- The rev45 walk predicted 2,329 files; a sorted-list comparison finds exactly 13 more in the real set and none missing. All 13 are impl-17's Step 0′ and token-directory records.
+- Remote `main` is at B and the branch at H; PR #28 is an OPEN draft; the candidate is clean.
+The record stays untracked, as the plan orders; Task 12 adds `landing-census.txt` and seals it after the merge.
+Next: the operator undrafts PR #28 and files the bare merge token under `.relays/intg`; Task 12 (landing census on the merge head, worktree disposal, closure SITREP) follows.
+The release hold is ABSOLUTE.
