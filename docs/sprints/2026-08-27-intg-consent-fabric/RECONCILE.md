@@ -1447,3 +1447,13 @@ The word reports Task 10 complete (PR #28 draft at H) and the census-producer fo
 The T-ORACLE prefix replay at `bd2d21f5` in scratch clones: YES with one receipt; `carry-to` and stale-digest NO with none.
 Next, on the carry: preserve and rewrite `t-oracle.txt` in `s2b-runners-V1jS1t`; issue impl-17 at PARENT plan-review-47 (Step 0′ → Task 11 once → return).
 The release hold is ABSOLUTE.
+
+## R108 — master's rev45 carry 231805 consumed; the next token's handoff walk found resume.sh never carries Task 10's receipts; rev46 filed as plan-48 (plan `86f0f7d3…` at 885e754; PLAN `intg-substep2b/PLAN-pair-planner-20260928-011122.md`, commit 21cb42f)
+
+Master's `PLAN-master-planner-20260927-231805.md` carried T-ORACLE at rev45, verified Task 10 at the published objects, ruled the census-producer fold correct as the instrument's owner (three mutants; one residual registered: at a multi-match line only the first match's class is recorded), and asked impl-17's return for the declaration lines verbatim and the rehearsal's H0 numbers.
+`t-oracle.txt` in `s2b-runners-V1jS1t` was rewritten to 231805 (predecessor `t-oracle.prev-20260928-010712.txt`); the real prefix passed on it.
+Walking impl-17's handoff (Step 0′ from a mirror of the real runners, then the sealed controller `run-task.sh 11`) STOPped at the controller's predecessor check (line 16): `resume.sh` carried Task 0's and Task 9's receipts but never Task 10's.
+rev46 changes `resume.sh` only (`c325718c…` → `e0b5eed5…`): Task 10's eleven receipts bound and carried as rev39 did Task 9's. Walked (`results/rev46-walks/`): YES through the controller into Task 11's prologue (43 carried lines); four NO cases in pre-flight; the no-Task-10 regression.
+My miss: rev45's walks ran Step 0′ and the Task 11 body separately and never the controller between them.
+Next: the implementer's exact-hash review of rev46; the digest word; master's fresh carry; `t-oracle.txt` rewritten again; impl-17.
+The release hold is ABSOLUTE.
