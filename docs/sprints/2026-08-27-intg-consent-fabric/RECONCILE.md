@@ -1505,3 +1505,12 @@ rev47 `32c93d2a` (8ef5d10) changes Task 12's prose and the LANDING row only:
 - the closure cites the record by identity and states that it is local.
 Checks: 27/27 blocks equal; producer gate rc 0; T-ORACLE prefix present once. Predicate walk: absent and untracked PASS; add -A and committed each `STOP record-tracked-2343`; the real worktree untouched.
 Next: the implementer's exact-hash review of 32c93d2a, then the operator's undraft of PR #28 and the bare merge token, then the landing, then Task 12. The release hold is ABSOLUTE.
+
+## R114 — rev47 MUST-REVISE (MUST-2B-58, `intg-substep2b/PLAN-REVIEW-pair-implementer-20260928-040246.md`); rev48 filed as plan-50 (`intg-substep2b/PLAN-pair-planner-20260928-061445.md`)
+
+MUST-2B-58: rev47's pre-push predicate `n=$(git ls-files … | wc -l | tr -d ' ')` returned `tr`'s status, so a failed `git ls-files` read as n=0 and PASSED. That shape came from master's 024840, and I carried it without a failing-producer control, which is my miss.
+rev48 `acb2ac80` (b127a02) changes the LANDING row only. The predicate is now one physical line, run as its own bash: `r=0; L=$(git ls-files -- "$REC") || r=$?`; a nonzero rc STOPs `record-ls-files-rc-<r>`, and only empty output at rc 0 PASSes.
+Walk: absent and untracked PASS; add -A and committed STOP record-tracked-2343; exit 91 with empty output, partial output then 91, and no repository (128) each STOP. Control: rev47's predicate PASSes under the failing git.
+Checks: 27/27 blocks equal; producer gate rc 0; T-ORACLE prefix present once.
+Engine: the kit auto-migrated 2.9.5 → 2.9.6 at 04:39 and removed the 2.9.5 install, so the submit failed with E-VERSION-MISMATCH. On the operator's word "restart it", this root's daemon (PID 29141, 2.9.5) was stopped and restarted on adt-master 2.9.6 (PID 34551, ready). Master's pdc daemon (PID 30006, 2.9.5) was not touched.
+Next: the implementer's exact-hash review of acb2ac80, then the operator's undraft and bare merge token, then the landing, then Task 12. The release hold is ABSOLUTE.
