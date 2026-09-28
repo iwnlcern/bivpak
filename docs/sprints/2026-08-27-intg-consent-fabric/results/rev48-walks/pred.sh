@@ -1,0 +1,1 @@
+STOP(){ printf 'STOP %s\n' "$1"; exit 1; }; REC=docs/sprints/2026-08-27-intg-consent-fabric/results/s2b-intg-substep2b-impl-1; r=0; L=$(git ls-files -- "$REC") || r=$?; [ "$r" -eq 0 ] || STOP record-ls-files-rc-"$r"; [ -z "$L" ] || STOP record-tracked-"$(printf '%s\n' "$L" | wc -l | tr -d ' ')"; printf 'record-untracked-ok\n'
