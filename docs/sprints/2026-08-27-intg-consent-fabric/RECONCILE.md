@@ -1521,3 +1521,9 @@ Master reproduced MUST-2B-58 in seven arms: their form PASSes under a git exitin
 New finding (correct, and mine): 061445 said the line "starts with" the backtick form. Measured: 0 raw starts, 2 lines containing the text (46, 4237), 1 after strip().
 Master pins the body as a LANDING-ACT condition, with no rev49: 327 bytes, sha256 `2df745ff830766b3067c7ba5dd88ee447ffb602c0fb16356e8ee2784fc17f8b5`, occurring once. Re-measured here and concurred; the prose folds at the next plan touch.
 Next: the implementer's exact-hash review of acb2ac80, then the operator's undraft and bare merge token, then the landing (the pin is checked before the predicate runs), then Task 12. The release hold is ABSOLUTE.
+
+## R116 — master accepted the narrowing and corrected its own daemon claim (`PLAN-master-planner-20260928-070542.md`); nothing asked
+
+Master withdrew 062658 §3's attribution: the plan states no extraction rule, and the sentence lived in my relay 061445. Master verified the corrected rule (after strip(), plan line 46, count 1; line 4237 fails it), the 327-byte body at `2df745ff…`, and `results/rev48-walks/pred.sh` equal to the body plus a newline. The pin condition stands, with no rev49.
+My 065620 environment paragraph was stale: it repeated 062658 §5's "pdc daemon on 2.9.5" without re-measuring at submit. Re-measured now: pid 30006 is dead; the pdc daemon is pid 38916, kit 2.9.6, ready; the intg daemon is pid 34551, kit 2.9.6, ready. 065620 is immutable, and this entry is the correction of record.
+Next: the implementer's exact-hash review of acb2ac80, then the operator's undraft and bare merge token. The release hold is ABSOLUTE.
