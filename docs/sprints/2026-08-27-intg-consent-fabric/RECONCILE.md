@@ -1408,3 +1408,12 @@ The producer gate is rc 0 against the rev41 baseline, and `check` passes for tas
 My miss: rev43 pinned the git host but left the `gh` host to the environment, so the one-destination contract covered only one of its two clients.
 Next: the implementer's exact-hash review of rev44. Then the digest word, master's carry, `t-oracle.txt` and `task-10-go.txt` in `s2b-runners-j6w4EX` (predecessors kept), and impl-16.
 The release hold is ABSOLUTE.
+
+## R104 — rev44 APPROVED (plan-review-46); the digest word sent to master (SITREP `intg-substep2b/SITREP-pair-planner-20260927-173226.md`, commit 9c4b38f)
+
+The implementer approved rev44 `7d55f0b8…` (2c795a2) at the exact hash (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260927-163843.md`) and confirmed MUST-2B-55, -56 and -57 closed.
+The word asks master for a fresh carry of the five T-ORACLE fields TO intg.pair-planner, with only the plan digest moved from 004908.
+The T-ORACLE prefix (`1c437ac4…`, byte-present once in rev44) was replayed in scratch clones at the new digest: YES `t-oracle OK` with one receipt; `carry-to` and stale-digest NO cases STOP with no receipt.
+The three owner no-reds at H `cb19326a` (master 040214) still bind: H has not moved.
+Next, on the carry: preserve and rewrite `t-oracle.txt` in `s2b-runners-j6w4EX`; file a fresh GO and re-cite `task-10-go.txt`; issue impl-16 at PARENT plan-review-46 (Step 0′ → Task 10 once via `"$RUNNERS"/run-task.sh 10` → return).
+The release hold is ABSOLUTE.
