@@ -1,0 +1,12 @@
+body map: runner line = body line + 16
+tamper rc=1 STOP-task-11 line=26 | rev45 file: bf5829baca36c806 | census-population.rc: absent | stage leftovers in work/: 0
+link rc=1 STOP-task-11 line=25 | rev45 file: symlink | census-population.rc: absent | stage leftovers in work/: 0
+yes rc=0  | rev45 file: 0c7124d75aab4fdb | census-population.rc: population_producer_rc=0 | stage leftovers in work/: 0
+  sealed census_population.sh unchanged: yes (1917222c4c329b1d)
+census_rehearsal_rc=0
+landing_census tree=36331eb01cc53efcf8dfafd803948a2cc0f765af tree_rows=81 history_refs=b3039506d0df856930dba21f5dc47a3d2
+1
+producer sha256 0c7124d75aab4fdb
+distinct_matched_strings=1 foreign_matched_strings=0 class=B-fixture-copies-only
+finalize_check_rc=0
+final set:     2329 files; rev45 producer in set: 1

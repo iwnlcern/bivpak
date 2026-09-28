@@ -1,0 +1,9 @@
+7:MAIN=/private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r44/w11/main
+body lines:       44 (runner line = body line + 16)
+task-11 body rc=1; tail: STOP-task-11 line=21 
+worktree porcelain rows before/after: 0/0
+population_producer_rc=0
+census_rehearsal_rc=1
+/private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r44/w11.sh: line 16: /private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r44/w11/rn/final-set.txt: No such file or directory
+final set:  files; binary (.pyc) in set: ; attempts/ rows: 
+resdir:  files=0 size=

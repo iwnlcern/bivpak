@@ -1,0 +1,15 @@
+20c20
+< r=0; RAW=$(git grep -n -o -E "$ALT" "$TREE" -- .) || r=$?; [ "$r" -eq 0 ] || STOP tree-producer-rc-"$r"
+---
+> r=0; RAW=$(git grep -n -E "$ALT" "$TREE" -- .) || r=$?; [ "$r" -eq 0 ] || STOP tree-producer-rc-"$r"
+26c26,27
+<   rest=${line#"$TREE:"}; pl=${rest%%:*}:; rest2=${rest#*:}; ln=${rest2%%:*}; val=${rest2#*:}; pl=${pl%:}
+---
+>   rest=${line#"$TREE:"}; pl=${rest%%:*}:; rest2=${rest#*:}; ln=${rest2%%:*}; txt=${rest2#*:}; pl=${pl%:}
+>   m=0; val=$(printf '%s' "$txt" | grep -o -E "$ALT") || m=$?; [ "$m" -eq 0 ] && [ -n "$val" ] || STOP "tree-row-no-match-at-$pl:$ln"; val=${val%%$'\n'*}   # one row per LINE, classified by its FIRST match: the instrument's own rule (its `git grep -n` + `${v%%$'\n'*}`)
+bash -n ok
+ref=b3039506 producer rc=0 (census_population tree=36331eb01cc53efcf8dfafd803948a2cc0f765af rows=81 A=3 B=76 C=2 history_paths=40 commits=1515) instrument rc=0: landing_census tree=36331eb01cc53efcf8dfafd803948a2cc0f765af tree_rows=81 history_refs=b3039506d0df856930dba21f5dc47a3d23baab56 commits=1515 history_paths=40 cl
+ref=cb19326a producer rc=0 (census_population tree=da26713cfae136e8d1cce73db69a9ecfb97966a8 rows=81 A=3 B=76 C=2 history_paths=40 commits=1516) instrument rc=0: landing_census tree=da26713cfae136e8d1cce73db69a9ecfb97966a8 tree_rows=81 history_refs=cb19326a5596bf30eab2ec2b9baeda0bc77be895 commits=1516 history_paths=40 cl
+control (sealed producer at H0, from the walk): census_rehearsal_rc=1
+
+[exited with code 0]

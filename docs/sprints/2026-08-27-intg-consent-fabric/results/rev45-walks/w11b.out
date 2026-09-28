@@ -1,0 +1,9 @@
+producer refs now: 2; sealed refs left: 0
+task-11 body rc=0; tail: 
+population_producer_rc=0
+census_rehearsal_rc=0
+landing_census tree=36331eb01cc53efcf8dfafd803948a2cc0f765af tree_rows=81 history_refs=b3039506d0df856930dba21f5dc47a3d23baab56 commits=1515 history_paths=40 classes A=3 B=76 C=2 distinct_current_dige
+distinct_matched_strings=1 foreign_matched_strings=0 class=B-fixture-copies-only
+finalize_check_rc=0
+final set:     2329 files; .pyc in set: 0; attempts/ rows: 229; rev45 producer in set: 1
+resdir: s2b-intg-substep2b-impl-1 files=2330 size= 23M
