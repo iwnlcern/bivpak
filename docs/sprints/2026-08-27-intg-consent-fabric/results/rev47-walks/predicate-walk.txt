@@ -1,0 +1,10 @@
+# rev47 no-commit predicate walk (disposable clone of bivpak@286f59a, throwaway branch)
+PASS tracked=0
+arm1 absent rc=0
+PASS tracked=0
+arm2 untracked rc=0
+STOP record-tracked-2343
+arm3 add-A (must-be-NO) rc=1
+STOP record-tracked-2343
+arm4 committed (must-be-NO) rc=1
+real worktree: ls-files=0 staged=0
