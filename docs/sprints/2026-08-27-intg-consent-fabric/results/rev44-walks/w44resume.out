@@ -1,0 +1,10 @@
+canonical=/Users/jack/Programming/bivpak-evidence/s2b-runners-j6w4EX newlock=7d55f0b86a3ccf40
+mirror t-oracle.txt == real (1 new-lock line)
+yes rc=0 stderr= new-dirs=1 pointer-same=no
+  published: pointer=NEW carried-lines=32 task-9.done=rc=0 lock=7d55f0b86a3ccf40 token=intg-substep2b-impl-16
+  carried files byte-equal to the old dir: all
+  carried: t-oracle.txt=1 task-10-go.txt=1
+  task-10 records in the NEW dir (one-shot fence inputs): 0
+  NEW path has no symlinked component: yes
+stale-oracle rc=1 stderr=STOP-resume t-oracle-stale line=32 new-dirs=0 pointer-same=yes
+real pointer unchanged: /Users/jack/Programming/bivpak-evidence/s2b-runners-j6w4EX
