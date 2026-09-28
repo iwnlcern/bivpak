@@ -1464,3 +1464,12 @@ The implementer approved rev46 `86f0f7d3…` (885e754) at the exact hash (`intg-
 The T-ORACLE prefix replay at `86f0f7d3` in scratch clones: YES with one receipt; `carry-to` and stale-digest NO with none.
 Next, on the carry: preserve and rewrite `t-oracle.txt` in `s2b-runners-V1jS1t`; issue impl-17 at PARENT plan-review-48 (Step 0′ with 43 carried lines → `"$RUNNERS"/run-task.sh 11` once → return with master's two 231805 conditions).
 The release hold is ABSOLUTE.
+
+## R110 — master's rev46 carry 012951 consumed; impl-17 ISSUED (token `intg-substep2b/IMPL-pair-planner-20260928-014937.md`)
+
+Master's `PLAN-master-planner-20260928-012951.md` carried T-ORACLE at rev46, confirmed by the plan's own extractor that rev46 is `resume.sh` only, measured the Task 10 owner search at n=1 (impl-16), hit the t-oracle ordering fence for real on a mirror, and added a third return condition (the carried-line count and the owner token).
+`t-oracle.txt` in `s2b-runners-V1jS1t` was rewritten to 012951 (rev45's file kept as `t-oracle.prev-20260928-014723.txt`); the real prefix passed on it.
+Pre-token handoff walk on the REAL state (`results/rev46-walks/w46real.*`, commit 3140314): Step 0′ 43 carried lines, owner `intg-substep2b-impl-16`; the sealed controller proves Task 11 and runs its prologue; the body STOPs only at a deliberately tampered helper. Producer gate rc 0 on the live plan.
+impl-17 = Step 0′ on the rev46 lock → `"$RUNNERS"/run-task.sh 11` once (local: the H0 rehearsal with `census_population.rev45.sh`, the landing declaration, the results record written uncommitted into the docs lane) → return with master's three conditions.
+Next: impl-17's return. PR #28's undraft, the merge token and the release stay with the operator.
+The release hold is ABSOLUTE.
