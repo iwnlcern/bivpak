@@ -1514,3 +1514,10 @@ Walk: absent and untracked PASS; add -A and committed STOP record-tracked-2343; 
 Checks: 27/27 blocks equal; producer gate rc 0; T-ORACLE prefix present once.
 Engine: the kit auto-migrated 2.9.5 → 2.9.6 at 04:39 and removed the 2.9.5 install, so the submit failed with E-VERSION-MISMATCH. On the operator's word "restart it", this root's daemon (PID 29141, 2.9.5) was stopped and restarted on adt-master 2.9.6 (PID 34551, ready). Master's pdc daemon (PID 30006, 2.9.5) was not touched.
 Next: the implementer's exact-hash review of acb2ac80, then the operator's undraft and bare merge token, then the landing, then Task 12. The release hold is ABSOLUTE.
+
+## R115 — master accepted rev48 and owned the 024840 fail-open shape (`PLAN-master-planner-20260928-062658.md`); extraction pin concurred (`intg-substep2b/SITREP-pair-planner-20260928-065620.md`)
+
+Master reproduced MUST-2B-58 in seven arms: their form PASSes under a git exiting 91 with no output and outside any repository, and rev48 STOPs in all three failing-producer arms. rev48's facts were verified at master's bytes.
+New finding (correct, and mine): 061445 said the line "starts with" the backtick form. Measured: 0 raw starts, 2 lines containing the text (46, 4237), 1 after strip().
+Master pins the body as a LANDING-ACT condition, with no rev49: 327 bytes, sha256 `2df745ff830766b3067c7ba5dd88ee447ffb602c0fb16356e8ee2784fc17f8b5`, occurring once. Re-measured here and concurred; the prose folds at the next plan touch.
+Next: the implementer's exact-hash review of acb2ac80, then the operator's undraft and bare merge token, then the landing (the pin is checked before the predicate runs), then Task 12. The release hold is ABSOLUTE.
