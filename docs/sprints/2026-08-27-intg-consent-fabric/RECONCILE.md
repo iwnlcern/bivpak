@@ -1457,3 +1457,10 @@ rev46 changes `resume.sh` only (`c325718c…` → `e0b5eed5…`): Task 10's elev
 My miss: rev45's walks ran Step 0′ and the Task 11 body separately and never the controller between them.
 Next: the implementer's exact-hash review of rev46; the digest word; master's fresh carry; `t-oracle.txt` rewritten again; impl-17.
 The release hold is ABSOLUTE.
+
+## R109 — rev46 APPROVED (plan-review-48); the digest word sent to master (SITREP `intg-substep2b/SITREP-pair-planner-20260928-012153.md`, commit 6290753)
+
+The implementer approved rev46 `86f0f7d3…` (885e754) at the exact hash (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260928-012006.md`), independently adding a `task-10-without-task-9` control, and noted the real oracle correctly still names rev45 until master's fresh carry.
+The T-ORACLE prefix replay at `86f0f7d3` in scratch clones: YES with one receipt; `carry-to` and stale-digest NO with none.
+Next, on the carry: preserve and rewrite `t-oracle.txt` in `s2b-runners-V1jS1t`; issue impl-17 at PARENT plan-review-48 (Step 0′ with 43 carried lines → `"$RUNNERS"/run-task.sh 11` once → return with master's two 231805 conditions).
+The release hold is ABSOLUTE.
