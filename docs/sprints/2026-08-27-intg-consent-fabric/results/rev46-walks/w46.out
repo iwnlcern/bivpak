@@ -1,0 +1,15 @@
+canonical=/Users/jack/Programming/bivpak-evidence/s2b-runners-V1jS1t newlock=86f0f7d305567828
+(the mirror's t-oracle.txt names the scratch rev46 digest, so the t-oracle pre-flight passes; the real file names rev45 until master's carry for rev46)
+yes rc=0 stderr= new-dirs=1 pointer-same=no
+  NEW s2b-runners-JorShW: carried-lines=43 task-9.done=rc=0 task-10.done=rc=0 task-10 receipts carried=11
+  carried byte-equal: all
+  controller task 11 rc=1 : STOP-task-11 line=26 task-11 exited 1 — STOP; the token ends here 
+  proof-11 tail: rc=0 task-11.exit: rc=1 prologue record: proof-11.txt task-11.invocation.txt task-11.sh task-11.sha256  helpers.verify-11 FAILED lines: 1
+  real MAIN results dir absent: yes
+notdone rc=1 stderr=STOP-resume task-10-not-done line=33 new-dirs=0 pointer-same=yes
+copymis rc=1 stderr=STOP-resume task-10-copy-mismatch-task-10.exit line=34 new-dirs=0 pointer-same=yes
+shalt rc=1 stderr=STOP-resume task-10-sh-altered line=35 new-dirs=0 pointer-same=yes
+owner2 rc=1 stderr=STOP-resume task-10-record-owner-2 line=37 new-dirs=0 pointer-same=yes
+no10 rc=0 stderr= new-dirs=1 pointer-same=no
+  no10: carried-lines=32 task-10.done=absent
+leftover walk dirs: 0  real pointer: /Users/jack/Programming/bivpak-evidence/s2b-runners-V1jS1t

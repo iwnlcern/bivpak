@@ -1,0 +1,6 @@
+canonical=/Users/jack/Programming/bivpak-evidence/s2b-runners-V1jS1t newlock=bd2d21f5c2e5681b old task-10.done=rc=0
+resume rc=0 stderr= NEW=s2b-runners-CncASJ
+  NEW: carried-lines=32 lock=bd2d21f5c2e5681b token=intg-substep2b-impl-17 task-9.done=rc=0 task-10.done=ABSENT
+controller task 11 rc=1 : STOP-controller-task-11 line=16
+  task-11.sh created: no
+walk dir removed; real pointer: /Users/jack/Programming/bivpak-evidence/s2b-runners-V1jS1t
