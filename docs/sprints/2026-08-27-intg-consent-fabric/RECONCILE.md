@@ -1428,3 +1428,14 @@ One slip: the first GO-gate run omitted the prologue's `PIPEOK`, so it proved no
 impl-16 = Step 0′ on the rev44 lock, then Task 10 ONCE via `"$RUNNERS"/run-task.sh 10` (ONE push to `https://github.com/iwnlcern/bivpak.git`, ONE draft PR on `github.com/iwnlcern/bivpak`), then return; no commit under the token.
 Next: impl-16's return (the PR URL and the remote head). The undraft, the merge and the release stay with the operator.
 The release hold is ABSOLUTE.
+
+## R106 — Task 10 COMPLETE (impl-16: FINAL H pushed once, class a; draft PR #28); the pre-token Task 11 walk found a census-producer defect; rev45 filed as plan-47 (plan `bd2d21f5…` at 31a6123; PLAN `intg-substep2b/PLAN-pair-planner-20260927-221259.md`, commit 8e45baf)
+
+impl-16's return (`intg-substep2b/IMPL-pair-implementer-20260927-213948.md`) was verified at my seat: task-10 rc 0, push class a, remote `intg/substep2b-wiring` == H `cb19326a`, remote `main` == B, PR https://github.com/iwnlcern/bivpak/pull/28 OPEN and DRAFT at H, the candidate clean.
+Before issuing a Task 11 token I walked its body on a full clone of the real evidence home: the census rehearsal STOPs `tree-delta` at H0. The sealed Task 0 producer (`git grep -n -o`, one row per match) and the pinned instrument (`git grep -n`, one row per line) disagree on 3 lines holding two matches; the sets are identical.
+The landing census would have STOPped the same way at the merge head.
+rev45 fixes the `census_population.sh` block (one row per line, first match) and has Task 11 produce `census_population.rev45.sh` beside the sealed copy, pinned `0c7124d7…` (the rev41 finalize pattern); the population and the landing declaration use it.
+Walked (`results/rev45-walks/`): the fix PASSes the pinned instrument at H0 and H; the derived rev45 Task 11 body runs rc 0 on a clone (finalize check rc 0; 2,329 files); tampered and symlinked beside-copies STOP. Producer gate rc 0 on the new `baseline-substep2b-rev45.txt` (rev41's plus two classified rows).
+My miss: the plan pinned the producer to the instrument without running the pair on this repository's real tree; the consumer-without-producer mirror form again, this time caught before a token.
+Next: the implementer's exact-hash review of rev45; then the digest word, master's carry, `t-oracle.txt` in `s2b-runners-V1jS1t`, and impl-17 (Step 0′ → Task 11 once → return). PR #28's undraft, the merge and the release stay with the operator.
+The release hold is ABSOLUTE.
