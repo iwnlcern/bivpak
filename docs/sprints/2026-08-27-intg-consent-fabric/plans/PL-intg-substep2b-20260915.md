@@ -54,6 +54,13 @@ LANDING            the operator's bare merge token under .relays/intg from the o
                    produced on the predicted merge); its PASS line is the receipt `$EVID/landing/landing-census.txt`; exit 1 means NO push. The value
                    guard is GLOBAL over the merge's whole tree and whole reachable history; `path:line` is pinned only over the product prefixes;
                    Task 11's declaration (the rev45 producer + `9c9391d5…`) is SUPERSEDED for the landing and stays as the H0 rehearsal record
+                   rev50 (master 233421, R-4.90's logic applied to the census line; plus the extraction rule master 062658 asked to be folded): BEFORE
+                   the push the landing act EXTRACTS and PINS BOTH executed lines, each as the single plan line that, after `strip()`, begins with a
+                   backtick followed by its prefix and ends with a backtick, the enclosing backticks removed: (1) prefix `STOP(){ printf` — 327 bytes,
+                   sha256 `2df745ff830766b3067c7ba5dd88ee447ffb602c0fb16356e8ee2784fc17f8b5`; (2) prefix `bash docs/sprints/2026-08-27-intg-consent-fabric/
+                   results/landing-2b/intg-2b-landing-census.sh` — 221 bytes, sha256 `af8c1927462f5e40cf775419ae6c1d3070ba9e7fa1713248f9f7d50b42b7b3ad`,
+                   checked BEFORE `<merge>` is substituted (the merge sha in BOTH positions: tree ref and history ref) and `$EVID` is set; any count
+                   other than one, or any digest mismatch, is a STOP and NO push; each runs as its own `bash` process
 CLOSURE            the commission-closure SITREP is the LAST task (Task 12): final pin, FOUR worktrees disposed with receipts, evidence homes sealed
                    and named, open residuals handed to owners by row; no further act routes to the pair without a fresh commission
 ```
@@ -4242,6 +4249,7 @@ exit "$suite_aggregate_rc"
 
 ## Revision history
 
+- rev50 (2026-09-28): the LANDING row only; no block changes, and neither executed line's bytes move. This folds master `PLAN-master-planner-20260928-233421.md`: the census invocation (221 bytes, `af8c1927…`) is pinned exactly as the R-4.90 predicate is (327 bytes, `2df745ff…`). Re-hashing the instrument and the population protects the inputs but not the ARGUMENTS, and a mis-extracted line with a pre-merge history ref would scan fewer commits silently. It also states the extraction rule for both lines as it actually runs (after `strip()`, a backtick plus the prefix, a closing backtick, the backticks removed; master 062658 and 070542).
 - rev49 (2026-09-28): the landing census only; no block changes. It carries master's `PLAN-master-planner-20260928-211118.md` (arm (A): an accepted-value SET of (kind, sha256), with digest `6b5faf37…` as class C and digest `f419886e…` as class B) and R-4.92 operator arm (a) carried by `…-212748.md`. A scout on the predicted merge (`results/landing-scout-2b/`) showed the pinned producer STOPping on two values that entered with the docs lane after the R-4.49 landing, and the rev3 instrument's two-slot header and global location diffs could never pass a tree that holds the governance record. New tracked artifacts in `docs/sprints/2026-08-27-intg-consent-fabric/results/landing-2b/`:
   - `census_population.rev49.sh` (`2d7dcdd6d73928b13a11c16287febd95ba660b360991251c943f3e39a77c42c6`) writes ONLY the SET and the product rows.
   - `population-product-2b.txt` (`79b89c382ab60a349bb2a529f616a7cb23c20e98115ecf60b0a844df1bb21c00`) is produced at H and is byte-equal when produced on the predicted merge.

@@ -1,0 +1,7 @@
+# rev50 census-line pin check (the plan's stated rule), YES on the plan and must-be-NO on two scratch mutants
+census-line-pin-ok
+yes rc=0
+STOP census-line-digest
+mutant pre-merge-history-ref rc=1
+STOP census-line-count-2
+mutant duplicated-line rc=1
