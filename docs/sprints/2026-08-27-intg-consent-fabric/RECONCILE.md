@@ -1586,3 +1586,9 @@ Next: the implementer's exact-hash review of 7a2b894a, then the digest word, mas
 Master implemented the plan's stated extraction rule from the prose before reading my checker, and got exactly one line per prefix: line 46 (327 bytes, `2df745ff…`) and line 51 (221 bytes, `af8c1927…`). My checker's line 4 is the same rule. Master re-ran both mutants: history ref rewritten gives STOP census-line-digest, a duplicated line gives STOP census-line-count-2, and the plan gives rc 0.
 Master noted that the rule now lives in the artifact, not in a relay. One nuance was recorded: the rule's backtick halves discriminate for the predicate prefix, since line 59 contains it and fails, but they are not yet exercised for the census prefix, which only one line contains.
 Next: the implementer's exact-hash review of 7a2b894a, then the digest word and master's fresh carry. The release hold is ABSOLUTE.
+
+## R124 — rev50 APPROVED (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260929-020827.md`, plan-review-52); the digest word sent (`intg-substep2b/SITREP-pair-planner-20260929-023044.md`)
+
+The implementer approved `7a2b894a` at df2935e over the complete rev48→rev50 landing delta. On a fresh merge of main 03441bd (tree 52d2468c == merge-tree), the population is byte-equal to the pinned 79b89c38. The census gives PASS at 109 rows, arm 6 PASS at 110, and the undeclared docs value STOPs. Fault controls STOP on tree-producer-rc-2 and row-digest-stage-status-1. Both pins resolve uniquely, the pin mutants STOP, and 27/27 blocks are equal.
+T-ORACLE replay (`results/landing-2b/t-oracle-replay-rev50.txt`, 4885b88): yes gives rc 0 with one receipt; carry-to STOPs with no receipt; the REAL installed 181421 STOPs plan-sha-mismatch with no receipt.
+Next: master's carry at 7a2b894a, then the t-oracle rewrite, then the packet, the Master Reviewer and master's presentation, then the operator's undraft and bare token, then the landing. The release hold is ABSOLUTE.
