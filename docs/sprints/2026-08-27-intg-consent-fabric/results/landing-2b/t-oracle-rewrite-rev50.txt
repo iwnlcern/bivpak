@@ -1,0 +1,24 @@
+# t-oracle rewrite from master carry PLAN-master-planner-20260929-023528.md (pdc fcfdc7cd), 20260929-024715
+-r--------@ t-oracle.prev-20260928-182626.txt
+-r-------- t-oracle.prev-20260929-024715.txt
+-r-------- t-oracle.txt
+c31aafdb850a9bf5aa32597746ecd16bb47d9daa37e17de1776aabce35445c0b  /Users/jack/Programming/bivpak-evidence/s2b-runners-fr9fJW/t-oracle.txt
+2ab8c840fa3da3c0a6ac6acd544996bd28772c9b4d309ae29f66ebaaa78acdc5  /Users/jack/Programming/bivpak-evidence/s2b-runners-fr9fJW/t-oracle.prev-20260929-024715.txt
+--- new t-oracle.txt
+m1_request=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260919-131720.md
+m1_relay=master/relays/intg-2b-wiring-act/DESIGN-planner-20260919-155106.md
+carry_relay=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260929-023528.md
+plan_sha256=7a2b894a98ff3da7107a51f0088a7bb29829c6ee8edd8889c821deb619cdcc2f
+--- real prefix (RUNNERS=real, EVID=scratch so the sealed c4a receipt is untouched), from the bivpak root
+t-oracle OK
+rc=0
+--- receipt
+window=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260919-032924.md sha256=a199b971903421e7dc5aff49ff3a23a2da63a43cf0739130c3bde11a4166c7a1
+m3_relay=master/relays/intg-2b-wiring-act/DESIGN-planner-20260919-033307.md sha256=20c9f24d0652285298ca88bd67d66d3cd861d1ebc2093b6606d76a1d4a9554e7
+m1_request=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260919-131720.md sha256=6e5b30237723b57712750183a2a16417776e455d28fad8b90f02dba4f5adfe66
+m1_relay=master/relays/intg-2b-wiring-act/DESIGN-planner-20260919-155106.md sha256=e706797eb23dc5b1e16f38b6794d3f46a20191212b4d32f0f9f0b83c0e204375
+carry_relay=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260929-023528.md sha256=3a82f305042509c45b26ecbcd998a7c535327760de62185642d2c8f1a063a6de
+plan_sha256=7a2b894a98ff3da7107a51f0088a7bb29829c6ee8edd8889c821deb619cdcc2f
+--- sealed evidence receipt unchanged:
+f412b45540bd7370d956461312b46e9ed75ce2373e8b6902a4d88603cf61f731  /Users/jack/Programming/bivpak-evidence/s2b-intg-substep2b-impl-1-y3iCLB/code/c4a-t-oracle.txt
+resume.sh line-40 predicate k=1
