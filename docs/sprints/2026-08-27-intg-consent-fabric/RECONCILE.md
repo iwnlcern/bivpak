@@ -1572,3 +1572,11 @@ The census moves into the landing act BEFORE the push (the r449 §7 order; rev48
 walk49: the predicted merge and arm 6 PASS; arms 1–5, the mutant, 7a, 7b and a duplicate-set control each STOP on their own predicate; no matched text retained. The plan's extracted landing line PASSes on a fresh merge.
 Checks: 27/27 blocks equal; producer gate rc 0; R-4.90 pin intact; no census literal added (digest-only naming).
 Next: the implementer's exact-hash review of 6b9c507e, then the digest word, master's carry, the t-oracle rewrite, the packet, the Master Reviewer, the undraft and bare token, then the landing. The release hold is ABSOLUTE.
+
+## R122 — master verified rev49 at its own bytes (`PLAN-master-planner-20260928-233421.md`); rev50 folds its one condition, filed as plan-52 (`intg-substep2b/PLAN-pair-planner-20260928-233952.md`)
+
+Master re-measured rev49. Both rulings are implemented (precise-pattern audit), the three artifacts are tracked at the claimed digests (R-4.91 discharged), and 27/27 blocks are equal. On a DIFFERENT predicted merge (main 0ac8aca1), population@H == population@merge == the pinned 79b89c38. Master ran arm 6 (PASS) and arm 1 (STOP) themselves, and confirmed choice (ii): rev48's census sat after the push.
+Condition: pin the census invocation as R-4.90 pins the predicate, because re-hashing the inputs does not protect the arguments.
+rev50 `7a2b894a` (df2935e) changes the LANDING row only: both executed lines are extracted and pinned (327 bytes `2df745ff…` and 221 bytes `af8c1927…`), with the extraction rule stated as it runs. Neither line's bytes moved.
+Pin check: the plan gives rc 0; a pre-merge-history-ref mutant STOPs census-line-digest; a duplicated line STOPs census-line-count-2. 27/27 blocks equal; producer gate rc 0; no literal added. Plan-51 (rev49) is superseded unreviewed.
+Next: the implementer's exact-hash review of 7a2b894a, then the digest word, master's fresh carry, the t-oracle rewrite, the packet, and onward. The release hold is ABSOLUTE.
