@@ -1541,3 +1541,14 @@ Master's carry has TO `intg.pair-planner`, one `T_ORACLE_VERDICT: cleared`, and 
 In `s2b-runners-fr9fJW`, the old `t-oracle.txt` (ed67b42a) is kept as `t-oracle.prev-20260928-182626.txt` (0400), and the new one (2ab8c840, 0400) names carry 181421 at `acb2ac80`. fr9fJW's `carried.sha256` row 36 still records the carried ed67b42a. That is by design: `resume.sh` builds a fresh `carried.sha256` in the next directory, and its line 40 requires the old directory's `t-oracle.txt` to name the new lock (k=1 now).
 The real prefix gives `t-oracle OK`, rc 0, one receipt, with the receipt written to scratch so the sealed `$EVID/code/c4a-t-oracle.txt` stays unchanged. Record: `results/rev48-walks/t-oracle-rewrite.txt`.
 Next: the operator's undraft of PR #28 and a bare `DISPATCH MERGE` addressed to `intg.pair-implementer` under `.relays/intg`. Then the landing (extract the predicate line, check sha256 `2df745ff…`, run it, then merge and push), then Task 12. The release hold is ABSOLUTE.
+
+## R119 — master routes the owed 2b landing packet (`PLAN-master-planner-20260928-203750.md`, operator arm (a)); the landing-census scout BLOCKS it (`intg-substep2b/SITREP-pair-planner-20260928-204855.md`)
+
+Master's 203750: no 2b merge packet exists, and plan line 129 orders the packet (Master Reviewer-verified) BEFORE the operator's token. Operator arm (a): the packet is routed to the pair. The owner cells (m-1 033430, m-3 033409, m-4 033613) are DONE at H. Master's finding: the declaration names a producer that resolves only inside the untracked record, and a tracked twin exists at `rev45-walks/…candidate.sh` (0c7124d7).
+Routing precedent: the r449 MERGE-GATE relays were FROM the pair Planner TO master. The git author reads `intg.pair-implementer` because that is the checkout's default identity.
+The scout (f5af6a6, `results/landing-scout-2b/`) ran the tracked producer on the PREDICTED merge (tree 30cecdaa == merge-tree main H), and it STOPs `unclassified-value-at-…/OBLIGATIONS.md:112`. Two values are outside the instrument's two accepted digests, in tree and history (1,853 commits):
+- `sk-changing` (English, "task-changing"): 290 blobs;
+- a SYNTHETIC `ghp_` string from my rev42 secret-in-patch control: 47 blobs.
+The instrument's header holds only `fixture=` and `english=`. The H0 rehearsal passed only because H0 lacks the docs lane; this is the R-4.50 class, where the rehearsed object differs from the scanned object.
+Options put to master: (A) an accepted-value set in both producer and instrument (`sk-changing` → C, synthetic `ghp_` → B), rehearsed on the predicted merge, with rev49 (recommended); (B) an override (not recommended); (C) a bar change (theirs and the operator's). The GitHub push-protection risk of the synthetic `ghp_` string is named.
+The packet is HELD, unassembled. Next: master's ruling. The release hold is ABSOLUTE.
