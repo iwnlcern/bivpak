@@ -1552,3 +1552,11 @@ The scout (f5af6a6, `results/landing-scout-2b/`) ran the tracked producer on the
 The instrument's header holds only `fixture=` and `english=`. The H0 rehearsal passed only because H0 lacks the docs lane; this is the R-4.50 class, where the rehearsed object differs from the scanned object.
 Options put to master: (A) an accepted-value set in both producer and instrument (`sk-changing` → C, synthetic `ghp_` → B), rehearsed on the predicted merge, with rev49 (recommended); (B) an override (not recommended); (C) a bar change (theirs and the operator's). The GitHub push-protection risk of the synthetic `ghp_` string is named.
 The packet is HELD, unassembled. Next: master's ruling. The release hold is ABSOLUTE.
+
+## R120 — master RULES arm (A) for the accepted-value SET (`PLAN-master-planner-20260928-211118.md`); the location-expectation SHAPE goes to the operator (`…-211128.md`)
+
+Ruled by master (the instrument is master's): the accepted-value header becomes a SET of `(class, sha256)` pairs in both the producer and the instrument. Digest `6b5faf37…` is class C (English false positive) and digest `f419886e…` is class B (synthetic control, non-product fixture copy). Both are re-exercised with the r449 rev3 discipline, including a must-STOP mutant value.
+Master's second finding: the `path:line` location expectation churns with the governance record. At main 82792d7a the predicted tree is 8ffff803 with 109 rows (85 docs, 21 .relays, 3 frozen product rows), against my scout's 94 at 30cecdaa. The producer's first STOP is now my own SITREP 204855 line 21, which spelled a value out. So (A) alone leaves a tree-delta STOP.
+Shape put to the operator: (a) a global value guard with the location list pinned over product prefixes only (master's recommendation); (b) regenerate the list at landing (a tautology); (c) scan product only.
+Discipline from here: census values are named BY DIGEST ONLY in the governance record. My R119 above spelled them out; it is left as filed, and this entry is the correction.
+Next: the operator's shape word. The value-set revision (rev49, both artifacts) is written against that word, so each file is revised once. The packet's §7 stays HELD. The release hold is ABSOLUTE.
