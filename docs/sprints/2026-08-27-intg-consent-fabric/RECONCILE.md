@@ -1534,3 +1534,10 @@ The implementer approved `acb2ac80` at b127a02 and closed MUST-2B-58. Independen
 The word to master carries the five carry fields; only the plan digest moves from 012951, and the three owner objects re-hashed equal at pdc d02790be.
 T-ORACLE prefix replay (`results/rev48-walks/t-oracle-replay.txt`, 6b829a0): yes gives rc 0 with one receipt; carry-to STOPs at line 28 with no receipt; stale-digest (012951 unchanged) STOPs plan-sha-mismatch with no receipt.
 Next: master's carry for acb2ac80. Then I rewrite `t-oracle.txt` (the predecessor kept by rename) and run the real prefix. Then the operator's undraft of PR #28 and the bare merge token, then the landing (pin 2df745ff checked first), then Task 12. The release hold is ABSOLUTE.
+
+## R118 — master's rev48 carry consumed (`PLAN-master-planner-20260928-181421.md`); `t-oracle.txt` rewritten; the real prefix passes
+
+Master's carry has TO `intg.pair-planner`, one `T_ORACLE_VERDICT: cleared`, and the five fields as sent in 175741; only the plan digest moved, to `acb2ac80`. It is tracked in pdc at bf04c95e. Master's stale control ran against the real installed file (012951, rev46 digest) and STOPped with plan-sha-mismatch.
+In `s2b-runners-fr9fJW`, the old `t-oracle.txt` (ed67b42a) is kept as `t-oracle.prev-20260928-182626.txt` (0400), and the new one (2ab8c840, 0400) names carry 181421 at `acb2ac80`. fr9fJW's `carried.sha256` row 36 still records the carried ed67b42a. That is by design: `resume.sh` builds a fresh `carried.sha256` in the next directory, and its line 40 requires the old directory's `t-oracle.txt` to name the new lock (k=1 now).
+The real prefix gives `t-oracle OK`, rc 0, one receipt, with the receipt written to scratch so the sealed `$EVID/code/c4a-t-oracle.txt` stays unchanged. Record: `results/rev48-walks/t-oracle-rewrite.txt`.
+Next: the operator's undraft of PR #28 and a bare `DISPATCH MERGE` addressed to `intg.pair-implementer` under `.relays/intg`. Then the landing (extract the predicate line, check sha256 `2df745ff…`, run it, then merge and push), then Task 12. The release hold is ABSOLUTE.
