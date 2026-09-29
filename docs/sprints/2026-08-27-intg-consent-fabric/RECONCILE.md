@@ -1592,3 +1592,11 @@ Next: the implementer's exact-hash review of 7a2b894a, then the digest word and 
 The implementer approved `7a2b894a` at df2935e over the complete rev48→rev50 landing delta. On a fresh merge of main 03441bd (tree 52d2468c == merge-tree), the population is byte-equal to the pinned 79b89c38. The census gives PASS at 109 rows, arm 6 PASS at 110, and the undeclared docs value STOPs. Fault controls STOP on tree-producer-rc-2 and row-digest-stage-status-1. Both pins resolve uniquely, the pin mutants STOP, and 27/27 blocks are equal.
 T-ORACLE replay (`results/landing-2b/t-oracle-replay-rev50.txt`, 4885b88): yes gives rc 0 with one receipt; carry-to STOPs with no receipt; the REAL installed 181421 STOPs plan-sha-mismatch with no receipt.
 Next: master's carry at 7a2b894a, then the t-oracle rewrite, then the packet, the Master Reviewer and master's presentation, then the operator's undraft and bare token, then the landing. The release hold is ABSOLUTE.
+
+## R125 — MERGE-GATE filed (`intg-substep2b/MERGE-GATE-pair-planner-20260929-025641.md`, sha256 `5b5af65f…`, new id `intg-substep2b-merge-packet`)
+
+The packet `results/intg-substep2b-merge-gate.md` (sha256 `ac3186b4…`, 148ab1a) is presented to master for the Master Reviewer's verification and master's own-bytes presentation, per 203750 arm (a).
+It is HELD at H `cb19326a`: cells 1–3 are DONE and cell 4 is PENDING.
+The §7 landing walk (`results/landing-2b/landing-walk-7.txt`) passed end to end against a local bare remote; the zsh refspec trap is fixed in §7 (5).
+Before filing, the relay's cited facts were grepped against the packet bytes, the draft was scanned (zero census literals), and the filed digest was compared to the draft (equal).
+Next: the Master Reviewer's verification, then master's presentation, then the operator's undraft of PR #28 and the bare DISPATCH MERGE, then the implementer's landing act per §7, then Task 12. The release hold is ABSOLUTE.
