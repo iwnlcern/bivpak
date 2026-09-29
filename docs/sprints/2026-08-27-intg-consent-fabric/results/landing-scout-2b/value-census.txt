@@ -1,0 +1,12 @@
+# 2b landing-census scout: the pinned producer's alternation over the PREDICTED merge of local main + H (scratch clone; merge tree 30cecdaae27fccf5ac77c182e5e743a163b236c0 == git merge-tree --write-tree main H)
+# values masked unless all-lowercase English; digests are sha256 of the matched value
+## tree arm (first match per line, the producer's rule)
+fixture lines=90 paths=45 value=sk-complete sha256=2b3d813effb1ac2021683332d9bc74477e9d7bf5a9bc47a95a8c725de0562150
+english lines=2 paths=2 value=sk-structured sha256=5d64f445c82a86cf123096105cd0d3a763abce9db9d67f366b5694c3b483f380
+UNCLASSIFIED lines=1 paths=1 value=sk-changing sha256=6b5faf3733f8e6f844543b9b1886fd780a0333658081240dfa1c55e7fce655df at=docs/sprints/2026-08-27-intg-consent-fabric/OBLIGATIONS.md:112
+UNCLASSIFIED lines=1 paths=1 value=ghp_<masked len=34> sha256=f419886e26c74511ac3a28b1f9f8a7dff3ad6196518b8445d5b441c565b917e2 at=docs/sprints/2026-08-27-intg-consent-fabric/results/rev42-walks/walk42.sh:27
+## history arm (git grep -h -o over every commit reachable from the predicted merge; 1853 commits)
+fixture blob_hits=42990 value=sk-complete sha256=2b3d813effb1ac2021683332d9bc74477e9d7bf5a9bc47a95a8c725de0562150
+english blob_hits=1518 value=sk-structured sha256=5d64f445c82a86cf123096105cd0d3a763abce9db9d67f366b5694c3b483f380
+UNCLASSIFIED blob_hits=290 value=sk-changing sha256=6b5faf3733f8e6f844543b9b1886fd780a0333658081240dfa1c55e7fce655df
+UNCLASSIFIED blob_hits=47 value=ghp_<masked len=34> sha256=f419886e26c74511ac3a28b1f9f8a7dff3ad6196518b8445d5b441c565b917e2
