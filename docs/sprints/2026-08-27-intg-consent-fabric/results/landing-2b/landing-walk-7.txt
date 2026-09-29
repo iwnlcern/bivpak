@@ -1,0 +1,20 @@
+# 2b landing §7 walk (scratch clone; origin = a local bare repo holding main at B)
+(0) pin1 count=1 ok=True
+(0) pin2 count=1 ok=True
+(1) main-before=49a671f23dda2d63a05944c3e59f7a902a2308e7 merge-base=186adf7d67171bd7afe621f39b657a1a113ce299 nondocs=0 overlap=0
+(1) predicted=17437055f99e90bd3819e2a8078dd4a67a5f10e2
+(2) merge tree==predicted: yes parents=3 trailers=0 product-delta-H..merge=0
+(3) census rc=0 landing_census_2b tree_rows=109 commits=1869 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+record-untracked-ok
+(4) predicate rc=0
+error: failed to push some refs to '<scratch>/remote.git'
+(5) dry-run rc=1
+error: src refspec f1187e5a59b66914cc56d02ebf4709a24b75dba6efs/heads/main does not match any
+error: failed to push some refs to '<scratch>/remote.git'
+(5) push rc=1 ls-remote==merge: NO
+--- step (5) re-run with the brace-quoted refspec (zsh: a bare $M:refs fires the :r modifier)
+   <B7>..<M7>  f1187e5a59b66914cc56d02ebf4709a24b75dba6 -> main
+(5) dry-run rc=0
+(5) push rc=0 ls-remote==merge: yes
+--- negative: the bare form in zsh
+error: failed to push some refs to '<scratch>
