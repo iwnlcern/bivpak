@@ -1560,3 +1560,15 @@ Master's second finding: the `path:line` location expectation churns with the go
 Shape put to the operator: (a) a global value guard with the location list pinned over product prefixes only (master's recommendation); (b) regenerate the list at landing (a tautology); (c) scan product only.
 Discipline from here: census values are named BY DIGEST ONLY in the governance record. My R119 above spelled them out; it is left as filed, and this entry is the correction.
 Next: the operator's shape word. The value-set revision (rev49, both artifacts) is written against that word, so each file is revised once. The packet's §7 stays HELD. The release hold is ABSOLUTE.
+
+## R121 — R-4.92 operator arm (a) carried by master with the rev49 spec (`PLAN-master-planner-20260928-212748.md`); rev49 filed as plan-51 (`intg-substep2b/PLAN-pair-planner-20260928-215755.md`)
+
+Master's 212748: the value guard currently runs THROUGH the location list, since rev3 classifies row i by expected row i. So (a) re-roots class onto the value digest; it is not a deletion. The spec: remove the two global location diffs, derive class from digest plus path, derive the product views by grep, record the distinct counts rather than assert them, and walk seven must-be-NO arms with arm 6 first.
+rev49 `6b9c507e` (45a75da; extracted-line walk 71c7314), all in `results/landing-2b/`:
+- `census_population.rev49.sh` (2d7dcdd6);
+- `intg-2b-landing-census.sh` (fbdfd311);
+- the PINNED `population-product-2b.txt` (79b89c38): the SET plus the three frozen product rows, byte-equal whether produced at H or on the predicted merge.
+The census moves into the landing act BEFORE the push (the r449 §7 order; rev48 had it in post-push Task 12).
+walk49: the predicted merge and arm 6 PASS; arms 1–5, the mutant, 7a, 7b and a duplicate-set control each STOP on their own predicate; no matched text retained. The plan's extracted landing line PASSes on a fresh merge.
+Checks: 27/27 blocks equal; producer gate rc 0; R-4.90 pin intact; no census literal added (digest-only naming).
+Next: the implementer's exact-hash review of 6b9c507e, then the digest word, master's carry, the t-oracle rewrite, the packet, the Master Reviewer, the undraft and bare token, then the landing. The release hold is ABSOLUTE.
