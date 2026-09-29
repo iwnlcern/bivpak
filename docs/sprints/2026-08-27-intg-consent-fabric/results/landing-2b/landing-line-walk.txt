@@ -1,0 +1,7 @@
+# the rev49 LANDING line, extracted from the committed plan (45a75da, 6b9c507e) and run from the repository root of a fresh scratch clone at main 45a75da merged with H
+extracted_lines=1
+EVID=<scratch-evid>
+bash docs/sprints/2026-08-27-intg-consent-fabric/results/landing-2b/intg-2b-landing-census.sh <merge> docs/sprints/2026-08-27-intg-consent-fabric/results/landing-2b/population-product-2b.txt "$EVID/landing/census" <merge>
+input pins re-hashed: instrument fbdfd311e73122e654b7afc1cc980b53bf41b0bfbfee7e56f292312de1be2ed4 population 79b89c382ab60a349bb2a529f616a7cb23c20e98115ecf60b0a844df1bb21c00
+rc=0
+landing_census_2b tree=2a7af95fa3bde8962265de6be12208894e24ff57 tree_rows=109 history_refs=<merge> commits=1858 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
