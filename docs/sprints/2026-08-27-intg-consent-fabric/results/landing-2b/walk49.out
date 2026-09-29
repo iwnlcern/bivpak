@@ -1,0 +1,22 @@
+main=8425e6ebfdf52bc79cc2fa04de0d9e55c66ba5ce H=cb19326a5596bf30eab2ec2b9baeda0bc77be895 predicted_merge_tree=7ec1e3b5b5b00c1f399fb074e85f9743480a25e9 merge_tree_of_main_H=7ec1e3b5b5b00c1f399fb074e85f9743480a25e9
+census_population_rev49 tree=da26713cfae136e8d1cce73db69a9ecfb97966a8 tree_rows=81 A=3 B=76 C=2 product_rows=3 (tree_rows and the class counts are DATA; only the SET and the product rows are written)
+producer@H rc=0
+census_population_rev49 tree=7ec1e3b5b5b00c1f399fb074e85f9743480a25e9 tree_rows=109 A=3 B=92 C=14 product_rows=3 (tree_rows and the class counts are DATA; only the SET and the product rows are written)
+producer@merge rc=0
+population@H == population@merge (byte-equal)
+population sha256=79b89c382ab60a349bb2a529f616a7cb23c20e98115ecf60b0a844df1bb21c00
+--- YES and arm 6 (the positive churn control) first
+yes-predicted-merge                rc=0  landing_census_2b tree=7ec1e3b5b5b00c1f399fb074e85f9743480a25e9 tree_rows=109 commits=1857 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+arm6-docs-row-accepted-value       rc=0  landing_census_2b tree=0353af027f89e64555a69ef5cc8fcf9fbed6ed81 tree_rows=110 history_refs=HEAD commits=1858 history_paths=52 classes A=3 B=92 C=15 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+--- must-be-NO arms, each on its own predicate
+arm1-undeclared-docs-tree          rc=1  STOP-landing-census line=49 reason=undeclared-value-at-docs/walk-arm1.md:1
+arm2-undeclared-history-only       rc=1  STOP-landing-census line=70 reason=undeclared-historical-value-093b51fe5da77df5
+arm3-product-row-added             rc=1  STOP-landing-census line=57 reason=product-view-delta
+arm4-product-row-removed           rc=1  STOP-landing-census line=57 reason=product-view-delta
+arm5-product-history-path          rc=1  STOP-landing-census line=75 reason=product-history-delta
+mutant-row-1                       rc=1  STOP-landing-census line=49 reason=undeclared-value-at-.relays/intg/intg-countgate/SITREP-pair-planner-20260905-081300.md:1
+arm7a-tree-producer-partial-rc2    rc=1  STOP-landing-census line=39 reason=tree-producer-rc-2
+arm7b-digest-stage-full-then-rc1   rc=1  STOP-landing-census line=48 reason=row-digest-stage-status-1
+control-set-duplicate              rc=1  STOP-landing-census line=31 reason=accepted-set-duplicate
+--- the retention rule: no matched text under any OUT_DIR
+files_with_matched_text=0
