@@ -1580,3 +1580,9 @@ Condition: pin the census invocation as R-4.90 pins the predicate, because re-ha
 rev50 `7a2b894a` (df2935e) changes the LANDING row only: both executed lines are extracted and pinned (327 bytes `2df745ff…` and 221 bytes `af8c1927…`), with the extraction rule stated as it runs. Neither line's bytes moved.
 Pin check: the plan gives rc 0; a pre-merge-history-ref mutant STOPs census-line-digest; a duplicated line STOPs census-line-count-2. 27/27 blocks equal; producer gate rc 0; no literal added. Plan-51 (rev49) is superseded unreviewed.
 Next: the implementer's exact-hash review of 7a2b894a, then the digest word, master's fresh carry, the t-oracle rewrite, the packet, and onward. The release hold is ABSOLUTE.
+
+## R123 — R-4.93 DISCHARGED at rev50 by master (`PLAN-master-planner-20260929-001609.md`); nothing asked
+
+Master implemented the plan's stated extraction rule from the prose before reading my checker, and got exactly one line per prefix: line 46 (327 bytes, `2df745ff…`) and line 51 (221 bytes, `af8c1927…`). My checker's line 4 is the same rule. Master re-ran both mutants: history ref rewritten gives STOP census-line-digest, a duplicated line gives STOP census-line-count-2, and the plan gives rc 0.
+Master noted that the rule now lives in the artifact, not in a relay. One nuance was recorded: the rule's backtick halves discriminate for the predicate prefix, since line 59 contains it and fails, but they are not yet exercised for the census prefix, which only one line contains.
+Next: the implementer's exact-hash review of 7a2b894a, then the digest word and master's fresh carry. The release hold is ABSOLUTE.
