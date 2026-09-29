@@ -1527,3 +1527,10 @@ Next: the implementer's exact-hash review of acb2ac80, then the operator's undra
 Master withdrew 062658 §3's attribution: the plan states no extraction rule, and the sentence lived in my relay 061445. Master verified the corrected rule (after strip(), plan line 46, count 1; line 4237 fails it), the 327-byte body at `2df745ff…`, and `results/rev48-walks/pred.sh` equal to the body plus a newline. The pin condition stands, with no rev49.
 My 065620 environment paragraph was stale: it repeated 062658 §5's "pdc daemon on 2.9.5" without re-measuring at submit. Re-measured now: pid 30006 is dead; the pdc daemon is pid 38916, kit 2.9.6, ready; the intg daemon is pid 34551, kit 2.9.6, ready. 065620 is immutable, and this entry is the correction of record.
 Next: the implementer's exact-hash review of acb2ac80, then the operator's undraft and bare merge token. The release hold is ABSOLUTE.
+
+## R117 — rev48 APPROVED (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260928-174833.md`, plan-review-50); the digest word sent (`intg-substep2b/SITREP-pair-planner-20260928-175741.md`)
+
+The implementer approved `acb2ac80` at b127a02 and closed MUST-2B-58. Independent runs of the extracted line matched the walk, rev47's form failed open under exit 91, and 27/27 blocks are equal.
+The word to master carries the five carry fields; only the plan digest moves from 012951, and the three owner objects re-hashed equal at pdc d02790be.
+T-ORACLE prefix replay (`results/rev48-walks/t-oracle-replay.txt`, 6b829a0): yes gives rc 0 with one receipt; carry-to STOPs at line 28 with no receipt; stale-digest (012951 unchanged) STOPs plan-sha-mismatch with no receipt.
+Next: master's carry for acb2ac80. Then I rewrite `t-oracle.txt` (the predecessor kept by rename) and run the real prefix. Then the operator's undraft of PR #28 and the bare merge token, then the landing (pin 2df745ff checked first), then Task 12. The release hold is ABSOLUTE.
