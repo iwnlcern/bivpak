@@ -1,0 +1,109 @@
+extracted 6 zsh blocks from §7
+run.zsh sha256=666e2e9b9d6e93eb packet sha256=c78cdeb980390ee2
+== YES: the real lane state -> every step passes, ONE push, remote main == M
+  main-before=d33543e436d3a8ac97c97c711750070bf48f87c6
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d33543e436d3a8ac97c97c711750070bf48f87c6 predicted=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 precheck-ok precheck-history-ok
+Merge made by the 'ort' strategy.
+ .github/workflows/s2-harness.yml                   |    8 +-
+ CMakeLists.txt                                     |   32 +-
+ harness/bivharness/compare.py                      |   38 +-
+ harness/bivharness/manifest.py                     |   21 +-
+ harness/bivharness/scenario.py                     |   21 +-
+ harness/scenarios/d-git-restore.json               |  116 ++
+ harness/scenarios/fxd3-open-offline.json           |  101 ++
+ harness/scenarios/shells/d-git-restore.json        |    8 -
+ .../manifest-repo-entry-shape-v1.schema.json       |   99 ++
+ harness/selftest/test_compare.py                   |   82 +
+ harness/selftest/test_envelope.py                  |   22 +-
+ harness/selftest/test_manifest.py                  |  105 ++
+ harness/selftest/test_probe_isolation.py           |   26 +
+ harness/selftest/test_specs.py                     |    5 +-
+ harness/tolerance/tolerance-v1.json                |    1 +
+ schemas/biv-exit-map.v1.json                       |   13 +-
+ schemas/biv-json-envelope.v1.schema.json           |   76 +
+ src/cli/args.cpp                                   |   13 +
+ src/cli/args.hpp                                   |    2 +
+ src/cli/consent_display_table.hpp                  |   50 +
+ src/cli/main.cpp                                   |  165 +-
+ src/cli/url_consent.cpp                            |  257 ++-
+ src/cli/url_consent.hpp                            |   28 +
+ src/core/open/open.cpp                             |  861 +++++++++-
+ src/core/open/open.hpp                             |   33 +
+ src/core/pack/pack.cpp                             |  469 +++++-
+ src/core/pack/pack.hpp                             |    7 +
+ src/core/repo/classify.cpp                         |   28 +-
+ src/core/repo/discover.cpp                         |   15 +-
+ src/core/repo/eligibility.cpp                      |   13 +-
+ src/core/repo/eligibility.hpp                      |    5 +-
+ src/core/repo/git.cpp                              |    3 +
+ src/core/repo/git.hpp                              |    1 +
+ src/core/repo/git_exec.cpp                         |    1 +
+ src/core/repo/git_exec.hpp                         |    1 +
+ src/core/repo/restore.cpp                          |  189 ++-
+ src/core/repo/restore.hpp                          |    2 +
+ src/core/report/envelope.cpp                       |  123 +-
+ src/core/report/envelope.hpp                       |    4 +
+ src/core/scan/scan.cpp                             |  188 ++-
+ src/core/scan/scan.hpp                             |   29 +
+ src/core/support/error.cpp                         |   22 +-
+ src/core/support/error.hpp                         |   13 +-
+ tests/cli_run.hpp                                  |  331 ++++
+ tests/test_cli.cpp                                 | 1760 +++++++++++++++++++-
+ tests/test_envelope.cpp                            |  141 +-
+ tests/test_open.cpp                                |  293 +++-
+ tests/test_pack.cpp                                |  612 ++++++-
+ tests/test_probe.cpp                               |   16 +-
+ tests/test_repo_engine.cpp                         |  895 +++++++++-
+ tests/test_repo_git.cpp                            |    2 +
+ tests/test_scan.cpp                                |  175 +-
+ tests/test_url_consent.cpp                         |  257 +++
+ tests/test_wiring.cpp                              |  720 ++++++++
+ tools/gen_consent_display_table.py                 |   71 +
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+ create mode 100644 harness/scenarios/d-git-restore.json
+ create mode 100644 harness/scenarios/fxd3-open-offline.json
+ delete mode 100644 harness/scenarios/shells/d-git-restore.json
+ create mode 100644 harness/schemas/manifest-repo-entry-shape-v1.schema.json
+ create mode 100644 src/cli/consent_display_table.hpp
+ create mode 100644 tests/cli_run.hpp
+ create mode 100644 tests/test_url_consent.cpp
+ create mode 100644 tests/test_wiring.cpp
+ create mode 100644 tools/gen_consent_display_table.py
+M=63c4df5e1242d696becef07f0243eea652269467
+census rc=0 landing_census_2b tree=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 tree_rows=109 history_refs=63c4df5e1242d696becef07f0243eea652269467 commits=1889 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+index rc=0 record-untracked-ok
+history rc=0 record-history-clean-ok
+dry-run rc=0
+To <scratch>/yes-remote.git
+   186adf7d..63c4df5e  63c4df5e1242d696becef07f0243eea652269467 -> main
+the ONE non-force push of M=63c4df5e1242d696becef07f0243eea652269467 begins now; it is SPENT on use; no retry under this token
+To <scratch>/yes-remote.git
+   186adf7d..63c4df5e  63c4df5e1242d696becef07f0243eea652269467 -> main
+push rc=0
+ls-remote rc=0 main=63c4df5e1242d696becef07f0243eea652269467
+landing-pushed-ok M=63c4df5e1242d696becef07f0243eea652269467
+  [yes] zsh rc=0 ; remote main=63c4df5e1242d696becef07f0243eea652269467 ; clone HEAD=63c4df5e1242d696becef07f0243eea652269467
+  remote==M: yes
+census landing-census.txt pin-census.txt pin-history.txt pin-index.txt pre-history-cb19326a5596bf30eab2ec2b9baeda0bc77be895.sh pre-history-d33543e436d3a8ac97c97c711750070bf48f87c6.sh push-attempt.txt push-dry-run.txt push-result.txt record-history.txt record-index.txt run-census.sh run-history.sh step1.txt step2.txt 
+== NO-a: an info/grafts file present -> STOP at the step (1) pre-check, BEFORE the merge; remote untouched
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+STOP precheck graft-rc=0 shallow=false replace=0
+  [noa] zsh rc=1 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299 ; clone HEAD=d33543e436d3a8ac97c97c711750070bf48f87c6
+  no merge made: yes
+== NO-b: a record file committed then removed on main (docs lane only) -> the step (1) history pre-check STOPs BEFORE the merge; remote untouched
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+STOP precheck-history-4960bb568a219aa02ce5f4fad71214939868780d rc=1 STOP record-in-history-2
+  [nob] zsh rc=1 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299 ; clone HEAD=4960bb568a219aa02ce5f4fad71214939868780d
+  no merge made: yes
+== NO-d: the same history, with the step (1) pre-check blocks REMOVED from run.zsh (the rev-1-shaped sequence) -> the step (4) gate still STOPs, after the merge; remote untouched
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+ValueError: substring not found
+WALK-ABORT nopre

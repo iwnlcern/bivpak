@@ -1,0 +1,121 @@
+extracted 6 zsh blocks from §7; run.zsh sha256=666e2e9b9d6e93eb472e44ac39c3e46d2f816bd42165071691e8f50348acefd1
+# expected: yes -> landing-pushed-ok, 2 push invocations (dry run + one), remote == M
+# expected: every PRE-push sink -> STOP receipt-write <name>, rc 1, 0 push invocations, remote == B
+# expected: sink-push-result.txt (post-push) -> the push happens (2 invocations, remote == M), then STOP post-push ... receipt-write-failed=1 ... NO retry, rc 1
+== yes
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d33543e436d3a8ac97c97c711750070bf48f87c6 predicted=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 precheck-ok precheck-history-ok
+Merge made by the 'ort' strategy.
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+M=b0b074b754699babf31d5f9124ba4a671e564cbc
+census rc=0 landing_census_2b tree=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 tree_rows=109 history_refs=b0b074b754699babf31d5f9124ba4a671e564cbc commits=1889 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+index rc=0 record-untracked-ok
+history rc=0 record-history-clean-ok
+dry-run rc=0
+To <scratch>/yes-remote.git
+   186adf7d..b0b074b7  b0b074b754699babf31d5f9124ba4a671e564cbc -> main
+the ONE non-force push of M=b0b074b754699babf31d5f9124ba4a671e564cbc begins now; it is SPENT on use; no retry under this token
+To <scratch>/yes-remote.git
+   186adf7d..b0b074b7  b0b074b754699babf31d5f9124ba4a671e564cbc -> main
+push rc=0
+ls-remote rc=0 main=b0b074b754699babf31d5f9124ba4a671e564cbc
+landing-pushed-ok M=b0b074b754699babf31d5f9124ba4a671e564cbc
+  [yes] zsh rc=0 ; push invocations logged=2 ; remote main=b0b074b754699babf31d5f9124ba4a671e564cbc
+== sink-step1.txt
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+REC: is a directory: <scratch>/sink-step1.txt-evid/landing/step1.txt
+STOP receipt-write step1.txt
+  [sink-step1.txt] zsh rc=1 ; push invocations logged=0 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299
+== sink-step2.txt
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d33543e436d3a8ac97c97c711750070bf48f87c6 predicted=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 precheck-ok precheck-history-ok
+Merge made by the 'ort' strategy.
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+REC: is a directory: <scratch>/sink-step2.txt-evid/landing/step2.txt
+STOP receipt-write step2.txt
+  [sink-step2.txt] zsh rc=1 ; push invocations logged=0 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299
+== sink-record-index.txt
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d33543e436d3a8ac97c97c711750070bf48f87c6 predicted=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 precheck-ok precheck-history-ok
+Merge made by the 'ort' strategy.
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+M=b0b074b754699babf31d5f9124ba4a671e564cbc
+census rc=0 landing_census_2b tree=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 tree_rows=109 history_refs=b0b074b754699babf31d5f9124ba4a671e564cbc commits=1889 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+REC: is a directory: <scratch>/sink-record-index.txt-evid/landing/record-index.txt
+STOP receipt-write record-index.txt
+  [sink-record-index.txt] zsh rc=1 ; push invocations logged=0 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299
+== sink-record-history.txt
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d33543e436d3a8ac97c97c711750070bf48f87c6 predicted=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 precheck-ok precheck-history-ok
+Merge made by the 'ort' strategy.
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+M=b0b074b754699babf31d5f9124ba4a671e564cbc
+census rc=0 landing_census_2b tree=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 tree_rows=109 history_refs=b0b074b754699babf31d5f9124ba4a671e564cbc commits=1889 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+index rc=0 record-untracked-ok
+REC: is a directory: <scratch>/sink-record-history.txt-evid/landing/record-history.txt
+STOP receipt-write record-history.txt
+  [sink-record-history.txt] zsh rc=1 ; push invocations logged=0 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299
+== sink-push-dry-run.txt
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d33543e436d3a8ac97c97c711750070bf48f87c6 predicted=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 precheck-ok precheck-history-ok
+Merge made by the 'ort' strategy.
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+M=b0b074b754699babf31d5f9124ba4a671e564cbc
+census rc=0 landing_census_2b tree=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 tree_rows=109 history_refs=b0b074b754699babf31d5f9124ba4a671e564cbc commits=1889 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+index rc=0 record-untracked-ok
+history rc=0 record-history-clean-ok
+REC: is a directory: <scratch>/sink-push-dry-run.txt-evid/landing/push-dry-run.txt
+STOP receipt-write push-dry-run.txt
+  [sink-push-dry-run.txt] zsh rc=1 ; push invocations logged=1 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299
+== sink-push-attempt.txt
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d33543e436d3a8ac97c97c711750070bf48f87c6 predicted=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 precheck-ok precheck-history-ok
+Merge made by the 'ort' strategy.
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+M=b0b074b754699babf31d5f9124ba4a671e564cbc
+census rc=0 landing_census_2b tree=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 tree_rows=109 history_refs=b0b074b754699babf31d5f9124ba4a671e564cbc commits=1889 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+index rc=0 record-untracked-ok
+history rc=0 record-history-clean-ok
+dry-run rc=0
+To <scratch>/sink-push-attempt.txt-remote.git
+   186adf7d..b0b074b7  b0b074b754699babf31d5f9124ba4a671e564cbc -> main
+REC: is a directory: <scratch>/sink-push-attempt.txt-evid/landing/push-attempt.txt
+STOP receipt-write push-attempt.txt
+  [sink-push-attempt.txt] zsh rc=1 ; push invocations logged=1 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299
+== sink-push-result.txt
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d33543e436d3a8ac97c97c711750070bf48f87c6 predicted=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 precheck-ok precheck-history-ok
+Merge made by the 'ort' strategy.
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+M=b0b074b754699babf31d5f9124ba4a671e564cbc
+census rc=0 landing_census_2b tree=55ba078dca03ab7f4a890d21a3270e3fd1d53ee7 tree_rows=109 history_refs=b0b074b754699babf31d5f9124ba4a671e564cbc commits=1889 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+index rc=0 record-untracked-ok
+history rc=0 record-history-clean-ok
+dry-run rc=0
+To <scratch>/sink-push-result.txt-remote.git
+   186adf7d..b0b074b7  b0b074b754699babf31d5f9124ba4a671e564cbc -> main
+the ONE non-force push of M=b0b074b754699babf31d5f9124ba4a671e564cbc begins now; it is SPENT on use; no retry under this token
+To <scratch>/sink-push-result.txt-remote.git
+   186adf7d..b0b074b7  b0b074b754699babf31d5f9124ba4a671e564cbc -> main
+push rc=0
+ls-remote rc=0 main=b0b074b754699babf31d5f9124ba4a671e564cbc
+PREC: is a directory: <scratch>/sink-push-result.txt-evid/landing/push-result.txt
+STOP post-push push-rc=0 ls-remote-rc=0 remote=b0b074b754699babf31d5f9124ba4a671e564cbc receipt-write-failed=1: the attempt is SPENT; report UP as failed/unverified; NO retry
+  [sink-push-result.txt] zsh rc=1 ; push invocations logged=2 ; remote main=b0b074b754699babf31d5f9124ba4a671e564cbc
+walk-complete

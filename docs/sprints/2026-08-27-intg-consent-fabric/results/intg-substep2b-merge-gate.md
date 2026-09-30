@@ -1,4 +1,6 @@
-# Merge packet — sub-step 2b wiring act (revision 2, 2026-09-30, at the pair-planner's seat; HELD at H)
+# Merge packet — sub-step 2b wiring act (revision 3, 2026-09-30, at the pair-planner's seat; HELD at H)
+
+Revision 3 supersedes revision 2 (sha256 `147c5c0dc1d3677f585306ef20c2f91c4608507df11efe815bb60cc16e1f7e8a`, commit `9aac28b`), which the Master Reviewer returned MUST-REVISE on F-2B-VP-2 (`MERGE-GATE-master-reviewer-20260930-021153.md`): receipt writes piped through `tee` went unchecked. What moved: §7's receipt handling only (every receipt through the checked writer `REC`; step (5) restructured around the post-push writer `PREC`) and the §2 walk lines. The three pins, the census contract and every gate predicate are byte-unchanged.
 
 Revision 2 supersedes revision 1 (sha256 `ac3186b47448cbdade776fd494853acec5eff9bbaa62fb48b0b1eecde6554b11`, commit `148ab1a`), which the Master Reviewer returned MUST-REVISE on F-2B-VP-1 (`MERGE-GATE-master-reviewer-20260929-041058.md`).
 What moved: the plan of record (rev53), §7's pins and record clauses, the §7 walk, §4's snapshot, and the review rows. §§2 evidence at H, 3 residuals and 6 cells 1–3 are unchanged except where a line names what moved.
@@ -38,14 +40,19 @@ Merged is not pushed; pushed is not released. The release hold is ABSOLUTE.
 - The Task 10 vehicle receipts are as in §1. The PR body came from the pinned `finalize.rev41.py`.
 - The Task 11 H0 rehearsal (the rev45 producer `0c7124d7…` and instrument `9c9391d5…`): `population_producer_rc=0`, `census_rehearsal_rc=0`, one `result=PASS` line, tree_rows 81, A=3 B=76 C=2. rev49 SUPERSEDES that declaration for the landing, and it stays as the H0 record.
 - THE LOCAL RECORD (R-4.88 operator arm (b)): `results/s2b-intg-substep2b-impl-1/` is RETAINED LOCALLY AND NOT PUBLISHED. It holds 2,342 manifest rows over 2,343 files; `SHA256SUMS` has sha256 `187a1a10613b637e6d4a2aa54ed6e8f9590dece65fc78a5078ec8a148c91791d`; `shasum -a 256 -c` gives rc 0; `git ls-files` on the path is EMPTY. **A reader of this packet cannot recompute the evidence it cites from the repository; it lives on the operator's host.**
-- THE §7 WALK, revision 2 (`landing-2b/landing-walk-7r2.txt`, driver `landing-walk-7r2.sh`): the driver EXTRACTS §7's fenced `zsh` blocks from THIS packet and runs them, unedited, in one `zsh -f`, in a scratch clone whose origin is a local bare repo holding main at B. The walked script `run.zsh` has sha256 prefix `29d2fd58`.
-  - **YES** at main `d787f53`: three pins; pre-check and history pre-check ok; merge tree == predicted `7a243de7…`; census `result=PASS` (109 rows, accepted_set=4, product 3/2); `record-untracked-ok`; `record-history-clean-ok`; dry run and ONE push rc 0; remote main == M.
-  - **NO-a** (a graft file): STOP at the step (1) pre-check, no merge made.
-  - **NO-b** (a record committed then removed on main): the step (1) history pre-check STOPs `record-in-history-2`, no merge made.
-  - **NO-d** (the same history with the pre-check removed): the step (4) gate STOPs after the merge.
-  - **NO-c** (`$EVID/landing` present): STOP at step (0).
-  - In every NO arm the remote stays at B.
-  - The first draw of this walk (kept as `landing-walk-7r2.prev-*.txt`) had no history pre-check: its NO-b merged and then STOPped at step (4). That is why step (1) now runs the pinned history line on both parents. The revision 1 walk (`landing-2b/landing-walk-7.txt`) is kept as its record.
+- THE §7 WALKS, revision 3. Each driver EXTRACTS §7's six fenced `zsh` blocks from THIS packet and runs them unedited in one `zsh -f` per arm, in scratch clones whose origin is a local bare repo holding main at B. The final §7 digests to the walked script `666e2e9b…`.
+  - `landing-2b/landing-walk-7r3.txt` (driver `landing-walk-7r3.sh`), the receipt-sink walk. Sink arms insert ONE line after block 0, `mkdir "$LD/<receipt>"`, so that receipt's write fails at the real filesystem boundary. A pass-through git wrapper COUNTS push invocations.
+    - **YES:** `landing-pushed-ok`, 2 push invocations (the dry run and the ONE push), remote == M.
+    - **step1, step2, record-index and record-history sinks:** each STOPs `receipt-write <name>` at rc 1, with 0 push invocations and the remote at B.
+    - **push-dry-run and push-attempt sinks:** STOP at rc 1 with 1 invocation, the dry run itself, which must precede its own receipt and cannot move the remote; the remote stays at B.
+    - **push-result sink (post-push):** the push lands (remote == M), then `STOP post-push … receipt-write-failed=1: the attempt is SPENT; report UP as failed/unverified; NO retry` at rc 1.
+  - `landing-2b/landing-walk-7r2-on-rev3.txt` (driver `landing-walk-7r2.sh`, its NO-d cut anchor updated for the `REC` step-1 line; the first run aborted on the old anchor and is kept as `landing-walk-7r2-on-rev3.aborted-*.txt`).
+    - **YES** pushes M.
+    - **NO-a** (a graft file) and **NO-b** (committed-then-removed) STOP at step (1) with no merge made.
+    - **NO-d** (the same history, pre-check removed) STOPs at step (4).
+    - **NO-c** (the landing directory exists) STOPs at step (0).
+    - The remote stays at B in every NO arm.
+  - The revision 2 walks (`landing-walk-7r2.txt`, `landing-walk-7r2.prev-*.txt`) and the revision 1 walk (`landing-walk-7.txt`) are kept as their records.
 - THE RECORD-CLAUSE WALKS (plan rev51→rev53): `results/rev51-walks/walk51.out` (C1–C10) and `results/rev52-walks/walk53.out` (C1–C17). Committed-then-removed, TREESAME side history, replace refs, legacy grafts (in-repo and via `GIT_GRAFT_FILE`), shallow, a forged commit-graph, and every producer fault each STOP; the clean history passes before and after. The implementer independently re-ran walk53 at main `2a04ca1`, and master rebuilt F-2B-VP-1's own control at `70aa3840` (012837).
 - THE LANDING CENSUS ARTIFACTS (rev49 and rev50), all tracked in `docs/sprints/2026-08-27-intg-consent-fabric/results/landing-2b/`:
   - `census_population.rev49.sh`, `2d7dcdd6d73928b13a11c16287febd95ba660b360991251c943f3e39a77c42c6`;
@@ -115,12 +122,16 @@ If the token issues, THE LANDING EXECUTES AS ONE SEQUENCE AT THE IMPLEMENTER'S S
 - The working directory is the docs-lane root `/Users/jack/Programming/bivpak`.
 - `EVID` is set to `/Users/jack/Programming/bivpak-evidence/s2b-intg-substep2b-impl-1-y3iCLB` and exported. Every receipt lands in `$EVID/landing/`, which step (0) creates, and every receipt is reported UP.
 - Each step's expectation is written first. The blocks below are the exact commands; the §2 walk ran these same blocks, extracted from this file, unedited.
+- Every receipt is written by `REC`, which writes, reads the file back, and `exit`s the shell on any failure (F-2B-VP-2, the Master Reviewer 021153). So a receipt that cannot be kept STOPs the landing before any later command, and before the dry run for every pre-push receipt. `set -o pipefail` is not relied on for this.
+- The one post-push receipt (`push-result.txt`) uses the non-exiting `PREC`, because nothing can undo a spent attempt. Its failure, like a failed push or a remote not equal to M, ends step (5) in a `STOP post-push … SPENT … NO retry` line at rc 1, to be reported UP as failed or unverified.
 
 **(0) Three pins, per the plan's LANDING row (rev53).** Each executed line is the single plan line that, after `strip()`, begins with a backtick plus its prefix and ends with a backtick; the backticks are removed. The lines are checked BEFORE `<merge>` is substituted: index 327 bytes `2df745ff830766b3067c7ba5dd88ee447ffb602c0fb16356e8ee2784fc17f8b5`, census 221 bytes `af8c1927462f5e40cf775419ae6c1d3070ba9e7fa1713248f9f7d50b42b7b3ad`, history 1150 bytes `bcbb5c978ee3a6c8729734da1dca0aae5ab45538f60813e978fbc0726a177610`. Any other count, length or digest is a STOP.
 
 ```zsh
 set -o pipefail
 [ -n "${EVID:-}" ] || { print -r -- 'STOP evid-unset'; exit 1; }; export EVID
+REC() { print -r -- "$2" > "$1" || { print -r -- "STOP receipt-write ${1:t}"; exit 1; }; [ "$(<"$1")" = "$2" ] || { print -r -- "STOP receipt-readback ${1:t}"; exit 1; }; print -r -- "$2"; }
+PREC() { print -r -- "$2" > "$1" && [ "$(<"$1")" = "$2" ]; }
 [ "$(git rev-parse --show-toplevel)" = "$(pwd -P)" ] || { print -r -- 'STOP not-at-repo-root'; exit 1; }
 LD=$EVID/landing; [ ! -e "$LD" ] && [ ! -L "$LD" ] || { print -r -- 'STOP landing-dir-exists'; exit 1; }; mkdir "$LD" || exit 1
 PLAN=docs/sprints/2026-08-27-intg-consent-fabric/plans/PL-intg-substep2b-20260915.md
@@ -136,7 +147,9 @@ for name, pre, n, d in pins:
     b = m[0].encode() if len(m) == 1 else b""
     if len(m) != 1 or len(b) != n or hashlib.sha256(b).hexdigest() != d:
         print("STOP pin-%s count=%d" % (name, len(m))); sys.exit(1)
-    open("%s/pin-%s.txt" % (ld, name), "wb").write(b)
+    f = "%s/pin-%s.txt" % (ld, name); open(f, "wb").write(b)
+    if hashlib.sha256(open(f, "rb").read()).hexdigest() != d:
+        print("STOP pin-%s-readback" % name); sys.exit(1)
     print("pin-%s ok bytes=%d sha256=%s" % (name, n, d[:8]))
 PY
 ```
@@ -156,7 +169,7 @@ g=0; GF=$(git rev-parse --git-path info/grafts) || g=$?; s=0; SH=$(git rev-parse
 for ref in "$MB" "$H"; do
   python3 -c 'import sys; s=open(sys.argv[1]).read(); assert s.count("<merge>")==int(sys.argv[3]); sys.stdout.write(s.replace("<merge>", sys.argv[2]))' "$LD/pin-history.txt" "$ref" 1 > "$LD/pre-history-$ref.sh" || { print -r -- 'STOP precheck-history-subst'; exit 1; }
   r=0; o=$(bash "$LD/pre-history-$ref.sh" 2>&1) || r=$?; [ "$r" -eq 0 ] && [ "$o" = record-history-clean-ok ] || { print -r -- "STOP precheck-history-$ref rc=$r $o"; exit 1; }; done
-print -r -- "main-before=$MB predicted=$PT precheck-ok precheck-history-ok" | tee "$LD/step1.txt"
+REC "$LD/step1.txt" "main-before=$MB predicted=$PT precheck-ok precheck-history-ok"
 ```
 
 **(2) The TRUE local merge on lane-local `main`, then the merge sha DERIVED ONCE.**
@@ -174,7 +187,7 @@ M=$(git rev-parse --verify HEAD) || exit 1; [[ $M =~ '^[0-9a-f]{40}$' ]] || { pr
 [ "$(git rev-parse "${M}^{tree}")" = "$PT" ] || { print -r -- 'STOP tree-not-predicted'; exit 1; }
 t=$(git log -1 --format=%B "$M" | git interpret-trailers --parse) || exit 1; [ -z "$t" ] || { print -r -- 'STOP trailer'; exit 1; }
 d=$(git diff --numstat "$H" "$M" -- src tests CMakeLists.txt harness .github schemas tools cmake) || exit 1; [ -z "$d" ] || { print -r -- 'STOP product-delta'; exit 1; }
-print -r -- "M=$M" | tee "$LD/step2.txt"
+REC "$LD/step2.txt" "M=$M"
 ```
 
 **(3) The census of record at M, BEFORE the push.** It re-hashes the three inputs first (`fbdfd311…`, `79b89c38…`, and the producer `2d7dcdd6…` for provenance), then runs the pinned census line with `<merge>` = M in BOTH positions. Expect exit 0 and ONE last line ending `result=PASS`, with `product_tree_rows=3`, `product_history_paths=2` and `accepted_set=4`. `tree_rows`, `history_paths` and `commits` are DATA. The receipt is `$EVID/landing/landing-census.txt`. Exit 1 means NO push.
@@ -195,17 +208,28 @@ r=0; bash "$LD/run-census.sh" > "$LD/landing-census.txt" || r=$?; last=$(tail -1
 Anything else means NO push. The receipts are `record-index.txt` and `record-history.txt`.
 
 ```zsh
-r=0; o=$(bash "$LD/pin-index.txt" 2>&1) || r=$?; print -r -- "index rc=$r $o" | tee "$LD/record-index.txt"; [ "$r" -eq 0 ] && [ "$o" = record-untracked-ok ] || { print -r -- 'STOP record-index'; exit 1; }
+r=0; o=$(bash "$LD/pin-index.txt" 2>&1) || r=$?; REC "$LD/record-index.txt" "index rc=$r $o"; [ "$r" -eq 0 ] && [ "$o" = record-untracked-ok ] || { print -r -- 'STOP record-index'; exit 1; }
 python3 -c 'import sys; s=open(sys.argv[1]).read(); assert s.count("<merge>")==int(sys.argv[3]); sys.stdout.write(s.replace("<merge>", sys.argv[2]))' "$LD/pin-history.txt" "$M" 1 > "$LD/run-history.sh" || { print -r -- 'STOP history-subst'; exit 1; }
-r=0; o=$(bash "$LD/run-history.sh" 2>&1) || r=$?; print -r -- "history rc=$r $o" | tee "$LD/record-history.txt"; [ "$r" -eq 0 ] && [ "$o" = record-history-clean-ok ] || { print -r -- 'STOP record-history'; exit 1; }
+r=0; o=$(bash "$LD/run-history.sh" 2>&1) || r=$?; REC "$LD/record-history.txt" "history rc=$r $o"; [ "$r" -eq 0 ] && [ "$o" = record-history-clean-ok ] || { print -r -- 'STOP record-history'; exit 1; }
 ```
 
-**(5) The push of M.** The refspec is brace-quoted (`"${M}:refs/heads/main"`): in zsh a bare `$M:refs…` fires the `:r` history modifier (the revision 1 walk reproduced it). First the dry run, expecting rc 0 and `186adf7..<M>`. Then ONE non-force attempt. Immediately after, `git ls-remote origin refs/heads/main` must equal M (class a). The attempt is SPENT on use: no retry, no force, no tags, no `main:main`.
+**(5) The push of M.** The refspec is brace-quoted (`"${M}:refs/heads/main"`): in zsh a bare `$M:refs…` fires the `:r` history modifier (the revision 1 walk reproduced it).
+- First the dry run, expecting rc 0 and `186adf7..<M>`. Its output is captured and kept by `REC`.
+- Then `push-attempt.txt` is written by `REC` as the last pre-push write, then the ONE non-force attempt. Its output is captured in memory, so no file write can block or mask it.
+- Immediately after, `git ls-remote origin refs/heads/main` must equal M (class a), and `push-result.txt` must be kept.
+- The success line is `landing-pushed-ok M=<M>`; anything else is the `STOP post-push` line.
+- The attempt is SPENT on use: no retry, no force, no tags, no `main:main`.
 
 ```zsh
-r=0; git push --dry-run origin "${M}:refs/heads/main" > "$LD/push-dry-run.txt" 2>&1 || r=$?; cat "$LD/push-dry-run.txt"; [ "$r" -eq 0 ] || { print -r -- "STOP dry-run-rc-$r"; exit 1; }
-r=0; git push origin "${M}:refs/heads/main" > "$LD/push.txt" 2>&1 || r=$?; cat "$LD/push.txt"; print -r -- "push rc=$r" | tee -a "$LD/push.txt"
-rm_=$(git ls-remote origin refs/heads/main | cut -f1) || exit 1; print -r -- "ls-remote main=$rm_" | tee -a "$LD/push.txt"; [ "$r" -eq 0 ] && [ "$rm_" = "$M" ] || { print -r -- 'STOP push-not-class-a'; exit 1; }
+r=0; dry=$(git push --dry-run origin "${M}:refs/heads/main" 2>&1) || r=$?; REC "$LD/push-dry-run.txt" "dry-run rc=$r
+$dry"; [ "$r" -eq 0 ] || { print -r -- "STOP dry-run-rc-$r"; exit 1; }
+REC "$LD/push-attempt.txt" "the ONE non-force push of M=$M begins now; it is SPENT on use; no retry under this token"
+r=0; po=$(git push origin "${M}:refs/heads/main" 2>&1) || r=$?; print -r -- "$po"; print -r -- "push rc=$r"
+lr=0; rm_=$(git ls-remote origin refs/heads/main | cut -f1) || lr=$?; print -r -- "ls-remote rc=$lr main=$rm_"
+w=0; PREC "$LD/push-result.txt" "push rc=$r
+$po
+ls-remote rc=$lr main=$rm_" || w=1
+if [ "$r" -eq 0 ] && [ "$lr" -eq 0 ] && [ "$rm_" = "$M" ] && [ "$w" -eq 0 ]; then print -r -- "landing-pushed-ok M=$M"; else print -r -- "STOP post-push push-rc=$r ls-remote-rc=$lr remote=$rm_ receipt-write-failed=$w: the attempt is SPENT; report UP as failed/unverified; NO retry"; exit 1; fi
 ```
 
 **(6) Observe only:** `gh pr view 28 --json state,mergedAt,mergeCommit,headRefOid`, expecting MERGED at M. That is a remote observation; no forge merge act is taken. Then report UP through the pair-planner to master. Task 12 follows: the final pin, four worktrees disposed, and the closure SITREP citing the local record by `187a1a10…`.

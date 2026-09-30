@@ -34,7 +34,7 @@ mkclone nob; ( cd "$W/nob" && mkdir -p "$REC" && printf 'benign\n' > "$REC/walk.
 echo '== NO-d: the same history, with the step (1) pre-check blocks REMOVED from run.zsh (the rev-1-shaped sequence) -> the step (4) gate still STOPs, after the merge; remote untouched'
 python3 - "$W/run.zsh" "$W/run-nopre.zsh" <<'PY' || die nopre
 import sys
-s=open(sys.argv[1]).read(); a=s.index('for ref in "$MB" "$H"; do'); b=s.index('print -r -- "main-before=$MB', a)
+s=open(sys.argv[1]).read(); a=s.index('for ref in "$MB" "$H"; do'); b=s.index('REC "$LD/step1.txt"', a) if 'REC "$LD/step1.txt"' in s[a:] else s.index('print -r -- "main-before=$MB', a)   # rev3: step1 receipt written by REC
 open(sys.argv[2],'w').write(s[:a]+s[b:])
 PY
 mkclone nod; ( cd "$W/nod" && mkdir -p "$REC" && printf 'benign\n' > "$REC/walk.txt" && git add -f "$REC/walk.txt" && git commit -q -m add && git rm -q "$REC/walk.txt" && git commit -q -m rm ) || die nod-commits
