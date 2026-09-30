@@ -1,0 +1,50 @@
+pin L1 bytes=327 sha256=2df745ff830766b3067c7ba5dd88ee447ffb602c0fb16356e8ee2784fc17f8b5
+pin L2 bytes=221 sha256=af8c1927462f5e40cf775419ae6c1d3070ba9e7fa1713248f9f7d50b42b7b3ad
+pin L3 bytes=704 sha256=08e2ce06b932c1b96833a114d4414ac13e4273840bb700450a53b37dbe4594d0
+main-before=14292d09c973fdadece47209b30c380f159e901d tree=bfc3f4ea15e690ab5348b2a8be1f8c516b01d8b0
+C1 real clean history (merge main+H) -> PASS both
+  merge=57b2c205497717127d94432d2e959ac7cfd0a2a6 tree=a82a788976c2f98d8aeeb3359d9dc362cc19aa75
+  L1 rc=0 out=record-untracked-ok
+  L3[merge] rc=0 out=record-history-clean-ok
+  replace-honouring plain rev-list count=0 ; --full-history count=0
+C2 untracked record file on disk -> PASS both
+  L1 rc=0 out=record-untracked-ok
+  L3[merge] rc=0 out=record-history-clean-ok
+C3a staged record -> L1 STOP
+  L1 rc=1 out=STOP record-tracked-1
+C3b committed now -> L1 STOP, L3 STOP
+  L1 rc=1 out=STOP record-tracked-1
+  L3[c3] rc=1 out=STOP record-in-history-1
+C4 committed-then-removed, final tree unchanged (THE FINDING) -> L1 PASS, L3 STOP
+  add=499b9ddfeecc27488d6ec44fb4497f2024cbeb43 rm=5ef8e1263291e181f5ce7bcbe2bb9567d40bbd83 tree(rm)==tree(main-before) merge=ebc6884ac261f083a014b7655f0c221fb1cf7ed8 tree==C1 tree
+  L1 rc=0 out=record-untracked-ok
+  L3[c4] rc=1 out=STOP record-in-history-2
+  replace-honouring plain rev-list count=2 ; --full-history count=2
+C5 history query fails with EMPTY output (shim rev-list: rc 128, no output) -> STOP
+  L3[merge,shim-empty] rc=1 out=fatal: shim
+STOP record-history-rc-128
+C6 history query fails with PARTIAL output (shim: first real line, then rc 141) -> STOP
+  L3[c4,shim-partial] rc=1 out=STOP record-history-rc-141
+  L3[merge,shim-partial-on-clean] rc=1 out=STOP record-history-rc-141
+C7 add+remove on a SIDE branch merged TREESAME, then merge H (trap 2) -> L3 STOP
+  merge=3f06708885c57cd747e1c06cd5461a2c9b63e89a
+  L1 rc=0 out=record-untracked-ok
+  L3[c7] rc=1 out=STOP record-in-history-2
+  replace-honouring plain rev-list count=0 ; --full-history count=2
+C8 replace ref grafts rm onto main-before, hiding add from a replace-honouring query -> L3 STOP; push publishes add
+  replace-honouring plain rev-list count=0 ; --full-history count=0
+  L3[c4,replaced] rc=1 out=STOP record-in-history-2
+  push rc=0 ; add commit in bare: present
+C9 ref guards -> each STOP
+  L3[main] rc=1 out=STOP record-history-ref-not-hex
+  L3[abbrev12] rc=1 out=STOP record-history-ref-len-12
+  L3[uppercase] rc=1 out=STOP record-history-ref-not-hex
+  L3[empty] rc=1 out=STOP record-history-ref-not-hex
+  L3[tree-sha] rc=1 out=STOP record-history-ref-type-tree
+  L3[absent-sha] rc=1 out=fatal: git cat-file: could not get object info
+STOP record-history-cat-file-rc-128
+  L3[unsubstituted] rc=2 out=bash: -c: line 1: syntax error near unexpected token `;'
+C10 pin mutants (the extraction rule) -> STOP
+  mut-dup: count,sha8=2 08e2ce06 (pin 08e2ce06 count 1)
+  mut-drop: count,sha8=1 6d685b7d (pin 08e2ce06 count 1)
+walk-complete
