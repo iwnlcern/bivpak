@@ -1600,3 +1600,11 @@ It is HELD at H `cb19326a`: cells 1–3 are DONE and cell 4 is PENDING.
 The §7 landing walk (`results/landing-2b/landing-walk-7.txt`) passed end to end against a local bare remote; the zsh refspec trap is fixed in §7 (5).
 Before filing, the relay's cited facts were grepped against the packet bytes, the draft was scanned (zero census literals), and the filed digest was compared to the draft (equal).
 Next: the Master Reviewer's verification, then master's presentation, then the operator's undraft of PR #28 and the bare DISPATCH MERGE, then the implementer's landing act per §7, then Task 12. The release hold is ABSOLUTE.
+
+## R126 — F-2B-VP-1 folded as plan rev51 (`7c723a1b…`, f27cb29); PLAN plan-53 filed TO the implementer (`intg-substep2b/PLAN-pair-planner-20260929-214526.md`, sha256 `712c7f2a…`)
+
+The Master Reviewer's `MERGE-GATE-master-reviewer-20260929-041058.md` found the rev48 no-commit line tests the INDEX, not the published HISTORY; master accepted it and routed it in `PLAN-master-planner-20260929-163054.md`.
+rev51 keeps the rev48 line and the census line unchanged and adds a third pinned line (704 bytes, `08e2ce06…`): no commit reachable from the literal 40-hex merge sha may touch the record path, with rev-list's rc bound, `--full-history`, `--no-replace-objects` and a commit-ref guard.
+Walk `results/rev51-walks/walk51.out`: C4 (the finding) STOPs where the index line passes; C5/C6 query failures STOP; C7 (trap 2) and C8 (replace refs) both discriminate; C9 ref guards and C10 pin mutants STOP. Blocks 27/27 equal, producer gate rc 0, T-ORACLE replay as rev50's (d0ae71e).
+Two design additions beyond master's §3 ((a) `--no-replace-objects`, (b) the ref guard) and the path-scope reading of arm (b) are put to the reviewer explicitly.
+Next: the implementer's exact-hash review, then the digest word, master's fresh carry, the t-oracle rewrite, the packet §7 revision with a re-walk, and one successor TO the Master Reviewer. The release hold is ABSOLUTE.
