@@ -1,0 +1,82 @@
+pin L1 bytes=327 sha256=2df745ff830766b3067c7ba5dd88ee447ffb602c0fb16356e8ee2784fc17f8b5
+pin L2 bytes=221 sha256=af8c1927462f5e40cf775419ae6c1d3070ba9e7fa1713248f9f7d50b42b7b3ad
+pin L3 bytes=1124 sha256=2ded3f8e9bbec5003f8aff37540d909e8aa99f9ed752e504dfec65cbb190bb64
+main-before=c20e37f94ba88275d55bcb67fe6af0938957acdb tree=eca02e2d144f7f8e45838cd992b69c37df7b3f55
+C1 real clean history (merge main+H) -> PASS both
+  merge=b5265eb3a9e4492a4e60717a8ec0a60fb1ae3b01 tree=3f0615702b13f8ff3ab587fab7ec9c24a0170fb5
+  L1 rc=0 out=record-untracked-ok
+  L3[merge] rc=0 out=record-history-clean-ok
+  replace-honouring plain rev-list count=0 ; --full-history count=0
+C2 untracked record file on disk -> PASS both
+  L1 rc=0 out=record-untracked-ok
+  L3[merge] rc=0 out=record-history-clean-ok
+C3a staged record -> L1 STOP
+  L1 rc=1 out=STOP record-tracked-1
+C3b committed now -> L1 STOP, L3 STOP
+  L1 rc=1 out=STOP record-tracked-1
+  L3[c3] rc=1 out=STOP record-in-history-1
+C4 committed-then-removed, final tree unchanged (THE FINDING) -> L1 PASS, L3 STOP
+  add=77a2a305aa9109dd81faecf11783ad717a2c963f rm=35a98fd24e99be1090e3c0a333a16855ebfe1606 tree(rm)==tree(main-before) merge=4be151ffacb43b0362137fbe3895390b7b529427 tree==C1 tree
+  L1 rc=0 out=record-untracked-ok
+  L3[c4] rc=1 out=STOP record-in-history-2
+  replace-honouring plain rev-list count=2 ; --full-history count=2
+C5 history query fails with EMPTY output (shim rev-list: rc 128, no output) -> STOP
+  L3[merge,shim-empty] rc=1 out=fatal: shim
+STOP record-history-rc-128
+C6 history query fails with PARTIAL output (shim: first real line, then rc 141) -> STOP
+  L3[c4,shim-partial] rc=1 out=STOP record-history-rc-141
+  L3[merge,shim-partial-on-clean] rc=1 out=STOP record-history-rc-141
+C7 add+remove on a SIDE branch merged TREESAME, then merge H (trap 2) -> L3 STOP
+  merge=1741f81a55c4775caca5cfb861b4ab7bc1b2775b
+  L1 rc=0 out=record-untracked-ok
+  L3[c7] rc=1 out=STOP record-in-history-2
+  replace-honouring plain rev-list count=0 ; --full-history count=2
+C8 replace ref grafts rm onto main-before, hiding add from a replace-honouring query -> L3 STOP; push publishes add
+  replace-honouring plain rev-list count=0 ; --full-history count=0
+  L3[c4,replaced] rc=1 out=STOP record-in-history-2
+  push rc=0 ; add commit in bare: present
+C9 ref guards -> each STOP
+  L3[main] rc=1 out=STOP record-history-ref-not-hex
+  L3[abbrev12] rc=1 out=STOP record-history-ref-len-12
+  L3[uppercase] rc=1 out=STOP record-history-ref-not-hex
+  L3[empty] rc=1 out=STOP record-history-ref-not-hex
+  L3[tree-sha] rc=1 out=STOP record-history-ref-type-tree
+  L3[absent-sha] rc=1 out=fatal: git cat-file: could not get object info
+STOP record-history-cat-file-rc-128
+  L3[unsubstituted] rc=2 out=bash: -c: line 1: syntax error near unexpected token `;'
+C10 pin mutants (the extraction rule) -> STOP
+  mut-dup: count,sha8=2 2ded3f8e (pin 2ded3f8e count 1)
+  mut-drop: count,sha8=1 1411aab6 (pin 2ded3f8e count 1)
+C11 MUST-2B-59: add/rm, rm GRAFTED onto main-before via info/grafts, merge H -> rev51 line PASSES (discriminator), rev52 line STOPs
+  rev51 line sha256=08e2ce06b932c1b96833a114d4414ac13e4273840bb700450a53b37dbe4594d0
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+  add=6e1353070584d3c013f4491d9603b5787d2ed84c rm=2cf1d523645c2f589334d38e0403e31bd137ef3e merge=4af9c8d5b10dab96eb4d2b68897b4d1bf6597c2b (graft active; merge-base==B)
+  L1 rc=0 out=record-untracked-ok
+  rev51-L3[c11] rc=0 out=record-history-clean-ok
+  L3[c11] rc=1 out=STOP record-history-graft-file-present
+  graft-active query count=0
+  graft removed:   L3[c11,no-graft] rc=1 out=STOP record-in-history-2
+C12 graft source via GIT_GRAFT_FILE outside the repository -> STOP
+  L3[c11,env-graft] rc=1 out=STOP record-history-graft-file-present
+  rev51-L3[c11,env-graft] rc=0 out=record-history-clean-ok
+C13 empty graft file present -> STOP (presence, fail closed)
+  L3[merge,empty-graft] rc=1 out=STOP record-history-graft-file-present
+C14 dangling symlink at the graft path -> STOP
+  L3[merge,dangling-graft-link] rc=1 out=STOP record-history-graft-file-present
+C15 shallow repository (shallow file) -> STOP
+  L3[merge,shallow] rc=1 out=STOP record-history-shallow-true
+C16 producer faults for the two new rev-parse calls -> STOP
+  L3[merge,gitpath-rc] rc=1 out=STOP record-history-graft-path-rc-128
+  L3[merge,gitpath-empty] rc=1 out=STOP record-history-graft-path-empty
+  L3[merge,shallow-rc] rc=1 out=STOP record-history-shallow-rc-128
+  L3[merge,shallow-garbage] rc=1 out=STOP record-history-shallow-maybe
+C1b clean history again after C11-C16 cleanup -> PASS
+  L3[merge] rc=0 out=record-history-clean-ok
+walk-complete
