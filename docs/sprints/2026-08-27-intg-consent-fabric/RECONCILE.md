@@ -1608,3 +1608,12 @@ rev51 keeps the rev48 line and the census line unchanged and adds a third pinned
 Walk `results/rev51-walks/walk51.out`: C4 (the finding) STOPs where the index line passes; C5/C6 query failures STOP; C7 (trap 2) and C8 (replace refs) both discriminate; C9 ref guards and C10 pin mutants STOP. Blocks 27/27 equal, producer gate rc 0, T-ORACLE replay as rev50's (d0ae71e).
 Two design additions beyond master's §3 ((a) `--no-replace-objects`, (b) the ref guard) and the path-scope reading of arm (b) are put to the reviewer explicitly.
 Next: the implementer's exact-hash review, then the digest word, master's fresh carry, the t-oracle rewrite, the packet §7 revision with a re-walk, and one successor TO the Master Reviewer. The release hold is ABSOLUTE.
+
+## R127 — MUST-2B-59 folded as plan rev53 (`4832b147…`, 3a23e92; supersedes unfiled rev52 `1ae099f6…`); PLAN plan-54 filed TO the implementer (`intg-substep2b/PLAN-pair-planner-20260929-233408.md`, sha256 `fe30b4db…`)
+
+The implementer's `PLAN-REVIEW-pair-implementer-20260929-231628.md` showed legacy `info/grafts` still bends `rev-list` under `--no-replace-objects`, so rev51's history line passed a grafted committed-then-removed record.
+rev53's history line (1150 bytes, `bcbb5c97…`) STOPs when the effective graft file exists in any form (rc-bound `rev-parse --git-path info/grafts`, honouring `GIT_GRAFT_FILE`) or the repository is shallow, and runs the query with `-c core.commitGraph=false` after I found a forged commit-graph parent hides the add commit the same way (0 vs raw 2; the probe push was then rejected for missing objects).
+Walk `results/rev52-walks/walk53.out` C1–C17: C11 (the reviewer's graft) and C12 (the env graft) pass rev51 and STOP at rev53; C17 (the forged graph) passes rev52 and STOPs at rev53; C13–C16 STOP. Blocks 27/27, producer gate rc 0, T-ORACLE replay as before (bb6a2b9).
+Class note: the fake-ancestry sources are replace refs, grafts, shallow and commit-graph; the four pathspec env modes and alternates were measured and cannot narrow the query.
+The .relays/intg INDEX carries pre-existing historical ordering inversions (lines 22–584) that the relay-guard hook reports; the file is a daemon projection and is not hand-edited.
+Next: the implementer's exact-hash review of rev53, then the cascade unchanged. The release hold is ABSOLUTE.
