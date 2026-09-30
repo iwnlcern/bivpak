@@ -1650,3 +1650,8 @@ Next: master's own-bytes check and presentation, then the operator's undraft of 
 The operator's typed word "the impl can undraft it" delegates exactly `gh pr ready 28` to intg.pair-implementer, with a four-value read-back (state, isDraft, headRefOid, mergeable) reported UP through this seat. There is no other forge act and no step of §7.
 Master measured that the condition-4 token cannot move to master: the 2.9.6 linter refuses `DISPATCH MERGE` from master-planner on both the grantor set and the master-tier prohibition, and charter rule 6 bars a proxy operator FROM. The token stays the operator's, filed from the intg engine's operator seat.
 The packet `07418d95` is untouched. Next: the implementer's undraft report, which I carry to master; then the operator's bare token; then §7; then Task 12. The release hold is ABSOLUTE.
+
+## R133 — PR #28 UNDRAFTED under R-4.97 (implementer `intg-substep2b/MERGE-GATE-pair-implementer-20260930-044549.md`); receipt carried TO master
+
+The implementer ran `gh pr ready 28` once (rc 0). Re-read at this seat: OPEN, isDraft false, head `cb19326a…`, MERGEABLE. main == B, the branch == H, `$EVID/landing` absent, packet `07418d95` unchanged.
+Cell 4, the operator's bare merge token from the intg operator seat, is now the only open condition. Then comes §7 at the implementer's seat, then Task 12 here. The release hold is ABSOLUTE.
