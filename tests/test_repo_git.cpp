@@ -240,6 +240,7 @@ TEST_CASE("Git request pins no-lazy-fetch and mechanically delimits operands") {
   const auto git = resolve_git(root.path());
   const auto opts =
       biv::repo::Git::Opts{.cwd = root.path(),
+                           .ceiling = std::nullopt,
                            .no_lazy_fetch = true,
                            .isolate_global_config = false,
                            .stderr_mode = biv::support::StderrMode::separate,
@@ -299,6 +300,7 @@ TEST_CASE("Git streams cat-file stdout to a file") {
   const auto output = root.path() / "blob.out";
   const auto opts =
       biv::repo::Git::Opts{.cwd = repo,
+                           .ceiling = std::nullopt,
                            .no_lazy_fetch = false,
                            .isolate_global_config = false,
                            .stderr_mode = biv::support::StderrMode::separate,

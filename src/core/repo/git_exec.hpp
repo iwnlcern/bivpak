@@ -26,6 +26,7 @@ struct GitInvokeOptions {
   std::optional<std::chrono::milliseconds> budget_override{};
   std::span<const std::string> empty_config_keys{};
   std::vector<std::string> requested_endpoints{};
+  std::optional<std::filesystem::path> ceiling{};
 };
 
 struct UrlDivergence {

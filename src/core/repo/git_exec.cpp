@@ -262,6 +262,7 @@ invoke_git(const Git &git, const std::filesystem::path &repo,
   git_options.cwd = repo;
   git_options.no_lazy_fetch = options.promisor;
   git_options.isolate_global_config = options.restore;
+  git_options.ceiling = options.ceiling;
   git_options.allow_user_protocol = options.allow_user_protocol;
   git_options.empty_config_keys.assign(options.empty_config_keys.begin(),
                                        options.empty_config_keys.end());

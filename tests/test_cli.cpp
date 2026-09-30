@@ -24,6 +24,7 @@
 #include <simdjson.h>
 
 #include "cli/args.hpp"
+#include "cli_run.hpp"
 #include "cli/url_consent.hpp"
 #include "core/container/tar_writer.hpp"
 #include "core/container/zstd_stream.hpp"
@@ -31,17 +32,53 @@
 #include "core/manifest/manifest.hpp"
 #include "core/open/render.hpp"
 #include "core/pack/pack.hpp"
+#include "core/repo/capture.hpp"
+#include "core/repo/classify.hpp"
+#include "core/repo/discover.hpp"
+#include "core/repo/eligibility.hpp"
+#include "core/repo/restore.hpp"
 
 // The parser otherwise belongs only to the CLI executable target.
 #include "../src/cli/args.cpp"
+// Exercise the actual CLI hook installer without adding a product test API.
+#define main biv_cli_main_for_tests
+#include "../src/cli/main.cpp"
+#undef main
+
+namespace open_repos_fixture {
+// provenance=hand-built, interim: Task 7 replaces this builder with biv pack.
+struct Member {
+  biv::container::MemberMeta meta;
+  std::vector<std::byte> data;
+};
+
+biv::repo::Git git() {
+  auto resolved = biv::repo::Git::resolve([](std::string_view name)
+      -> std::optional<std::string> {
+    const auto* value = std::getenv(std::string{name}.c_str());
+    return value ? std::optional<std::string>{value} : std::nullopt;
+  });
+  REQUIRE(resolved);
+  return *resolved;
+}
+
+std::string run_git(const biv::repo::Git& git, const std::filesystem::path& cwd,
+                    std::initializer_list<std::string> args) {
+  auto result = git.run(args, {}, {.cwd = cwd,
+                                   .ceiling = std::nullopt,
+                                   .allow_user_protocol = true,
+                                   .stdout_file = std::nullopt});
+  REQUIRE(result);
+  INFO(std::string(reinterpret_cast<const char*>(result->stderr_bytes.data()),
+                   result->stderr_bytes.size()));
+  REQUIRE(result->exit_code == 0);
+  return {reinterpret_cast<const char*>(result->stdout_bytes.data()),
+          result->stdout_bytes.size()};
+}
+}  // namespace open_repos_fixture
 
 namespace {
 
-struct RunResult {
-  int code{0};
-  std::string out;
-  std::string err;
-};
 
 std::filesystem::path make_tmp(std::string_view name) {
   auto base = std::filesystem::temp_directory_path() /
@@ -57,11 +94,6 @@ void write_file(const std::filesystem::path& path, std::string_view content) {
   out << content;
 }
 
-std::string read_text(const std::filesystem::path& path) {
-  std::ifstream in{path, std::ios::binary};
-  REQUIRE(in);
-  return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
-}
 
 std::vector<std::byte> bytes(std::string_view text) {
   std::vector<std::byte> out(text.size());
@@ -76,7 +108,7 @@ std::string payload_extent_digest(const biv::container::MemberMeta& meta,
   biv::container::TarWriter writer{
       [](std::span<const std::byte>) -> biv::expected<void> { return {}; }};
   REQUIRE(writer.begin_member(meta));
-  REQUIRE(writer.write_data(data));
+  if (meta.kind == biv::scan::NodeKind::file) REQUIRE(writer.write_data(data));
   auto digest = writer.end_member();
   REQUIRE(digest);
   return *digest;
@@ -214,81 +246,6 @@ std::filesystem::path make_slice_e_consumer_image(
   return image;
 }
 
-RunResult run_cmd(const std::string& args, const std::filesystem::path& cwd) {
-  const auto out = cwd / "stdout.txt";
-  const auto err = cwd / "stderr.txt";
-  const std::string command = "cd '" + cwd.string() + "' && '" + std::string{BIV_BINARY_PATH} + "' " + args +
-                              " >'" + out.string() + "' 2>'" + err.string() + "'";
-  const int rc = std::system(command.c_str());
-  int code = rc;
-  if (WIFEXITED(rc)) {
-    code = WEXITSTATUS(rc);
-  }
-  return RunResult{.code = code, .out = read_text(out), .err = read_text(err)};
-}
-
-RunResult run_cmd_pty(const std::string& args, const std::filesystem::path& cwd,
-                      std::string_view input) {
-  const int master = ::posix_openpt(O_RDWR | O_NOCTTY);
-  REQUIRE(master >= 0);
-  REQUIRE(::grantpt(master) == 0);
-  REQUIRE(::unlockpt(master) == 0);
-  const char* const slave_name = ::ptsname(master);
-  REQUIRE(slave_name != nullptr);
-  const pid_t child = ::fork();
-  REQUIRE(child >= 0);
-  if (child == 0) {
-    const int slave = ::open(slave_name, O_RDWR);
-    if (slave < 0 || ::dup2(slave, STDIN_FILENO) < 0 || ::dup2(slave, STDOUT_FILENO) < 0 ||
-        ::dup2(slave, STDERR_FILENO) < 0 || ::chdir(cwd.c_str()) != 0) {
-      _exit(127);
-    }
-    (void)::close(slave);
-    (void)::close(master);
-    const std::string command = "exec '" + std::string{BIV_BINARY_PATH} + "' " + args;
-    ::execl("/bin/sh", "sh", "-c", command.c_str(), nullptr);
-    _exit(127);
-  }
-  REQUIRE(::write(master, input.data(), input.size()) == static_cast<ssize_t>(input.size()));
-  std::string output;
-  std::array<char, 4096> buffer{};
-  while (true) {
-    const ssize_t count = ::read(master, buffer.data(), buffer.size());
-    if (count > 0) {
-      output.append(buffer.data(), static_cast<size_t>(count));
-      continue;
-    }
-    if (count < 0 && errno == EINTR) {
-      continue;
-    }
-    if (count < 0 && errno == EIO) {
-      break;
-    }
-    REQUIRE(count == 0);
-    break;
-  }
-  REQUIRE(::close(master) == 0);
-  int status = 0;
-  while (::waitpid(child, &status, 0) < 0) {
-    REQUIRE(errno == EINTR);
-  }
-  REQUIRE(WIFEXITED(status));
-  return {.code = WEXITSTATUS(status), .out = output, .err = output};
-}
-
-RunResult run_cmd_closed_stderr(const std::string& args,
-                                const std::filesystem::path& cwd) {
-  const auto out = cwd / "stdout.txt";
-  const std::string command =
-      "cd '" + cwd.string() + "' && '" + std::string{BIV_BINARY_PATH} +
-      "' " + args + " >'" + out.string() + "' 2>&-";
-  const int rc = std::system(command.c_str());
-  int code = rc;
-  if (WIFEXITED(rc)) {
-    code = WEXITSTATUS(rc);
-  }
-  return RunResult{.code = code, .out = read_text(out), .err = ""};
-}
 
 std::string snapshot_metadata(const std::filesystem::path& path) {
   struct stat status{};
@@ -920,6 +877,42 @@ TEST_CASE("CLI pack/open round-trip emits JSON envelopes") {
   std::filesystem::remove_all(root);
 }
 
+TEST_CASE("CLI pack JSON keeps summary repos empty while archive carries rows",
+          "[pack-repos]") {
+  const auto root = make_tmp("pack-repos-json");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source);
+  auto handle = open_repos_fixture::git();
+  open_repos_fixture::run_git(handle, source, {"init", "-b", "main"});
+  write_file(source / "tracked.txt", "tracked\n");
+  open_repos_fixture::run_git(handle, source, {"add", "tracked.txt"});
+  open_repos_fixture::run_git(
+      handle, source,
+      {"-c", "user.name=Biv Test", "-c",
+       "user.email=biv@example.invalid", "commit", "-m", "initial"});
+
+  const auto packed = run_cmd(
+      "pack '" + source.string() + "' --offline --json", root);
+  INFO(packed.out);
+  INFO(packed.err);
+  REQUIRE(packed.code == 0);
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(packed.out).get(document) == simdjson::SUCCESS);
+  simdjson::dom::array summary_repos;
+  REQUIRE(document["result"]["manifest"]["repos"].get(summary_repos) ==
+          simdjson::SUCCESS);
+  CHECK(summary_repos.size() == 0U);
+
+  biv::open::OpenOptions options;
+  options.image = root / "sample.bvpk";
+  auto plan = biv::open::plan_open(options);
+  REQUIRE(plan.has_value());
+  REQUIRE(plan->manifest().repos.size() == 1U);
+  CHECK(plan->manifest().repos.front().relpath == ".");
+  std::filesystem::remove_all(root);
+}
+
 TEST_CASE("a6.15 zero state: no divergence -> both carriers absent on real verb envelopes", "[a6-fabric]") {
   // the exact fixture sequence of "CLI pack/open round-trip emits JSON envelopes"
   // (tests/test_cli.cpp:891-916), reused verbatim:
@@ -1462,6 +1455,8 @@ TEST_CASE("Task 4 CLI help documents the strict agent binary pin syntax") {
         "  --dest <path>\n"
         "  --consent <yes|no|agent=yes,...>\n"
         "  --accept-url-divergence\n"
+        "  --offline\n"
+        "  --network\n"
         "  --agent-bin <claude-code|codex>=<absolute-or-relative-path>\n"
         "  --rename\n"
         "  --abort-on-collision\n"
@@ -1488,12 +1483,52 @@ TEST_CASE("A6-R4 accepted notice bytes are golden", "[a6-fabric]") {
 
 TEST_CASE("A6-R4 refusal + guidance bytes are golden", "[a6-fabric]") {
   const biv::cli::UrlDivergenceFacts facts{"fetch", "/w/repo", "https://req", "https://eff"};
+  const auto machine_detail = biv::cli::render_entry_refusal_sentence(
+      "a/b.txt", facts.op, facts.effective, facts.requested);
+  CHECK(machine_detail ==
+        "a/b.txt: restore failed — fetch would contact https://eff instead of the requested https://req; approval was not given.");
   CHECK(biv::cli::render_pack_refusal_detail(facts) ==
         "pack refused: fetch for /w/repo would contact https://eff instead of the requested https://req; approval was not given. Re-run interactively to review, or pass --accept-url-divergence to proceed.");
   CHECK(biv::cli::render_entry_refusal_line("a/b.txt", facts) ==
-        "  a/b.txt: restore failed — fetch would contact https://eff instead of the requested https://req; approval was not given.\n");
+        "  " + machine_detail + "\n");
   CHECK(biv::cli::render_run_guidance_line(2) ==
         "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
+}
+
+TEST_CASE("A9 unclaimed git entry detail is byte-golden for every reason",
+          "[a6-fabric]") {
+  for (const auto reason : {"symlink", "special-file", "unreadable-marker"}) {
+    CHECK(biv::cli::render_unclaimed_git_entry_detail(
+              "/w/hostile\r-\xe2\x80\xae/.git", reason) ==
+          "pack refused: /w/hostile\\r-\\u{202e}/.git is a .git-named "
+          "entry that is not a repository boundary (" + std::string{reason} +
+          "); remove or repair it and re-run.");
+  }
+}
+
+TEST_CASE("A9 CLI emits the typed unclaimed git refusal", "[pack-repos]") {
+  const auto root = make_tmp("unclaimed-git-cli");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source);
+  std::filesystem::create_symlink("missing-target", source / ".git");
+  const ScopedEnv home{"HOME", root.string()};
+  const ScopedEnv codex_home{"CODEX_HOME", (root / "no-codex").string()};
+  const ScopedEnv claude_home{"CLAUDE_CONFIG_DIR",
+                              (root / "no-claude").string()};
+
+  const auto result =
+      run_cmd("pack '" + source.string() + "' --json", root);
+  CHECK(result.code == 3);
+  CHECK(result.err.empty());
+  CHECK(result.out.find("\"kind\": \"UnclaimedGitEntry\"") !=
+        std::string::npos);
+  CHECK(result.out.find("\"reason\": \"symlink\"") != std::string::npos);
+  CHECK(result.out.find("pack refused: " +
+                        (std::filesystem::canonical(source) / ".git")
+                            .generic_string()) !=
+        std::string::npos);
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
+  std::filesystem::remove_all(root);
 }
 
 TEST_CASE("A6-R2 default N: empty answer refuses; y proceeds; wrapper renders byte-whole to err",
@@ -1544,6 +1579,746 @@ TEST_CASE("a6-R3 pack and open accept --accept-url-divergence", "[a6-fabric]") {
     char* argv[] = {prog, verb, flag, dir};
     CHECK_FALSE(biv::cli::parse_args(std::span<char* const>{argv, 4}).has_value());
   }
+}
+
+namespace open_repos_fixture {
+
+struct Image {
+  biv::manifest::Manifest manifest{
+      .image_id = "10000000-0000-4000-8000-000000000004",
+      .app_version = "0.1.0", .created_at = "2026-09-19T00:00:00Z",
+      .source_path = "/fixture", .agent_sessions = {},
+      .bivignore = {.source = "builtin", .builtin_id = "builtin-v1",
+                    .sha256_hex = "abc123"}};
+  std::vector<Member> payload;
+  std::vector<Member> artifacts;
+
+  static Member member(const std::string& path, std::string_view content) {
+    return {{.path = path, .kind = biv::scan::NodeKind::file, .mode = 0600,
+             .mtime_s = 1, .mtime_ns = 0, .size = content.size(),
+             .symlink_target = {}}, bytes(content)};
+  }
+
+  static Member directory(const std::string& path) {
+    return {{.path = path, .kind = biv::scan::NodeKind::dir, .mode = 0755,
+             .mtime_s = 1, .mtime_ns = 0, .size = 0,
+             .symlink_target = {}}, {}};
+  }
+
+  static Member symlink(const std::string& path, std::string target) {
+    return {{.path = path, .kind = biv::scan::NodeKind::symlink, .mode = 0777,
+             .mtime_s = 1, .mtime_ns = 0, .size = 0,
+             .symlink_target = std::move(target)}, {}};
+  }
+
+  void capture_repo(const std::filesystem::path& root, const std::string& id,
+                    const std::string& relpath, bool penumbra = false,
+                    bool overlay = false, bool tracked_symlink = false) {
+    const auto source = root / ("source-" + id);
+    std::filesystem::create_directories(source);
+    const auto handle = git();
+    run_git(handle, source, {"init", "-b", "main"});
+    write_file(source / "a.txt", "committed\n");
+    write_file(source / ".gitignore", "ignored.txt\n");
+    if (tracked_symlink) {
+      std::filesystem::create_symlink("../../outside-c6p", source / "evil");
+    }
+    run_git(handle, source, {"add", "."});
+    run_git(handle, source, {"-c", "user.name=Fixture", "-c",
+                           "user.email=fixture@example.invalid", "commit", "-m", "base"});
+    run_git(handle, source, {"branch", "local-topic"});
+    if (overlay) {
+      const auto remote = root / ("remote-" + id);
+      std::filesystem::create_directories(remote);
+      run_git(handle, remote, {"init", "--bare", "--initial-branch=main"});
+      run_git(handle, source, {"remote", "add", "origin", remote.string()});
+      run_git(handle, source, {"push", "-u", "origin", "main"});
+      run_git(handle, source, {"checkout", "local-topic"});
+      write_file(source / "a.txt", "local topic\n");
+      run_git(handle, source, {"add", "a.txt"});
+      run_git(handle, source, {"-c", "user.name=Fixture", "-c",
+                             "user.email=fixture@example.invalid", "commit", "-m", "topic"});
+      run_git(handle, source, {"checkout", "main"});
+    }
+    if (penumbra) write_file(source / "ignored.txt", "ignored bytes\n");
+    CHECK(run_git(handle, source, {"status", "--porcelain=v2"}).empty());
+    auto matcher = biv::ignore::Matcher::compile("", true);
+    REQUIRE(matcher);
+    auto discovery = biv::repo::discover(source, *matcher);
+    REQUIRE(discovery);
+    REQUIRE(discovery->repos.size() == 1);
+    auto classified = biv::repo::classify(handle, source, *discovery);
+    REQUIRE(classified);
+    REQUIRE(classified->fence == biv::repo::Classification::Fence::none);
+    auto entry = std::move(classified->entry);
+    entry.id = id;
+    REQUIRE(biv::repo::run_eligibility(handle, entry, biv::repo::EligibilityMode::network));
+    auto captured = biv::repo::capture(handle, entry, root / ("scratch-" + id));
+    REQUIRE(captured);
+    if (overlay) {
+      REQUIRE(entry.capture_mode == biv::repo::CaptureMode::overlay);
+      REQUIRE(entry.local_refs_bundle);
+    } else {
+      REQUIRE(entry.bundle);
+    }
+    for (const auto& artifact : captured->artifacts) {
+      artifacts.push_back(member(artifact.archive_path.generic_string(), read_text(artifact.disk_path)));
+    }
+    entry.relpath = relpath;
+    manifest.repos.push_back(std::move(entry));
+    if (penumbra) {
+      REQUIRE(relpath == ".");
+      payload.push_back(member("payload/ignored.txt", "ignored bytes\n"));
+    }
+  }
+
+  std::filesystem::path write(const std::filesystem::path& root,
+                              const std::string& name = "repos.bvpk",
+                              const bool bad_checksum = false,
+                              const bool omit_checksum = false) const {
+    const auto image = root / name;
+    biv::manifest::Checksums checksums;
+    for (const auto& group : {payload, artifacts}) {
+      for (const auto& part : group) {
+        checksums.entries[part.meta.path] = payload_extent_digest(part.meta, part.data);
+      }
+    }
+    if (bad_checksum) {
+      REQUIRE_FALSE(artifacts.empty());
+      checksums.entries[artifacts.front().meta.path] = std::string(64, '0');
+    }
+    if (omit_checksum) {
+      REQUIRE_FALSE(artifacts.empty());
+      checksums.entries.erase(artifacts.front().meta.path);
+    }
+    auto serialized = biv::manifest::serialize(manifest);
+    if (!serialized) INFO(serialized.error().detail);
+    REQUIRE(serialized);
+    std::ofstream out{image, std::ios::binary};
+    biv::container::ZstdCompressSink zstd{[&](std::span<const std::byte> chunk)
+        -> biv::expected<void> {
+      out.write(reinterpret_cast<const char*>(chunk.data()), static_cast<std::streamsize>(chunk.size()));
+      REQUIRE(out.good());
+      return {};
+    }};
+    biv::container::TarWriter writer{zstd.as_sink()};
+    const auto append = [&](const Member& part) {
+      REQUIRE(writer.begin_member(part.meta));
+      if (part.meta.kind == biv::scan::NodeKind::file) REQUIRE(writer.write_data(part.data));
+      REQUIRE(writer.end_member());
+    };
+    append(member("manifest.json", *serialized));
+    append(member("checksums.json", biv::manifest::serialize(checksums)));
+    for (const auto& part : payload) append(part);
+    for (const auto& part : artifacts) append(part);
+    REQUIRE(writer.finish());
+    REQUIRE(zstd.finish());
+    return image;
+  }
+};
+
+std::filesystem::path build_repo_image(const std::filesystem::path& root) {
+  Image fixture;
+  fixture.capture_repo(root, "r-main", ".", true);
+  return fixture.write(root);
+}
+
+// The sealed git-shim.sh instrument, with its required variables set INSIDE
+// the wrapper because Git deliberately forwards only its allowed environment.
+void install_trace(const std::filesystem::path& root, const bool inject_divergence = false) {
+  const auto real = git().executable();
+  write_file(root / "trace", "");
+  write_file(root / "bin" / "git",
+      "#!/usr/bin/env bash\nBIV_GIT_TRACE='" + (root / "trace").string() +
+      "'\nBIV_GIT_REAL='" + real.string() + "'\n"
+      "[ -n \"${BIV_GIT_TRACE-}\" ] && [ -n \"${BIV_GIT_REAL-}\" ] && [ -x \"${BIV_GIT_REAL}\" ] || exit 97\n"
+      "{ printf '%s' \"$PWD\"; for a in \"$@\"; do printf '\\t%s' \"$a\"; done; printf '\\n'; } >> \"$BIV_GIT_TRACE\" || exit 98\n" +
+      (inject_divergence ?
+       "for a in \"$@\"; do if [ \"$a\" = --get-url ]; then printf '%s\\n' 'https://effective.invalid/repo'; exit 0; fi; done\n" : "") +
+      "exec \"$BIV_GIT_REAL\" \"$@\"\n");
+  std::filesystem::permissions(root / "bin" / "git", std::filesystem::perms::owner_all);
+}
+
+}  // namespace open_repos_fixture
+
+TEST_CASE("open repos real bundle preserves clean HEAD branch ignored bytes and local refs", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-bundle");
+  const ScopedEnv home{"HOME", root.string()};
+  const auto image = build_repo_image(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto opened = run_cmd("open '" + image.string() + "' --verify --dest out --network --json", root);
+  INFO(opened.out);
+  REQUIRE(opened.code == 0);
+  const auto trace = read_text(root / "trace");
+  CHECK(trace.find("out.bvpk-open.stage/repos/r-main/repo.bundle") != std::string::npos);
+  const auto handle = git();
+  CHECK(run_git(handle, root / "out", {"status", "--porcelain=v2"}).empty());
+  CHECK(run_git(handle, root / "out", {"rev-parse", "HEAD"}) ==
+        run_git(handle, root / "source-r-main", {"rev-parse", "HEAD"}));
+  CHECK(run_git(handle, root / "out", {"symbolic-ref", "HEAD"}) == "refs/heads/main\n");
+  CHECK(run_git(handle, root / "out", {"rev-parse", "local-topic"}) ==
+        run_git(handle, root / "out", {"rev-parse", "HEAD"}));
+  CHECK(read_text(root / "out" / "ignored.txt") == "ignored bytes\n");
+  CHECK_FALSE(std::filesystem::exists(root / "out.bvpk-open.stage"));
+}
+
+TEST_CASE("open repos admits only named checksummed files and rejects missing artifacts", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-members");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-one", "repo");
+  SECTION("named artifact restores real git") {
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() + "' --dest out --verify --network --json", root);
+    INFO(opened.out);
+    REQUIRE(opened.code == 0);
+    CHECK(run_git(git(), root / "out/repo", {"rev-parse", "HEAD"}) == *fixture.manifest.repos.front().sha + "\n");
+  }
+  SECTION("stray checksummed member") {
+    fixture.artifacts.push_back(Image::member("repos/r-one/stray.bin", "stray"));
+    const auto image = fixture.write(root);
+    const auto result = run_cmd("open '" + image.string() + "' --dest out --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("UnmanifestedMember") != std::string::npos);
+    CHECK(result.out.find("repos/r-one/stray.bin") != std::string::npos);
+  }
+  SECTION("named artifact without checksum") {
+    const auto image = fixture.write(root, "unchecked.bvpk", false, true);
+    const auto result = run_cmd("open '" + image.string() + "' --dest out --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("UnmanifestedMember") != std::string::npos);
+    CHECK(result.out.find("repos/r-one/repo.bundle") != std::string::npos);
+    CHECK_FALSE(std::filesystem::exists(root / "out"));
+  }
+  SECTION("named artifact absent") {
+    fixture.artifacts.clear();
+    const auto image = fixture.write(root);
+    const auto result = run_cmd("open '" + image.string() + "' --dest out --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("IntegrityFailurePreApply") != std::string::npos);
+    CHECK(result.out.find("missing-repo-artifact") != std::string::npos);
+  }
+  SECTION("checksum mismatch") {
+    const auto image = fixture.write(root, "bad.bvpk", true);
+    const auto result = run_cmd("open '" + image.string() + "' --dest out --verify --json", root);
+    CHECK(result.code == 3);
+    CHECK(result.out.find("checksum") != std::string::npos);
+    CHECK_FALSE(std::filesystem::exists(root / "out"));
+  }
+}
+
+TEST_CASE("open repos offline drains without touching stage and lists zero-git pointers", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-offline");
+  const ScopedEnv home{"HOME", root.string()};
+  const auto image = build_repo_image(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  write_file(root / "out.bvpk-open.stage", "stage sentinel\n");
+  // Named mutant: stage every repos/ member even when stage is nullopt.
+  const auto result = run_cmd("open '" + image.string() + "' --dest out --offline --verify", root);
+  INFO(result.out);
+  INFO(result.err);
+  REQUIRE(result.code == 0);
+  CHECK(read_text(root / "out.bvpk-open.stage") == "stage sentinel\n");
+  CHECK(read_text(root / "trace").empty());
+  CHECK(read_text(root / "out/ignored.txt") == "ignored bytes\n");
+  CHECK(std::filesystem::is_regular_file(root / "out/.biv/repos/r-main/repo.bundle"));
+  CHECK(result.err.starts_with("open --offline: repositories were not restored (no git, no network)."));
+  CHECK(result.err.find(". · main · ") != std::string::npos);
+  CHECK(result.err.find(" · (no stored remote)\n") != std::string::npos);
+  CHECK(result.err.find(".: git init --initial-branch='bvpk-restore'") != std::string::npos);
+  CHECK(result.err.find("'HEAD'") == std::string::npos);
+  CHECK(result.err.find("   (partial/manual reconstruction — not a full restore)\n") != std::string::npos);
+  write_file(root / "online.bvpk-open.stage", "online sentinel\n");
+  const auto control = run_cmd("open '" + image.string() + "' --dest online --network --json", root);
+  CHECK(control.code == 3);
+  CHECK(control.out.find("OpenPartialPresent") != std::string::npos);
+  CHECK(control.out.find("online.bvpk-open.stage") != std::string::npos);
+}
+
+TEST_CASE("A10 network consent renders its exact one-shot notice with hostile URLs", "[open-repos][a10]") {
+  biv::repo::RepoEntry invokes;
+  invokes.relpath = "repo\nname";
+  invokes.sha = std::string(40, 'a');
+  invokes.branch = "main";
+  invokes.head_state = biv::repo::HeadState::branch;
+  invokes.capture_mode = biv::repo::CaptureMode::overlay;
+  invokes.eligibility = biv::repo::Eligibility{};
+  invokes.remotes = {{"origin", "https://example.invalid/a\r\xe2\x80\xae"}};
+  biv::repo::RepoEntry no_git;
+  no_git.relpath = "unborn";
+  no_git.head_state = biv::repo::HeadState::unborn;
+
+  const std::vector rows{invokes, no_git};
+  const auto notice = biv::cli::render_network_consent(rows, true);
+  CHECK(notice ==
+        "Opening this image will run git to clone/fetch its repositories. This is git clone-grade trust — only open images you trust.\n"
+        "  manifest/stored URLs (informational):\n"
+        "    repo\\nname · https://example.invalid/a\\r\\u{202e}\n"
+        "  git may contact ADDITIONAL URLs found in repo metadata (.gitmodules, nested submodules, or host git config) that Bivpak does not see or police.\n"
+        "Run `biv open --offline` to open with zero network access — files + sessions only, repos listed for manual clone.\n"
+        "Run git for these repositories? [y/N] ");
+  CHECK(biv::cli::render_network_consent(rows, false) ==
+        notice.substr(0, notice.size() - std::string_view{"Run git for these repositories? [y/N] "}.size()));
+}
+
+TEST_CASE("A10 noninteractive open declines before git while network flag consents", "[open-repos][a10]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("a10-network-decision");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-full", "repo");
+  fixture.manifest.repos.front().remotes = {{"origin", "https://stored.invalid/repo"}};
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+
+  const auto declined = run_cmd("open '" + image.string() + "' --dest declined --json", root);
+  REQUIRE(declined.code == 0);
+  CHECK(declined.err.empty());
+  CHECK(read_text(root / "trace").empty());
+  CHECK(std::filesystem::is_regular_file(root / "declined/.biv/repos/r-full/repo.bundle"));
+  simdjson::dom::parser parser;
+  auto document = parser.parse(declined.out);
+  const simdjson::dom::array declined_rows = document["result"]["repos"];
+  REQUIRE(declined_rows.size() == 1);
+  CHECK(std::string_view(declined_rows.at(0)["outcome"]) == "offline-pointer");
+  CHECK(std::string_view(declined_rows.at(0)["capture_mode"]) == "full");
+  CHECK(std::string_view(declined_rows.at(0)["bundle_path"]) == ".biv/repos/r-full/repo.bundle");
+  CHECK(std::string_view(declined_rows.at(0)["reconstruct"]).find("git clone") == std::string_view::npos);
+
+  const auto consented = run_cmd("open '" + image.string() + "' --dest consented --network --json", root);
+  REQUIRE(consented.code == 0);
+  CHECK(consented.err == biv::cli::render_network_consent(fixture.manifest.repos, false));
+  CHECK(consented.err.find("[y/N]") == std::string::npos);
+  CHECK_FALSE(read_text(root / "trace").empty());
+  document = parser.parse(consented.out);
+  const simdjson::dom::array consented_rows = document["result"]["repos"];
+  REQUIRE(consented_rows.size() == 1);
+  CHECK(std::string_view(consented_rows.at(0)["outcome"]) == "restored");
+  simdjson::dom::element absent;
+  CHECK(consented_rows.at(0).at_key("bundle_path").get(absent) == simdjson::NO_SUCH_FIELD);
+}
+
+TEST_CASE("A10 interactive decision is rendered once before a consented git run", "[open-repos][a10][cli-pty]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("a10-interactive-network");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-full", "repo");
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+
+  const auto result = run_cmd_pty_split(
+      "open '" + image.string() + "' --dest out --json", root, "y\n");
+  REQUIRE(result.code == 0);
+  const auto notice = biv::cli::render_network_consent(fixture.manifest.repos, true);
+  const auto notice_at = result.err.find(
+      "Opening this image will run git to clone/fetch its repositories.");
+  REQUIRE(notice_at != std::string::npos);
+  CHECK(result.err.find("Run git for these repositories? [y/N] ") != std::string::npos);
+  CHECK(result.err.find("Opening this image will run git", notice_at + 1) == std::string::npos);
+  CHECK_FALSE(read_text(root / "trace").empty());
+  simdjson::dom::parser parser;
+  const auto document = parser.parse(result.out);
+  CHECK(std::string_view(document["result"]["repos"].at(0)["outcome"]) == "restored");
+  CHECK(notice.ends_with("Run git for these repositories? [y/N] "));
+}
+
+TEST_CASE("A10 reconstruct quotes copy-safe shell hazards and rejects display-active operands", "[open-repos][a10]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("a10-reconstruct-safety");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-safe", "repo $(touch SENTINEL) ' *");
+  const auto image = fixture.write(root, "safe.bvpk");
+  const auto safe = biv::open::open({.image = image, .dest = root / "safe-out", .verify = true, .offline = true});
+  REQUIRE(safe);
+  REQUIRE(safe->repos.size() == 1);
+  REQUIRE(safe->repos[0].bundle_path);
+  REQUIRE(safe->repos[0].reconstruct);
+  CHECK(safe->repos[0].reconstruct->find("$(touch SENTINEL)") != std::string::npos);
+  CHECK(safe->repos[0].reconstruct->find("'\\''") != std::string::npos);
+  const auto shell_rc = std::system(safe->repos[0].reconstruct->c_str());
+  REQUIRE(shell_rc != -1);
+  CHECK(WIFEXITED(shell_rc));
+  CHECK(WEXITSTATUS(shell_rc) == 0);
+  CHECK_FALSE(std::filesystem::exists(root / "SENTINEL"));
+  CHECK(run_git(git(), root / "safe-out" / fixture.manifest.repos[0].relpath,
+                {"rev-parse", "HEAD"}) == *fixture.manifest.repos[0].sha + "\n");
+
+  fixture.manifest.repos[0].relpath = "unsafe\n\xe2\x80\xaerepo";
+  const auto unsafe_image = fixture.write(root, "unsafe.bvpk");
+  const auto unsafe = biv::open::open(
+      {.image = unsafe_image, .dest = root / "unsafe-out", .verify = true, .offline = true});
+  REQUIRE(unsafe);
+  REQUIRE(unsafe->repos.size() == 1);
+  REQUIRE(unsafe->repos[0].bundle_path);
+  CHECK_FALSE(unsafe->repos[0].reconstruct);
+  const auto absolute_bundle =
+      (std::filesystem::path{unsafe->output_dir} / *unsafe->repos[0].bundle_path).generic_string();
+  const auto fallback = biv::cli::render_offline_bundle_row({.relpath = unsafe->repos[0].relpath,
+                                                             .absolute_bundle_path = absolute_bundle,
+                                                             .reconstruct = unsafe->repos[0].reconstruct});
+  CHECK(fallback.find("unsafe\\n\\u{202e}repo: bundle at ") == 0);
+  CHECK(fallback.find("no copy-paste command") != std::string::npos);
+  CHECK(fallback.find("git init") == std::string::npos);
+}
+
+TEST_CASE("A10 durable bundle refuses a payload symlink at its private parent", "[open-repos][a10]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("a10-bundle-containment");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-full", "repo");
+  fixture.payload.push_back({
+      {.path = "payload/.biv", .kind = biv::scan::NodeKind::symlink, .mode = 0777,
+       .mtime_s = 1, .mtime_ns = 0, .size = 0,
+       .symlink_target = (root / "outside").string()},
+      {}});
+  const auto image = fixture.write(root);
+  const auto opened = biv::open::open(
+      {.image = image, .dest = root / "out", .offline = true});
+  REQUIRE_FALSE(opened);
+  CHECK(opened.error().kind == biv::ErrKind::MemberPathUnsafe);
+  CHECK(opened.error().detail == "repo-artifact-parent");
+  CHECK_FALSE(std::filesystem::exists(root / "outside"));
+  CHECK_FALSE(std::filesystem::exists(root / "out"));
+}
+
+TEST_CASE("open repos typed refusal continues in encounter order to a clean entry", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-refusal");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-clean", "clean");
+  auto refused = fixture.manifest.repos.front();
+  refused.capture_mode = biv::repo::CaptureMode::overlay;
+  refused.bundle.reset();
+  refused.local_refs_bundle.reset();
+  refused.local_refs.clear();
+  refused.remote = "origin";
+  refused.remotes = {{"origin", "https://requested.invalid/repo"}};
+  refused.eligibility = biv::repo::Eligibility{
+      .method = "ls-remote-ancestry",
+      .result = biv::repo::EligibilityResult::proven,
+      .checked_at = "2026-09-19T00:00:00Z",
+      .proof = biv::repo::Proof{"origin", "https://requested.invalid/repo", "refs/heads/main", *refused.sha}};
+  refused.id = "r-refused-one";
+  refused.relpath = "refused-one";
+  fixture.manifest.repos.insert(fixture.manifest.repos.begin(), refused);
+  refused.id = "r-refused-two";
+  refused.relpath = "refused-two";
+  fixture.manifest.repos.insert(fixture.manifest.repos.begin() + 1, refused);
+  const auto image = fixture.write(root);
+  write_file(root / ".gitconfig", "[url \"https://effective.invalid/\"]\n\tinsteadOf = https://requested.invalid/\n");
+  // Restore deliberately sets GIT_CONFIG_GLOBAL=/dev/null. At this engine pin,
+  // inject only the URL-resolution result; all other calls execute real Git.
+  install_trace(root, true);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  // Named mutant: compare the wire kind to url_divergence_refused (underscores).
+  const auto result = run_cmd("open '" + image.string() + "' --dest out --network --json", root);
+  INFO(result.out);
+  REQUIRE(result.code == 2);
+  simdjson::dom::parser parser;
+  const auto document = parser.parse(result.out);
+  CHECK(document["error"].is_null());
+  const simdjson::dom::array refusals = document["result"]["url_divergence_refusals"];
+  REQUIRE(refusals.size() == 2);
+  CHECK(std::string_view(refusals.at(0)["relpath"]) == "refused-one");
+  CHECK(std::string_view(refusals.at(1)["relpath"]) == "refused-two");
+  CHECK(std::string_view(refusals.at(0)["kind"]) == "UrlDivergenceEntryRefused");
+  const simdjson::dom::array repos = document["result"]["repos"];
+  REQUIRE(repos.size() == 3);
+  const auto expected_detail = [](const std::string_view relpath) {
+    return std::string{relpath} +
+           ": restore failed — clone would contact https://effective.invalid/repo "
+           "instead of the requested https://requested.invalid/repo; approval was not given.";
+  };
+  for (std::size_t index = 0; index < 2; ++index) {
+    const auto row = repos.at(index);
+    CHECK(std::string_view{row["outcome"]} == "failed");
+    CHECK(std::string_view{row["kind"]} == "UrlDivergenceEntryRefused");
+    const auto detail = std::string_view{row["detail"]};
+    const auto relpath = index == 0 ? std::string_view{"refused-one"}
+                                    : std::string_view{"refused-two"};
+    CHECK(detail == expected_detail(relpath));
+    CHECK(result.err.find("  " + std::string{detail} + "\n") != std::string::npos);
+  }
+  {
+    std::ofstream output{BIV_DIVERGENCE_ENVELOPE_PATH,
+                         std::ios::binary | std::ios::trunc};
+    REQUIRE(output);
+    output << result.out;
+    output.close();
+    REQUIRE(output);
+  }
+  const auto trace = read_text(root / "trace");
+  const std::string request = "\tls-remote\t--get-url\t--\thttps://requested.invalid/repo";
+  const auto first_request = trace.find(request);
+  REQUIRE(first_request != std::string::npos);
+  const auto second_request = trace.find(request, first_request + 1);
+  REQUIRE(second_request != std::string::npos);
+  CHECK(trace.find(request, second_request + 1) == std::string::npos);
+  CHECK(trace.find("\tclone\t--no-checkout\t--\thttps://requested.invalid/repo") == std::string::npos);
+  CHECK(run_git(git(), root / "out/clean", {"rev-parse", "HEAD"}) == *refused.sha + "\n");
+  CHECK_FALSE(std::filesystem::exists(root / "out.bvpk-open.stage"));
+  const auto report = biv::open::open({.image = image, .dest = root / "core"});
+  REQUIRE(report);
+  REQUIRE(report->repos.size() == 3);
+  CHECK(report->repos[0].outcome == "failed");
+  CHECK(report->repos[1].outcome == "failed");
+  CHECK(report->repos[2].outcome == "restored");
+  REQUIRE(report->url_divergence_refusals.size() == 2);
+  CHECK(report->url_divergence_refusals[0].repo_id == "r-refused-one");
+  CHECK(report->url_divergence_refusals[1].repo_id == "r-refused-two");
+}
+
+TEST_CASE("open repos synthetic child-first manifest restores parents once before children", "[open-repos]") {
+  // provenance=hand-built, registered-T-ARM: not re-executed by Task 7.
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-topology");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-child", "parent/child");
+  fixture.capture_repo(root, "r-parent", "parent");
+  fixture.manifest.repos.front().parent_id = "r-parent";
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto result = biv::open::open({.image = image, .dest = root / "out", .verify = true});
+  if (!result) INFO(result.error().detail);
+  REQUIRE(result);
+  REQUIRE(result->repos.size() == 2);
+  CHECK(result->repos[0].id == "r-parent");
+  CHECK(result->repos[1].id == "r-child");
+  CHECK(result->repos[0].outcome == "restored");
+  CHECK(result->repos[1].outcome == "restored");
+  const auto trace = read_text(root / "trace");
+  const auto canonical_root = std::filesystem::canonical(root);
+  const auto parent = trace.find("\tclone\t--no-checkout\t--\t" + (canonical_root / "out.bvpk-open.stage/repos/r-parent/repo.bundle").string());
+  const auto child = trace.find("\tclone\t--no-checkout\t--\t" + (canonical_root / "out.bvpk-open.stage/repos/r-child/repo.bundle").string());
+  REQUIRE(parent != std::string::npos);
+  REQUIRE(child != std::string::npos);
+  CHECK(parent < child);
+  CHECK(trace.find("\tclone\t", parent + 1) == child);
+  CHECK(trace.find("\tclone\t", child + 1) == std::string::npos);
+  CHECK(run_git(git(), root / "out/parent", {"rev-parse", "HEAD"}) == *fixture.manifest.repos[1].sha + "\n");
+  CHECK(run_git(git(), root / "out/parent/child", {"rev-parse", "HEAD"}) == *fixture.manifest.repos[0].sha + "\n");
+}
+
+TEST_CASE("open repos offline preserves structural engine rows field for field with zero git", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-structural");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-born", "born");
+  auto shallow = fixture.manifest.repos.front();
+  shallow.id = "r-shallow";
+  shallow.relpath = "shallow";
+  shallow.bundle.reset();
+  shallow.local_refs_bundle.reset();
+  shallow.local_refs.clear();
+  shallow.eligibility.reset();
+  shallow.shallow = biv::repo::Shallow{{*shallow.sha}};
+  auto unborn = shallow;
+  unborn.id = "r-unborn";
+  unborn.relpath = "unborn";
+  unborn.shallow.reset();
+  unborn.sha.reset();
+  unborn.head_state = biv::repo::HeadState::unborn;
+  fixture.manifest.repos = {shallow, unborn};
+  fixture.artifacts.clear();
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto online = biv::open::open({.image = image, .dest = root / "online"});
+  REQUIRE(online);
+  write_file(root / "offline.bvpk-open.stage", "untouched");
+  const auto offline = biv::open::open({.image = image, .dest = root / "offline", .offline = true});
+  REQUIRE(offline);
+  REQUIRE(online->repos.size() == 2);
+  REQUIRE(offline->repos.size() == 2);
+  CHECK(offline->repos[0].outcome == "shallow-pointer");
+  CHECK(offline->repos[0].sha == shallow.sha);
+  CHECK(offline->repos[0].shallow_boundary == shallow.shallow->boundary);
+  CHECK(offline->repos[1].outcome == "payload-only-unborn");
+  CHECK_FALSE(offline->repos[1].sha);
+  CHECK(offline->repos[1].advisories == std::vector<std::string>{"EmptyRepoPayloadOnly"});
+  for (size_t index = 0; index < 2; ++index) {
+    const auto& a = online->repos[index];
+    const auto& b = offline->repos[index];
+    CHECK(a.id == b.id);
+    CHECK(a.relpath == b.relpath);
+    CHECK(a.outcome == b.outcome);
+    CHECK(a.sha == b.sha);
+    CHECK(a.branch == b.branch);
+    CHECK(a.capture_mode == b.capture_mode);
+    CHECK(a.remotes == b.remotes);
+    CHECK(a.local_refs.empty());
+    CHECK(b.local_refs.empty());
+    CHECK(a.advisories == b.advisories);
+    CHECK(a.shallow_boundary == b.shallow_boundary);
+  }
+  CHECK(read_text(root / "trace").empty());
+  CHECK(read_text(root / "offline.bvpk-open.stage") == "untouched");
+  const auto cli = run_cmd("open '" + image.string() + "' --dest cli --offline", root);
+  CHECK(cli.code == 0);
+  // Named mutant: gating the header on any offline-pointer omits it for structural-only rows.
+  CHECK(cli.err ==
+        "open --offline: repositories were not restored (no git, no network). Stored remote URLs below are informational — recorded at pack, not vetted or complete. Cloning them is git-clone-grade trust: git may contact those URLs and additional URLs from repo metadata (.gitmodules, nested submodules, host git config) that Bivpak does not see or police. Clone only what you trust.\n");
+}
+
+TEST_CASE("open repos zero state omits rows listing and stage access", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-zero");
+  Image fixture;
+  fixture.payload.push_back(Image::member("payload/plain.txt", "plain"));
+  const auto image = fixture.write(root);
+  write_file(root / "out.bvpk-open.stage", "untouched");
+  const auto result = biv::open::open({.image = image, .dest = root / "out"});
+  REQUIRE(result);
+  CHECK(result->repos.empty());
+  CHECK(result->url_divergence_refusals.empty());
+  CHECK(read_text(root / "out.bvpk-open.stage") == "untouched");
+  const auto cli = run_cmd("open '" + image.string() + "' --dest cli --offline", root);
+  CHECK(cli.code == 0);
+  CHECK(cli.err.find("open --offline:") == std::string::npos);
+  CHECK(read_text(root / "cli/plain.txt") == "plain");
+}
+
+TEST_CASE("open repos removes its stage on checksum and restore failures", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-cleanup");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-one", "repo");
+  SECTION("archive changed after plan online and offline") {
+    for (const bool offline : {false, true}) {
+      const auto dest = root / (offline ? "offline" : "online");
+      const auto image = fixture.write(root);
+      auto plan = biv::open::plan_open({.image = image, .dest = dest, .verify = true, .offline = offline});
+      REQUIRE(plan);
+      fixture.artifacts.front().data.front() ^= std::byte{1};
+      fixture.write(root);
+      const auto result = biv::open::execute_open(std::move(*plan), {});
+      REQUIRE_FALSE(result);
+      CHECK(result.error().kind == biv::ErrKind::IntegrityFailureMidApply);
+      CHECK(result.error().detail == "checksum");
+      CHECK(result.error().facts.at("partial_dir") == dest.string() + ".bvpk-open.partial");
+      CHECK_FALSE(std::filesystem::exists(dest));
+      CHECK_FALSE(std::filesystem::exists(dest.string() + ".bvpk-open.stage"));
+      fixture.artifacts.front().data.front() ^= std::byte{1};
+    }
+  }
+  SECTION("engine failure stays a whole operation error") {
+    fixture.artifacts.front().data.front() ^= std::byte{1};
+    const auto image = fixture.write(root);
+    const auto result = biv::open::open({.image = image, .dest = root / "out", .verify = true});
+    REQUIRE_FALSE(result);
+    CHECK(result.error().facts.contains("partial_dir"));
+    CHECK_FALSE(std::filesystem::exists(root / "out"));
+    CHECK_FALSE(std::filesystem::exists(root / "out.bvpk-open.stage"));
+  }
+}
+
+TEST_CASE("open repos offline renderers use sealed A9.4 text and display-safe values", "[open-repos]") {
+  CHECK(biv::cli::render_offline_header() ==
+        "open --offline: repositories were not restored (no git, no network). Stored remote URLs below are informational — recorded at pack, not vetted or complete. Cloning them is git-clone-grade trust: git may contact those URLs and additional URLs from repo metadata (.gitmodules, nested submodules, host git config) that Bivpak does not see or police. Clone only what you trust.\n");
+  CHECK(biv::cli::render_offline_row("a\nb", std::nullopt, "(no commits)", {}) ==
+        "a\\nb · (detached) · (no commits) · (no stored remote)\n");
+  CHECK(biv::cli::render_offline_row("repo", "branch\t", "sha\r", {"url\n", "other\t"}) ==
+        "repo · branch\\t · sha\\r · url\\n, other\\t\n");
+}
+
+TEST_CASE("open repos stages an engine captured overlay local refs bundle at its full path", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-overlay");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-overlay", "overlay", false, true);
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto offline = biv::open::open({.image = image, .dest = root / "offline", .verify = true, .offline = true});
+  REQUIRE(offline);
+  REQUIRE(offline->repos.size() == 1);
+  CHECK(offline->repos[0].outcome == "offline-pointer");
+  CHECK(offline->repos[0].capture_mode == "overlay");
+  CHECK(offline->repos[0].sha == fixture.manifest.repos[0].sha);
+  CHECK(offline->repos[0].branch == "main");
+  CHECK(offline->repos[0].remotes == std::vector<std::string>{(root / "remote-r-overlay").string()});
+  CHECK(read_text(root / "trace").empty());
+  CHECK_FALSE(std::filesystem::exists(root / "offline/.biv"));
+  const auto online = biv::open::open({.image = image, .dest = root / "online", .verify = true});
+  if (!online) INFO(online.error().detail);
+  REQUIRE(online);
+  REQUIRE(online->repos.size() == 1);
+  CHECK(online->repos[0].outcome == "restored");
+  CHECK(read_text(root / "trace").find("online.bvpk-open.stage/repos/r-overlay/local-refs.bundle") != std::string::npos);
+  CHECK(run_git(git(), root / "online/overlay", {"rev-parse", "local-topic"}) ==
+        run_git(git(), root / "source-r-overlay", {"rev-parse", "local-topic"}));
+  CHECK(run_git(git(), root / "online/overlay", {"status", "--porcelain=v2"}).empty());
+  CHECK_FALSE(std::filesystem::exists(root / "online.bvpk-open.stage"));
+}
+
+TEST_CASE("open repos offline pointers retain manifest order detached and unborn HEAD values", "[open-repos]") {
+  using namespace open_repos_fixture;
+  const auto root = make_tmp("open-repos-pointer-heads");
+  const ScopedEnv home{"HOME", root.string()};
+  Image fixture;
+  fixture.capture_repo(root, "r-detached", "detached");
+  fixture.capture_repo(root, "r-unborn", "unborn");
+  auto& detached = fixture.manifest.repos[0];
+  detached.head_state = biv::repo::HeadState::detached;
+  detached.branch.reset();
+  detached.remotes = {{"one", "https://one.invalid/\r"}, {"two", "https://two.invalid/\xe2\x80\xae"}};
+  auto& unborn = fixture.manifest.repos[1];
+  unborn.head_state = biv::repo::HeadState::unborn;
+  unborn.sha.reset();
+  unborn.branch = "empty";
+  REQUIRE(unborn.eligibility);
+  unborn.eligibility->result = biv::repo::EligibilityResult::unborn_head;
+  const auto image = fixture.write(root);
+  install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" + std::getenv("PATH")};
+  const auto report = biv::open::open({.image = image, .dest = root / "out", .verify = true, .offline = true});
+  REQUIRE(report);
+  REQUIRE(report->repos.size() == 2);
+  CHECK(report->repos[0].id == "r-detached");
+  CHECK(report->repos[0].outcome == "offline-pointer");
+  CHECK(report->repos[0].sha == detached.sha);
+  CHECK_FALSE(report->repos[0].branch);
+  CHECK(report->repos[1].id == "r-unborn");
+  CHECK(report->repos[1].outcome == "offline-pointer");
+  CHECK(report->repos[1].sha == "(no commits)");
+  CHECK(report->repos[1].branch == "empty");
+  const auto cli = run_cmd("open '" + image.string() + "' --dest cli --offline", root);
+  REQUIRE(cli.code == 0);
+  const std::string lines = "detached · (detached) · " + *detached.sha +
+      " · https://one.invalid/\\r, https://two.invalid/\\u{202e}\n"
+      "unborn · empty · (no commits) · (no stored remote)\n";
+  CHECK(cli.err.starts_with(biv::cli::render_offline_header() + lines));
+  CHECK(cli.err.find("detached: git init --initial-branch='bvpk-restore'") != std::string::npos);
+  CHECK(cli.err.find(" 'HEAD' '+refs/heads/*:refs/heads/*'") != std::string::npos);
+  CHECK(cli.err.find("unborn: git init --initial-branch='empty'") != std::string::npos);
+  CHECK(read_text(root / "trace").empty());
+  const auto json = run_cmd("open '" + image.string() + "' --dest json --offline --json", root);
+  REQUIRE(json.code == 0);
+  CHECK(json.err.empty());
+  simdjson::dom::parser parser;
+  const simdjson::dom::element document = parser.parse(json.out);
+  const simdjson::dom::array rows = document["result"]["repos"];
+  REQUIRE(rows.size() == 2);
+  CHECK(std::string_view(rows.at(0)["bundle_path"]) == ".biv/repos/r-detached/repo.bundle");
+  CHECK(std::string_view(rows.at(0)["reconstruct"]).find(" 'HEAD' ") != std::string_view::npos);
+  CHECK(std::string_view(rows.at(1)["sha"]) == "(no commits)");
+  CHECK(simdjson::dom::array(document["result"]["manifest"]["repos"]).size() == 0);
 }
 
 TEST_CASE("a6.14 list/info accept the flag inert: full-stream equality with flagless", "[a6-fabric]") {
@@ -2174,4 +2949,815 @@ TEST_CASE(
       claude_probe, process_root / "bin" / "claude"));
   }
   std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c3 offline and network flags parse only for their supported verbs", "[cli-flags]") {
+  for (const std::string verb : {"pack", "open"}) {
+    std::vector<std::string> words{"biv", verb, "--offline", "source"};
+    std::vector<char*> argv;
+    for (auto& word : words) argv.push_back(word.data());
+    const auto parsed = biv::cli::parse_args(argv);
+    INFO(verb);
+    INFO((parsed ? "parsed" : parsed.error().detail));
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->offline);
+    CHECK_FALSE(parsed->network);
+  }
+  char prog[] = "biv", verb[] = "open", flag[] = "--network", image[] = "image.bvpk";
+  char* argv[] = {prog, verb, flag, image};
+  const auto parsed = biv::cli::parse_args(argv);
+  REQUIRE(parsed.has_value());
+  CHECK(parsed->network);
+  CHECK_FALSE(parsed->offline);
+}
+
+TEST_CASE("c3 conflicting flags and pack network are usage errors", "[cli-flags]") {
+  const auto root = make_tmp("c3-conflicting-flags");
+  for (const std::string flags : {"--offline --network", "--network --offline"}) {
+    const auto result = run_cmd("open " + flags + " missing.bvpk --json", root);
+    CHECK(result.code == 5);
+    simdjson::dom::parser parser;
+    simdjson::dom::element document;
+    REQUIRE(parser.parse(result.out).get(document) == simdjson::SUCCESS);
+    std::string_view kind, detail;
+    REQUIRE(document["error"]["kind"].get(kind) == simdjson::SUCCESS);
+    REQUIRE(document["error"]["detail"].get(detail) == simdjson::SUCCESS);
+    CHECK(kind == "UsageError");
+    CHECK(detail == "conflicting-flags");
+    CHECK(result.err.empty());
+  }
+  const auto pack = run_cmd("pack --network source", root);
+  CHECK(pack.code == 5);
+  CHECK(pack.out.empty());
+  CHECK(pack.err == "biv: UsageError: unknown-flag\n");
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c3 list and info ignore offline and network with exact stream parity", "[cli-flags]") {
+  const auto root = make_tmp("c3-stub-flags");
+  for (const std::string verb : {"list", "info"}) {
+    for (const std::string json : {"", " --json"}) {
+      const auto baseline = run_cmd(verb + json, root);
+      for (const std::string flag : {" --offline", " --network"}) {
+        const auto result = run_cmd(verb + flag + json, root);
+        CHECK(result.code == baseline.code);
+        CHECK(result.out == baseline.out);
+        CHECK(result.err == baseline.err);
+      }
+    }
+  }
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c3 split PTY captures distinct streams and child TTY facts", "[cli-flags][cli-pty]") {
+  const auto root = make_tmp("c3-split-pty");
+  const std::string command = "sh -c 'test -t 0; echo $?; test -t 1; echo $?; test -t 2; echo $?'";
+  const auto split = run_shell_pty_topology(command, root, "", true);
+  CHECK(split.code == 0);
+  CHECK(split.out == "0\n1\n0\n");
+  CHECK(split.err.empty());
+  CHECK(split.stdin_tty);
+  CHECK_FALSE(split.stdout_tty);
+  CHECK(split.stderr_tty);
+  const auto merged = run_shell_pty_topology(command, root, "", false);
+  CHECK(merged.code == 0);
+  CHECK(merged.out.empty());
+  CHECK(merged.err == "0\r\n0\r\n0\r\n");
+  CHECK(merged.stdin_tty);
+  CHECK(merged.stdout_tty);
+  CHECK(merged.stderr_tty);
+  const auto separated = run_shell_pty_topology("printf stdout; printf stderr >&2", root, "", true);
+  CHECK(separated.out == "stdout");
+  CHECK(separated.err == "stderr");
+  const auto cli = run_cmd_pty_split("open --help", root, "");
+  CHECK(cli.code == 0);
+  CHECK(cli.out == run_cmd("open --help", root).out);
+  CHECK(cli.err.empty());
+  CHECK(cli.stdin_tty);
+  CHECK_FALSE(cli.stdout_tty);
+  CHECK(cli.stderr_tty);
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c3 hook installer obeys preapproval and absent noninteractive hook", "[cli-flags][cli-hook]") {
+  REQUIRE_FALSE(biv::cli::interactive_url_hook_installable());
+  biv::cli::Command parsed;
+  CHECK_FALSE(install_url_divergence_hook(parsed).run.hook);
+  parsed.json = true;
+  parsed.offline = true;
+  CHECK_FALSE(install_url_divergence_hook(parsed).run.hook);
+  parsed.offline = false;
+  parsed.network = true;
+  CHECK_FALSE(install_url_divergence_hook(parsed).run.hook);
+  parsed.accept_url_divergence = true;
+  auto consent = install_url_divergence_hook(parsed);
+  REQUIRE(consent.run.hook);
+  std::ostringstream captured;
+  struct RestoreBuffer {
+    std::streambuf* previous;
+    ~RestoreBuffer() { std::cerr.rdbuf(previous); }
+  } restore{std::cerr.rdbuf(captured.rdbuf())};
+  // Called outside any assertion: a redirecting reporter (-r xml) re-points
+  // std::cerr at each assertion boundary, which would bypass `captured`.
+  const auto decision = consent.run.hook({"https://req", "https://eff", "fetch", "/w/repo"});
+  CHECK(decision == biv::repo::UrlDivergenceDecision::proceed);
+  CHECK(captured.str() ==
+        "  fetch: contacting https://eff for /w/repo (requested: https://req — accepted for this run)\n");
+}
+
+TEST_CASE("c3 refusal writer preserves entry order and emits one run guidance", "[cli-flags][cli-hook]") {
+  std::ostringstream err;
+  emit_entry_refusals({}, err);
+  CHECK(err.str().empty());
+  emit_entry_refusals({{"repo-z", "z/file", "https://q1", "https://e1", "fetch"},
+                       {"repo-a", "a/file", "https://q2", "https://e2", "clone"}}, err);
+  CHECK(err.str() ==
+        "  z/file: restore failed — fetch would contact https://e1 instead of the requested https://q1; approval was not given.\n"
+        "  a/file: restore failed — clone would contact https://e2 instead of the requested https://q2; approval was not given.\n"
+        "  open: 2 restore entry(ies) refused — the effective address was not approved. Re-run interactively to review, or pass --accept-url-divergence to proceed.\n");
+  ConsentRun consent;
+  consent.run.accepted.push_back({"https://q", "https://e", "fetch", "/w/repo"});
+  std::vector<biv::UrlDivergenceAcceptedEntry> accepted;
+  record_accepted(consent, accepted);
+  REQUIRE(accepted.size() == 1);
+  CHECK(accepted[0].requested == "https://q");
+  CHECK(accepted[0].effective == "https://e");
+  CHECK(accepted[0].op == "fetch");
+  CHECK(accepted[0].repo == "/w/repo");
+}
+
+TEST_CASE("A11 engine errors render the locked sentences and hostile diagnostic slots", "[a11]") {
+  std::map<std::string, std::string> facts{{"repo_relpath", "repo\r\xe2\x80\xae"},
+                                           {"op", "fetch"},
+                                           {"exit_code", "9"}};
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoDirtyUnsupported, facts) ==
+        "pack refused: repo\\r\\u{202e} has uncommitted changes; this build captures clean repositories only. Commit or stash the changes, or declare the path in .bivignore, and re-run.");
+  facts["child"] = "child";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoNestedUnsupported, facts).find("nested repository at child") != std::string::npos);
+  facts["gitlink"] = "sub";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoSubmoduleUnsupported, facts).find("submodule at sub") != std::string::npos);
+  facts["unmerged_count"] = "4";
+  facts["unmerged_paths"] = "a\nb\nc\nd";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::UnmergedIndexUnrepresentable, facts).find("a, b, c and 1 more") != std::string::npos);
+  facts["ref"] = "refs/heads/local";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RefUncapturable, facts).find("refs/heads/local") != std::string::npos);
+  facts["offline"] = "true";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::PromisorObjectsUnavailable, facts).find(", offline") != std::string::npos);
+  facts["verb"] = "open";
+  facts["engine_detail"] = "fatal: hostile\r\xe2\x80\xae";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::GitInvocationFailed, facts).find("fatal: hostile\\r\\u{202e}") != std::string::npos);
+  facts.erase("op");
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::GitBudgetExpired, facts).find("git call") != std::string::npos);
+  facts["engine_detail"] = "RepoRestoreFailed: checkout: bad";
+  CHECK(biv::cli::render_engine_refusal_detail(biv::ErrKind::RepoRestoreFailed, facts).find("checkout: bad") != std::string::npos);
+}
+
+TEST_CASE("c6m a payload directory above a restored repository keeps its archived mtime", "[cli][c6m]") {
+  const auto root = make_tmp("c6m-directory-mtime");
+  const auto workspace = root / "workspace";
+  const auto docs = workspace / "docs";
+  const auto inner = docs / "inner";
+  std::filesystem::create_directories(inner);
+  write_file(workspace / "README.md", "root\n");
+  write_file(docs / "notes.txt", "notes\n");
+  const auto handle = open_repos_fixture::git();
+  open_repos_fixture::run_git(handle, inner, {"init", "-b", "main"});
+  write_file(inner / "sub" / "t.txt", "tracked\n");
+  open_repos_fixture::run_git(handle, inner, {"add", "."});
+  open_repos_fixture::run_git(handle, inner,
+                              {"-c", "user.name=Biv Test", "-c",
+                               "user.email=biv@example.invalid", "commit", "-m", "initial"});
+  const timespec archived[2]{{1577836800, 123456789}, {1577836800, 123456789}};
+  for (const auto& path : {workspace / "README.md", docs / "notes.txt",
+                           inner / "sub" / "t.txt", inner / "sub", inner, docs, workspace}) {
+    REQUIRE(::utimensat(AT_FDCWD, path.c_str(), archived, AT_SYMLINK_NOFOLLOW) == 0);
+  }
+  const auto mtime = [](const std::filesystem::path& path) {
+    struct stat status{};
+    REQUIRE(::lstat(path.c_str(), &status) == 0);
+#if defined(__APPLE__)
+    return std::pair{status.st_mtimespec.tv_sec, status.st_mtimespec.tv_nsec};
+#else
+    return std::pair{status.st_mtim.tv_sec, status.st_mtim.tv_nsec};
+#endif
+  };
+  const auto docs_mtime = mtime(docs);
+  const auto notes_mtime = mtime(docs / "notes.txt");
+  const auto packed = run_cmd("pack '" + workspace.string() + "' --json", root);
+  INFO(packed.out);
+  INFO(packed.err);
+  REQUIRE(packed.code == 0);
+
+  const auto run_leg = [&](const std::string& leg, const std::string& flag) {
+    const auto dest = root / leg;
+    const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                    "' --dest '" + dest.string() + "' " + flag + " --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 0);
+    const auto restored_docs_mtime = mtime(dest / "docs");
+    const auto restored_notes_mtime = mtime(dest / "docs" / "notes.txt");
+    INFO("docs expected=" << docs_mtime.first << "." << docs_mtime.second
+                           << " actual=" << restored_docs_mtime.first << "."
+                           << restored_docs_mtime.second);
+    INFO("notes expected=" << notes_mtime.first << "." << notes_mtime.second
+                            << " actual=" << restored_notes_mtime.first << "."
+                            << restored_notes_mtime.second);
+    CHECK(restored_docs_mtime == docs_mtime);
+    CHECK(restored_notes_mtime == notes_mtime);
+    if (leg == "network") {
+      CHECK(open_repos_fixture::run_git(handle, dest / "docs" / "inner",
+                                        {"status", "--porcelain=v2"}).empty());
+    }
+    if (const char* receipts = std::getenv("BIV_LEG_RECEIPTS")) {
+      std::ofstream out{receipts, std::ios::app};
+      out << "leg=c6m-" << leg << " provenance=product-packed\n";
+    }
+  };
+  run_leg("network", "--network");
+  run_leg("offline", "--offline");
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c6q payload-only repository trees round trip without git",
+          "[cli][c6q]") {
+  const auto handle = open_repos_fixture::git();
+  const auto make_remote = [&](const std::filesystem::path& root) {
+    const auto remote = root / "remote.git";
+    const auto seed = root / "seed";
+    std::filesystem::create_directories(remote);
+    std::filesystem::create_directories(seed);
+    open_repos_fixture::run_git(handle, remote,
+                                 {"init", "--bare", "--initial-branch=main"});
+    open_repos_fixture::run_git(handle, seed, {"init", "-b", "main"});
+    write_file(seed / ".gitignore", "*.log\n");
+    write_file(seed / "sub/t.txt", "one\n");
+    write_file(seed / "b.txt", "first\n");
+    open_repos_fixture::run_git(handle, seed, {"add", "."});
+    open_repos_fixture::run_git(
+        handle, seed,
+        {"-c", "user.name=Biv Test", "-c",
+         "user.email=biv@example.invalid", "commit", "-m", "one"});
+    write_file(seed / "b.txt", "second\n");
+    open_repos_fixture::run_git(handle, seed, {"add", "b.txt"});
+    open_repos_fixture::run_git(
+        handle, seed,
+        {"-c", "user.name=Biv Test", "-c",
+         "user.email=biv@example.invalid", "commit", "-m", "two"});
+    open_repos_fixture::run_git(handle, seed,
+                                 {"remote", "add", "origin", remote.string()});
+    open_repos_fixture::run_git(handle, seed, {"push", "origin", "main"});
+    return remote;
+  };
+  const auto clone_shallow = [&](const std::filesystem::path& root,
+                                 const std::filesystem::path& remote,
+                                 const std::filesystem::path& dest) {
+    open_repos_fixture::run_git(
+        handle, root,
+        {"clone", "--depth", "1", "file://" + remote.generic_string(),
+         dest.generic_string()});
+  };
+  const auto stat_pair = [](const std::filesystem::path& path) {
+    struct stat status{};
+    REQUIRE(::lstat(path.c_str(), &status) == 0);
+#if defined(__APPLE__)
+    return std::pair{std::pair{status.st_mtimespec.tv_sec,
+                               status.st_mtimespec.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#else
+    return std::pair{std::pair{status.st_mtim.tv_sec, status.st_mtim.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#endif
+  };
+  const auto assert_tree = [&](const std::filesystem::path& source,
+                               const std::filesystem::path& dest,
+                               const std::vector<std::string>& relpaths) {
+    for (const auto& relpath : relpaths) {
+      const auto from = source / relpath;
+      const auto to = dest / relpath;
+      INFO(relpath);
+      CHECK(stat_pair(to) == stat_pair(from));
+      if (std::filesystem::is_regular_file(from)) {
+        CHECK(read_text(to) == read_text(from));
+      }
+    }
+  };
+  const auto assert_json = [](const std::string& output,
+                              const std::map<std::string, std::string>& outcomes,
+                              const int64_t restored_members) {
+    simdjson::dom::parser parser;
+    const simdjson::dom::element document = parser.parse(output);
+    CHECK(int64_t(document["result"]["restored_member_count"]) ==
+          restored_members);
+    const simdjson::dom::array rows = document["result"]["repos"];
+    REQUIRE(rows.size() == outcomes.size());
+    for (const auto row : rows) {
+      const std::string rel{std::string_view(row["relpath"])};
+      REQUIRE(outcomes.contains(rel));
+      CHECK(std::string_view(row["outcome"]) == outcomes.at(rel));
+    }
+  };
+
+  SECTION("non-root shallow and unborn rows") {
+    const auto root = make_tmp("c6q-nonroot");
+    const auto workspace = root / "workspace";
+    const auto remote = make_remote(root);
+    write_file(workspace / "README.md", "root\n");
+    clone_shallow(root, remote, workspace / "shal");
+    write_file(workspace / "shal/x.log", "ignored bytes\n");
+    std::filesystem::create_directories(workspace / "fresh");
+    open_repos_fixture::run_git(handle, workspace / "fresh",
+                                 {"init", "-b", "main"});
+    write_file(workspace / "fresh/sub/f.txt", "fresh\n");
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    INFO(packed.out);
+    INFO(packed.err);
+    REQUIRE(packed.code == 0);
+    open_repos_fixture::install_trace(root);
+    const ScopedEnv path{"PATH", (root / "bin").string() + ":" +
+                                     std::getenv("PATH")};
+    const std::vector<std::string> shal{
+        "shal", "shal/.gitignore", "shal/b.txt", "shal/sub",
+        "shal/sub/t.txt", "shal/x.log"};
+    const std::vector<std::string> fresh{
+        "fresh", "fresh/sub", "fresh/sub/f.txt"};
+    for (const auto& [name, flag] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"online", ""}, {"offline", "--offline"}}}) {
+      write_file(root / "trace", "");
+      const auto dest = root / name;
+      const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                      "' --dest '" + dest.string() + "' " +
+                                      flag + " --json",
+                                  root);
+      INFO(opened.out);
+      INFO(opened.err);
+      REQUIRE(opened.code == 0);
+      assert_tree(workspace, dest, shal);
+      assert_tree(workspace, dest, fresh);
+      CHECK_FALSE(std::filesystem::exists(dest / "shal/.git"));
+      CHECK_FALSE(std::filesystem::exists(dest / "fresh/.git"));
+      CHECK(read_text(root / "trace").empty());
+      assert_json(opened.out,
+                  {{"shal", "shallow-pointer"},
+                   {"fresh", "payload-only-unborn"}},
+                  10);
+      if (const char* receipts = std::getenv("BIV_LEG_RECEIPTS")) {
+        std::ofstream out{receipts, std::ios::app};
+        out << "leg=c6q-" << name << " provenance=product-packed\n";
+      }
+    }
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root shallow row") {
+    const auto root = make_tmp("c6q-root-shallow");
+    const auto remote = make_remote(root);
+    const auto workspace = root / "workspace";
+    clone_shallow(root, remote, workspace);
+    write_file(workspace / "x.log", "ignored bytes\n");
+    write_file(workspace / "extra.txt", "extra\n");
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    REQUIRE(packed.code == 0);
+    open_repos_fixture::install_trace(root);
+    const ScopedEnv path{"PATH", (root / "bin").string() + ":" +
+                                     std::getenv("PATH")};
+    const std::vector<std::string> expected{
+        ".gitignore", "b.txt", "extra.txt", "sub", "sub/t.txt", "x.log"};
+    for (const auto& [name, flag] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"online", ""}, {"offline", "--offline"}}}) {
+      write_file(root / "trace", "");
+      const auto dest = root / ("dest-" + name);
+      const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                      "' --dest '" + dest.string() + "' " +
+                                      flag + " --json",
+                                  root);
+      REQUIRE(opened.code == 0);
+      assert_tree(workspace, dest, expected);
+      CHECK_FALSE(std::filesystem::exists(dest / ".git"));
+      CHECK(read_text(root / "trace").empty());
+      assert_json(opened.out, {{".", "shallow-pointer"}}, 6);
+    }
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root unborn row") {
+    const auto root = make_tmp("c6q-root-unborn");
+    const auto workspace = root / "workspace";
+    std::filesystem::create_directories(workspace);
+    open_repos_fixture::run_git(handle, workspace, {"init", "-b", "main"});
+    write_file(workspace / "sub/f.txt", "fresh\n");
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    REQUIRE(packed.code == 0);
+    open_repos_fixture::install_trace(root);
+    const ScopedEnv path{"PATH", (root / "bin").string() + ":" +
+                                     std::getenv("PATH")};
+    const std::vector<std::string> expected{"sub", "sub/f.txt"};
+    for (const auto& [name, flag] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"online", ""}, {"offline", "--offline"}}}) {
+      write_file(root / "trace", "");
+      const auto dest = root / ("dest-" + name);
+      const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                      "' --dest '" + dest.string() + "' " +
+                                      flag + " --json",
+                                  root);
+      REQUIRE(opened.code == 0);
+      assert_tree(workspace, dest, expected);
+      CHECK_FALSE(std::filesystem::exists(dest / ".git"));
+      CHECK(read_text(root / "trace").empty());
+      assert_json(opened.out, {{".", "payload-only-unborn"}}, 2);
+    }
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("c6p repository penumbra is placed after its row outcome",
+          "[cli][c6p]") {
+  const auto root = make_tmp("c6p-penumbra-placement");
+  const auto workspace = root / "workspace";
+  const auto repo = workspace / "lib";
+  write_file(workspace / "README.md", "root\n");
+  const auto handle = open_repos_fixture::git();
+  std::filesystem::create_directories(repo);
+  open_repos_fixture::run_git(handle, repo, {"init", "-b", "main"});
+  write_file(repo / ".gitignore", "ign/\n*.log\n");
+  write_file(repo / "sub/t.txt", "tracked\n");
+  open_repos_fixture::run_git(handle, repo,
+                              {"add", ".gitignore", "sub/t.txt"});
+  open_repos_fixture::run_git(handle, repo,
+                              {"-c", "user.name=Biv Test", "-c",
+                               "user.email=biv@example.invalid", "commit",
+                               "-m", "base"});
+  write_file(repo / "ign/penumbra.txt", "one\n");
+  write_file(repo / "ign/deep/d.txt", "two\n");
+  write_file(repo / "sub/x.log", "three\n");
+  REQUIRE(open_repos_fixture::run_git(handle, repo,
+                                      {"status", "--porcelain=v2"}).empty());
+
+  const auto packed = run_cmd(
+      "pack '" + workspace.string() + "' --offline --json", root);
+  INFO(packed.out);
+  INFO(packed.err);
+  REQUIRE(packed.code == 0);
+  const auto image = root / "workspace.bvpk";
+  open_repos_fixture::install_trace(root);
+  const ScopedEnv path{"PATH", (root / "bin").string() + ":" +
+                                   std::getenv("PATH")};
+  const auto stat_pair = [](const std::filesystem::path& path) {
+    struct stat status{};
+    REQUIRE(::lstat(path.c_str(), &status) == 0);
+#if defined(__APPLE__)
+    return std::pair{std::pair{status.st_mtimespec.tv_sec,
+                               status.st_mtimespec.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#else
+    return std::pair{std::pair{status.st_mtim.tv_sec, status.st_mtim.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#endif
+  };
+  const auto assert_fidelity = [&](const std::filesystem::path& dest,
+                                   const std::string& relative) {
+    const auto original = repo / relative;
+    const auto restored = dest / "lib" / relative;
+    CHECK(read_text(restored) == read_text(original));
+    CHECK(stat_pair(restored) == stat_pair(original));
+  };
+  const auto run_leg = [&](const std::string& leg, const std::string& flag) {
+    write_file(root / "trace", "");
+    const auto dest = root / leg;
+    const auto opened = run_cmd("open '" + image.string() + "' --dest '" +
+                                    dest.string() + "' " + flag + " --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 0);
+    assert_fidelity(dest, "ign/penumbra.txt");
+    assert_fidelity(dest, "ign/deep/d.txt");
+    assert_fidelity(dest, "sub/x.log");
+    CHECK(stat_pair(dest / "lib/ign") == stat_pair(repo / "ign"));
+    CHECK(stat_pair(dest / "lib/ign/deep") == stat_pair(repo / "ign/deep"));
+    CHECK(std::filesystem::is_directory(dest / "lib/sub"));
+    CHECK(opened.out.find("\"restored_member_count\": 6") !=
+          std::string::npos);
+    if (leg == "network") {
+      CHECK(open_repos_fixture::run_git(handle, dest / "lib",
+                                        {"status", "--porcelain=v2"}).empty());
+    } else {
+      CHECK(std::filesystem::is_directory(dest / "lib"));
+      CHECK(read_text(root / "trace").empty());
+    }
+    if (const char* receipts = std::getenv("BIV_LEG_RECEIPTS")) {
+      std::ofstream out{receipts, std::ios::app};
+      out << "leg=c6p-" << leg << " provenance=product-packed\n";
+    }
+  };
+  run_leg("network", "--network");
+  run_leg("offline", "--offline");
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c6p nested and root repository penumbra survives real CLI open",
+          "[cli][c6p]") {
+  const auto handle = open_repos_fixture::git();
+  const auto stat_pair = [](const std::filesystem::path& path) {
+    struct stat status{};
+    REQUIRE(::lstat(path.c_str(), &status) == 0);
+#if defined(__APPLE__)
+    return std::pair{std::pair{status.st_mtimespec.tv_sec,
+                               status.st_mtimespec.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#else
+    return std::pair{std::pair{status.st_mtim.tv_sec, status.st_mtim.tv_nsec},
+                     static_cast<uint32_t>(status.st_mode & 07777U)};
+#endif
+  };
+
+  SECTION("P3 nested row under a payload directory") {
+    const auto root = make_tmp("c6p-nested-penumbra");
+    const auto workspace = root / "workspace";
+    const auto repo = workspace / "docs/inner";
+    write_file(workspace / "docs/outer.txt", "outer\n");
+    std::filesystem::create_directories(repo);
+    open_repos_fixture::run_git(handle, repo, {"init", "-b", "main"});
+    write_file(repo / ".gitignore", "ign/\n");
+    write_file(repo / "tracked.txt", "tracked\n");
+    open_repos_fixture::run_git(handle, repo,
+                                {"add", ".gitignore", "tracked.txt"});
+    open_repos_fixture::run_git(handle, repo,
+                                {"-c", "user.name=Biv Test", "-c",
+                                 "user.email=biv@example.invalid", "commit",
+                                 "-m", "base"});
+    write_file(repo / "ign/p.txt", "penumbra\n");
+    REQUIRE(open_repos_fixture::run_git(
+                handle, repo, {"status", "--porcelain=v2"})
+                .empty());
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    REQUIRE(packed.code == 0);
+    const auto dest = root / "dest";
+    const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                    "' --dest '" + dest.string() +
+                                    "' --network --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 0);
+    CHECK(read_text(dest / "docs/inner/ign/p.txt") == "penumbra\n");
+    CHECK(stat_pair(dest / "docs/inner/ign/p.txt") ==
+          stat_pair(repo / "ign/p.txt"));
+    CHECK(stat_pair(dest / "docs") == stat_pair(workspace / "docs"));
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("P4 root row is verified before its penumbra placement") {
+    const auto root = make_tmp("c6p-root-penumbra");
+    const auto workspace = root / "workspace";
+    std::filesystem::create_directories(workspace);
+    open_repos_fixture::run_git(handle, workspace, {"init", "-b", "main"});
+    write_file(workspace / ".gitignore", "*.o\n");
+    write_file(workspace / "src/a.c", "tracked\n");
+    open_repos_fixture::run_git(handle, workspace,
+                                {"add", ".gitignore", "src/a.c"});
+    open_repos_fixture::run_git(handle, workspace,
+                                {"-c", "user.name=Biv Test", "-c",
+                                 "user.email=biv@example.invalid", "commit",
+                                 "-m", "base"});
+    write_file(workspace / ".git/info/exclude", "local.txt\n");
+    write_file(workspace / "src/a.o", "ignored\n");
+    write_file(workspace / "local.txt", "local\n");
+    REQUIRE(open_repos_fixture::run_git(
+                handle, workspace, {"status", "--porcelain=v2"})
+                .empty());
+    const auto packed = run_cmd("pack '" + workspace.string() +
+                                    "' --offline --json",
+                                root);
+    REQUIRE(packed.code == 0);
+    const auto dest = root / "dest";
+    const auto opened = run_cmd("open '" + (root / "workspace.bvpk").string() +
+                                    "' --dest '" + dest.string() +
+                                    "' --network --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 0);
+    for (const auto& rel : {std::string{"src/a.o"}, std::string{"local.txt"}}) {
+      CHECK(read_text(dest / rel) == read_text(workspace / rel));
+      CHECK(stat_pair(dest / rel) == stat_pair(workspace / rel));
+    }
+    CHECK(open_repos_fixture::run_git(
+              handle, dest, {"status", "--porcelain=v2", "-z"}) ==
+          std::string{"? local.txt\0", 12});
+    const auto ignored = open_repos_fixture::run_git(
+        handle, dest, {"status", "--porcelain=v2", "--ignored", "-z"});
+    CHECK(ignored.find("! src/a.o\0") != std::string::npos);
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("c6p deferred and first-pass writers refuse protected paths",
+          "[cli][c6p]") {
+  using namespace open_repos_fixture;
+  const auto require_unsafe = [](const RunResult& opened) {
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 3);
+    CHECK(opened.out.find("\"kind\": \"MemberPathUnsafe\"") !=
+          std::string::npos);
+  };
+
+  SECTION("W2 and W3 folded dot-git are refused by the deferred writer") {
+    for (const auto& [leg, flag] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"network", "--network"}, {"offline", "--offline"}}}) {
+      const auto root = make_tmp("c6p-folded-dotgit-" + leg);
+      const ScopedEnv home{"HOME", root.string()};
+      Image fixture;
+      fixture.capture_repo(root, "r-lib", "lib");
+      fixture.payload.push_back(
+          Image::member("payload/lib/.GIT/hooks/post-checkout", "hook\n"));
+      const auto image = fixture.write(root);
+      const auto opened = run_cmd("open '" + image.string() +
+                                      "' --dest out " + flag + " --json",
+                                  root);
+      require_unsafe(opened);
+      const auto partial = root / "out.bvpk-open.partial";
+      CHECK_FALSE(std::filesystem::exists(
+          partial / "lib/.GIT/hooks/post-checkout"));
+      CHECK_FALSE(std::filesystem::exists(
+          partial / "lib/.git/hooks/post-checkout"));
+#if !defined(__APPLE__)
+      CHECK_FALSE(std::filesystem::exists(partial / "lib/.GIT"));
+#endif
+      std::filesystem::remove_all(root);
+    }
+  }
+
+  SECTION("W5 a placed symlink cannot become an ancestor") {
+    const auto root = make_tmp("c6p-owned-symlink");
+    const ScopedEnv home{"HOME", root.string()};
+    const auto outside = root / "outside-c6p";
+    std::filesystem::create_directories(outside);
+    Image fixture;
+    fixture.capture_repo(root, "r-lib", "lib");
+    fixture.payload.push_back(
+        Image::symlink("payload/lib/ln", "../../outside-c6p"));
+    fixture.payload.push_back(Image::member("payload/lib/ln/x", "escape\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --offline --json",
+                                root);
+    require_unsafe(opened);
+    const auto partial = root / "out.bvpk-open.partial";
+    CHECK(std::filesystem::is_symlink(partial / "lib/ln"));
+    CHECK(std::filesystem::is_empty(outside));
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H1 a restored symlink cannot become an ancestor") {
+    const auto root = make_tmp("c6p-restored-symlink");
+    const ScopedEnv home{"HOME", root.string()};
+    const auto outside = root / "outside-c6p";
+    std::filesystem::create_directories(outside);
+    Image fixture;
+    fixture.capture_repo(root, "r-lib", "lib", false, false, true);
+    fixture.payload.push_back(
+        Image::member("payload/lib/evil/x", "escape\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    require_unsafe(opened);
+    CHECK(std::filesystem::is_symlink(
+        root / "out.bvpk-open.partial/lib/evil"));
+    CHECK(std::filesystem::is_empty(outside));
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H2 a deferred member cannot overwrite a tracked path") {
+    const auto root = make_tmp("c6p-no-overwrite");
+    const ScopedEnv home{"HOME", root.string()};
+    Image fixture;
+    fixture.capture_repo(root, "r-lib", "lib");
+    fixture.payload.push_back(
+        Image::member("payload/lib/a.txt", "replacement\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    require_unsafe(opened);
+    CHECK(read_text(root / "out.bvpk-open.partial/lib/a.txt") ==
+          "committed\n");
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H3 a member equal to a row path stays in the first pass") {
+    const auto root = make_tmp("c6p-row-path-member");
+    const ScopedEnv home{"HOME", root.string()};
+    Image fixture;
+    fixture.capture_repo(root, "r-inner", "docs/inner");
+    fixture.payload.push_back(Image::directory("payload/docs"));
+    fixture.payload.push_back(Image::member("payload/docs/inner", "file\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 4);
+    CHECK(opened.out.find("materialization target already exists") !=
+          std::string::npos);
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H4 parent placement precedes child restore") {
+    const auto root = make_tmp("c6p-parent-before-child");
+    const ScopedEnv home{"HOME", root.string()};
+    Image fixture;
+    fixture.capture_repo(root, "r-parent", "a");
+    fixture.capture_repo(root, "r-child", "a/c");
+    fixture.manifest.repos.at(1).parent_id = "r-parent";
+    fixture.payload.push_back(Image::member("payload/a/c", "owned\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    INFO(opened.out);
+    INFO(opened.err);
+    REQUIRE(opened.code == 4);
+    CHECK(opened.out.find("materialization target already exists") !=
+          std::string::npos);
+    CHECK(opened.out.find("a/c") != std::string::npos);
+    CHECK(read_text(root / "out.bvpk-open.partial/a/c") == "owned\n");
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H5 exact dot-git is refused after a root restore") {
+    const auto root = make_tmp("c6p-root-dotgit");
+    const ScopedEnv home{"HOME", root.string()};
+    Image fixture;
+    fixture.capture_repo(root, "r-root", ".");
+    fixture.payload.push_back(
+        Image::member("payload/.git/c6p-sentinel", "sentinel\n"));
+    const auto image = fixture.write(root);
+    const auto opened = run_cmd("open '" + image.string() +
+                                    "' --dest out --network --json",
+                                root);
+    require_unsafe(opened);
+    CHECK_FALSE(std::filesystem::exists(
+        root / "out.bvpk-open.partial/.git/c6p-sentinel"));
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("H6 and H6b root dot-biv spellings are refused") {
+    for (const auto& spelling : {std::string{".biv"}, std::string{".BIV"}}) {
+      const auto root = make_tmp("c6p-root-dotbiv-" + spelling);
+      const ScopedEnv home{"HOME", root.string()};
+      Image fixture;
+      fixture.capture_repo(root, "r-root", ".");
+      fixture.payload.push_back(Image::directory("payload/" + spelling));
+      fixture.payload.push_back(Image::member(
+          "payload/" + spelling + "/c6p-sentinel", "sentinel\n"));
+      const auto image = fixture.write(root);
+      const auto opened = run_cmd("open '" + image.string() +
+                                      "' --dest out --network --json",
+                                  root);
+      require_unsafe(opened);
+      CHECK_FALSE(std::filesystem::exists(
+          root / "out.bvpk-open.partial" / spelling));
+      std::filesystem::remove_all(root);
+    }
+  }
+
+  SECTION("FP1 and FP2 protect every first-pass dot-git component") {
+    for (const auto& [name, prefix] :
+         std::array<std::pair<std::string, std::string>, 2>{{
+             {"root", ".git"}, {"nested", "docs/.Git"}}}) {
+      const auto root = make_tmp("c6p-first-pass-" + name);
+      Image fixture;
+      if (name == "nested") {
+        fixture.payload.push_back(Image::directory("payload/docs"));
+      }
+      fixture.payload.push_back(Image::directory("payload/" + prefix));
+      fixture.payload.push_back(
+          Image::member("payload/" + prefix + "/config", "config\n"));
+      const auto image = fixture.write(root);
+      const auto opened = run_cmd("open '" + image.string() +
+                                      "' --dest out --offline --json",
+                                  root);
+      require_unsafe(opened);
+      CHECK_FALSE(std::filesystem::exists(
+          root / "out.bvpk-open.partial" / prefix));
+      std::filesystem::remove_all(root);
+    }
+  }
 }

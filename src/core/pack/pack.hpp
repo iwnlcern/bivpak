@@ -42,6 +42,10 @@ struct AgentSessionsSummary {
   size_t session_count{0};
 };
 
+struct PackOptions {
+  bool offline{false};
+};
+
 struct PackReport {
   std::string image_path;
   std::string source_path;
@@ -51,11 +55,14 @@ struct PackReport {
   uint64_t payload_bytes{0};
   std::vector<AgentSessionsSummary> agent_sessions_summary;
   std::vector<manifest::AgentSessionEntry> agent_sessions;
+  std::vector<repo::RepoEntry> repos;
   std::vector<Warning> warnings;
   std::vector<Advisory> advisories;
   std::vector<biv::UrlDivergenceAcceptedEntry> url_divergence_accepted{};
 };
 
+expected<PackReport> pack(const std::filesystem::path& source_dir,
+                          const PackOptions& options);
 expected<PackReport> pack(const std::filesystem::path& source_dir);
 
 }  // namespace biv::pack

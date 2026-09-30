@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+import pytest
+
 from bivharness.manifest import validate_manifest
 
 
@@ -180,3 +182,106 @@ def test_wrong_builtin_id_fails_variant_check():
     manifest["bivignore"]["builtin_id"] = "other"
 
     assert any("builtin_id" in item for item in validate_manifest(manifest, "builtin"))
+
+
+def _repo_entry(**overrides):
+    entry = {
+        "id": "app",
+        "relpath": "app",
+        "kind": "repo",
+        "parent_id": None,
+        "remote": "origin",
+        "remotes": [{"name": "origin", "url": "/tmp/origin.git"}],
+        "sha": "0123456789abcdef0123456789abcdef01234567",
+        "branch": "main",
+        "head_state": "branch",
+        "dirty": False,
+        "capture_mode": "overlay",
+    }
+    entry.update(overrides)
+    return entry
+
+
+def test_empty_repos_array_still_validates():
+    assert validate_manifest(_golden_manifest("builtin"), "builtin") == []
+
+
+def test_overlay_and_full_repo_entries_validate():
+    manifest = _golden_manifest("builtin")
+    full = _repo_entry(id="lib", relpath="lib", remote=None, remotes=[], capture_mode="full")
+    manifest["repos"] = [_repo_entry(), full]
+    assert validate_manifest(manifest, "builtin") == []
+
+
+def test_repo_entry_without_capture_mode_validates_at_the_shape_layer():
+    manifest = _golden_manifest("builtin")
+    entry = _repo_entry(sha=None, branch="main", head_state="unborn")
+    del entry["capture_mode"]
+    manifest["repos"] = [entry]
+    assert validate_manifest(manifest, "builtin") == []
+
+
+@pytest.mark.parametrize(
+    "element",
+    [None, {}, 42, "not-a-repo", []],
+    ids=["null", "empty-object", "number", "string", "array"],
+)
+def test_malformed_repo_elements_fail(element):
+    manifest = _golden_manifest("builtin")
+    manifest["repos"] = [element]
+    assert any(item.startswith("repos.0") for item in validate_manifest(manifest, "builtin"))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("dirty", None),
+        ("kind", "worktree"),
+        ("head_state", "orphan"),
+        ("capture_mode", None),
+        ("capture_mode", "thin"),
+        ("sha", "abc123"),
+        ("remotes", [{"name": "origin"}]),
+        ("parent_id", 7),
+    ],
+    ids=["dirty-null", "kind-enum", "head-state-enum", "capture-mode-null",
+         "capture-mode-enum", "sha-not-40-hex", "remote-missing-url", "parent-id-type"],
+)
+def test_repo_entry_bad_field_fails(field, value):
+    manifest = _golden_manifest("builtin")
+    manifest["repos"] = [_repo_entry(**{field: value})]
+    assert any(item.startswith("repos.0") for item in validate_manifest(manifest, "builtin"))
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["id", "relpath", "kind", "parent_id", "remote", "remotes", "sha", "branch", "head_state", "dirty"],
+)
+def test_repo_entry_missing_required_member_fails(field):
+    manifest = _golden_manifest("builtin")
+    entry = _repo_entry()
+    del entry[field]
+    manifest["repos"] = [entry]
+    assert any(item.startswith("repos.0") for item in validate_manifest(manifest, "builtin"))
+
+
+@pytest.mark.parametrize(
+    "sha",
+    ["0123456789abcdef0123456789abcdef01234567", "0123456789ABCDEF0123456789ABCDEF01234567", None],
+    ids=["lower-hex", "upper-hex", "null"],
+)
+def test_repo_entry_sha_accepts_exactly_40_hex_or_null(sha):
+    manifest = _golden_manifest("builtin")
+    manifest["repos"] = [_repo_entry(sha=sha)]
+    assert validate_manifest(manifest, "builtin") == []
+
+
+@pytest.mark.parametrize(
+    "sha",
+    ["a" * 40 + "\n", "a" * 40 + "\r", "a" * 39 + "g", "a" * 39, "a" * 41, "\n" + "a" * 40],
+    ids=["trailing-lf", "trailing-cr", "non-hex", "39-chars", "41-chars", "leading-lf"],
+)
+def test_repo_entry_sha_rejects_anything_but_exactly_40_hex(sha):
+    manifest = _golden_manifest("builtin")
+    manifest["repos"] = [_repo_entry(sha=sha)]
+    assert any(item.startswith("repos.0.sha") for item in validate_manifest(manifest, "builtin"))

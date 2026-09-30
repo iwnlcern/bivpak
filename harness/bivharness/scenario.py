@@ -351,8 +351,27 @@ def _probe_open_env(
     base: dict[str, str], standins: dict[str, ProbeStandin]
 ) -> dict[str, str]:
     env = dict(base)
-    env["PATH"] = str(next(iter(standins.values())).path.parent)
+    standins_dir = next(iter(standins.values())).path.parent
+    _link_git_into(standins_dir)
+    env["PATH"] = str(standins_dir)
     return env
+
+
+def _link_git_into(standins_dir: Path) -> None:
+    """Expose the harness's git to `biv open` without widening PATH.
+
+    The product resolves git from PATH only (src/core/repo/git.cpp); the open
+    step's PATH is the probe-standins directory alone so agent binaries can
+    only resolve to their standins. A `git` link inside that directory keeps
+    the isolation exact and lets repo-bearing scenarios restore (m-3 §6, D).
+    """
+    link = standins_dir / "git"
+    if link.exists() or link.is_symlink():
+        return
+    resolved = shutil.which("git")
+    if resolved is None:
+        return
+    link.symlink_to(Path(resolved).resolve())
 
 
 def _probe_oracle_failures(

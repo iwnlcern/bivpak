@@ -104,6 +104,7 @@ expected<std::vector<std::filesystem::directory_entry>> sorted_children(const st
 expected<void> walk(const std::filesystem::path& dir,
                     std::string_view rel_dir,
                     const ignore::Matcher& matcher,
+                    const ScanExclusions& exclusions,
                     ScanResult& result) {
   auto children = sorted_children(dir);
   if (!children) {
@@ -135,44 +136,44 @@ expected<void> walk(const std::filesystem::path& dir,
     }
 
     if (name == ".git") {
-      return std::unexpected(BivError{ErrKind::RepoDiscoveredUnsupported, child.path().generic_string()});
+      if (exclusions.claims(rel_dir) || exclusions.claims_marker(rel_dir)) {
+        continue;
+      }
+      const std::string reason =
+          status.type() == std::filesystem::file_type::symlink
+              ? "symlink"
+              : (!is_directory_status(status) &&
+                 status.type() != std::filesystem::file_type::regular)
+                    ? "special-file"
+                    : "unreadable-marker";
+      return std::unexpected(BivError{
+          ErrKind::UnclaimedGitEntry, child.path().generic_string(),
+          {}, 0, {{"reason", reason}}});
     }
     if (name == ".biv" && is_dir) {
       continue;
     }
-
-    if (!is_supported_status(status)) {
-      result.skipped_unsupported.push_back(relpath);
+    if (is_dir && exclusions.claims(relpath)) {
       continue;
     }
 
-    auto statbuf = stat_path(child.path());
-    if (!statbuf) {
-      return std::unexpected(statbuf.error());
+    auto entry = stat_node(dir, name);
+    if (!entry) {
+      return std::unexpected(entry.error());
     }
-
-    Node entry;
-    entry.relpath = relpath;
-    entry.kind = kind_from_status(status);
-    entry.size = entry.kind == NodeKind::file ? static_cast<uint64_t>(statbuf->st_size) : 0U;
-    entry.mode = static_cast<uint32_t>(statbuf->st_mode);
-    entry.mtime_s = support::stat_mtime_sec(*statbuf);
-    entry.mtime_ns = support::stat_mtime_nsec(*statbuf);
-    if (entry.kind == NodeKind::symlink) {
-      auto target = symlink_target(child.path());
-      if (!target) {
-        return std::unexpected(target.error());
-      }
-      entry.symlink_target = std::move(*target);
+    if (!*entry) {
+      result.skipped_unsupported.push_back(relpath);
+      continue;
     }
-    result.payload.push_back(std::move(entry));
+    entry->value().relpath = relpath;
+    result.payload.push_back(std::move(entry->value()));
 
     if (relpath != ".bivignore" && name == ".bivignore") {
       result.nested_bivignore.push_back(relpath);
     }
 
     if (is_dir) {
-      auto recurse = walk(child.path(), relpath, matcher, result);
+      auto recurse = walk(child.path(), relpath, matcher, exclusions, result);
       if (!recurse) {
         return std::unexpected(recurse.error());
       }
@@ -183,7 +184,75 @@ expected<void> walk(const std::filesystem::path& dir,
 
 }  // namespace
 
-expected<ScanResult> scan(const std::filesystem::path& source_root) {
+expected<std::optional<Node>> stat_node(
+    const std::filesystem::path& source_root, const std::string& relpath) {
+  const auto path = source_root / std::filesystem::path{relpath};
+  std::error_code ec;
+  const auto status = std::filesystem::symlink_status(path, ec);
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    path.generic_string(), ec.message(),
+                                    static_cast<int>(ec.value())});
+  }
+  if (status.type() == std::filesystem::file_type::not_found) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    path.generic_string(), {}, ENOENT});
+  }
+  if (!is_supported_status(status)) {
+    return std::optional<Node>{};
+  }
+
+  auto statbuf = stat_path(path);
+  if (!statbuf) {
+    return std::unexpected(statbuf.error());
+  }
+  Node node;
+  node.relpath = relpath;
+  node.kind = kind_from_status(status);
+  node.size = node.kind == NodeKind::file
+                  ? static_cast<uint64_t>(statbuf->st_size)
+                  : 0U;
+  node.mode = static_cast<uint32_t>(statbuf->st_mode);
+  node.mtime_s = support::stat_mtime_sec(*statbuf);
+  node.mtime_ns = support::stat_mtime_nsec(*statbuf);
+  if (node.kind == NodeKind::symlink) {
+    auto target = symlink_target(path);
+    if (!target) {
+      return std::unexpected(target.error());
+    }
+    node.symlink_target = std::move(*target);
+  }
+  return std::optional<Node>{std::move(node)};
+}
+
+std::string ScanExclusions::canonical(const std::filesystem::path& rel) {
+  auto value = rel.lexically_normal().generic_string();
+  if (value == "." || value.empty()) {
+    return {};
+  }
+  while (!value.empty() && value.back() == '/') {
+    value.pop_back();
+  }
+  return value;
+}
+
+bool ScanExclusions::claims_root() const {
+  return std::ranges::find(repo_subtrees, std::string{}) !=
+         repo_subtrees.end();
+}
+
+bool ScanExclusions::claims(const std::string_view canonical_rel) const {
+  return std::ranges::find(repo_subtrees, canonical_rel) !=
+         repo_subtrees.end();
+}
+
+bool ScanExclusions::claims_marker(const std::string_view canonical_rel) const {
+  return std::ranges::find(claimed_markers, canonical_rel) !=
+         claimed_markers.end();
+}
+
+expected<MatcherBundle> prepare_matcher(
+    const std::filesystem::path& source_root) {
   std::error_code ec;
   const auto root_status = std::filesystem::symlink_status(source_root, ec);
   if (ec || !is_directory_status(root_status)) {
@@ -191,8 +260,7 @@ expected<ScanResult> scan(const std::filesystem::path& source_root) {
                                     ec ? ec.message() : "not-directory", static_cast<int>(ec.value())});
   }
 
-  ScanResult result;
-  ignore::Matcher matcher;
+  MatcherBundle bundle;
   const auto bivignore_path = source_root / ".bivignore";
   const auto bivignore_status = std::filesystem::symlink_status(bivignore_path, ec);
   if (!ec && bivignore_status.type() == std::filesystem::file_type::regular) {
@@ -204,10 +272,10 @@ expected<ScanResult> scan(const std::filesystem::path& source_root) {
     if (!compiled) {
       return std::unexpected(compiled.error());
     }
-    matcher = std::move(*compiled);
+    bundle.matcher = std::move(*compiled);
     support::Sha256 sha;
     sha.update(std::as_bytes(std::span<const char>{bytes->data(), bytes->size()}));
-    result.bivignore = manifest::BivignoreProvenance{
+    bundle.bivignore = manifest::BivignoreProvenance{
         .source = "file",
         .builtin_id = std::nullopt,
         .sha256_hex = sha.finish_hex(),
@@ -217,17 +285,75 @@ expected<ScanResult> scan(const std::filesystem::path& source_root) {
     if (!compiled) {
       return std::unexpected(compiled.error());
     }
-    matcher = std::move(*compiled);
-    result.bivignore = manifest::BivignoreProvenance{
+    bundle.matcher = std::move(*compiled);
+    bundle.bivignore = manifest::BivignoreProvenance{
         .source = "builtin",
         .builtin_id = std::string{"builtin-v1"},
         .sha256_hex = std::string{ignore::kBuiltinV1Sha256},
     };
   }
 
-  auto walked = walk(source_root, {}, matcher, result);
+  return bundle;
+}
+
+expected<ScanResult> scan(const std::filesystem::path& source_root,
+                          const ignore::Matcher& matcher,
+                          const ScanExclusions& exclusions) {
+  std::error_code ec;
+  const auto root_status = std::filesystem::symlink_status(source_root, ec);
+  if (ec || !is_directory_status(root_status)) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot, source_root.generic_string(),
+                                    ec ? ec.message() : "not-directory", static_cast<int>(ec.value())});
+  }
+  ScanResult result;
+  if (exclusions.claims_root()) {
+    return result;
+  }
+  auto walked = walk(source_root, {}, matcher, exclusions, result);
   if (!walked) {
     return std::unexpected(walked.error());
+  }
+  return result;
+}
+
+expected<void> scan_subtree(const std::filesystem::path& source_root,
+                            const ignore::Matcher& matcher,
+                            const ScanExclusions& exclusions,
+                            const std::string_view subtree_rel,
+                            ScanResult& into) {
+  const auto rel = ScanExclusions::canonical(
+      std::filesystem::path{std::string{subtree_rel}});
+  const auto subtree = rel.empty() ? source_root : source_root / rel;
+  std::error_code ec;
+  const auto status = std::filesystem::symlink_status(subtree, ec);
+  if (ec || !is_directory_status(status)) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    subtree.generic_string(),
+                                    ec ? ec.message() : "not-directory",
+                                    static_cast<int>(ec.value())});
+  }
+  if (!rel.empty()) {
+    auto entry = stat_node(source_root, rel);
+    if (!entry) {
+      return std::unexpected(entry.error());
+    }
+    if (!*entry) {
+      into.skipped_unsupported.push_back(rel);
+      return {};
+    }
+    into.payload.push_back(std::move(entry->value()));
+  }
+  return walk(subtree, rel, matcher, exclusions, into);
+}
+
+expected<ScanResult> scan(const std::filesystem::path& source_root) {
+  auto matcher = prepare_matcher(source_root);
+  if (!matcher) {
+    return std::unexpected(matcher.error());
+  }
+  auto result = scan(source_root, matcher->matcher, {});
+  if (result) {
+    result->bivignore = std::move(matcher->bivignore);
   }
   return result;
 }

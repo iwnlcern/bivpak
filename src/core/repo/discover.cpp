@@ -15,7 +15,7 @@ BivError discovery_error(const std::filesystem::path& path,
 expected<void> walk(const std::filesystem::path& directory,
                     const ignore::Matcher& matcher,
                     const std::optional<std::size_t> parent,
-                    Discovery& result) {
+                    Discovery& result, const std::size_t depth) {
   std::error_code iterator_error;
   std::filesystem::directory_iterator iterator{directory, iterator_error};
   if (iterator_error) {
@@ -40,8 +40,11 @@ expected<void> walk(const std::filesystem::path& directory,
       continue;
     }
     const auto name = child.path().filename();
-    if (name == ".git" || name == ".biv") {
-      continue;
+    if (name == ".git") {
+      continue;  // a marker, never a container (the marker test below reads it from its parent)
+    }
+    if (name == ".biv" && depth == 0) {
+      continue;  // <root>/.biv is the reserved area (I-R1 root-anchored); a NESTED .biv is walked like any directory (sealed §1.1)
     }
     const auto rel =
         std::filesystem::relative(child.path(), result.root, status_error);
@@ -68,7 +71,9 @@ expected<void> walk(const std::filesystem::path& directory,
           RepoBoundary{.relpath = rel, .kind = kind, .parent_index = parent});
       next_parent = result.repos.size() - 1U;
     }
-    if (auto nested = walk(child.path(), matcher, next_parent, result); !nested) {
+    if (auto nested =
+            walk(child.path(), matcher, next_parent, result, depth + 1U);
+        !nested) {
       return nested;
     }
   }
@@ -98,7 +103,7 @@ expected<Discovery> discover(const std::filesystem::path& root,
                          result.repos.empty()
                              ? std::optional<std::size_t>{}
                              : std::optional<std::size_t>{0U},
-                         result);
+                         result, 0U);
       !walked) {
     return std::unexpected(walked.error());
   }

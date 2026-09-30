@@ -3,10 +3,12 @@
 #include <cstddef>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -25,6 +27,7 @@
 #include "core/manifest/manifest.hpp"
 #include "core/open/open.hpp"
 #include "core/pack/pack.hpp"
+#include "core/repo/git.hpp"
 #include "core/support/sha256.hpp"
 
 namespace {
@@ -43,6 +46,47 @@ void write_file(const std::filesystem::path& path, std::string_view content) {
   out << content;
 }
 
+class ScopedEnv {
+ public:
+  ScopedEnv(std::string name, std::string value) : name_{std::move(name)} {
+    if (const char* old = std::getenv(name_.c_str())) old_ = std::string{old};
+    setenv(name_.c_str(), value.c_str(), 1);
+  }
+  ~ScopedEnv() {
+    if (old_) setenv(name_.c_str(), old_->c_str(), 1);
+    else unsetenv(name_.c_str());
+  }
+ private:
+  std::string name_;
+  std::optional<std::string> old_;
+};
+
+biv::repo::Git test_git() {
+  auto git = biv::repo::Git::resolve([](const std::string_view name) -> std::optional<std::string> {
+    if (const char* value = std::getenv(std::string{name}.c_str())) return std::string{value};
+    return std::nullopt;
+  });
+  REQUIRE(git);
+  return *git;
+}
+
+void init_repo(const biv::repo::Git& git, const std::filesystem::path& path) {
+  std::filesystem::create_directories(path);
+  auto run = [&](std::vector<std::string> args) {
+    auto result = git.run(args, {}, {.cwd = path,
+                                     .ceiling = std::nullopt,
+                                     .allow_user_protocol = true,
+                                     .stdout_file = std::nullopt});
+    REQUIRE(result);
+    REQUIRE(result->exit_code == 0);
+  };
+  run({"init", "-b", "main"});
+  write_file(path / "tracked.txt", "tracked\n");
+  run({"add", "tracked.txt"});
+  run({"-c", "user.name=Biv Test", "-c", "user.email=biv@example.invalid",
+       "commit", "-m", "initial"});
+}
+
 std::vector<std::byte> bytes(std::string_view text) {
   std::vector<std::byte> out(text.size());
   for (size_t i = 0; i < text.size(); ++i) {
@@ -51,11 +95,6 @@ std::vector<std::byte> bytes(std::string_view text) {
   return out;
 }
 
-std::string sha256_hex(std::string_view text) {
-  biv::support::Sha256 sha;
-  sha.update(std::as_bytes(std::span{text.data(), text.size()}));
-  return sha.finish_hex();
-}
 
 std::string read_text(const std::filesystem::path& path) {
   std::ifstream in{path, std::ios::binary};
@@ -341,41 +380,157 @@ TEST_CASE("open skips dangling rename candidates") {
 }
 
 TEST_CASE("Task 4 open occupancy and destination contracts stay bounded") {
-  const auto source =
-      read_text(std::filesystem::path{BIV_SOURCE_DIR} / "src" / "core" /
-                "open" / "open.cpp");
+  {
+    const auto source =
+        read_text(std::filesystem::path{BIV_SOURCE_DIR} / "src" / "core" /
+                  "open" / "open.cpp");
 
-  CHECK(source.find(
-            "std::filesystem::exists(\n"
-            "            std::filesystem::symlink_status(candidate, ec))") !=
-        std::string::npos);
-  CHECK(source.find(
-            "std::filesystem::exists(std::filesystem::symlink_status(dest, "
-            "ec))") != std::string::npos);
+    CHECK(source.find(
+              "std::filesystem::exists(\n"
+              "            std::filesystem::symlink_status(candidate, ec))") !=
+          std::string::npos);
+    CHECK(source.find(
+              "std::filesystem::exists(std::filesystem::symlink_status(dest, "
+              "ec))") != std::string::npos);
 
-  const auto plan_begin =
-      source.find("expected<OpenPlanHandle> plan_open");
-  const auto plan_end =
-      source.find("expected<OpenReport> execute_open", plan_begin);
-  REQUIRE(plan_begin != std::string::npos);
-  REQUIRE(plan_end != std::string::npos);
-  const auto plan_source =
-      source.substr(plan_begin, plan_end - plan_begin);
-  CHECK(sha256_hex(plan_source) ==
-        "940128adbb86610d3abadac77d2f3b4ee7d76d0dee50b3e3e28193bdd06a0bb5");
-  CHECK(plan_source.find(
-            "options.dest.value_or(default_dest_for(options.image))"
-            ".lexically_normal()") != std::string::npos);
-  CHECK(plan_source.find("absolute") == std::string::npos);
-  CHECK(plan_source.find("weakly_canonical") == std::string::npos);
+    const auto plan_begin =
+        source.find("expected<OpenPlanHandle> plan_open");
+    const auto plan_end =
+        source.find("expected<OpenReport> execute_open", plan_begin);
+    REQUIRE(plan_begin != std::string::npos);
+    REQUIRE(plan_end != std::string::npos);
+    const auto plan_source =
+        source.substr(plan_begin, plan_end - plan_begin);
+    const auto write_begin = source.find("const auto partial_dir =");
+    const auto write_end = source.find("\n}\n", write_begin);
+    REQUIRE(write_begin != std::string::npos);
+    REQUIRE(write_end != std::string::npos);
+    const auto write_path = source.substr(write_begin, write_end - write_begin);
+    // Catch premature writes/publication and writers aimed at the destination.
+    constexpr std::array<std::string_view, 7> calls{
+        "std::filesystem::exists(partial_dir, ec)",
+        "std::filesystem::create_directories(partial_dir, ec)",
+        "apply_archive(image, plan, partial_dir, dirs, verify, stage, row_rels)",
+        "restore_repos(image, plan, partial_dir, stage, dirs, verify, report)",
+        "set_mtime(partial_dir / std::filesystem::path{rel}, it->mtime_s, it->mtime_ns)",
+        "fsync_tree(partial_dir)",
+        "std::filesystem::rename(partial_dir, dest, ec)"};
+    std::array<std::size_t, calls.size()> positions{};
+    for (std::size_t index = 0; index < calls.size(); ++index) {
+      INFO(calls[index]);
+      positions[index] = write_path.find(calls[index]);
+      REQUIRE(positions[index] != std::string::npos);
+      CHECK(write_path.find(calls[index], positions[index] + 1) == std::string::npos);
+      if (index != 0) CHECK(positions[index - 1] < positions[index]);
+    }
+    CHECK(write_path.find("ErrKind::OpenPartialPresent") != std::string::npos);
+    CHECK(write_path.find("absolute") == std::string::npos);
+    CHECK(write_path.find("weakly_canonical") == std::string::npos);
+    const auto suffix = write_path.find("\".bvpk-open.partial\"");
+    REQUIRE(suffix != std::string::npos);
+    CHECK(write_path.find("\".bvpk-open.partial\"", suffix + 1) == std::string::npos);
+    CHECK(plan_source.find(
+              "options.dest.value_or(default_dest_for(options.image))"
+              ".lexically_normal()") != std::string::npos);
+    CHECK(plan_source.find("absolute") == std::string::npos);
+    CHECK(plan_source.find("weakly_canonical") == std::string::npos);
 
-  const auto write_begin = source.find("const auto partial_dir =");
-  const auto write_end = source.find("return OpenReport{", write_begin);
-  REQUIRE(write_begin != std::string::npos);
-  REQUIRE(write_end != std::string::npos);
-  const auto write_path = source.substr(write_begin, write_end - write_begin);
-  CHECK(sha256_hex(write_path) ==
-        "eab078f6ccecd7a9292047cc6596ea9921e9b9a8b5f0e589a66968716c0fbd5e");
+    const auto owner_begin = source.find("std::optional<std::string> owning_row(");
+    const auto owner_end = source.find("\n}\n", owner_begin);
+    REQUIRE(owner_begin != std::string::npos);
+    REQUIRE(owner_end != std::string::npos);
+    const auto owner_source = source.substr(owner_begin, owner_end - owner_begin);
+    CHECK(owner_source.find("payload_rel == row") != std::string::npos);
+    CHECK(owner_source.find("payload_rel.at(row.size()) == '/'") !=
+          std::string::npos);
+
+    const auto restore_begin = source.find("expected<void> restore_repos(");
+    const auto restore_end = source.find("\n}\n", restore_begin);
+    REQUIRE(restore_begin != std::string::npos);
+    REQUIRE(restore_end != std::string::npos);
+    const auto restore_source =
+        source.substr(restore_begin, restore_end - restore_begin);
+    const auto restore_entry = restore_source.find("restore_entry(");
+    const auto apply_owned = restore_source.find("apply_owned_members(");
+    REQUIRE(restore_entry != std::string::npos);
+    REQUIRE(apply_owned != std::string::npos);
+    CHECK(restore_entry < apply_owned);
+  }
+}
+
+TEST_CASE("c6p ownership rows and protected components are behavioral",
+          "[open][c6p]") {
+  using biv::open::detail::is_dotbiv_component;
+  using biv::open::detail::is_dotgit_component;
+  using biv::open::detail::owning_row;
+  using biv::open::detail::row_relpaths;
+
+  CHECK(owning_row("lib/x", {"lib"}) == std::optional<std::string>{"lib"});
+  CHECK_FALSE(owning_row("libx/y", {"lib"}).has_value());
+  CHECK(owning_row("a/b/c", {"a", "a/b"}) ==
+        std::optional<std::string>{"a/b"});
+  CHECK(owning_row("x", {""}) == std::optional<std::string>{""});
+  CHECK_FALSE(owning_row("docs/inner", {"docs/inner"}).has_value());
+
+  biv::repo::RepoEntry full;
+  full.relpath = "lib";
+  biv::repo::RepoEntry shallow;
+  shallow.relpath = "shal";
+  shallow.shallow = biv::repo::Shallow{};
+  biv::repo::RepoEntry unborn;
+  unborn.relpath = "fresh";
+  unborn.head_state = biv::repo::HeadState::unborn;
+  CHECK(row_relpaths({full, shallow, unborn}) ==
+        std::vector<std::string>{"lib"});
+  full.relpath = ".";
+  CHECK(row_relpaths({full}) == std::vector<std::string>{""});
+
+  const std::string zw_non_joiner{"\xE2\x80\x8C"};
+  const std::string right_to_left_mark{"\xE2\x80\x8F"};
+  const std::string byte_order_mark{"\xEF\xBB\xBF"};
+  const std::string e_acute{"\xC3\xA9"};
+  const std::string malformed =
+      std::string{".g"} + static_cast<char>(0xFF) + "it";
+  // Invalid UTF-8 never decodes into a protected alias: a continuation byte failing the mask (its low bits spell U+200C),
+  // a 2-byte and a 3-byte overlong '.', and a truncated sequence.
+  const std::string bad_continuation{"\xE2\x80\x0C"};
+  const std::string overlong_dot_2{"\xC0\xAE"};
+  const std::string overlong_dot_3{"\xE0\x80\xAE"};
+  const std::string truncated{"\xE2\x80"};
+  for (const auto& value : std::vector<std::string>{
+           ".git", ".GIT", ".gIt", ".g" + zw_non_joiner + "it",
+           byte_order_mark + ".git", ".git" + right_to_left_mark,
+           "git~1", "GIT~1", ".git.", ".git ", ".git. .", ".git:x",
+           "git~1:y"}) {
+    INFO(value);
+    CHECK(is_dotgit_component(value));
+  }
+  for (const auto& value : std::vector<std::string>{
+           ".gitx", "git", ".gi", "x.git", ".git~1", "git~2",
+           ".gitignore", ".g" + e_acute + "t", malformed,
+           ".g" + bad_continuation + "it", overlong_dot_2 + "git",
+           overlong_dot_3 + "git", ".git" + truncated}) {
+    INFO(value);
+    CHECK_FALSE(is_dotgit_component(value));
+  }
+
+  for (const auto& value : std::vector<std::string>{
+           ".biv", ".BIV", ".bIv", ".b" + zw_non_joiner + "iv",
+           byte_order_mark + ".biv", ".biv" + right_to_left_mark,
+           "biv~1", "BIV~1", ".biv.", ".biv ", ".biv. .", ".biv:x",
+           "biv~1:y"}) {
+    INFO(value);
+    CHECK(is_dotbiv_component(value));
+  }
+  for (const auto& value : std::vector<std::string>{
+           ".bivx", "biv", ".bi", "x.biv", ".biv~1", "biv~2",
+           ".bivignore", ".b" + e_acute + "v",
+           std::string{".b"} + static_cast<char>(0xFF) + "iv",
+           ".b" + bad_continuation + "iv", overlong_dot_2 + "biv",
+           overlong_dot_3 + "biv", ".biv" + truncated}) {
+    INFO(value);
+    CHECK_FALSE(is_dotbiv_component(value));
+  }
 }
 
 TEST_CASE("open refuses pre-existing partial dir") {
@@ -542,6 +697,66 @@ TEST_CASE("open refuses payload members absent from checksums") {
   REQUIRE_FALSE(opened.has_value());
   CHECK(opened.error().kind == biv::ErrKind::UnmanifestedMember);
   CHECK_FALSE(std::filesystem::exists(root / "restore"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("open engine failure leaves ordered failed-mid-apply inventory", "[a11-open]") {
+  const auto root = make_tmp("a11-engine-inventory");
+  const auto source = root / "source";
+  const auto git = test_git();
+  init_repo(git, source / "repo-a");
+  init_repo(git, source / "repo-b");
+  auto packed = biv::pack::pack(source, {.offline = true});
+  REQUIRE(packed);
+  const auto image = root / "source.bvpk";
+  const auto dest = root / "restore";
+  const auto partial = root / "restore.bvpk-open.partial";
+
+  const auto shim_dir = root / "shim";
+  const auto shim = shim_dir / "git";
+  std::filesystem::create_directories(shim_dir);
+  write_file(shim,
+             "#!/bin/sh\n"
+             "case \" $* \" in *'/repo-b '*) printf '%s\\n' 'hostile restore diagnostic' >&2; exit 42;; esac\n"
+             "exec '" + git.executable().string() + "' \"$@\"\n");
+  std::filesystem::permissions(
+      shim, std::filesystem::perms::owner_read |
+                std::filesystem::perms::owner_write |
+                std::filesystem::perms::owner_exec);
+  const ScopedEnv path{"PATH", shim_dir.string()};
+
+  auto opened = biv::open::open({.image = image, .dest = dest});
+  REQUIRE_FALSE(opened);
+  CHECK(opened.error().kind == biv::ErrKind::RepoRestoreFailed);
+  CHECK(opened.error().path == "repo-b");
+  CHECK(opened.error().facts.at("repo_id").size() > 0U);
+  CHECK(opened.error().facts.at("repo_relpath") == "repo-b");
+  CHECK(opened.error().facts.at("partial_path") == partial.generic_string());
+  CHECK(opened.error().facts.at("verb") == "open");
+  CHECK(opened.error().facts.at("engine_detail") ==
+        "RepoRestoreFailed: clone: hostile restore diagnostic");
+  CHECK(opened.error().detail ==
+        "open failed while restoring repo-b: clone: hostile restore diagnostic.");
+  CHECK(std::filesystem::exists(partial / "inventory.json"));
+  CHECK_FALSE(std::filesystem::exists(dest));
+  const auto inventory = read_text(partial / "inventory.json");
+  const auto completed = inventory.find("\"relpath\": \"repo-a\"");
+  const auto failing = inventory.find("\"relpath\": \"repo-b\"");
+  const auto outcome = inventory.find("\"kind\": \"failed-mid-apply\"");
+  REQUIRE(completed != std::string::npos);
+  REQUIRE(failing != std::string::npos);
+  REQUIRE(outcome != std::string::npos);
+  CHECK(completed < failing);
+  CHECK(failing < outcome);
+  CHECK(inventory.find("\"kind\": \"RepoRestoreFailed\"", failing) !=
+        std::string::npos);
+  CHECK(inventory.find("\"detail\": \"" + opened.error().detail + "\"", failing) !=
+        std::string::npos);
+  CHECK(inventory.find("\"sha\": ", completed) < failing);
+  CHECK(inventory.find("\"capture_mode\": \"full\"", completed) < failing);
+  CHECK(inventory.find("\"local_refs\": [", completed) < failing);
+  CHECK(inventory.find("\"advisories\": [", completed) < failing);
+  CHECK(inventory.find("\"step\": \"clone\"", outcome) != std::string::npos);
   std::filesystem::remove_all(root);
 }
 

@@ -7,11 +7,13 @@
 #include <map>
 #include <optional>
 #include <span>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -23,6 +25,9 @@
 #include "core/manifest/manifest.hpp"
 #include "core/open/sessions.hpp"
 #include "core/pack/pack.hpp"
+#include "core/repo/git.hpp"
+#include "core/repo/git_exec.hpp"
+#include "core/repo/restore.hpp"
 #include "core/report/envelope.hpp"
 
 namespace {
@@ -45,6 +50,63 @@ void write_file(const std::filesystem::path& path, std::string_view content) {
   std::filesystem::create_directories(path.parent_path());
   std::ofstream out{path, std::ios::binary};
   out << content;
+}
+
+biv::repo::Git pack_git() {
+  auto resolved = biv::repo::Git::resolve(
+      [](const std::string_view name) -> std::optional<std::string> {
+        if (const auto* value = std::getenv(std::string{name}.c_str())) {
+          return std::string{value};
+        }
+        return std::nullopt;
+      });
+  REQUIRE(resolved.has_value());
+  return *resolved;
+}
+
+void pack_git_run(const biv::repo::Git& git,
+                  const std::filesystem::path& cwd,
+                  std::initializer_list<std::string> args,
+                  std::initializer_list<std::string> operands = {}) {
+  auto result = git.run(args, operands,
+                        {.cwd = cwd,
+                         .ceiling = std::nullopt,
+                         .allow_user_protocol = true,
+                         .stdout_file = std::nullopt});
+  REQUIRE(result.has_value());
+  const std::string diagnostic{
+      reinterpret_cast<const char*>(result->stderr_bytes.data()),
+      result->stderr_bytes.size()};
+  INFO(diagnostic);
+  REQUIRE(result->exit_code == 0);
+}
+
+std::string pack_git_stdout(const biv::repo::Git& git,
+                            const std::filesystem::path& cwd,
+                            std::initializer_list<std::string> args) {
+  auto result = git.run(args, {},
+                        {.cwd = cwd,
+                         .ceiling = std::nullopt,
+                         .allow_user_protocol = true,
+                         .stdout_file = std::nullopt});
+  REQUIRE(result.has_value());
+  REQUIRE(result->exit_code == 0);
+  return {reinterpret_cast<const char*>(result->stdout_bytes.data()),
+          result->stdout_bytes.size()};
+}
+
+void init_clean_pack_repo(const biv::repo::Git& git,
+                          const std::filesystem::path& repo) {
+  std::filesystem::create_directories(repo);
+  pack_git_run(git, repo, {"init", "-b", "main"});
+  write_file(repo / ".gitignore", "penumbra.log\n");
+  write_file(repo / "tracked.txt", "tracked\n");
+  pack_git_run(git, repo, {"add"}, {".gitignore", "tracked.txt"});
+  pack_git_run(git, repo,
+               {"-c", "user.name=Biv Test",
+                "-c", "user.email=biv@example.invalid", "commit", "-m",
+                "initial"});
+  write_file(repo / "penumbra.log", "ignored\n");
 }
 
 std::vector<std::byte> read_file_bytes(const std::filesystem::path& path) {
@@ -1061,15 +1123,559 @@ TEST_CASE("pack refuses stale partial and reports facts") {
   std::filesystem::remove_all(root);
 }
 
-TEST_CASE("pack refuses repo-bearing source") {
+TEST_CASE("pack records a clean repo-bearing source", "[pack-repos]") {
   const auto root = make_tmp("repo");
   const auto source = root / "sample";
-  std::filesystem::create_directories(source / ".git");
+  const auto git = pack_git();
+  init_clean_pack_repo(git, source);
+  const auto trace = root / "git-requests.log";
+  const auto shim_dir = root / "shim";
+  const auto shim = shim_dir / "git";
+  std::filesystem::create_directories(shim_dir);
+  write_file(shim,
+             "#!/bin/sh\n"
+             "printf '%s\\n' \"$*\" >> '" + trace.string() + "'\n"
+             "exec '" + git.executable().string() + "' \"$@\"\n");
+  std::filesystem::permissions(
+      shim, std::filesystem::perms::owner_read |
+                std::filesystem::perms::owner_write |
+                std::filesystem::perms::owner_exec);
+  const ScopedEnv path{"PATH", shim_dir.string()};
   const ScopedPackDiscoveryEnv discovery_env{
       isolated_pack_discovery_env(root)};
+  auto report = biv::pack::pack(source, {.offline = true});
+  if (!report) {
+    INFO("kind=" << biv::to_string(report.error().kind));
+    INFO("path=" << report.error().path);
+    INFO("detail=" << report.error().detail);
+    for (const auto& [key, value] : report.error().facts) {
+      INFO(key << "=" << value);
+    }
+  }
+  REQUIRE(report.has_value());
+  REQUIRE(report->repos.size() == 1U);
+  CHECK(report->repos.front().relpath == ".");
+  CHECK(report->repos.front().capture_mode == biv::repo::CaptureMode::full);
+  REQUIRE(report->repos.front().eligibility.has_value());
+  CHECK(report->repos.front().eligibility->result ==
+        biv::repo::EligibilityResult::offline_declared);
+  REQUIRE(report->repos.front().bundle.has_value());
+
+  const auto members = read_archive(root / "sample.bvpk");
+  const auto bundle_path = report->repos.front().bundle->generic_string();
+  CHECK(std::ranges::any_of(members, [&](const auto& member) {
+    return member.meta.path == bundle_path;
+  }));
+  const auto manifest_member = std::ranges::find(
+      members, std::string{"manifest.json"},
+      [](const auto& member) { return member.meta.path; });
+  REQUIRE(manifest_member != members.end());
+  auto manifest = biv::manifest::parse(as_span(manifest_member->data));
+  REQUIRE(manifest.has_value());
+  REQUIRE(manifest->repos.size() == 1U);
+  CHECK(manifest->repos.front().relpath == ".");
+  CHECK(manifest->repos.front().bundle == report->repos.front().bundle);
+  std::vector<std::string> payload_paths;
+  for (const auto& member : members) {
+    if (member.meta.path.starts_with("payload/")) {
+      payload_paths.push_back(member.meta.path);
+    }
+  }
+  CHECK(payload_paths ==
+        std::vector<std::string>{"payload/penumbra.log"});
+  const auto requests = read_file_bytes(trace);
+  const std::string request_text{
+      reinterpret_cast<const char*>(requests.data()), requests.size()};
+  CHECK(request_text.find("ls-remote") == std::string::npos);
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.partial"));
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.scratch"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("c6q pack archives each payload-only row's whole working tree",
+          "[pack-repos][c6q]") {
+  const auto git = pack_git();
+  const auto make_remote = [&](const std::filesystem::path& root) {
+    const auto remote = root / "remote.git";
+    const auto seed = root / "seed";
+    std::filesystem::create_directories(remote);
+    std::filesystem::create_directories(seed);
+    pack_git_run(git, remote, {"init", "--bare", "--initial-branch=main"});
+    pack_git_run(git, seed, {"init", "-b", "main"});
+    write_file(seed / ".gitignore", "*.log\n");
+    write_file(seed / "sub/t.txt", "one\n");
+    write_file(seed / "b.txt", "first\n");
+    pack_git_run(git, seed, {"add"}, {"."});
+    pack_git_run(git, seed,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "one"});
+    write_file(seed / "b.txt", "second\n");
+    pack_git_run(git, seed, {"add"}, {"b.txt"});
+    pack_git_run(git, seed,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "two"});
+    pack_git_run(git, seed, {"remote", "add", "origin", remote.string()});
+    pack_git_run(git, seed, {"push", "origin", "main"});
+    return remote;
+  };
+  const auto clone_shallow = [&](const std::filesystem::path& root,
+                                 const std::filesystem::path& remote,
+                                 const std::filesystem::path& dest) {
+    const std::string url = "file://" + remote.generic_string();
+    pack_git_run(git, root, {"clone", "--depth", "1"},
+                 {url, dest.generic_string()});
+  };
+  const auto payload_paths = [](const std::vector<ArchiveMember>& archive) {
+    std::vector<std::string> paths;
+    for (const auto& member : archive) {
+      if (member.meta.path.starts_with("payload/")) {
+        paths.push_back(member.meta.path);
+      }
+    }
+    std::ranges::sort(paths);
+    return paths;
+  };
+  const auto require_payload_metadata = [](const std::vector<ArchiveMember>& archive,
+                                           const std::filesystem::path& source) {
+    for (const auto& member : archive) {
+      if (!member.meta.path.starts_with("payload/")) continue;
+      const auto rel = member.meta.path.substr(std::string{"payload/"}.size());
+      REQUIRE_FALSE(rel.empty());
+      struct stat status{};
+      REQUIRE(::lstat((source / rel).c_str(), &status) == 0);
+      CHECK(member.meta.mode == (static_cast<uint32_t>(status.st_mode) & 07777U));
+#if defined(__APPLE__)
+      CHECK(member.meta.mtime_s == status.st_mtimespec.tv_sec);
+      CHECK(member.meta.mtime_ns == static_cast<uint32_t>(status.st_mtimespec.tv_nsec));
+#else
+      CHECK(member.meta.mtime_s == status.st_mtim.tv_sec);
+      CHECK(member.meta.mtime_ns == static_cast<uint32_t>(status.st_mtim.tv_nsec));
+#endif
+    }
+  };
+
+  SECTION("non-root shallow and unborn rows, but not a git-capable row") {
+    const auto root = make_tmp("c6q-nonroot");
+    const auto source = root / "workspace";
+    const auto remote = make_remote(root);
+    write_file(source / "README.md", "root\n");
+    clone_shallow(root, remote, source / "shal");
+    write_file(source / "shal/x.log", "ignored bytes\n");
+    std::filesystem::create_directories(source / "fresh");
+    pack_git_run(git, source / "fresh", {"init", "-b", "main"});
+    write_file(source / "fresh/sub/f.txt", "fresh\n");
+    std::filesystem::create_directories(source / "lib");
+    pack_git_run(git, source / "lib", {"init", "-b", "main"});
+    write_file(source / "lib/tracked.txt", "tracked\n");
+    pack_git_run(git, source / "lib", {"add"}, {"tracked.txt"});
+    pack_git_run(git, source / "lib",
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "base"});
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    REQUIRE(packed->repos.size() == 3U);
+    const auto row = [&](const std::string_view rel) -> const biv::repo::RepoEntry& {
+      const auto found = std::ranges::find_if(packed->repos, [&](const auto& entry) {
+        return entry.relpath.generic_string() == rel;
+      });
+      REQUIRE(found != packed->repos.end());
+      return *found;
+    };
+    CHECK_FALSE(biv::repo::restore_invokes_git(row("shal")));
+    CHECK_FALSE(biv::repo::restore_invokes_git(row("fresh")));
+    CHECK(biv::repo::restore_invokes_git(row("lib")));
+    const auto archive = read_archive(root / "workspace.bvpk");
+    CHECK(payload_paths(archive) == std::vector<std::string>{
+        "payload/README.md", "payload/fresh", "payload/fresh/sub",
+        "payload/fresh/sub/f.txt", "payload/shal", "payload/shal/.gitignore",
+        "payload/shal/b.txt", "payload/shal/sub", "payload/shal/sub/t.txt",
+        "payload/shal/x.log"});
+    CHECK(std::ranges::none_of(archive, [](const auto& member) {
+      return member.meta.path.ends_with("/.git") ||
+             member.meta.path.find("/.git/") != std::string::npos ||
+             member.meta.path.starts_with("payload/lib");
+    }));
+    require_payload_metadata(archive, source);
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("bivignore pruning still applies inside a payload-only row") {
+    const auto root = make_tmp("c6q-prune");
+    const auto source = root / "workspace";
+    const auto remote = make_remote(root);
+    clone_shallow(root, remote, source / "shal");
+    write_file(source / ".bivignore", "shal/sub/\n");
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    const auto archive = read_archive(root / "workspace.bvpk");
+    CHECK(std::ranges::none_of(archive, [](const auto& member) {
+      return member.meta.path.starts_with("payload/shal/sub");
+    }));
+    REQUIRE(packed->advisories.size() == 1U);
+    REQUIRE(packed->advisories.front().entries.size() == 1U);
+    CHECK(packed->advisories.front().entries.front().relpath == "shal/sub");
+    CHECK(packed->advisories.front().entries.front().source == ".bivignore:1");
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root shallow row carries children without a bare payload member") {
+    const auto root = make_tmp("c6q-root-shallow");
+    const auto remote = make_remote(root);
+    const auto source = root / "workspace";
+    clone_shallow(root, remote, source);
+    write_file(source / "x.log", "ignored bytes\n");
+    write_file(source / "extra.txt", "extra\n");
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    REQUIRE(packed->repos.size() == 1U);
+    REQUIRE(packed->repos.front().shallow.has_value());
+    CHECK_FALSE(biv::repo::restore_invokes_git(packed->repos.front()));
+    const auto archive = read_archive(root / "workspace.bvpk");
+    CHECK(payload_paths(archive) == std::vector<std::string>{
+        "payload/.gitignore", "payload/b.txt", "payload/extra.txt",
+        "payload/sub", "payload/sub/t.txt", "payload/x.log"});
+    CHECK(std::ranges::none_of(archive, [](const auto& member) {
+      return member.meta.path == "payload/" ||
+             member.meta.path.ends_with("/.git") ||
+             member.meta.path.find("/.git/") != std::string::npos;
+    }));
+    require_payload_metadata(archive, source);
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root unborn row carries children without a bare payload member") {
+    const auto root = make_tmp("c6q-root-unborn");
+    const auto source = root / "workspace";
+    std::filesystem::create_directories(source);
+    pack_git_run(git, source, {"init", "-b", "main"});
+    write_file(source / "sub/f.txt", "fresh\n");
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    REQUIRE(packed->repos.size() == 1U);
+    CHECK(packed->repos.front().head_state == biv::repo::HeadState::unborn);
+    CHECK_FALSE(biv::repo::restore_invokes_git(packed->repos.front()));
+    const auto archive = read_archive(root / "workspace.bvpk");
+    CHECK(payload_paths(archive) == std::vector<std::string>{
+        "payload/sub", "payload/sub/f.txt"});
+    CHECK(std::ranges::none_of(archive, [](const auto& member) {
+      return member.meta.path == "payload/" ||
+             member.meta.path.ends_with("/.git") ||
+             member.meta.path.find("/.git/") != std::string::npos;
+    }));
+    require_payload_metadata(archive, source);
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("c6p pack writes each repository row's penumbra as payload members",
+          "[pack-repos][c6p]") {
+  const auto git = pack_git();
+  const auto payload_members = [](const std::vector<ArchiveMember>& archive) {
+    std::vector<const ArchiveMember*> payload;
+    for (const auto& member : archive) {
+      if (member.meta.path.starts_with("payload/")) payload.push_back(&member);
+    }
+    return payload;
+  };
+  const auto member_names = [](const auto& members) {
+    std::set<std::string> names;
+    for (const auto* member : members) names.insert(member->meta.path);
+    return names;
+  };
+  const auto require_metadata = [](const ArchiveMember& member,
+                                   const std::filesystem::path& source) {
+    struct stat status{};
+    REQUIRE(::lstat(source.c_str(), &status) == 0);
+    CHECK(member.meta.mode == (static_cast<uint32_t>(status.st_mode) & 07777U));
+#if defined(__APPLE__)
+    CHECK(member.meta.mtime_s == status.st_mtimespec.tv_sec);
+    CHECK(member.meta.mtime_ns ==
+          static_cast<uint32_t>(status.st_mtimespec.tv_nsec));
+#else
+    CHECK(member.meta.mtime_s == status.st_mtim.tv_sec);
+    CHECK(member.meta.mtime_ns == static_cast<uint32_t>(status.st_mtim.tv_nsec));
+#endif
+  };
+
+  SECTION("non-root row") {
+    const auto root = make_tmp("c6p-nonroot");
+    const auto source = root / "workspace";
+    const auto repo = source / "lib";
+    write_file(source / "README.md", "root\n");
+    std::filesystem::create_directories(repo);
+    pack_git_run(git, repo, {"init", "-b", "main"});
+    write_file(repo / ".gitignore", "ign/\n*.log\n");
+    write_file(repo / "sub/t.txt", "tracked\n");
+    pack_git_run(git, repo, {"add"}, {".gitignore", "sub/t.txt"});
+    pack_git_run(git, repo,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "base"});
+    write_file(repo / "ign/penumbra.txt", "one\n");
+    write_file(repo / "ign/deep/d.txt", "two\n");
+    write_file(repo / "sub/x.log", "three\n");
+    CHECK(pack_git_stdout(git, repo, {"status", "--porcelain=v2"}).empty());
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    const auto archive = read_archive(root / "workspace.bvpk");
+    const auto payload = payload_members(archive);
+    CHECK(member_names(payload) == std::set<std::string>{
+        "payload/README.md", "payload/lib/ign", "payload/lib/ign/deep",
+        "payload/lib/ign/deep/d.txt", "payload/lib/ign/penumbra.txt",
+        "payload/lib/sub/x.log"});
+    for (const auto* member : payload) {
+      const auto rel = member->meta.path.substr(std::string{"payload/"}.size());
+      require_metadata(*member, source / rel);
+      if (member->meta.kind == biv::scan::NodeKind::dir) {
+        const auto prefix = member->meta.path + "/";
+        const auto parent = std::ranges::find_if(payload, [&](const auto* other) {
+          return other->meta.path.starts_with(prefix);
+        });
+        if (parent != payload.end()) CHECK(member < *parent);
+      }
+    }
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("payload-only penumbra is not derived a second time") {
+    const auto root = make_tmp("c6p-payload-only-once");
+    const auto source = root / "workspace";
+    const auto remote = root / "remote.git";
+    const auto seed = root / "seed";
+    std::filesystem::create_directories(remote);
+    std::filesystem::create_directories(seed);
+    pack_git_run(git, remote, {"init", "--bare", "--initial-branch=main"});
+    pack_git_run(git, seed, {"init", "-b", "main"});
+    write_file(seed / ".gitignore", "*.log\n");
+    write_file(seed / "sub/t.txt", "one\n");
+    write_file(seed / "b.txt", "first\n");
+    pack_git_run(git, seed, {"add"}, {"."});
+    pack_git_run(git, seed,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "one"});
+    write_file(seed / "b.txt", "second\n");
+    pack_git_run(git, seed, {"add"}, {"b.txt"});
+    pack_git_run(git, seed,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "two"});
+    pack_git_run(git, seed, {"remote", "add", "origin", remote.string()});
+    pack_git_run(git, seed, {"push", "origin", "main"});
+    write_file(source / "README.md", "root\n");
+    pack_git_run(git, root, {"clone", "--depth", "1"},
+                 {"file://" + remote.generic_string(),
+                  (source / "shal").generic_string()});
+    write_file(source / "shal/x.log", "ignored bytes\n");
+    std::filesystem::create_directories(source / "lib");
+    pack_git_run(git, source / "lib", {"init", "-b", "main"});
+    write_file(source / "lib/tracked.txt", "tracked\n");
+    pack_git_run(git, source / "lib", {"add"}, {"tracked.txt"});
+    pack_git_run(git, source / "lib",
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "base"});
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    const auto archive = read_archive(root / "workspace.bvpk");
+    std::vector<std::string> names;
+    for (const auto* member : payload_members(archive)) {
+      names.push_back(member->meta.path);
+    }
+    std::ranges::sort(names);
+    CHECK(names == std::vector<std::string>{
+        "payload/README.md", "payload/shal", "payload/shal/.gitignore",
+        "payload/shal/b.txt", "payload/shal/sub", "payload/shal/sub/t.txt",
+        "payload/shal/x.log"});
+    CHECK(std::ranges::count(names, std::string{"payload/shal/x.log"}) == 1);
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root row recursive directory ground truth") {
+    const auto root = make_tmp("c6p-root-dirs");
+    const auto source = root / "workspace";
+    std::filesystem::create_directories(source);
+    pack_git_run(git, source, {"init", "-b", "main"});
+    write_file(source / ".gitignore", "*.o\nout/\nbuild/\n");
+    write_file(source / "src/a.c", "tracked\n");
+    write_file(source / "D/x/t.c", "tracked\n");
+    write_file(source / "gk/.gitkeep", "tracked\n");
+    pack_git_run(git, source, {"add"}, {".gitignore", "src/a.c", "D/x/t.c", "gk/.gitkeep"});
+    pack_git_run(git, source,
+                 {"-c", "user.name=Biv Test", "-c",
+                  "user.email=biv@example.invalid", "commit", "-m", "base"});
+    write_file(source / ".git/info/exclude", "local.txt\nex/\n");
+    write_file(source / "src/a.o", "a\n");
+    write_file(source / "D/y/i.o", "i\n");
+    write_file(source / "out/k/z.o", "z\n");
+    write_file(source / "gk/g.o", "g\n");
+    write_file(source / "local.txt", "local\n");
+    write_file(source / "ex/sub/e.txt", "exclude\n");
+    std::filesystem::create_directory(source / "build");
+    std::filesystem::create_symlink("src/a.c", source / "link.o");
+    CHECK(pack_git_stdout(git, source, {"status", "--porcelain=v2"}).empty());
+    const ScopedPackDiscoveryEnv discovery_env{
+        isolated_pack_discovery_env(root)};
+    auto packed = biv::pack::pack(source, {.offline = true});
+    REQUIRE(packed.has_value());
+    const auto archive = read_archive(root / "workspace.bvpk");
+    const auto payload = payload_members(archive);
+    std::set<std::string> dirs;
+    std::set<std::string> leaves;
+    for (const auto* member : payload) {
+      (member->meta.kind == biv::scan::NodeKind::dir ? dirs : leaves)
+          .insert(member->meta.path);
+    }
+    CHECK(dirs == std::set<std::string>{"payload/D/y", "payload/ex",
+                                        "payload/ex/sub", "payload/out",
+                                        "payload/out/k"});
+    CHECK(leaves == std::set<std::string>{
+        "payload/D/y/i.o", "payload/ex/sub/e.txt", "payload/gk/g.o",
+        "payload/link.o", "payload/local.txt", "payload/out/k/z.o",
+        "payload/src/a.o"});
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("pack preserves the raw unclaimed git entry contract",
+          "[pack-repos]") {
+  const auto root = make_tmp("unclaimed-git-entry");
+  const auto source = root / "sample";
+  std::filesystem::create_directories(source);
+  std::filesystem::create_symlink("missing-target", source / ".git");
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
+
   auto report = biv::pack::pack(source);
   REQUIRE_FALSE(report.has_value());
-  CHECK(report.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
+  CHECK(report.error().kind == biv::ErrKind::UnclaimedGitEntry);
+  CHECK(report.error().path == (source / ".git").generic_string());
+  CHECK(report.error().detail.empty());
+  CHECK(report.error().facts.at("reason") == "symlink");
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
+  CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.partial"));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("pack fences dirty nested submodule and unmerged repositories before image creation",
+          "[pack-repos]") {
+  const auto git = pack_git();
+  for (const auto& kind : {std::string{"dirty"}, std::string{"nested"},
+                           std::string{"submodule"}, std::string{"unmerged"}}) {
+    DYNAMIC_SECTION("kind=" << kind) {
+      const auto root = make_tmp("repo-" + kind);
+      const auto source = root / "sample";
+      init_clean_pack_repo(git, source);
+      biv::ErrKind expected_kind = biv::ErrKind::RepoDirtyUnsupported;
+      if (kind == "nested") {
+        expected_kind = biv::ErrKind::RepoNestedUnsupported;
+        init_clean_pack_repo(git, source / "child");
+      } else if (kind == "submodule") {
+        expected_kind = biv::ErrKind::RepoSubmoduleUnsupported;
+        auto sha = pack_git_stdout(git, source, {"rev-parse", "HEAD"});
+        while (!sha.empty() && (sha.back() == '\n' || sha.back() == '\r')) {
+          sha.pop_back();
+        }
+        pack_git_run(git, source,
+                     {"update-index", "--add", "--cacheinfo",
+                      "160000," + sha + ",sub"});
+      } else if (kind == "unmerged") {
+        expected_kind = biv::ErrKind::UnmergedIndexUnrepresentable;
+        pack_git_run(git, source, {"checkout", "-b", "other"});
+        write_file(source / "tracked.txt", "other\n");
+        pack_git_run(git, source, {"add", "tracked.txt"});
+        pack_git_run(git, source,
+                     {"-c", "user.name=Biv Test", "-c",
+                      "user.email=biv@example.invalid", "commit", "-m",
+                      "other"});
+        pack_git_run(git, source, {"checkout", "main"});
+        write_file(source / "tracked.txt", "main\n");
+        pack_git_run(git, source, {"add", "tracked.txt"});
+        pack_git_run(git, source,
+                     {"-c", "user.name=Biv Test", "-c",
+                      "user.email=biv@example.invalid", "commit", "-m",
+                      "main"});
+        auto conflict = git.run(
+            {"-c", "user.name=Biv Test", "-c",
+             "user.email=biv@example.invalid", "merge", "other"}, {},
+            {.cwd = source,
+             .ceiling = std::nullopt,
+             .allow_user_protocol = true,
+             .stdout_file = std::nullopt});
+        REQUIRE(conflict.has_value());
+        REQUIRE(conflict->exit_code != 0);
+      } else {
+        expected_kind = biv::ErrKind::RepoDirtyUnsupported;
+        write_file(source / "untracked.txt", "dirty\n");
+      }
+      const ScopedPackDiscoveryEnv discovery_env{
+          isolated_pack_discovery_env(root)};
+      auto report = biv::pack::pack(source);
+      REQUIRE_FALSE(report.has_value());
+      CHECK(report.error().kind == expected_kind);
+      CHECK(report.error().facts.at("repo_engine_kind") ==
+            biv::repo::engine_error_name(kind == "dirty" ? biv::repo::EngineErrorKind::repo_dirty_unsupported :
+                                         kind == "nested" ? biv::repo::EngineErrorKind::repo_nested_unsupported :
+                                         kind == "submodule" ? biv::repo::EngineErrorKind::repo_submodule_unsupported :
+                                                               biv::repo::EngineErrorKind::unmerged_index_unrepresentable));
+      CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
+      CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.partial"));
+      CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk.scratch"));
+      std::filesystem::remove_all(root);
+    }
+  }
+}
+
+TEST_CASE("pack maps typed URL divergence refusal without string guessing",
+          "[pack-repos]") {
+  const auto root = make_tmp("repo-divergence");
+  const auto source = root / "sample";
+  const auto real_git = pack_git();
+  init_clean_pack_repo(real_git, source);
+  pack_git_run(real_git, source, {"remote", "add"},
+               {"origin", "https://requested.invalid/repo"});
+
+  const auto shim_dir = root / "shim";
+  const auto shim = shim_dir / "git";
+  std::filesystem::create_directories(shim_dir);
+  write_file(shim,
+             "#!/bin/sh\n"
+             "lsremote=0\n"
+             "geturl=0\n"
+             "for arg in \"$@\"; do\n"
+             "  test \"$arg\" = ls-remote && lsremote=1\n"
+             "  test \"$arg\" = --get-url && geturl=1\n"
+             "done\n"
+             "if test \"$lsremote\" = 1 && test \"$geturl\" = 1; then\n"
+             "  printf '%s\\n' 'https://effective.invalid/repo'\n"
+             "  exit 0\n"
+             "fi\n"
+             "exec '" + real_git.executable().string() + "' \"$@\"\n");
+  std::filesystem::permissions(
+      shim, std::filesystem::perms::owner_read |
+                std::filesystem::perms::owner_write |
+                std::filesystem::perms::owner_exec);
+  const ScopedEnv path{"PATH", shim_dir.string()};
+  const ScopedPackDiscoveryEnv discovery_env{
+      isolated_pack_discovery_env(root)};
+  biv::repo::UrlDivergenceRun divergence;
+  biv::repo::ScopedUrlDivergenceRun scoped{divergence};
+  auto report = biv::pack::pack(source);
+  REQUIRE_FALSE(report.has_value());
+  CHECK(report.error().kind == biv::ErrKind::UrlDivergenceRefused);
+  CHECK(report.error().facts.at("requested") ==
+        "https://requested.invalid/repo");
+  CHECK(report.error().facts.at("effective") ==
+        "https://effective.invalid/repo");
+  CHECK(report.error().facts.at("op") == "eligibility-advertisement");
   CHECK_FALSE(std::filesystem::exists(root / "sample.bvpk"));
   std::filesystem::remove_all(root);
 }

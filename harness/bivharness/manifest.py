@@ -9,10 +9,28 @@ from jsonschema import Draft202012Validator
 
 
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "manifest-plaindir-v1.schema.json"
+REPO_ENTRY_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[1] / "schemas" / "manifest-repo-entry-shape-v1.schema.json"
+)
 
 
 def _schema() -> dict[str, Any]:
     return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def _repo_entry_errors(repos: list[Any]) -> list[str]:
+    """The repos[] SHAPE layer (the product parser's required members, types
+    and enums). The parser's conditional row clauses are not re-implemented
+    here; `biv open` enforces them on the same bytes."""
+    validator = Draft202012Validator(
+        json.loads(REPO_ENTRY_SCHEMA_PATH.read_text(encoding="utf-8"))
+    )
+    errors: list[str] = []
+    for index, entry in enumerate(repos):
+        for error in validator.iter_errors(entry):
+            where = ".".join(str(part) for part in error.path)
+            errors.append(f"repos.{index}{'.' + where if where else ''}: {error.message}")
+    return errors
 
 
 def _is_uuid4(value: str) -> bool:
@@ -78,8 +96,7 @@ def validate_manifest(manifest: dict[str, Any], variant: str) -> list[str]:
         errors.append("format_version must be 1")
     if manifest["required_capabilities"] != []:
         errors.append("required_capabilities must be []")
-    if manifest["repos"] != []:
-        errors.append("repos must be [] for Step-2 plain-dir")
+    errors.extend(_repo_entry_errors(manifest["repos"]))
     if not _is_uuid4(manifest["image_id"]):
         errors.append("image_id must be uuid4")
     if not _is_iso8601_utc(manifest["created_at"]):

@@ -4,6 +4,7 @@
 #include <string>
 
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -27,6 +28,118 @@ void write_file(const std::filesystem::path& path, std::string_view content = "x
 }
 
 }  // namespace
+
+TEST_CASE("c6q scan_subtree walks a claimed payload-only repository",
+          "[scan][c6q]") {
+  SECTION("non-root row keeps the row directory and skips only its marker") {
+    auto root = make_tmp("c6q-subtree");
+    write_file(root / ".bivignore", "r/drop.txt\n");
+    std::filesystem::create_directories(root / "r/.git");
+    write_file(root / "r/sub/t.txt", "tracked");
+    write_file(root / "r/x.log", "ignored-by-git-only");
+    write_file(root / "r/drop.txt", "pruned");
+    REQUIRE(::mkfifo((root / "r/pipe").c_str(), 0600) == 0);
+
+    auto matcher = biv::scan::prepare_matcher(root);
+    REQUIRE(matcher.has_value());
+    biv::scan::ScanResult into;
+    const biv::scan::ScanExclusions claimed{.repo_subtrees = {}, .claimed_markers = {"r"}};
+    auto result = biv::scan::scan_subtree(root, matcher->matcher, claimed,
+                                          "r", into);
+    REQUIRE(result.has_value());
+    std::vector<std::string> relpaths;
+    for (const auto& node : into.payload) relpaths.push_back(node.relpath);
+    CHECK(relpaths == std::vector<std::string>{"r", "r/sub", "r/sub/t.txt",
+                                               "r/x.log"});
+    REQUIRE(into.pruned.size() == 1U);
+    CHECK(into.pruned.front().relpath == "r/drop.txt");
+    CHECK(into.pruned.front().source == ".bivignore:1");
+    CHECK(into.skipped_unsupported == std::vector<std::string>{"r/pipe"});
+    CHECK(std::ranges::none_of(into.payload, [](const auto& node) {
+      return node.relpath.find(".git") != std::string::npos;
+    }));
+    for (const auto& node : into.payload) {
+      struct stat status{};
+      REQUIRE(::lstat((root / node.relpath).c_str(), &status) == 0);
+      CHECK(node.mode == static_cast<uint32_t>(status.st_mode));
+#if defined(__APPLE__)
+      CHECK(node.mtime_s == status.st_mtimespec.tv_sec);
+      CHECK(node.mtime_ns == static_cast<uint32_t>(status.st_mtimespec.tv_nsec));
+#else
+      CHECK(node.mtime_s == status.st_mtim.tv_sec);
+      CHECK(node.mtime_ns == static_cast<uint32_t>(status.st_mtim.tv_nsec));
+#endif
+    }
+
+    biv::scan::ScanResult unclaimed;
+    auto guard = biv::scan::scan_subtree(root, matcher->matcher, {}, "r",
+                                         unclaimed);
+    REQUIRE_FALSE(guard.has_value());
+    CHECK(guard.error().kind == biv::ErrKind::UnclaimedGitEntry);
+    CHECK(guard.error().path == (root / "r/.git").generic_string());
+    std::filesystem::remove_all(root);
+  }
+
+  SECTION("root row emits children but never an empty root member") {
+    auto root = make_tmp("c6q-root");
+    std::filesystem::create_directories(root / ".git");
+    write_file(root / "a.txt", "a");
+    write_file(root / "d/b.txt", "b");
+    auto matcher = biv::scan::prepare_matcher(root);
+    REQUIRE(matcher.has_value());
+    biv::scan::ScanResult into;
+    auto result = biv::scan::scan_subtree(
+        root, matcher->matcher,
+        biv::scan::ScanExclusions{.repo_subtrees = {}, .claimed_markers = {""}}, "", into);
+    REQUIRE(result.has_value());
+    std::vector<std::string> relpaths;
+    for (const auto& node : into.payload) relpaths.push_back(node.relpath);
+    CHECK(relpaths == std::vector<std::string>{"a.txt", "d", "d/b.txt"});
+    CHECK(std::ranges::none_of(into.payload, [](const auto& node) {
+      return node.relpath.empty() || node.relpath.find(".git") != std::string::npos;
+    }));
+    std::filesystem::remove_all(root);
+  }
+}
+
+TEST_CASE("c6p stat_node is the scanner's single-node oracle", "[scan][c6p]") {
+  auto root = make_tmp("c6p-stat-node");
+  write_file(root / "regular.txt", "payload");
+  std::filesystem::create_symlink("regular.txt", root / "link.txt");
+  REQUIRE(::mkfifo((root / "pipe").c_str(), 0600) == 0);
+
+  auto scanned = biv::scan::scan(root);
+  REQUIRE(scanned.has_value());
+  const auto check_recorded = [&](const std::string& relpath) {
+    const auto found = std::ranges::find(scanned->payload, relpath,
+                                         &biv::scan::Node::relpath);
+    REQUIRE(found != scanned->payload.end());
+    auto node = biv::scan::stat_node(root, relpath);
+    REQUIRE(node.has_value());
+    REQUIRE(node->has_value());
+    CHECK((*node)->relpath == found->relpath);
+    CHECK((*node)->kind == found->kind);
+    CHECK((*node)->mode == found->mode);
+    CHECK((*node)->mtime_s == found->mtime_s);
+    CHECK((*node)->mtime_ns == found->mtime_ns);
+    CHECK((*node)->size == found->size);
+    CHECK((*node)->symlink_target == found->symlink_target);
+  };
+  check_recorded("regular.txt");
+  check_recorded("link.txt");
+
+  auto fifo = biv::scan::stat_node(root, "pipe");
+  REQUIRE(fifo.has_value());
+  CHECK_FALSE(fifo->has_value());
+
+  write_file(root / "vanished.txt");
+  REQUIRE(std::filesystem::remove(root / "vanished.txt"));
+  auto vanished = biv::scan::stat_node(root, "vanished.txt");
+  REQUIRE_FALSE(vanished.has_value());
+  CHECK(vanished.error().path ==
+        (root / "vanished.txt").generic_string());
+  std::filesystem::remove_all(root);
+}
 
 TEST_CASE("scan enumerates payload in lexicographic byte order") {
   auto root = make_tmp("lex");
@@ -128,12 +241,70 @@ TEST_CASE("scan records symlinks and nested .bivignore advisories") {
   std::filesystem::remove_all(root);
 }
 
-TEST_CASE("scan refuses repo-bearing roots") {
+TEST_CASE("scan exclusions canonicalize and claim repository roots", "[pack-repos]") {
   auto root = make_tmp("repo");
   std::filesystem::create_directory(root / ".git");
+  write_file(root / "src/main.cpp");
+  write_file(root / "README");
+
+  auto matcher = biv::scan::prepare_matcher(root);
+  REQUIRE(matcher.has_value());
+  for (const auto& spelling : {std::filesystem::path{"."}, std::filesystem::path{}}) {
+    biv::scan::ScanExclusions exclusions{
+        .repo_subtrees = {biv::scan::ScanExclusions::canonical(spelling)},
+        .claimed_markers = {}};
+    auto result = biv::scan::scan(root, matcher->matcher, exclusions);
+    REQUIRE(result.has_value());
+    CHECK(result->payload.empty());
+    CHECK(result->pruned.empty());
+  }
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("scan excludes a nested repository subtree as one writer", "[pack-repos]") {
+  auto root = make_tmp("nested-repo");
+  std::filesystem::create_directories(root / "lib/vendored/.git");
+  write_file(root / "lib/vendored/x.c");
+  write_file(root / "lib/other.c");
+
+  auto matcher = biv::scan::prepare_matcher(root);
+  REQUIRE(matcher.has_value());
+  auto result = biv::scan::scan(
+      root, matcher->matcher,
+      biv::scan::ScanExclusions{.repo_subtrees = {"lib/vendored"}, .claimed_markers = {}});
+  REQUIRE(result.has_value());
+  CHECK(std::ranges::any_of(result->payload, [](const auto& node) {
+    return node.relpath == "lib/other.c";
+  }));
+  CHECK_FALSE(std::ranges::any_of(result->payload, [](const auto& node) {
+    return node.relpath.starts_with("lib/vendored") ||
+           node.relpath.find(".git") != std::string::npos;
+  }));
+  std::filesystem::remove_all(root);
+}
+
+TEST_CASE("scan refuses only unclaimed hostile git markers", "[pack-repos]") {
+  auto root = make_tmp("unclaimed-git");
+  std::filesystem::create_symlink("target", root / ".git");
 
   auto result = biv::scan::scan(root);
   REQUIRE_FALSE(result.has_value());
-  REQUIRE(result.error().kind == biv::ErrKind::RepoDiscoveredUnsupported);
+  CHECK(result.error().kind == biv::ErrKind::UnclaimedGitEntry);
+  CHECK(result.error().facts.at("reason") == "symlink");
+
+  std::filesystem::remove(root / ".git");
+  REQUIRE(::mkfifo((root / ".git").c_str(), 0600) == 0);
+  result = biv::scan::scan(root);
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::UnclaimedGitEntry);
+  CHECK(result.error().facts.at("reason") == "special-file");
+
+  std::filesystem::remove(root / ".git");
+  std::filesystem::create_directory(root / ".git");
+  result = biv::scan::scan(root);
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().kind == biv::ErrKind::UnclaimedGitEntry);
+  CHECK(result.error().facts.at("reason") == "unreadable-marker");
+
   std::filesystem::remove_all(root);
 }

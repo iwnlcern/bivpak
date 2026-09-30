@@ -19,6 +19,8 @@ struct Command {
   bool json{false};
   bool help{false};
   bool accept_url_divergence{false};
+  bool offline{false};
+  bool network{false};
   std::filesystem::path pack_dir;
   biv::open::OpenOptions open_options;
   core_sessions::ConsentSpec consent;

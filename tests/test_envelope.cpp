@@ -70,6 +70,36 @@ TEST_CASE("exit map classifies refusal, mid-fail, and usage") {
   CHECK(biv::report::exit_for_error(biv::ErrKind::EntrySchemaSkipped) == 0);
 }
 
+TEST_CASE("failed row completeness rejects a missing kind") {
+  biv::open::OpenReport report{};
+  report.repos.push_back({.id = "repo", .relpath = "path", .outcome = "failed",
+                          .kind = std::nullopt, .detail = "failure",
+                          .sha = std::nullopt, .branch = std::nullopt, .capture_mode = std::nullopt,
+                          .remotes = {}, .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                          .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt});
+  CHECK_FALSE(biv::report::failed_rows_complete(report));
+
+  report.repos.front().kind = "UrlDivergenceEntryRefused";
+  CHECK(biv::report::failed_rows_complete(report));
+}
+
+TEST_CASE("failed row completeness rejects a missing detail and complete rows emit no null carriers") {
+  biv::open::OpenReport report{};
+  report.repos.push_back({.id = "repo", .relpath = "path", .outcome = "failed",
+                          .kind = "UrlDivergenceEntryRefused", .detail = std::nullopt,
+                          .sha = std::nullopt, .branch = std::nullopt, .capture_mode = std::nullopt,
+                          .remotes = {}, .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                          .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt});
+  CHECK_FALSE(biv::report::failed_rows_complete(report));
+
+  report.repos.front().detail = "path: restore failed";
+  REQUIRE(biv::report::failed_rows_complete(report));
+  const auto encoded = biv::report::envelope(
+      "open", std::nullopt, report, std::nullopt, 2);
+  CHECK(encoded.find("\"kind\": null") == std::string::npos);
+  CHECK(encoded.find("\"detail\": null") == std::string::npos);
+}
+
 TEST_CASE("pack success envelope includes advisories") {
   biv::pack::PackReport report;
   report.image_path = "/tmp/sample.bvpk";
@@ -208,7 +238,6 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
   };
   const std::vector<ExpectedRow> rows{
       {"SourceUnreadableRoot", "refusal", biv::report::exit_for_error(biv::ErrKind::SourceUnreadableRoot)},
-      {"RepoDiscoveredUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::RepoDiscoveredUnsupported)},
       {"OutputInsideSource", "refusal", biv::report::exit_for_error(biv::ErrKind::OutputInsideSource)},
       {"PartialPresent", "refusal", biv::report::exit_for_error(biv::ErrKind::PartialPresent)},
       {"SourceUnreadableSubpath", "divergence", biv::report::exit_for_warnings(true)},
@@ -235,7 +264,17 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
       {"InternalError", "mid-fail", biv::report::exit_for_error(biv::ErrKind::InternalError)},
       {"UsageError", "usage", biv::report::exit_for_error(biv::ErrKind::UsageError)},
       {"UrlDivergenceRefused", "refusal", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceRefused)},
-      {"UrlDivergenceEntryRefused", "divergence", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceEntryRefused)}};
+      {"UrlDivergenceEntryRefused", "divergence", biv::report::exit_for_error(biv::ErrKind::UrlDivergenceEntryRefused)},
+      {"UnclaimedGitEntry", "refusal", biv::report::exit_for_error(biv::ErrKind::UnclaimedGitEntry)},
+      {"RepoDirtyUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::RepoDirtyUnsupported)},
+      {"RepoNestedUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::RepoNestedUnsupported)},
+      {"RepoSubmoduleUnsupported", "refusal", biv::report::exit_for_error(biv::ErrKind::RepoSubmoduleUnsupported)},
+      {"UnmergedIndexUnrepresentable", "refusal", biv::report::exit_for_error(biv::ErrKind::UnmergedIndexUnrepresentable)},
+      {"RefUncapturable", "refusal", biv::report::exit_for_error(biv::ErrKind::RefUncapturable)},
+      {"PromisorObjectsUnavailable", "refusal", biv::report::exit_for_error(biv::ErrKind::PromisorObjectsUnavailable)},
+      {"GitInvocationFailed", "mid-fail", biv::report::exit_for_error(biv::ErrKind::GitInvocationFailed)},
+      {"GitBudgetExpired", "mid-fail", biv::report::exit_for_error(biv::ErrKind::GitBudgetExpired)},
+      {"RepoRestoreFailed", "mid-fail", biv::report::exit_for_error(biv::ErrKind::RepoRestoreFailed)}};
   for (const auto& row : rows) {
     const std::string needle = "\"kind\": \"" + std::string{row.kind} + "\"";
     INFO(row.kind);
@@ -246,8 +285,22 @@ TEST_CASE("schema artifacts reserve envelope and exit-map contracts") {
   }
   CHECK(count_occurrences(exit_text, "\"kind\": \"") == rows.size());
   CHECK(exit_text.find("\"kind\": \"ParseError\"") == std::string::npos);
-  CHECK(exit_text.find("\"RepoDiscoveredUnsupported\", \"class\": \"refusal\", \"exit\": 3, \"transitional\": true") !=
+  CHECK(exit_text.find(std::string{"RepoDiscovered"} + "Unsupported") ==
         std::string::npos);
+  const auto divergence_row = exit_text.find("\"kind\": \"UrlDivergenceEntryRefused\"");
+  REQUIRE(divergence_row != std::string::npos);
+  CHECK(exit_text.find("\"exit\": 2", divergence_row) != std::string::npos);
+  const auto unclaimed_row = exit_text.find("\"kind\": \"UnclaimedGitEntry\"");
+  REQUIRE(unclaimed_row != std::string::npos);
+  CHECK(exit_text.find("\"UnclaimedGitEntry\", \"class\": \"refusal\", \"exit\": 3", unclaimed_row) !=
+        std::string::npos);
+  const auto unclaimed_end = exit_text.find('\n', unclaimed_row);
+  CHECK(exit_text.substr(unclaimed_row, unclaimed_end - unclaimed_row).find("transitional") ==
+        std::string::npos);
+  CHECK(unclaimed_row > divergence_row);
+  CHECK(rows.size() == 38U);
+  CHECK(count_occurrences(exit_text, "\"class\": \"refusal\"") == 20U);
+  CHECK(count_occurrences(exit_text, "\"class\": \"mid-fail\"") == 7U);
   CHECK(exit_text.find("NotYetImplemented") != std::string::npos);
 
   std::ifstream envelope{std::string{BIV_SOURCE_DIR} + "/schemas/biv-json-envelope.v1.schema.json"};
@@ -827,7 +880,9 @@ TEST_CASE("a6-R1 open carriers: exact rows, order, cardinality, grouped advisory
   report.url_divergence_refusals = {
       {"repoA", "path/one", "https://req-1", "https://eff-1", "fetch"},
       {"repoB", "path/two", "https://req-2", "https://eff-2", "ls-remote"}};
-  report.url_divergence_accepted = {{"https://acc-req", "https://acc-eff", "clone", "/hook/acc"}};
+  report.url_divergence_accepted = {
+      {"https://acc-req", "https://acc-eff", "clone", "/hook/acc"},
+      {"https://acc2-req", "https://acc2-eff", "fetch", "/hook/acc2"}};
   const auto populated = biv::report::envelope("open", std::nullopt, report, std::nullopt, 2);
   simdjson::dom::parser parser;
   const simdjson::dom::element document = parser.parse(populated);
@@ -836,8 +891,9 @@ TEST_CASE("a6-R1 open carriers: exact rows, order, cardinality, grouped advisory
   check_refusal_row(rows.at(0), "repoA", "path/one", "https://req-1", "https://eff-1", "fetch");
   check_refusal_row(rows.at(1), "repoB", "path/two", "https://req-2", "https://eff-2", "ls-remote");
   const auto entries = single_accepted_entries(document);
-  REQUIRE(entries.size() == 1);
+  REQUIRE(entries.size() == 2);
   check_accepted_entry(entries.at(0), "https://acc-req", "https://acc-eff", "clone", "/hook/acc");
+  check_accepted_entry(entries.at(1), "https://acc2-req", "https://acc2-eff", "fetch", "/hook/acc2");
 }
 
 TEST_CASE("a6-R1 pack carries the grouped advisory too: exact entries, order, zero state", "[a6-fabric]") {
@@ -882,4 +938,79 @@ TEST_CASE("a6-R1 exit composition: one typed aggregator over both sources", "[a6
       {"r1", "a/b", "https://req", "https://eff", "fetch"}};
   CHECK(biv::report::exit_for_open(clean, {}) == 0);
   CHECK(biv::report::exit_for_open(clean, rows) == 2);
+  biv::core_sessions::SessionsOutcome nonzero{};
+  nonzero.rows.push_back({.agent = "future-tool",
+                          .image_session_id = "session",
+                          .row = biv::core_sessions::SessionRowReport::Row::unknown_agent_skipped,
+                          .reason = "unknown-agent",
+                          .installed_session_id = std::nullopt,
+                          .detail = std::nullopt});
+  CHECK(biv::report::exit_for_open(nonzero, {}) == 2);
+  CHECK(biv::report::exit_for_open(nonzero, rows) == 2);
+}
+
+TEST_CASE("open repos machine carriers replace malformed UTF-8 without display escaping", "[open-repos][envelope]") {
+  // Named mutants: raw 0x9b emission; consent_display applied to a machine field.
+  const std::string raw = std::string{"value-"} + char(0x9b) + "-\xc2\x9b-\xe2\x80\xae";
+  const std::string machine = "value-\xef\xbf\xbd-\xc2\x9b-\xe2\x80\xae";
+  biv::open::OpenReport report{};
+  report.url_divergence_refusals = {{raw, raw, raw, raw, raw}};
+  report.url_divergence_accepted = {{raw, raw, raw, raw}};
+  const auto encoded = biv::report::envelope("open", std::nullopt, report, std::nullopt, 2);
+  simdjson::dom::parser parser;
+  simdjson::dom::element document;
+  REQUIRE(parser.parse(encoded).get(document) == simdjson::SUCCESS);
+  const simdjson::dom::array rows = document["result"]["url_divergence_refusals"];
+  check_refusal_row(rows.at(0), machine, machine, machine, machine, machine);
+  check_accepted_entry(single_accepted_entries(document).at(0), machine, machine, machine, machine);
+  CHECK(report.url_divergence_refusals.front().repo_id == raw);
+  CHECK(report.url_divergence_refusals.front().relpath == raw);
+  CHECK(report.url_divergence_accepted.front().repo == raw);
+  biv::BivError error{.kind = biv::ErrKind::UrlDivergenceRefused, .path = raw,
+                      .facts = {{"requested", raw}, {"effective", raw}, {"op", raw}}};
+  const auto failed = biv::report::envelope("pack", std::nullopt, std::nullopt, error, 3);
+  REQUIRE(parser.parse(failed).get(document) == simdjson::SUCCESS);
+  CHECK(std::string_view(document["error"]["path"]) == machine);
+  for (const auto field : {"requested", "effective", "op"}) {
+    CHECK(std::string_view(document["error"]["facts"][field]) == machine);
+  }
+  CHECK(error.path == raw);
+}
+
+TEST_CASE("A10 open repos rows are exact outcome-conditioned machine carriers", "[open-repos][envelope][a10]") {
+  biv::open::OpenReport report{};
+  const auto zero = biv::report::envelope("open", std::nullopt, report, std::nullopt, 0);
+  CHECK(zero.find("\"repos\"") == zero.find("\"repos\": []"));
+
+  report.repos.push_back({.id = "restored", .relpath = "repo", .outcome = "restored",
+                          .kind = std::nullopt, .detail = std::nullopt,
+                          .sha = std::string(40, 'a'), .branch = std::nullopt,
+                          .capture_mode = "overlay", .remotes = {},
+                          .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                          .local_refs = {}, .advisories = {}, .shallow_boundary = std::nullopt});
+  report.repos.push_back({.id = "shallow", .relpath = "shallow", .outcome = "shallow-pointer",
+                          .kind = std::nullopt, .detail = std::nullopt,
+                          .sha = std::string(40, 'b'), .branch = std::nullopt,
+                          .capture_mode = std::nullopt, .remotes = {},
+                          .bundle_path = std::nullopt, .reconstruct = std::nullopt,
+                          .local_refs = {}, .advisories = {"ShallowPointer"},
+                          .shallow_boundary = std::vector<std::string>{std::string(40, 'c')}});
+  report.repos.push_back({.id = "offline", .relpath = "offline", .outcome = "offline-pointer",
+                          .kind = std::nullopt, .detail = std::nullopt,
+                          .sha = "(no commits)", .branch = "main", .capture_mode = "full",
+                          .remotes = {"https://stored.invalid/repo"},
+                          .bundle_path = ".biv/repos/offline/repo.bundle",
+                          .reconstruct = "git init 'target'", .local_refs = {},
+                          .advisories = {}, .shallow_boundary = std::nullopt});
+  const auto encoded = biv::report::envelope("open", std::nullopt, report, std::nullopt, 0);
+  simdjson::dom::parser parser;
+  const auto document = parser.parse(encoded);
+  const simdjson::dom::array rows = document["result"]["repos"];
+  REQUIRE(rows.size() == 3);
+  CHECK(std::string_view(rows.at(0)["capture_mode"]) == "overlay");
+  CHECK(rows.at(1)["capture_mode"].is_null());
+  CHECK(std::string_view(rows.at(2)["branch"]) == "main");
+  CHECK(std::string_view(rows.at(2)["bundle_path"]) == ".biv/repos/offline/repo.bundle");
+  CHECK(std::string_view(rows.at(2)["reconstruct"]) == "git init 'target'");
+  CHECK(simdjson::dom::array(document["result"]["manifest"]["repos"]).size() == 0);
 }

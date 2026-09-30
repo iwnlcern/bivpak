@@ -134,6 +134,8 @@ std::string help_text(const Verb verb) {
         "  --dest <path>\n"
         "  --consent <yes|no|agent=yes,...>\n"
         "  --accept-url-divergence\n"
+        "  --offline\n"
+        "  --network\n"
         "  --agent-bin <";
     help += registered_agent_list();
     help +=
@@ -169,6 +171,10 @@ expected<Command> parse_args(std::span<char* const> args) {
     for (size_t i = 1; i < tokens.size(); ++i) {
       if (tokens.at(i) == "--accept-url-divergence") {
         command.accept_url_divergence = true;
+        continue;
+      }
+      if (tokens.at(i) == "--offline") {
+        command.offline = true;
         continue;
       }
       if (is_flag(tokens.at(i))) {
@@ -251,6 +257,10 @@ expected<Command> parse_args(std::span<char* const> args) {
         command.open_options.collision = biv::open::Collision::abort_preset;
       } else if (arg == "--accept-url-divergence") {
         command.accept_url_divergence = true;
+      } else if (arg == "--offline") {
+        command.offline = true;
+      } else if (arg == "--network") {
+        command.network = true;
       } else if (arg == "--verify") {
         command.open_options.verify = true;
       } else if (is_flag(arg)) {
@@ -260,6 +270,9 @@ expected<Command> parse_args(std::span<char* const> args) {
       } else {
         return std::unexpected(usage("too-many-args"));
       }
+    }
+    if (command.offline && command.network) {
+      return std::unexpected(usage("conflicting-flags"));
     }
     if (saw_rename && saw_abort) {
       return std::unexpected(usage("collision-mode-conflict"));

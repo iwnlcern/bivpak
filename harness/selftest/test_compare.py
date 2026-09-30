@@ -418,3 +418,85 @@ def test_unknown_git_tolerance_policy_is_invalid(tmp_path):
 
     with pytest.raises(ValueError, match="unknown tolerance policy"):
         compare_trees(src, restored, tol)
+
+
+def _nested_checkout_trees(tmp_path):
+    src = tmp_path / "src"
+    restored = tmp_path / "restored"
+    materialize(
+        {
+            "entries": [
+                {"type": "dir", "path": "outer"},
+                {"type": "dir", "path": "penumbra-empty"},
+                {
+                    "type": "git-repo",
+                    "path": "outer/app",
+                    "commits": [
+                        {
+                            "files": {".gitignore": "*.cache\n", "src/f.txt": "tracked\n"},
+                            "message": "tracked",
+                        }
+                    ],
+                },
+                {"type": "dir", "path": "outer/app/cache-only"},
+                {"type": "file", "path": "outer/app/cache-only/state.cache", "text": "payload\n"},
+            ]
+        },
+        src,
+    )
+    shutil.copytree(src, restored, symlinks=True, copy_function=shutil.copy2)
+    for rel in ("outer", "penumbra-empty", "outer/app", "outer/app/src", "outer/app/cache-only"):
+        _stamp(src / rel, 1_700_000_000_000_000_000)
+        _stamp(restored / rel, 1_700_000_000_000_000_000)
+    return src, restored
+
+
+def test_checkout_written_dirs_mtime_is_ignored_under_the_declared_row(tmp_path):
+    src, restored = _nested_checkout_trees(tmp_path)
+    _stamp(restored / "outer/app", 1_700_000_000_123_456_789)
+    _stamp(restored / "outer/app/src", 1_700_000_000_123_456_789)
+
+    assert compare_trees(src, restored, load_tolerance()) == []
+
+
+def test_checkout_dir_exemption_is_controlled_by_declared_tolerance(tmp_path):
+    src, restored = _nested_checkout_trees(tmp_path)
+    _stamp(restored / "outer/app", 1_700_000_000_123_456_789)
+    _stamp(restored / "outer/app/src", 1_700_000_000_123_456_789)
+    tol = load_tolerance()
+    tol["rows"] = [row for row in tol["rows"] if row["name"] != "git-checkout-dir-mtime"]
+
+    findings = compare_trees(src, restored, tol)
+    assert "B: dir-mtime mismatch for outer/app" in findings
+    assert "B: dir-mtime mismatch for outer/app/src" in findings
+
+
+def test_ordinary_ancestor_above_a_repo_root_keeps_exact_dir_mtime(tmp_path):
+    src, restored = _nested_checkout_trees(tmp_path)
+    _stamp(restored / "outer", 1_700_000_000_123_456_789)
+
+    assert compare_trees(src, restored, load_tolerance()) == ["B: dir-mtime mismatch for outer"]
+
+
+def test_untracked_only_and_penumbra_dirs_keep_exact_dir_mtime(tmp_path):
+    src, restored = _nested_checkout_trees(tmp_path)
+    _stamp(restored / "outer/app/cache-only", 1_700_000_000_123_456_789)
+    _stamp(restored / "penumbra-empty", 1_700_000_000_123_456_789)
+
+    assert compare_trees(src, restored, load_tolerance()) == [
+        "B: dir-mtime mismatch for outer/app/cache-only",
+        "B: dir-mtime mismatch for penumbra-empty",
+    ]
+
+
+def test_checkout_dir_exemption_never_waives_modes_or_bytes(tmp_path):
+    src, restored = _nested_checkout_trees(tmp_path)
+    _stamp(restored / "outer/app/src", 1_700_000_000_123_456_789)
+    (restored / "outer/app/src/f.txt").write_bytes(b"changed\n")
+    source_mode = (src / "outer/app/src").stat().st_mode & 0o777
+    os.chmod(restored / "outer/app/src", 0o700 if source_mode != 0o700 else 0o750)
+
+    findings = compare_trees(src, restored, load_tolerance())
+    assert "A: byte mismatch for outer/app/src/f.txt" in findings
+    assert any(item.startswith("B: mode mismatch for outer/app/src") for item in findings)
+    assert not any("dir-mtime" in item for item in findings)

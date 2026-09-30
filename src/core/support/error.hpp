@@ -8,7 +8,6 @@ namespace biv {
 
 enum class ErrKind {
   SourceUnreadableRoot,
-  RepoDiscoveredUnsupported,
   OutputInsideSource,
   PartialPresent,
   ArchiveWriteFailed,
@@ -34,7 +33,17 @@ enum class ErrKind {
   UsageError,
   ParseError,
   UrlDivergenceRefused,
-  UrlDivergenceEntryRefused
+  UrlDivergenceEntryRefused,
+  UnclaimedGitEntry,
+  RepoDirtyUnsupported,
+  RepoNestedUnsupported,
+  RepoSubmoduleUnsupported,
+  UnmergedIndexUnrepresentable,
+  RefUncapturable,
+  PromisorObjectsUnavailable,
+  GitInvocationFailed,
+  GitBudgetExpired,
+  RepoRestoreFailed
 };
 
 struct BivError {

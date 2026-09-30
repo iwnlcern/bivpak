@@ -129,6 +129,9 @@ support::SpawnRequest Git::build_spawn_request(
   }
   env.emplace_back(std::string{"GIT_PROTOCOL_FROM_USER="} +
                    (opts.allow_user_protocol ? "1" : "0"));
+  if (opts.ceiling) {
+    env.emplace_back("GIT_CEILING_DIRECTORIES=" + opts.ceiling->string());
+  }
   if (opts.isolate_global_config) {
     env.emplace_back("GIT_CONFIG_GLOBAL=/dev/null");
   }

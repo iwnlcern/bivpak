@@ -8,6 +8,8 @@
 #include <ctime>
 #include <exception>
 #include <fstream>
+#include <map>
+#include <numeric>
 #include <optional>
 #include <set>
 #include <span>
@@ -25,6 +27,12 @@
 #include "core/container/zstd_stream.hpp"
 #include "core/manifest/checksums.hpp"
 #include "core/manifest/agent_member.hpp"
+#include "core/repo/capture.hpp"
+#include "core/repo/classify.hpp"
+#include "core/repo/discover.hpp"
+#include "core/repo/eligibility.hpp"
+#include "core/repo/git.hpp"
+#include "core/repo/restore.hpp"
 #include "core/scan/scan.hpp"
 #include "core/support/portability.hpp"
 #include "core/support/version.hpp"
@@ -198,6 +206,42 @@ expected<std::string> write_file_member(container::TarWriter& writer,
     return writer.write_data(chunk);
   });
   if (!copied) {
+    return std::unexpected(copied.error());
+  }
+  auto extent = writer.end_member();
+  if (!extent) {
+    return std::unexpected(extent.error());
+  }
+  return *extent;
+}
+
+expected<std::string> write_file_member(
+    container::TarWriter& writer, const std::filesystem::path& source,
+    const std::string_view archive_path, const int64_t mtime_s) {
+  std::error_code ec;
+  const auto size = std::filesystem::file_size(source, ec);
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::ArchiveWriteFailed,
+                                    source.generic_string(), ec.message(),
+                                    ec.value()});
+  }
+  const container::MemberMeta meta{
+      .path = std::string{archive_path},
+      .kind = scan::NodeKind::file,
+      .mode = 0644,
+      .mtime_s = mtime_s,
+      .mtime_ns = 0,
+      .size = size,
+      .symlink_target = {},
+  };
+  if (auto ok = writer.begin_member(meta); !ok) {
+    return std::unexpected(ok.error());
+  }
+  if (auto copied = copy_file_to_sink(
+          source, [&](std::span<const std::byte> chunk) -> expected<void> {
+            return writer.write_data(chunk);
+          });
+      !copied) {
     return std::unexpected(copied.error());
   }
   auto extent = writer.end_member();
@@ -515,6 +559,291 @@ void add_summary(PackReport& report, std::string_view agent) {
   }
 }
 
+BivError engine_to_pack_error(BivError error,
+                              const std::optional<std::string_view> repo_relpath = std::nullopt,
+                              const bool offline = false) {
+  const auto engine_kind = repo::engine_error_kind(error);
+  if (!engine_kind) return error;
+  if (*engine_kind == repo::EngineErrorKind::url_divergence_refused) {
+    BivError mapped{ErrKind::UrlDivergenceRefused, error.path};
+    for (const auto field : {"requested", "effective", "op"}) {
+      if (const auto value = error.facts.find(field); value != error.facts.end()) {
+        mapped.facts.emplace(field, value->second);
+      }
+    }
+    return mapped;
+  }
+  std::optional<ErrKind> kind;
+  switch (*engine_kind) {
+    case repo::EngineErrorKind::repo_dirty_unsupported: kind = ErrKind::RepoDirtyUnsupported; break;
+    case repo::EngineErrorKind::repo_nested_unsupported: kind = ErrKind::RepoNestedUnsupported; break;
+    case repo::EngineErrorKind::repo_submodule_unsupported: kind = ErrKind::RepoSubmoduleUnsupported; break;
+    case repo::EngineErrorKind::unmerged_index_unrepresentable: kind = ErrKind::UnmergedIndexUnrepresentable; break;
+    case repo::EngineErrorKind::ref_uncapturable: kind = ErrKind::RefUncapturable; break;
+    case repo::EngineErrorKind::promisor_objects_unavailable: kind = ErrKind::PromisorObjectsUnavailable; break;
+    case repo::EngineErrorKind::git_invocation_failed: kind = ErrKind::GitInvocationFailed; break;
+    case repo::EngineErrorKind::git_budget_expired: kind = ErrKind::GitBudgetExpired; break;
+    case repo::EngineErrorKind::repo_restore_failed: kind = ErrKind::RepoRestoreFailed; break;
+    case repo::EngineErrorKind::url_divergence_refused: break;
+  }
+  if (!kind) return error;
+  error.kind = *kind;
+  if (repo_relpath) error.facts["repo_relpath"] = std::string{*repo_relpath};
+  else if (!error.facts.contains("repo_relpath")) error.facts["repo_relpath"] = error.path;
+  if (*kind != ErrKind::RepoNestedUnsupported &&
+      *kind != ErrKind::RepoSubmoduleUnsupported) {
+    error.path = error.facts.at("repo_relpath");
+  }
+  error.facts["verb"] = "pack";
+  if (*kind == ErrKind::PromisorObjectsUnavailable) {
+    error.facts["offline"] = offline ? "true" : "false";
+  }
+  if (*kind == ErrKind::GitInvocationFailed || *kind == ErrKind::RepoRestoreFailed) {
+    error.facts["engine_detail"] = error.detail;
+  }
+  return error;
+}
+
+BivError fence_error(const repo::RepoBoundary& boundary,
+                     const repo::EngineIssue& issue) {
+  const auto path = issue.paths.empty() ? boundary.relpath : issue.paths.front();
+  auto error = repo::make_engine_error(issue.kind, path, issue.detail);
+  error.facts.emplace("repo_relpath", boundary.relpath.generic_string());
+  if (!issue.paths.empty()) {
+    std::string joined;
+    for (const auto& issue_path : issue.paths) {
+      if (!joined.empty()) joined.push_back('\n');
+      joined += issue_path.generic_string();
+    }
+    error.facts.emplace("unmerged_count", std::to_string(issue.paths.size()));
+    error.facts.emplace("unmerged_paths", std::move(joined));
+    if (issue.kind == repo::EngineErrorKind::repo_nested_unsupported) {
+      error.facts.emplace("child", issue.paths.front().generic_string());
+    } else if (issue.kind == repo::EngineErrorKind::repo_submodule_unsupported) {
+      error.facts.emplace("gitlink", issue.paths.front().generic_string());
+    }
+  }
+  return error;
+}
+
+std::vector<std::size_t> leaves_first(
+    const std::vector<repo::RepoEntry>& entries) {
+  std::vector<std::size_t> order(entries.size());
+  std::iota(order.begin(), order.end(), std::size_t{0});
+  const auto depth = [&](const std::size_t index) {
+    std::size_t value = 0;
+    auto parent = entries.at(index).parent_id;
+    while (parent && value < entries.size()) {
+      const auto found = std::ranges::find(entries, *parent,
+                                           &repo::RepoEntry::id);
+      if (found == entries.end()) break;
+      ++value;
+      parent = found->parent_id;
+    }
+    return value;
+  };
+  std::stable_sort(order.begin(), order.end(), [&](const auto lhs, const auto rhs) {
+    return depth(lhs) > depth(rhs);
+  });
+  return order;
+}
+
+bool path_has_biv_segment(const std::string_view path) {
+  constexpr std::string_view segment = ".biv";
+  size_t start = 0;
+  while (start <= path.size()) {
+    const auto end = path.find('/', start);
+    const auto part = path.substr(
+        start, end == std::string_view::npos ? path.size() - start
+                                             : end - start);
+    if (part == segment) return true;
+    if (end == std::string_view::npos) break;
+    start = end + 1U;
+  }
+  return false;
+}
+
+bool path_is_below(const std::string_view path,
+                   const std::string_view directory) {
+  if (directory.empty()) return !path.empty();
+  return path.size() > directory.size() &&
+         path.starts_with(directory) && path.at(directory.size()) == '/';
+}
+
+std::vector<std::string> directory_prefixes(const std::string_view path) {
+  std::vector<std::string> prefixes;
+  size_t slash = path.find('/');
+  while (slash != std::string_view::npos) {
+    prefixes.emplace_back(path.substr(0, slash));
+    slash = path.find('/', slash + 1U);
+  }
+  return prefixes;
+}
+
+expected<bool> directory_is_all_penumbra(
+    const std::filesystem::path& directory,
+    const std::set<std::string>& penumbra,
+    const std::filesystem::path& repo_root) {
+  std::error_code ec;
+  std::filesystem::recursive_directory_iterator iterator{
+      directory, std::filesystem::directory_options::none, ec};
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    directory.generic_string(), ec.message(),
+                                    static_cast<int>(ec.value())});
+  }
+  for (auto end = std::filesystem::recursive_directory_iterator{};
+       iterator != end; iterator.increment(ec)) {
+    if (ec) {
+      return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                      iterator->path().generic_string(),
+                                      ec.message(),
+                                      static_cast<int>(ec.value())});
+    }
+    const auto status = iterator->symlink_status(ec);
+    if (ec) {
+      return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                      iterator->path().generic_string(),
+                                      ec.message(),
+                                      static_cast<int>(ec.value())});
+    }
+    if (std::filesystem::is_directory(status)) continue;
+    const auto relative =
+        iterator->path().lexically_relative(repo_root).generic_string();
+    if (!penumbra.contains(relative)) return false;
+  }
+  if (ec) {
+    return std::unexpected(BivError{ErrKind::SourceUnreadableRoot,
+                                    directory.generic_string(), ec.message(),
+                                    static_cast<int>(ec.value())});
+  }
+  return true;
+}
+
+expected<std::vector<scan::Node>> penumbra_nodes(
+    const std::filesystem::path& source,
+    const std::vector<repo::RepoEntry>& entries,
+    const ignore::Matcher& matcher,
+    scan::ScanResult& diagnostics) {
+  std::map<std::string, scan::Node> emitted;
+  std::set<std::string> recorded_prunes;
+  for (const auto& prune : diagnostics.pruned) {
+    recorded_prunes.insert(prune.relpath);
+  }
+
+  for (size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
+    const auto& entry = entries.at(entry_index);
+    if (!entry.engine_source || !repo::restore_invokes_git(entry)) continue;
+    const std::string row =
+        scan::ScanExclusions::canonical(entry.relpath);
+    const auto repo_root = source / std::filesystem::path{row};
+    std::set<std::string> penumbra;
+    for (const auto& path : entry.engine_source->penumbra_paths) {
+      penumbra.insert(scan::ScanExclusions::canonical(path));
+    }
+
+    std::vector<std::string> paths{penumbra.begin(), penumbra.end()};
+    std::ranges::sort(paths);
+    for (const auto& relative : paths) {
+      if (relative.empty()) continue;
+      const std::string full =
+          row.empty() ? relative : row + "/" + relative;
+      if (path_has_biv_segment(full)) continue;
+
+      bool in_deeper_row = false;
+      for (size_t other_index = 0; other_index < entries.size();
+           ++other_index) {
+        if (other_index == entry_index) continue;
+        const auto deeper = scan::ScanExclusions::canonical(
+            entries.at(other_index).relpath);
+        if (!deeper.empty() && path_is_below(deeper, row) &&
+            (full == deeper || path_is_below(full, deeper))) {
+          in_deeper_row = true;
+          break;
+        }
+      }
+      if (in_deeper_row) continue;
+
+      std::optional<ignore::Verdict> pruned;
+      for (const auto& prefix : directory_prefixes(full)) {
+        const auto verdict = matcher.match(prefix, true);
+        if (verdict.ignored) {
+          pruned = verdict;
+          if (recorded_prunes.insert(prefix).second) {
+            diagnostics.pruned.push_back(
+                scan::PruneEntry{.relpath = prefix,
+                                 .source = verdict.source});
+          }
+          break;
+        }
+      }
+      if (!pruned) {
+        const auto verdict = matcher.match(full, false);
+        if (verdict.ignored) {
+          pruned = verdict;
+          if (recorded_prunes.insert(full).second) {
+            diagnostics.pruned.push_back(
+                scan::PruneEntry{.relpath = full,
+                                 .source = verdict.source});
+          }
+        }
+      }
+      if (pruned) continue;
+
+      auto node = scan::stat_node(source, full);
+      if (!node) {
+        diagnostics.unreadable.push_back(full);
+        continue;
+      }
+      if (!*node) {
+        diagnostics.skipped_unsupported.push_back(full);
+        continue;
+      }
+      emitted.try_emplace(full, std::move(node->value()));
+    }
+
+    std::set<std::string> ancestors;
+    for (const auto& [full, node] : emitted) {
+      (void)node;
+      if (!path_is_below(full, row)) continue;
+      auto parent = std::filesystem::path{full}.parent_path();
+      while (!parent.empty()) {
+        const auto ancestor = parent.generic_string();
+        if (ancestor == row || !path_is_below(ancestor, row)) break;
+        ancestors.insert(ancestor);
+        parent = parent.parent_path();
+      }
+    }
+    for (const auto& ancestor : ancestors) {
+      if (emitted.contains(ancestor)) continue;
+      const auto verdict = matcher.match(ancestor, true);
+      if (verdict.ignored) continue;
+      auto qualifies = directory_is_all_penumbra(
+          source / std::filesystem::path{ancestor}, penumbra, repo_root);
+      if (!qualifies) {
+        diagnostics.unreadable.push_back(ancestor);
+        continue;
+      }
+      if (!*qualifies) continue;
+      auto node = scan::stat_node(source, ancestor);
+      if (!node) {
+        diagnostics.unreadable.push_back(ancestor);
+        continue;
+      }
+      if (!*node || node->value().kind != scan::NodeKind::dir) continue;
+      emitted.try_emplace(ancestor, std::move(node->value()));
+    }
+  }
+
+  std::vector<scan::Node> nodes;
+  nodes.reserve(emitted.size());
+  for (auto& [path, node] : emitted) {
+    (void)path;
+    nodes.push_back(std::move(node));
+  }
+  return nodes;
+}
+
 expected<void> copy_file_to_sink(const std::filesystem::path& path, container::TarWriter::Sink sink) {
   std::ifstream in{path, std::ios::binary};
   if (!in) {
@@ -537,7 +866,8 @@ expected<void> copy_file_to_sink(const std::filesystem::path& path, container::T
   return {};
 }
 
-expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
+expected<PackReport> pack_impl(const std::filesystem::path& source_dir,
+                               const PackOptions& options) {
   std::error_code ec;
   const auto source = existing_canonical(source_dir, ec);
   if (ec || !std::filesystem::is_directory(source, ec)) {
@@ -549,19 +879,25 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   const auto image_path = (source.parent_path() / (name + ".bvpk")).lexically_normal();
   const auto partial_path = (source.parent_path() / (name + ".bvpk.partial")).lexically_normal();
   const auto spool_path = (source.parent_path() / (name + ".bvpk.spool")).lexically_normal();
+  const auto scratch_path = (source.parent_path() / (name + ".bvpk.scratch")).lexically_normal();
   if (lexically_inside(image_path, source) || lexically_inside(partial_path, source) ||
       lexically_inside(spool_path, source)) {
     return std::unexpected(with_temp_facts(BivError{ErrKind::OutputInsideSource, image_path.generic_string()},
                                            partial_path,
                                            spool_path));
   }
-  if (std::filesystem::exists(partial_path, ec) || std::filesystem::exists(spool_path, ec)) {
+  if (std::filesystem::exists(partial_path, ec) ||
+      std::filesystem::exists(spool_path, ec) ||
+      std::filesystem::exists(scratch_path, ec)) {
     BivError error{ErrKind::PartialPresent};
     if (std::filesystem::exists(partial_path)) {
       error.facts["partial_path"] = partial_path.generic_string();
     }
     if (std::filesystem::exists(spool_path)) {
       error.facts["spool_path"] = spool_path.generic_string();
+    }
+    if (std::filesystem::exists(scratch_path)) {
+      error.facts["scratch_path"] = scratch_path.generic_string();
     }
     return std::unexpected(error);
   }
@@ -570,13 +906,110 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     std::error_code cleanup_ec;
     std::filesystem::remove(partial_path, cleanup_ec);
     std::filesystem::remove(spool_path, cleanup_ec);
+    std::filesystem::remove_all(scratch_path, cleanup_ec);
     return std::unexpected(with_temp_facts(std::move(error), partial_path, spool_path));
   };
 
-  auto scan_result = scan::scan(source);
+  const auto env = process_env();
+  auto matcher = scan::prepare_matcher(source);
+  if (!matcher) {
+    return cleanup_error(matcher.error());
+  }
+  auto discovery = repo::discover(source, matcher->matcher);
+  if (!discovery) {
+    return cleanup_error(engine_to_pack_error(discovery.error()));
+  }
+  scan::ScanExclusions exclusions;
+  for (const auto& boundary : discovery->repos) {
+    exclusions.repo_subtrees.push_back(
+        scan::ScanExclusions::canonical(boundary.relpath));
+  }
+  auto scan_result = scan::scan(source, matcher->matcher, exclusions);
   if (!scan_result) {
     return cleanup_error(scan_result.error());
   }
+  scan_result->bivignore = matcher->bivignore;
+
+  std::vector<repo::RepoEntry> entries;
+  std::vector<repo::CaptureResult> captures;
+  if (!discovery->repos.empty()) {
+    auto git = repo::Git::resolve(env.getenv);
+    if (!git) {
+      return cleanup_error(engine_to_pack_error(git.error()));
+    }
+    entries.reserve(discovery->repos.size());
+    for (const auto& boundary : discovery->repos) {
+      auto classified = repo::classify(
+          *git, (source / boundary.relpath).lexically_normal(),
+          *discovery);
+      if (!classified) {
+        return cleanup_error(engine_to_pack_error(
+            classified.error(), boundary.relpath.generic_string(), options.offline));
+      }
+      if (classified->fence != repo::Classification::Fence::none) {
+        if (!classified->issue) {
+          return cleanup_error(BivError{ErrKind::InternalError,
+                                        boundary.relpath.generic_string(),
+                                        "repo fence without issue"});
+        }
+        return cleanup_error(
+            engine_to_pack_error(fence_error(boundary, *classified->issue),
+                                 boundary.relpath.generic_string(), options.offline));
+      }
+      entries.push_back(std::move(classified->entry));
+    }
+    const auto mode = options.offline ? repo::EligibilityMode::offline
+                                      : repo::EligibilityMode::network;
+    for (auto& entry : entries) {
+      if (auto ok = repo::run_eligibility(*git, entry, mode); !ok) {
+        return cleanup_error(engine_to_pack_error(
+            ok.error(), entry.relpath.generic_string(), options.offline));
+      }
+    }
+    std::filesystem::create_directory(scratch_path, ec);
+    if (ec) {
+      return cleanup_error(BivError{ErrKind::ArchiveWriteFailed,
+                                    scratch_path.generic_string(),
+                                    ec.message(), ec.value()});
+    }
+    captures.reserve(entries.size());
+    for (const auto index : leaves_first(entries)) {
+      auto captured = repo::capture(*git, entries.at(index), scratch_path);
+      if (!captured) {
+        return cleanup_error(engine_to_pack_error(
+            captured.error(), entries.at(index).relpath.generic_string(), options.offline));
+      }
+      captures.push_back(std::move(*captured));
+    }
+  }
+
+  scan::ScanExclusions payload_only_exclusions;
+  for (const auto& entry : entries) {
+    const auto rel = scan::ScanExclusions::canonical(entry.relpath);
+    if (repo::restore_invokes_git(entry)) {
+      payload_only_exclusions.repo_subtrees.push_back(rel);
+    } else {
+      payload_only_exclusions.claimed_markers.push_back(rel);
+    }
+  }
+  for (const auto& entry : entries) {
+    if (repo::restore_invokes_git(entry)) {
+      continue;
+    }
+    auto scanned = scan::scan_subtree(
+        source, matcher->matcher, payload_only_exclusions,
+        scan::ScanExclusions::canonical(entry.relpath), *scan_result);
+    if (!scanned) {
+      return cleanup_error(scanned.error());
+    }
+  }
+  auto penumbra =
+      penumbra_nodes(source, entries, matcher->matcher, *scan_result);
+  if (!penumbra) {
+    return cleanup_error(penumbra.error());
+  }
+  scan_result->payload.insert(scan_result->payload.end(), penumbra->begin(),
+                              penumbra->end());
 
   manifest::Checksums checksums;
   PackReport report;
@@ -584,6 +1017,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   report.source_path = source.generic_string();
   report.flavor = path_flavor(source);
   report.image_id = uuid4();
+  report.repos = entries;
   for (const auto& path : scan_result->skipped_unsupported) {
     report.warnings.push_back(
         Warning{.kind = std::string{kWarningUnsupportedFileTypeSkipped},
@@ -607,7 +1041,6 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
   for (const auto& node : scan_result->payload) {
     emitted_members.insert("payload/" + node.relpath);
   }
-  const auto env = process_env();
   for (const auto* adapter : adapters::all_adapters()) {
     if (!agent_id_ok(adapter->id())) {
       return cleanup_error(BivError{ErrKind::ArchiveWriteFailed, {},
@@ -734,6 +1167,23 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
         report.payload_bytes += node.size;
       }
     }
+    for (const auto& capture : captures) {
+      for (const auto& artifact : capture.artifacts) {
+        const auto archive_path = artifact.archive_path.generic_string();
+        if (!emitted_members.insert(archive_path).second) {
+          return cleanup_error(BivError{ErrKind::ArchiveWriteFailed,
+                                        archive_path,
+                                        "repo-member-duplicate"});
+        }
+        auto extent = write_file_member(spool_writer, artifact.disk_path,
+                                        archive_path, created.seconds);
+        if (!extent) {
+          return cleanup_error(extent.error());
+        }
+        checksums.entries[archive_path] = std::move(*extent);
+        ++report.member_count;
+      }
+    }
     for (const auto& session : collected_sessions) {
       for (size_t i = 0; i < session.artifacts.size(); ++i) {
         auto extent = write_file_member(spool_writer, session.artifact_sources.at(i), session.artifacts.at(i),
@@ -759,6 +1209,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
       .source_path = source.generic_string(),
       .source_path_flavor = report.flavor,
       .packer_home = packer_home_carrier(env.home),
+      .repos = entries,
       .agent_sessions = report.agent_sessions,
       .bivignore = scan_result->bivignore,
   };
@@ -810,6 +1261,7 @@ expected<PackReport> pack_impl(const std::filesystem::path& source_dir) {
     return cleanup_error(ok.error());
   }
   std::filesystem::remove(spool_path, ec);
+  std::filesystem::remove_all(scratch_path, ec);
   return report;
 }
 
@@ -845,14 +1297,19 @@ std::string warning_text(const Warning& warning) {
   return rendered;
 }
 
-expected<PackReport> pack(const std::filesystem::path& source_dir) {
+expected<PackReport> pack(const std::filesystem::path& source_dir,
+                          const PackOptions& options) {
   try {
-    return pack_impl(source_dir);
+    return pack_impl(source_dir, options);
   } catch (const std::exception& error) {
     return std::unexpected(BivError{ErrKind::InternalError, source_dir.generic_string(), error.what()});
   } catch (...) {
     return std::unexpected(BivError{ErrKind::InternalError, source_dir.generic_string(), "pack"});
   }
+}
+
+expected<PackReport> pack(const std::filesystem::path& source_dir) {
+  return pack(source_dir, {});
 }
 
 }  // namespace biv::pack

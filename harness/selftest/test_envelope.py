@@ -11,8 +11,8 @@ from test_specs import SCENARIOS, STUB
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CURRENT_LOCKED_SCHEMA_BLOBS = {
-    "schemas/biv-json-envelope.v1.schema.json": "fe42d6fb696850d7bbb8d73385e2b1b604b6bd59",
-    "schemas/biv-exit-map.v1.json": "31fb8ef8966f2de44b9de268265a5c7e013e6c5d",
+    "schemas/biv-json-envelope.v1.schema.json": "31b416456fb687dded08ce3b03538963e8d1a180",
+    "schemas/biv-exit-map.v1.json": "54bcb81027b2af7c2170b9aeae6e8ee88e4b2c53",
 }
 
 
@@ -43,6 +43,24 @@ def test_a6_17_i_open_result_declares_url_divergence_refusals():
     assert items["properties"]["kind"] == {"const": "UrlDivergenceEntryRefused"}
     for field in ("repo_id", "relpath", "requested", "effective", "op"):
         assert items["properties"][field] == {"type": "string"}
+
+
+def test_a10_open_result_declares_nonempty_repo_rows():
+    result_obj = next(b for b in _schema()["properties"]["result"]["anyOf"]
+                      if isinstance(b, dict) and b.get("type") == "object")
+    repos = result_obj["properties"]["repos"]
+    assert repos["minItems"] == 1
+    row = repos["items"]
+    assert row["additionalProperties"] is False
+    assert sorted(row["required"]) == [
+        "advisories", "capture_mode", "id", "local_refs", "outcome", "relpath", "sha"
+    ]
+    assert row["properties"]["outcome"]["enum"] == [
+        "restored", "shallow-pointer", "payload-only-unborn", "failed", "offline-pointer"
+    ]
+    assert row["properties"]["capture_mode"]["enum"] == ["overlay", "full", None]
+    for field in ("branch", "bundle_path", "reconstruct"):
+        assert row["properties"][field] == {"type": "string"}
 
 
 def test_a6_17_ii_error_facts_declare_the_three_hook_facts():

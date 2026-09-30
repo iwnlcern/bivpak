@@ -588,10 +588,13 @@ TEST_CASE(
       "exit 0\n";
   write_executable(root.path() / "probe-agent", script);
 
+  // R-4.62: the wall is a hung-drain guard, not a budget the host must meet.
+  // A drain that waited for the grandchild's pipe would run to the wall; the
+  // promptness bound below is half of it, far above a loaded host's stall.
   const auto started = std::chrono::steady_clock::now();
   const auto result = invoke_probe(
       "probe-agent", root.path() / "probe-agent", no_environment,
-      std::chrono::milliseconds{1000});
+      std::chrono::milliseconds{10'000});
   const auto elapsed = std::chrono::steady_clock::now() - started;
 
   REQUIRE(result.has_value());
@@ -603,7 +606,7 @@ TEST_CASE(
   in >> grandchild;
   REQUIRE(grandchild > 0);
   CHECK(process_is_gone(grandchild));
-  CHECK(elapsed < std::chrono::milliseconds{800});
+  CHECK(elapsed < std::chrono::milliseconds{5'000});
 
   TempDir ledger_root{"post-exit-drain-ledger"};
   const auto exiting = ledger_root.path() / "direct-child-exiting";
@@ -625,18 +628,20 @@ TEST_CASE(
       .sleep = [&](const std::chrono::milliseconds duration) {
         now += duration;
       }};
+  // R-4.62: both polls are bounded by the fixture (its script exits within
+  // tens of milliseconds); 6000 x 5 ms is a hung-fixture guard, not a budget.
   const biv::support::ProbeWaiter waiter =
       [&](int, const std::chrono::milliseconds requested) {
         ++waiter_calls;
         if (waiter_calls == 1U) {
-          for (std::size_t attempt = 0; attempt < 200U && ledger_child <= 0;
+          for (std::size_t attempt = 0; attempt < 6'000U && ledger_child <= 0;
                ++attempt) {
             std::ifstream marker_in{exiting};
             marker_in >> ledger_child;
             ::usleep(5'000);
           }
           for (std::size_t attempt = 0;
-               attempt < 200U && ledger_child > 0 && !child_waitable;
+               attempt < 6'000U && ledger_child > 0 && !child_waitable;
                ++attempt) {
             siginfo_t info{};
             child_waitable =
@@ -938,7 +943,8 @@ TEST_CASE("fatal readiness failure is a typed probe I/O outcome") {
       "probe-agent", root.path() / "probe-agent", no_environment, budgets,
       clock,
       [&](int, const std::chrono::milliseconds requested) {
-        for (std::size_t attempt = 0; attempt < 1'000U && direct_child <= 0;
+        // R-4.62: fixture-bounded poll (hung-fixture guard), as above.
+        for (std::size_t attempt = 0; attempt < 6'000U && direct_child <= 0;
              ++attempt) {
           std::ifstream marker_in{marker};
           marker_in >> direct_child;

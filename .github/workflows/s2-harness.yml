@@ -76,13 +76,13 @@ jobs:
                   "skips": 0,
               },
               "biv_repo_engine_tests": {
-                  "successes": 60,
+                  "successes": 82,
                   "failures": 0,
                   "expectedFailures": 0,
                   "skips": 0,
               },
               "biv_tests": {
-                  "successes": 419,
+                  "successes": 486,
                   "failures": 0,
                   "expectedFailures": 0,
                   "skips": 3,
@@ -317,13 +317,13 @@ jobs:
                   "skips": 0,
               },
               "biv_repo_engine_tests": {
-                  "successes": 60,
+                  "successes": 82,
                   "failures": 0,
                   "expectedFailures": 0,
                   "skips": 0,
               },
               "biv_tests": {
-                  "successes": 421,
+                  "successes": 488,
                   "failures": 0,
                   "expectedFailures": 0,
                   "skips": 1,

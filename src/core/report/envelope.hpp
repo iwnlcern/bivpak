@@ -14,6 +14,10 @@ namespace biv::report {
 
 inline constexpr int kEnvelopeVersion = 1;
 
+std::string machine_text(std::string_view raw);
+
+bool failed_rows_complete(const biv::open::OpenReport& report);
+
 struct OpenSessionsReport {
   bool prompt_shown{false};
   bool warning_shown{false};

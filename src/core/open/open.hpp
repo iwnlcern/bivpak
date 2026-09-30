@@ -12,6 +12,7 @@
 
 #include "adapters/adapter.hpp"
 #include "core/manifest/manifest.hpp"
+#include "core/repo/restore.hpp"
 #include "core/support/error.hpp"
 #include "core/support/url_divergence.hpp"
 
@@ -24,6 +25,24 @@ struct OpenOptions {
   std::optional<std::filesystem::path> dest;
   Collision collision{Collision::refuse};
   bool verify{false};
+  bool offline{false};
+};
+
+struct RepoOutcomeRow {
+  std::string id;
+  std::string relpath;
+  std::string outcome;
+  std::optional<std::string> kind;
+  std::optional<std::string> detail;
+  std::optional<std::string> sha;
+  std::optional<std::string> branch;
+  std::optional<std::string> capture_mode;
+  std::vector<std::string> remotes;
+  std::optional<std::string> bundle_path;
+  std::optional<std::string> reconstruct;
+  std::vector<biv::repo::LocalRefRestoreRow> local_refs;
+  std::vector<std::string> advisories;
+  std::optional<std::vector<std::string>> shallow_boundary;
 };
 
 struct OpenReport {
@@ -35,6 +54,7 @@ struct OpenReport {
   int manifest_format_version{0};
   std::vector<biv::UrlDivergenceEntryRefusal> url_divergence_refusals{};
   std::vector<biv::UrlDivergenceAcceptedEntry> url_divergence_accepted{};
+  std::vector<RepoOutcomeRow> repos{};
 };
 
 struct PlannedAgentMember {
@@ -48,10 +68,23 @@ struct AgentMemberTable {
   const PlannedAgentMember* find(std::string_view name) const;
 };
 
+namespace detail {
+
+std::optional<std::string> owning_row(
+    std::string_view payload_rel,
+    const std::vector<std::string>& row_rels);
+std::vector<std::string> row_relpaths(
+    const std::vector<repo::RepoEntry>& entries);
+bool is_dotgit_component(std::string_view segment) noexcept;
+bool is_dotbiv_component(std::string_view segment) noexcept;
+
+}  // namespace detail
+
 adapters::MemberRead make_member_read(std::filesystem::path image, AgentMemberTable table);
 
 struct OpenDecisions {
   Collision collision{Collision::refuse};
+  bool offline{false};
 };
 
 class OpenPlanHandle {

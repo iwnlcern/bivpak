@@ -21,13 +21,15 @@ def test_all_required_scenario_specs_exist_and_have_minimum_grammar():
         "plain-dir-v1.json",
         "plain-dir-v2.json",
         "format-version-99.json",
-        "shells/d-git-restore.json",
+        "d-git-restore.json",
+        "fxd3-open-offline.json",
         "shells/f-adapters-identity.json",
         "shells/g-consent-dna.json",
         "shells/h-error-matrix.json",
     }
     actual = {path.relative_to(SCENARIOS).as_posix() for path in SCENARIOS.rglob("*.json")}
     assert expected <= actual
+    assert "shells/d-git-restore.json" not in actual  # c8 retired the shell it replaces
 
     for rel in expected:
         spec = _load(rel)
@@ -45,7 +47,6 @@ def test_all_required_scenario_specs_exist_and_have_minimum_grammar():
 
 def test_shell_specs_report_xfail_pending_without_execution(tmp_path):
     for rel in (
-        "shells/d-git-restore.json",
         "shells/f-adapters-identity.json",
         "shells/g-consent-dna.json",
         "shells/h-error-matrix.json",

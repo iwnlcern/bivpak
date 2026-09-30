@@ -113,6 +113,82 @@
                 }
               }
             },
+            "repos": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "relpath", "outcome", "sha", "capture_mode", "local_refs", "advisories"],
+                "properties": {
+                  "id": {"type": "string"},
+                  "relpath": {"type": "string"},
+                  "outcome": {"enum": ["restored", "shallow-pointer", "payload-only-unborn", "failed", "offline-pointer"]},
+                  "kind": {"type": "string"},
+                  "detail": {"type": "string"},
+                  "sha": {"type": ["string", "null"]},
+                  "capture_mode": {"enum": ["overlay", "full", null]},
+                  "local_refs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["ref", "recreated", "skipped_at_sha"],
+                      "properties": {
+                        "ref": {"type": "string"},
+                        "recreated": {"type": "boolean"},
+                        "skipped_at_sha": {"type": "boolean"},
+                        "detail": {"type": "string"}
+                      }
+                    }
+                  },
+                  "advisories": {"type": "array", "items": {"type": "string"}},
+                  "shallow": {
+                    "type": "object",
+                    "required": ["boundary"],
+                    "properties": {"boundary": {"type": "array", "items": {"type": "string"}}}
+                  },
+                  "branch": {"type": "string"},
+                  "remotes": {"type": "array", "items": {"type": "string"}},
+                  "bundle_path": {"type": "string"},
+                  "reconstruct": {"type": "string"}
+                },
+                "allOf": [
+                  {
+                    "if": {"properties": {"outcome": {"const": "failed"}}},
+                    "then": {"required": ["kind", "detail"]},
+                    "else": {
+                      "not": {"anyOf": [
+                        {"required": ["kind"]}, {"required": ["detail"]}
+                      ]}
+                    }
+                  },
+                  {
+                    "if": {"properties": {"outcome": {"enum": ["shallow-pointer", "payload-only-unborn"]}}},
+                    "then": {"properties": {"capture_mode": {"const": null}}},
+                    "else": {"properties": {"capture_mode": {"enum": ["overlay", "full"]}}}
+                  },
+                  {
+                    "if": {"properties": {"outcome": {"const": "offline-pointer"}}},
+                    "then": {"required": ["branch", "remotes"]},
+                    "else": {
+                      "not": {"anyOf": [
+                        {"required": ["branch"]}, {"required": ["remotes"]},
+                        {"required": ["bundle_path"]}, {"required": ["reconstruct"]}
+                      ]}
+                    }
+                  },
+                  {
+                    "if": {"required": ["reconstruct"]},
+                    "then": {"required": ["bundle_path"]}
+                  },
+                  {
+                    "if": {"properties": {"outcome": {"const": "shallow-pointer"}}},
+                    "then": {"required": ["shallow"]},
+                    "else": {"not": {"required": ["shallow"]}}
+                  }
+                ]
+              }
+            },
             "sessions": {
               "type": "object",
               "required": ["prompt_shown", "warning_shown", "consent", "agents"],

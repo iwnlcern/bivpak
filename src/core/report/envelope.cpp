@@ -11,6 +11,16 @@
 
 namespace biv::report {
 
+std::string machine_text(const std::string_view raw) {
+  return support::sanitize_utf8(raw);
+}
+
+bool failed_rows_complete(const biv::open::OpenReport& report) {
+  return std::ranges::all_of(report.repos, [](const auto& row) {
+    return row.outcome != "failed" || (row.kind.has_value() && row.detail.has_value());
+  });
+}
+
 namespace {
 
 void write_warnings(json::Writer& writer, const std::vector<pack::Warning>& warnings) {
@@ -73,13 +83,13 @@ void write_url_divergence_accepted(json::Writer& writer,
   for (const auto& entry : entries) {
     writer.begin_object();
     writer.key("requested");
-    writer.value_string(entry.requested);
+    writer.value_string(machine_text(entry.requested));
     writer.key("effective");
-    writer.value_string(entry.effective);
+    writer.value_string(machine_text(entry.effective));
     writer.key("op");
-    writer.value_string(entry.op);
+    writer.value_string(machine_text(entry.op));
     writer.key("repo");
-    writer.value_string(entry.repo);
+    writer.value_string(machine_text(entry.repo));
     writer.end_object();
   }
   writer.end_array();
@@ -396,6 +406,86 @@ void write_open_result(json::Writer& writer,
   } else {
     write_empty_manifest_summary(writer, report.manifest_format_version);
   }
+  if (!report.repos.empty()) {
+    writer.key("repos");
+    writer.begin_array();
+    for (const auto& row : report.repos) {
+      writer.begin_object();
+      writer.key("id");
+      writer.value_string(machine_text(row.id));
+      writer.key("relpath");
+      writer.value_string(machine_text(row.relpath));
+      writer.key("outcome");
+      writer.value_string(row.outcome);
+      if (row.outcome == "failed") {
+        if (row.kind) {
+          writer.key("kind");
+          writer.value_string(*row.kind);
+        }
+        if (row.detail) {
+          writer.key("detail");
+          writer.value_string(machine_text(*row.detail));
+        }
+      }
+      writer.key("sha");
+      if (row.sha) writer.value_string(machine_text(*row.sha));
+      else writer.value_null();
+      writer.key("capture_mode");
+      if (row.capture_mode) writer.value_string(*row.capture_mode);
+      else writer.value_null();
+      writer.key("local_refs");
+      writer.begin_array();
+      for (const auto& local_ref : row.local_refs) {
+        writer.begin_object();
+        writer.key("ref");
+        writer.value_string(machine_text(local_ref.ref));
+        writer.key("recreated");
+        writer.value_bool(local_ref.recreated);
+        writer.key("skipped_at_sha");
+        writer.value_bool(local_ref.skipped_at_sha);
+        if (local_ref.detail) {
+          writer.key("detail");
+          writer.value_string(machine_text(*local_ref.detail));
+        }
+        writer.end_object();
+      }
+      writer.end_array();
+      writer.key("advisories");
+      writer.begin_array();
+      for (const auto& advisory : row.advisories) writer.value_string(machine_text(advisory));
+      writer.end_array();
+      if (row.shallow_boundary) {
+        const auto boundaries = row.shallow_boundary.value_or(std::vector<std::string>{});
+        writer.key("shallow");
+        writer.begin_object();
+        writer.key("boundary");
+        writer.begin_array();
+        for (const auto& boundary : boundaries) writer.value_string(machine_text(boundary));
+        writer.end_array();
+        writer.end_object();
+      }
+      if (row.outcome == "offline-pointer") {
+        writer.key("branch");
+        writer.value_string(machine_text(row.branch.value_or("(detached)")));
+        writer.key("remotes");
+        writer.begin_array();
+        for (const auto& remote : row.remotes) writer.value_string(machine_text(remote));
+        writer.end_array();
+        if (row.bundle_path) {
+          const auto bundle_path = row.bundle_path.value_or(std::string{});
+          writer.key("bundle_path");
+          writer.value_string(machine_text(bundle_path));
+        }
+        if (row.reconstruct) {
+          const auto reconstruct = row.reconstruct.value_or(std::string{});
+          writer.key("reconstruct");
+          writer.value_string(reconstruct);
+        }
+      }
+      writer.end_object();
+    }
+    writer.end_array();
+  }
   if (!report.url_divergence_refusals.empty()) {
     writer.key("url_divergence_refusals");
     writer.begin_array();
@@ -404,15 +494,15 @@ void write_open_result(json::Writer& writer,
       writer.key("kind");
       writer.value_string("UrlDivergenceEntryRefused");
       writer.key("repo_id");
-      writer.value_string(row.repo_id);
+      writer.value_string(machine_text(row.repo_id));
       writer.key("relpath");
-      writer.value_string(row.relpath);
+      writer.value_string(machine_text(row.relpath));
       writer.key("requested");
-      writer.value_string(row.requested);
+      writer.value_string(machine_text(row.requested));
       writer.key("effective");
-      writer.value_string(row.effective);
+      writer.value_string(machine_text(row.effective));
       writer.key("op");
-      writer.value_string(row.op);
+      writer.value_string(machine_text(row.op));
       writer.end_object();
     }
     writer.end_array();
@@ -424,7 +514,7 @@ void write_error(json::Writer& writer, const BivError& error) {
   writer.key("kind");
   writer.value_string(to_string(error.kind));
   writer.key("path");
-  writer.value_string(error.path);
+  writer.value_string(machine_text(error.path));
   writer.key("detail");
   writer.value_string(error.detail);
   writer.key("errno");
@@ -433,7 +523,7 @@ void write_error(json::Writer& writer, const BivError& error) {
   writer.begin_object();
   for (const auto& [key, value] : error.facts) {
     writer.key(key);
-    writer.value_string(value);
+    writer.value_string(machine_text(value));
   }
   writer.end_object();
   writer.end_object();
@@ -450,6 +540,9 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::RestoreWriteFailed:
     case ErrKind::InternalError:
     case ErrKind::ParseError:
+    case ErrKind::GitInvocationFailed:
+    case ErrKind::GitBudgetExpired:
+    case ErrKind::RepoRestoreFailed:
       return 4;
     case ErrKind::ContainmentRefused:
     case ErrKind::SessionInstallFailed:
@@ -462,7 +555,6 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::EntrySchemaSkipped:
       return 0;
     case ErrKind::SourceUnreadableRoot:
-    case ErrKind::RepoDiscoveredUnsupported:
     case ErrKind::OutputInsideSource:
     case ErrKind::PartialPresent:
     case ErrKind::NotABivpakImage:
@@ -475,6 +567,13 @@ int exit_for_error(const ErrKind kind) noexcept {
     case ErrKind::CollisionRefused:
     case ErrKind::OpenPartialPresent:
     case ErrKind::UrlDivergenceRefused:
+    case ErrKind::UnclaimedGitEntry:
+    case ErrKind::RepoDirtyUnsupported:
+    case ErrKind::RepoNestedUnsupported:
+    case ErrKind::RepoSubmoduleUnsupported:
+    case ErrKind::UnmergedIndexUnrepresentable:
+    case ErrKind::RefUncapturable:
+    case ErrKind::PromisorObjectsUnavailable:
       return 3;
   }
   return 4;
