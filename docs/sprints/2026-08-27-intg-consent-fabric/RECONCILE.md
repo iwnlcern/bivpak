@@ -1632,7 +1632,7 @@ Packet §7 is now six runnable zsh blocks. They carry master's two 012837 asks (
 Walk `results/landing-2b/landing-walk-7r2.txt`: YES pushes M to a local bare repo; NO-a/b STOP before the merge, NO-c at step (0), NO-d (pre-check removed) at step (4); the remote stays at B in every NO arm.
 Next: the Master Reviewer's re-verification, then master's presentation, then the operator's undraft of PR #28 and the bare DISPATCH MERGE, then the landing and Task 12. The release hold is ABSOLUTE.
 
-## R130 — F-2B-VP-2 folded; packet revision 3 (`07418d95…`, d1552ff) sent TO the Master Reviewer (`intg-substep2b/MERGE-GATE-pair-planner-20260930-025912.md`)
+## R130 — F-2B-VP-2 folded; packet revision 3 (`07418d95…`, d1552ff) sent TO the Master Reviewer (`intg-substep2b/MERGE-GATE-pair-planner-20260930-025901.md`, sha256 `800655ee…`; the filename corrected in place after the first commit of this entry named a stamp I had predicted, not read)
 
 The Master Reviewer's `MERGE-GATE-master-reviewer-20260930-021153.md` closed F-2B-VP-1 on rev53 and found F-2B-VP-2: §7's `| tee` receipt writes were unchecked, so a failed receipt could reach the push with rc 0.
 Every receipt now goes through `REC` (write, read-back, exit). Step (5) holds the push output in memory, and its one post-push receipt uses `PREC`, ending `STOP post-push … SPENT … NO retry`.
