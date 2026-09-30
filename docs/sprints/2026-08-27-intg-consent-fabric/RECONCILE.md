@@ -1644,3 +1644,9 @@ Next: the Master Reviewer's re-verification of `07418d95`, then master's present
 The Master Reviewer approved `07418d95` at the exact hash on its own positive plus eleven negative controls. Beyond the pair's walk, these added /dev/null read-back sinks, a pre-receive rejection and an ls-remote fault. F-2B-VP-1 and F-2B-VP-2 are closed, and the hold on presentation is discharged.
 Its non-blocking caveat (§7's intro phrases read with step (5)'s disclosed dry-run and post-push order) is carried to master verbatim in substance. The packet is not re-cut, because a byte change would un-approve the digest; master may ask for a revision 4.
 Next: master's own-bytes check and presentation, then the operator's undraft of PR #28 and the bare DISPATCH MERGE under .relays/intg, then the implementer's §7 landing act, then Task 12. The release hold is ABSOLUTE.
+
+## R132 — the operator's undraft ruling (R-4.97, via master `MERGE-GATE-master-planner-20260930-042236.md`) passed down TO the implementer
+
+The operator's typed word "the impl can undraft it" delegates exactly `gh pr ready 28` to intg.pair-implementer, with a four-value read-back (state, isDraft, headRefOid, mergeable) reported UP through this seat. There is no other forge act and no step of §7.
+Master measured that the condition-4 token cannot move to master: the 2.9.6 linter refuses `DISPATCH MERGE` from master-planner on both the grantor set and the master-tier prohibition, and charter rule 6 bars a proxy operator FROM. The token stays the operator's, filed from the intg engine's operator seat.
+The packet `07418d95` is untouched. Next: the implementer's undraft report, which I carry to master; then the operator's bare token; then §7; then Task 12. The release hold is ABSOLUTE.
