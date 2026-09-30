@@ -1617,3 +1617,9 @@ Walk `results/rev52-walks/walk53.out` C1–C17: C11 (the reviewer's graft) and C
 Class note: the fake-ancestry sources are replace refs, grafts, shallow and commit-graph; the four pathspec env modes and alternates were measured and cannot narrow the query.
 The .relays/intg INDEX carries pre-existing historical ordering inversions (lines 22–584) that the relay-guard hook reports; the file is a daemon projection and is not hand-edited.
 Next: the implementer's exact-hash review of rev53, then the cascade unchanged. The release hold is ABSOLUTE.
+
+## R128 — rev53 APPROVED (`intg-substep2b/PLAN-REVIEW-pair-implementer-20260930-001212.md`, plan-review-54); the digest word sent (`intg-substep2b/SITREP-pair-planner-20260930-011027.md`, sha256 `b26849cf…`)
+
+The implementer approved `4832b147` at 3a23e92 over the full rev51→rev53 delta; they independently re-ran walk53 C1–C17 at main `2a04ca1`, and MUST-2B-59 is closed.
+The three T_ORACLE objects and master's 023528 were re-hashed equal at pdc 9228cba7; only the plan digest moves in the requested carry.
+Next: master's fresh carry at `4832b147`, then the t-oracle rewrite, the packet §7 revision (three pins; both record clauses) with a re-walk, and ONE successor TO master.master-reviewer. The release hold is ABSOLUTE.
