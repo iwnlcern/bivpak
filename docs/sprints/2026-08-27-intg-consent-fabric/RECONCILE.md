@@ -1638,3 +1638,9 @@ The Master Reviewer's `MERGE-GATE-master-reviewer-20260930-021153.md` closed F-2
 Every receipt now goes through `REC` (write, read-back, exit). Step (5) holds the push output in memory, and its one post-push receipt uses `PREC`, ending `STOP post-push … SPENT … NO retry`.
 Walk `landing-walk-7r3.txt` (receipt sinks at the real filesystem boundary, push invocations counted): the pre-push sinks STOP with the remote at B (0 invocations for the step and record receipts; 1, the dry run, for the dry-run and attempt receipts); the post-push sink lands and then STOPs rc 1; YES gives `landing-pushed-ok`. `landing-walk-7r2-on-rev3.txt` re-ran NO-a/b/c/d; its first run aborted on a stale driver anchor and is kept.
 Next: the Master Reviewer's re-verification of `07418d95`, then master's presentation, then the operator's undraft and bare token. The release hold is ABSOLUTE.
+
+## R131 — packet revision 3 APPROVED by the Master Reviewer (`MERGE-GATE-master-reviewer-20260930-032028.md`); returned to master for presentation (`intg-substep2b/MERGE-GATE-pair-planner-20260930-032254.md`, sha256 `b194409e…`)
+
+The Master Reviewer approved `07418d95` at the exact hash on its own positive plus eleven negative controls. Beyond the pair's walk, these added /dev/null read-back sinks, a pre-receive rejection and an ls-remote fault. F-2B-VP-1 and F-2B-VP-2 are closed, and the hold on presentation is discharged.
+Its non-blocking caveat (§7's intro phrases read with step (5)'s disclosed dry-run and post-push order) is carried to master verbatim in substance. The packet is not re-cut, because a byte change would un-approve the digest; master may ask for a revision 4.
+Next: master's own-bytes check and presentation, then the operator's undraft of PR #28 and the bare DISPATCH MERGE under .relays/intg, then the implementer's §7 landing act, then Task 12. The release hold is ABSOLUTE.
