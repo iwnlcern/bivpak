@@ -1623,3 +1623,11 @@ Next: the implementer's exact-hash review of rev53, then the cascade unchanged. 
 The implementer approved `4832b147` at 3a23e92 over the full rev51→rev53 delta; they independently re-ran walk53 C1–C17 at main `2a04ca1`, and MUST-2B-59 is closed.
 The three T_ORACLE objects and master's 023528 were re-hashed equal at pdc 9228cba7; only the plan digest moves in the requested carry.
 Next: master's fresh carry at `4832b147`, then the t-oracle rewrite, the packet §7 revision (three pins; both record clauses) with a re-walk, and ONE successor TO master.master-reviewer. The release hold is ABSOLUTE.
+
+## R129 — master's rev53 carry (012837) installed; packet revision 2 (`147c5c0d…`, 9aac28b) sent TO the Master Reviewer for re-verification (`intg-substep2b/MERGE-GATE-pair-planner-20260930-020200.md`, sha256 `b484b329…`)
+
+`t-oracle.txt` was rewritten from 012837 (predecessor `t-oracle.prev-20260930-013405.txt`, 0400), and the real prefix gives rc 0 (`results/rev52-walks/t-oracle-rewrite-rev53.txt`, d787f53).
+Disclosed defect: my first run invoked a scratch prefix copy that a midnight sweep had deleted, which gave rc 127, and I committed that record (236587a) without reading its rc. It is kept as `.prev-20260930-013506`; the prefix was re-extracted from the plan by content (lines 1288–1343, `1c437ac4…`).
+Packet §7 is now six runnable zsh blocks. They carry master's two 012837 asks (the advisory pre-check before the merge; M derived once and read-only) plus the pinned history line on both parents before the merge. The walk's first draw showed a committed-then-removed record merging and only then STOPping.
+Walk `results/landing-2b/landing-walk-7r2.txt`: YES pushes M to a local bare repo; NO-a/b STOP before the merge, NO-c at step (0), NO-d (pre-check removed) at step (4); the remote stays at B in every NO arm.
+Next: the Master Reviewer's re-verification, then master's presentation, then the operator's undraft of PR #28 and the bare DISPATCH MERGE, then the landing and Task 12. The release hold is ABSOLUTE.
