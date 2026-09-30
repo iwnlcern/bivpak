@@ -1,19 +1,27 @@
-# t-oracle rewrite from master carry PLAN-master-planner-20260930-012837.md (pdc 1fb894fc), 20260930-013405
+# t-oracle rewrite from master carry PLAN-master-planner-20260930-012837.md (pdc 1fb894fc): real-prefix re-run, 20260930-013506
+# the first run (kept as t-oracle-rewrite-rev53.prev-20260930-013506.txt, commit 236587a) invoked a scratch tprefix.sh that a midnight scratch sweep had deleted: rc 127, no receipt; it was committed without reading its rc, my defect
+# the prefix is now re-extracted from the plan by content: rev53 lines 1288-1343 (anchor '# T-ORACLE (master 032924' through the line printf 't-oracle OK'), sha256 1c437ac4bc352626b9aad831399909295ac3d38896e858e3118deecb1fd8887b
 -r--------@ t-oracle.prev-20260928-182626.txt
 -r-------- t-oracle.prev-20260929-024715.txt
 -r-------- t-oracle.prev-20260930-013405.txt
 -r-------- t-oracle.txt
 c5e701c5bec055842bb2071b97eb4d028d920357c5e7a8a5263fd746fd7f4542  /Users/jack/Programming/bivpak-evidence/s2b-runners-fr9fJW/t-oracle.txt
 c31aafdb850a9bf5aa32597746ecd16bb47d9daa37e17de1776aabce35445c0b  /Users/jack/Programming/bivpak-evidence/s2b-runners-fr9fJW/t-oracle.prev-20260930-013405.txt
---- new t-oracle.txt
+--- t-oracle.txt (unchanged since the 013405 rewrite)
 m1_request=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260919-131720.md
 m1_relay=master/relays/intg-2b-wiring-act/DESIGN-planner-20260919-155106.md
 carry_relay=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260930-012837.md
 plan_sha256=4832b147e9fb0980dbf3896d704113fbb0c196a2f5ef32017f165d97fd8443f1
 --- real prefix (RUNNERS=real, EVID=scratch so the sealed c4a receipt is untouched), from the bivpak root
-bash: /private/tmp/claude-501/-Users-jack-Programming-bivpak/6fecc389-d499-4128-a827-a4138f47bce6/scratchpad/r33/tprefix.sh: No such file or directory
-rc=127
+t-oracle OK
+rc=0
 --- receipt
+window=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260919-032924.md sha256=a199b971903421e7dc5aff49ff3a23a2da63a43cf0739130c3bde11a4166c7a1
+m3_relay=master/relays/intg-2b-wiring-act/DESIGN-planner-20260919-033307.md sha256=20c9f24d0652285298ca88bd67d66d3cd861d1ebc2093b6606d76a1d4a9554e7
+m1_request=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260919-131720.md sha256=6e5b30237723b57712750183a2a16417776e455d28fad8b90f02dba4f5adfe66
+m1_relay=master/relays/intg-2b-wiring-act/DESIGN-planner-20260919-155106.md sha256=e706797eb23dc5b1e16f38b6794d3f46a20191212b4d32f0f9f0b83c0e204375
+carry_relay=master/relays/intg-2b-wiring-act/PLAN-master-planner-20260930-012837.md sha256=ca672d172ed4bcdb612eb78cfe50244181fe0728531228455d049de073537536
+plan_sha256=4832b147e9fb0980dbf3896d704113fbb0c196a2f5ef32017f165d97fd8443f1
 --- sealed evidence receipt unchanged:
 f412b45540bd7370d956461312b46e9ed75ce2373e8b6902a4d88603cf61f731  /Users/jack/Programming/bivpak-evidence/s2b-intg-substep2b-impl-1-y3iCLB/code/c4a-t-oracle.txt
 resume.sh line-40 predicate k=1
