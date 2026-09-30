@@ -1,0 +1,175 @@
+extracted 6 zsh blocks from §7
+run.zsh sha256=c9a436f9125cdefe packet sha256=62f4d1fa37ff9850
+== YES: the real lane state -> every step passes, ONE push, remote main == M
+  main-before=d787f53a57dedd3a10629571fc411b2c6d7eb434
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=d787f53a57dedd3a10629571fc411b2c6d7eb434 predicted=7a243de7d7faffa0a8ae3d646bf303488beec727 precheck-ok
+Merge made by the 'ort' strategy.
+ .github/workflows/s2-harness.yml                   |    8 +-
+ CMakeLists.txt                                     |   32 +-
+ harness/bivharness/compare.py                      |   38 +-
+ harness/bivharness/manifest.py                     |   21 +-
+ harness/bivharness/scenario.py                     |   21 +-
+ harness/scenarios/d-git-restore.json               |  116 ++
+ harness/scenarios/fxd3-open-offline.json           |  101 ++
+ harness/scenarios/shells/d-git-restore.json        |    8 -
+ .../manifest-repo-entry-shape-v1.schema.json       |   99 ++
+ harness/selftest/test_compare.py                   |   82 +
+ harness/selftest/test_envelope.py                  |   22 +-
+ harness/selftest/test_manifest.py                  |  105 ++
+ harness/selftest/test_probe_isolation.py           |   26 +
+ harness/selftest/test_specs.py                     |    5 +-
+ harness/tolerance/tolerance-v1.json                |    1 +
+ schemas/biv-exit-map.v1.json                       |   13 +-
+ schemas/biv-json-envelope.v1.schema.json           |   76 +
+ src/cli/args.cpp                                   |   13 +
+ src/cli/args.hpp                                   |    2 +
+ src/cli/consent_display_table.hpp                  |   50 +
+ src/cli/main.cpp                                   |  165 +-
+ src/cli/url_consent.cpp                            |  257 ++-
+ src/cli/url_consent.hpp                            |   28 +
+ src/core/open/open.cpp                             |  861 +++++++++-
+ src/core/open/open.hpp                             |   33 +
+ src/core/pack/pack.cpp                             |  469 +++++-
+ src/core/pack/pack.hpp                             |    7 +
+ src/core/repo/classify.cpp                         |   28 +-
+ src/core/repo/discover.cpp                         |   15 +-
+ src/core/repo/eligibility.cpp                      |   13 +-
+ src/core/repo/eligibility.hpp                      |    5 +-
+ src/core/repo/git.cpp                              |    3 +
+ src/core/repo/git.hpp                              |    1 +
+ src/core/repo/git_exec.cpp                         |    1 +
+ src/core/repo/git_exec.hpp                         |    1 +
+ src/core/repo/restore.cpp                          |  189 ++-
+ src/core/repo/restore.hpp                          |    2 +
+ src/core/report/envelope.cpp                       |  123 +-
+ src/core/report/envelope.hpp                       |    4 +
+ src/core/scan/scan.cpp                             |  188 ++-
+ src/core/scan/scan.hpp                             |   29 +
+ src/core/support/error.cpp                         |   22 +-
+ src/core/support/error.hpp                         |   13 +-
+ tests/cli_run.hpp                                  |  331 ++++
+ tests/test_cli.cpp                                 | 1760 +++++++++++++++++++-
+ tests/test_envelope.cpp                            |  141 +-
+ tests/test_open.cpp                                |  293 +++-
+ tests/test_pack.cpp                                |  612 ++++++-
+ tests/test_probe.cpp                               |   16 +-
+ tests/test_repo_engine.cpp                         |  895 +++++++++-
+ tests/test_repo_git.cpp                            |    2 +
+ tests/test_scan.cpp                                |  175 +-
+ tests/test_url_consent.cpp                         |  257 +++
+ tests/test_wiring.cpp                              |  720 ++++++++
+ tools/gen_consent_display_table.py                 |   71 +
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+ create mode 100644 harness/scenarios/d-git-restore.json
+ create mode 100644 harness/scenarios/fxd3-open-offline.json
+ delete mode 100644 harness/scenarios/shells/d-git-restore.json
+ create mode 100644 harness/schemas/manifest-repo-entry-shape-v1.schema.json
+ create mode 100644 src/cli/consent_display_table.hpp
+ create mode 100644 tests/cli_run.hpp
+ create mode 100644 tests/test_url_consent.cpp
+ create mode 100644 tests/test_wiring.cpp
+ create mode 100644 tools/gen_consent_display_table.py
+M=eadb69d2930cf02c39aa32acb5f0ea2a0b4e6c2c
+census rc=0 landing_census_2b tree=7a243de7d7faffa0a8ae3d646bf303488beec727 tree_rows=109 history_refs=eadb69d2930cf02c39aa32acb5f0ea2a0b4e6c2c commits=1886 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+index rc=0 record-untracked-ok
+history rc=0 record-history-clean-ok
+To <scratch>/yes-remote.git
+   186adf7d..eadb69d2  eadb69d2930cf02c39aa32acb5f0ea2a0b4e6c2c -> main
+To <scratch>/yes-remote.git
+   186adf7d..eadb69d2  eadb69d2930cf02c39aa32acb5f0ea2a0b4e6c2c -> main
+push rc=0
+ls-remote main=eadb69d2930cf02c39aa32acb5f0ea2a0b4e6c2c
+  [yes] zsh rc=0 ; remote main=eadb69d2930cf02c39aa32acb5f0ea2a0b4e6c2c ; clone HEAD=eadb69d2930cf02c39aa32acb5f0ea2a0b4e6c2c
+  remote==M: yes
+census landing-census.txt pin-census.txt pin-history.txt pin-index.txt push-dry-run.txt push.txt record-history.txt record-index.txt run-census.sh run-history.sh step1.txt step2.txt 
+== NO-a: an info/grafts file present -> STOP at the step (1) pre-check, BEFORE the merge; remote untouched
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+STOP precheck graft-rc=0 shallow=false replace=0
+  [noa] zsh rc=1 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299 ; clone HEAD=d787f53a57dedd3a10629571fc411b2c6d7eb434
+  no merge made: yes
+== NO-b: a record file committed then removed on main (docs lane only) -> index passes, history STOPs at step (4); remote untouched
+pin-index ok bytes=327 sha256=2df745ff
+pin-census ok bytes=221 sha256=af8c1927
+pin-history ok bytes=1150 sha256=bcbb5c97
+main-before=666036680ddf6e47fac7a4ab602f784a6c7b166b predicted=7a243de7d7faffa0a8ae3d646bf303488beec727 precheck-ok
+Merge made by the 'ort' strategy.
+ .github/workflows/s2-harness.yml                   |    8 +-
+ CMakeLists.txt                                     |   32 +-
+ harness/bivharness/compare.py                      |   38 +-
+ harness/bivharness/manifest.py                     |   21 +-
+ harness/bivharness/scenario.py                     |   21 +-
+ harness/scenarios/d-git-restore.json               |  116 ++
+ harness/scenarios/fxd3-open-offline.json           |  101 ++
+ harness/scenarios/shells/d-git-restore.json        |    8 -
+ .../manifest-repo-entry-shape-v1.schema.json       |   99 ++
+ harness/selftest/test_compare.py                   |   82 +
+ harness/selftest/test_envelope.py                  |   22 +-
+ harness/selftest/test_manifest.py                  |  105 ++
+ harness/selftest/test_probe_isolation.py           |   26 +
+ harness/selftest/test_specs.py                     |    5 +-
+ harness/tolerance/tolerance-v1.json                |    1 +
+ schemas/biv-exit-map.v1.json                       |   13 +-
+ schemas/biv-json-envelope.v1.schema.json           |   76 +
+ src/cli/args.cpp                                   |   13 +
+ src/cli/args.hpp                                   |    2 +
+ src/cli/consent_display_table.hpp                  |   50 +
+ src/cli/main.cpp                                   |  165 +-
+ src/cli/url_consent.cpp                            |  257 ++-
+ src/cli/url_consent.hpp                            |   28 +
+ src/core/open/open.cpp                             |  861 +++++++++-
+ src/core/open/open.hpp                             |   33 +
+ src/core/pack/pack.cpp                             |  469 +++++-
+ src/core/pack/pack.hpp                             |    7 +
+ src/core/repo/classify.cpp                         |   28 +-
+ src/core/repo/discover.cpp                         |   15 +-
+ src/core/repo/eligibility.cpp                      |   13 +-
+ src/core/repo/eligibility.hpp                      |    5 +-
+ src/core/repo/git.cpp                              |    3 +
+ src/core/repo/git.hpp                              |    1 +
+ src/core/repo/git_exec.cpp                         |    1 +
+ src/core/repo/git_exec.hpp                         |    1 +
+ src/core/repo/restore.cpp                          |  189 ++-
+ src/core/repo/restore.hpp                          |    2 +
+ src/core/report/envelope.cpp                       |  123 +-
+ src/core/report/envelope.hpp                       |    4 +
+ src/core/scan/scan.cpp                             |  188 ++-
+ src/core/scan/scan.hpp                             |   29 +
+ src/core/support/error.cpp                         |   22 +-
+ src/core/support/error.hpp                         |   13 +-
+ tests/cli_run.hpp                                  |  331 ++++
+ tests/test_cli.cpp                                 | 1760 +++++++++++++++++++-
+ tests/test_envelope.cpp                            |  141 +-
+ tests/test_open.cpp                                |  293 +++-
+ tests/test_pack.cpp                                |  612 ++++++-
+ tests/test_probe.cpp                               |   16 +-
+ tests/test_repo_engine.cpp                         |  895 +++++++++-
+ tests/test_repo_git.cpp                            |    2 +
+ tests/test_scan.cpp                                |  175 +-
+ tests/test_url_consent.cpp                         |  257 +++
+ tests/test_wiring.cpp                              |  720 ++++++++
+ tools/gen_consent_display_table.py                 |   71 +
+ 55 files changed, 8195 insertions(+), 374 deletions(-)
+ create mode 100644 harness/scenarios/d-git-restore.json
+ create mode 100644 harness/scenarios/fxd3-open-offline.json
+ delete mode 100644 harness/scenarios/shells/d-git-restore.json
+ create mode 100644 harness/schemas/manifest-repo-entry-shape-v1.schema.json
+ create mode 100644 src/cli/consent_display_table.hpp
+ create mode 100644 tests/cli_run.hpp
+ create mode 100644 tests/test_url_consent.cpp
+ create mode 100644 tests/test_wiring.cpp
+ create mode 100644 tools/gen_consent_display_table.py
+M=1d80920a221f728a683010c9c60e0bb9f86b2c8d
+census rc=0 landing_census_2b tree=7a243de7d7faffa0a8ae3d646bf303488beec727 tree_rows=109 history_refs=1d80920a221f728a683010c9c60e0bb9f86b2c8d commits=1888 history_paths=51 classes A=3 B=92 C=14 accepted_set=4 distinct_current_digests=4 distinct_historical_digests=4 product_tree_rows=3 product_history_paths=2 result=PASS
+index rc=0 record-untracked-ok
+history rc=1 STOP record-in-history-2
+STOP record-history
+  [nob] zsh rc=1 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299 ; clone HEAD=1d80920a221f728a683010c9c60e0bb9f86b2c8d
+== NO-c: $EVID/landing already exists -> STOP at step (0); nothing else runs
+STOP landing-dir-exists
+  [noc] zsh rc=1 ; remote main=186adf7d67171bd7afe621f39b657a1a113ce299 ; clone HEAD=d787f53a57dedd3a10629571fc411b2c6d7eb434
+walk-complete
